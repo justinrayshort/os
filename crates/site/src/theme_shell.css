@@ -157,6 +157,7 @@ textarea {
   background: linear-gradient(90deg, var(--ui-title), #1d2d8f);
   color: #fff;
   user-select: none;
+  cursor: move;
 }
 
 .desktop-window:not(.focused) .titlebar {
@@ -186,10 +187,16 @@ textarea {
   color: #000;
   font-weight: 700;
   line-height: 1;
+  cursor: default;
 }
 
 .titlebar-controls button:active {
   box-shadow: var(--bevel-in);
+}
+
+.titlebar-controls button:disabled {
+  color: var(--ui-text-muted);
+  cursor: not-allowed;
 }
 
 .window-body {
@@ -205,6 +212,77 @@ textarea {
   background: var(--ui-panel);
   display: flex;
   flex-direction: column;
+}
+
+.window-resize-handle {
+  position: absolute;
+  z-index: 3;
+}
+
+.window-resize-handle.edge-n,
+.window-resize-handle.edge-s {
+  left: 8px;
+  right: 8px;
+  height: 8px;
+}
+
+.window-resize-handle.edge-e,
+.window-resize-handle.edge-w {
+  top: 24px;
+  bottom: 8px;
+  width: 8px;
+}
+
+.window-resize-handle.edge-n {
+  top: 0;
+  cursor: ns-resize;
+}
+
+.window-resize-handle.edge-s {
+  bottom: 0;
+  cursor: ns-resize;
+}
+
+.window-resize-handle.edge-e {
+  right: 0;
+  cursor: ew-resize;
+}
+
+.window-resize-handle.edge-w {
+  left: 0;
+  cursor: ew-resize;
+}
+
+.window-resize-handle.edge-ne,
+.window-resize-handle.edge-nw,
+.window-resize-handle.edge-se,
+.window-resize-handle.edge-sw {
+  width: 10px;
+  height: 10px;
+}
+
+.window-resize-handle.edge-ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.window-resize-handle.edge-nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.window-resize-handle.edge-se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.window-resize-handle.edge-sw {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
 }
 
 .taskbar {
@@ -691,4 +769,3 @@ textarea {
     scroll-behavior: auto;
   }
 }
-
