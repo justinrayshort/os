@@ -6,8 +6,8 @@
     <title>Retro Desktop Prototype</title>
     
 <script type="module">
-import init, * as bindings from '/site_app-e3ada4df9434a366.js';
-const wasm = await init({ module_or_path: '/site_app-e3ada4df9434a366_bg.wasm' });
+import init, * as bindings from '/site_app-6e914a7c88b17cdc.js';
+const wasm = await init({ module_or_path: '/site_app-6e914a7c88b17cdc_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -17,7 +17,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
     <base href="/" />
-  <link rel="modulepreload" href="/site_app-e3ada4df9434a366.js" crossorigin="anonymous" integrity="sha384-QVyzCryGDEf0GUezUEOZd58HljhQEm703QYaZ3X9/OXjzIJh2S+e9TgXjwwG4/er"><link rel="preload" href="/site_app-e3ada4df9434a366_bg.wasm" crossorigin="anonymous" integrity="sha384-4H4JmVtw9TbgTdh2XUqvTfhgwj5OQ78ASpYHiKXzI0fXklQMuBcGUNf1ntu27x9e" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/site_app-6e914a7c88b17cdc.js" crossorigin="anonymous" integrity="sha384-QVyzCryGDEf0GUezUEOZd58HljhQEm703QYaZ3X9/OXjzIJh2S+e9TgXjwwG4/er"><link rel="preload" href="/site_app-6e914a7c88b17cdc_bg.wasm" crossorigin="anonymous" integrity="sha384-3Hnj2+hn+TQTQd5+VOLJmQ8TAxhjUoLGUzxXgaxiTPMBP1ZKL19RXJyC62OtGvZI" as="fetch" type="application/wasm"></head>
   <body>
     <noscript>This prototype requires JavaScript/WebAssembly enabled.</noscript>
   <script>"use strict";

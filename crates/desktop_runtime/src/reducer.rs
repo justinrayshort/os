@@ -383,6 +383,15 @@ fn focus_window_internal(
         .iter()
         .position(|w| w.id == window_id)
         .ok_or(ReducerError::WindowNotFound)?;
+    let already_focused_top = index + 1 == state.windows.len()
+        && state
+            .windows
+            .get(index)
+            .map(|w| w.is_focused && !w.minimized)
+            .unwrap_or(false);
+    if already_focused_top {
+        return Ok(());
+    }
     for window in &mut state.windows {
         window.is_focused = false;
     }
@@ -574,6 +583,28 @@ mod tests {
         let record = state.windows.iter().find(|w| w.id == win).unwrap();
         assert!(!record.minimized);
         assert!(record.is_focused);
+    }
+
+    #[test]
+    fn focusing_already_focused_top_window_is_noop_for_stack_order() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+
+        let first = open(&mut state, &mut interaction, AppId::Explorer);
+        let second = open(&mut state, &mut interaction, AppId::Calculator);
+        let before = state.windows.clone();
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::FocusWindow { window_id: second },
+        )
+        .expect("focus focused window");
+
+        assert_eq!(state.windows, before);
+        assert_eq!(state.focused_window_id(), Some(second));
+        assert_ne!(state.focused_window_id(), Some(first));
+        assert!(effects.contains(&RuntimeEffect::FocusWindowInput(second)));
     }
 
     #[test]
