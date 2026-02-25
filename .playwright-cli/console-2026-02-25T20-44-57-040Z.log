@@ -14,3 +14,4 @@
 [  284186ms] [ERROR] [JavaScript Error: "Firefox can’t establish a connection to the server at ws://127.0.0.1:8080/.well-known/trunk/ws." {file: "http://127.0.0.1:8080/" line: 125}] @ http://127.0.0.1:8080/:125
 [  344197ms] [ERROR] [JavaScript Error: "Firefox can’t establish a connection to the server at ws://127.0.0.1:8080/.well-known/trunk/ws." {file: "http://127.0.0.1:8080/" line: 125}] @ http://127.0.0.1:8080/:125
 [  404213ms] [ERROR] [JavaScript Error: "Firefox can’t establish a connection to the server at ws://127.0.0.1:8080/.well-known/trunk/ws." {file: "http://127.0.0.1:8080/" line: 125}] @ http://127.0.0.1:8080/:125
+[  464219ms] [ERROR] [JavaScript Error: "Firefox can’t establish a connection to the server at ws://127.0.0.1:8080/.well-known/trunk/ws." {file: "http://127.0.0.1:8080/" line: 125}] @ http://127.0.0.1:8080/:125

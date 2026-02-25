@@ -50,8 +50,9 @@ python3 scripts/docs/validate_docs.py all
 python3 scripts/docs/validate_docs.py audit-report --output .artifacts/docs-audit.json
 ```
 
+- Convenience wrappers for docs checks and project verification are documented in [Project Command Entry Points](project-command-entrypoints.md).
+
 ## CI Workflows
 
 - Pull request / push docs validation: `.github/workflows/docs.yml`
 - Quarterly audit artifact generation: `.github/workflows/docs-audit.yml`
-

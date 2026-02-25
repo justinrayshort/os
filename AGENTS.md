@@ -134,13 +134,25 @@ python3 scripts/docs/validate_docs.py audit-report --output .artifacts/docs-audi
 
 ### 5.5 Rust Workspace Commands
 
-Use direct Cargo commands (there is no root `Makefile` or `package.json` script wrapper in this repo):
+Prefer direct Cargo commands for clarity (there is no `package.json` script wrapper in this repo). A root `Makefile` exists for convenience and mirrors common verification/docs/prototype commands:
 
 ```bash
 cargo check --workspace
 cargo test --workspace
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets
+```
+
+Common convenience wrappers (delegating to Cargo aliases / docs scripts):
+
+```bash
+make verify-fast
+make verify
+make docs-check
+make docs-audit
+make proto-check
+make proto-build
+make proto-serve
 ```
 
 ## 6) Change Workflows for Agents

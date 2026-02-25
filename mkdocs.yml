@@ -26,6 +26,7 @@ nav:
   - Reference:
       - Documentation Contracts: reference/documentation-contracts.md
       - Toolchain and CI: reference/documentation-toolchain-and-ci.md
+      - Project Command Entry Points: reference/project-command-entrypoints.md
       - Metrics and Observability: reference/documentation-metrics.md
       - Ownership and Lifecycle: reference/owners-and-lifecycle.md
       - OpenAPI Assets: reference/openapi/README.md
@@ -38,4 +39,3 @@ nav:
       - Documentation System SOP: sop/documentation-system-sop.md
       - Quarterly Documentation Audit: sop/quarterly-documentation-audit.md
       - SOP Template: sop/sop-template.md
-
