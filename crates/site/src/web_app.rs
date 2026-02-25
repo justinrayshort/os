@@ -165,8 +165,7 @@ fn parse_open_target(raw: &str) -> Option<DeepLinkOpenTarget> {
             value[6..].to_string().trim().to_string(),
         ));
     }
-    if let Some(rest) = lowered.strip_prefix("projects:") {
-        let _ = rest;
+    if lowered.strip_prefix("projects:").is_some() {
         return Some(DeepLinkOpenTarget::ProjectSlug(
             value[9..].to_string().trim().to_string(),
         ));

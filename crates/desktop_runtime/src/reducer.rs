@@ -9,6 +9,7 @@ use crate::model::{
 
 const MIN_WINDOW_WIDTH: i32 = 220;
 const MIN_WINDOW_HEIGHT: i32 = 140;
+const SNAP_EDGE_THRESHOLD: i32 = 24;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DesktopAction {
@@ -42,6 +43,9 @@ pub enum DesktopAction {
         pointer: PointerPosition,
     },
     EndMove,
+    EndMoveWithViewport {
+        viewport: WindowRect,
+    },
     BeginResize {
         window_id: WindowId,
         edge: ResizeEdge,
@@ -242,6 +246,19 @@ pub fn reduce_desktop(
         }
         DesktopAction::EndMove => {
             interaction.dragging = None;
+            effects.push(RuntimeEffect::PersistLayout);
+        }
+        DesktopAction::EndMoveWithViewport { viewport } => {
+            let dragged_window_id = interaction
+                .dragging
+                .as_ref()
+                .map(|session| session.window_id);
+            interaction.dragging = None;
+
+            if let Some(window_id) = dragged_window_id {
+                snap_window_to_viewport_edge(state, window_id, viewport);
+            }
+
             effects.push(RuntimeEffect::PersistLayout);
         }
         DesktopAction::BeginResize {
@@ -446,6 +463,55 @@ fn resize_rect(start: WindowRect, edge: ResizeEdge, dx: i32, dy: i32) -> WindowR
     }
 }
 
+fn snap_window_to_viewport_edge(
+    state: &mut DesktopState,
+    window_id: WindowId,
+    viewport: WindowRect,
+) {
+    let Some(window) = state.windows.iter_mut().find(|w| w.id == window_id) else {
+        return;
+    };
+
+    if window.minimized {
+        return;
+    }
+
+    let near_left = window.rect.x <= viewport.x + SNAP_EDGE_THRESHOLD;
+    let near_right = window.rect.x + window.rect.w >= viewport.x + viewport.w - SNAP_EDGE_THRESHOLD;
+    let near_top = window.rect.y <= viewport.y + SNAP_EDGE_THRESHOLD;
+
+    if near_top && window.flags.maximizable {
+        if !window.maximized {
+            window.restore_rect = Some(window.rect);
+        }
+        window.rect = viewport.clamped_min(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
+        window.maximized = true;
+        window.minimized = false;
+        return;
+    }
+
+    if !(near_left || near_right) || !window.flags.resizable {
+        return;
+    }
+
+    let half_width = (viewport.w / 2).max(MIN_WINDOW_WIDTH);
+    let snapped = WindowRect {
+        x: if near_right {
+            viewport.x + viewport.w - half_width
+        } else {
+            viewport.x
+        },
+        y: viewport.y,
+        w: half_width,
+        h: viewport.h.max(MIN_WINDOW_HEIGHT),
+    };
+
+    window.restore_rect = Some(window.rect);
+    window.rect = snapped;
+    window.maximized = false;
+    window.minimized = false;
+}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -541,5 +607,93 @@ mod tests {
         assert_eq!(moved.y, original.y + 40);
         let effects = reduce_desktop(&mut state, &mut interaction, DesktopAction::EndMove).unwrap();
         assert!(effects.contains(&RuntimeEffect::PersistLayout));
+    }
+
+    #[test]
+    fn end_move_with_viewport_snaps_window_to_left_half() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+        let viewport = WindowRect {
+            x: 0,
+            y: 0,
+            w: 1000,
+            h: 700,
+        };
+
+        let win = open(&mut state, &mut interaction, AppId::Explorer);
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::BeginMove {
+                window_id: win,
+                pointer: PointerPosition { x: 0, y: 0 },
+            },
+        )
+        .unwrap();
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::UpdateMove {
+                pointer: PointerPosition { x: -35, y: 80 },
+            },
+        )
+        .unwrap();
+
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::EndMoveWithViewport { viewport },
+        )
+        .unwrap();
+
+        let record = state.windows.iter().find(|w| w.id == win).unwrap();
+        assert_eq!(record.rect.x, 0);
+        assert_eq!(record.rect.y, 0);
+        assert_eq!(record.rect.w, 500);
+        assert_eq!(record.rect.h, 700);
+        assert!(!record.maximized);
+    }
+
+    #[test]
+    fn end_move_with_viewport_snaps_window_to_top_maximize() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+        let viewport = WindowRect {
+            x: 0,
+            y: 0,
+            w: 1200,
+            h: 760,
+        };
+
+        let win = open(&mut state, &mut interaction, AppId::Terminal);
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::BeginMove {
+                window_id: win,
+                pointer: PointerPosition { x: 0, y: 0 },
+            },
+        )
+        .unwrap();
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::UpdateMove {
+                pointer: PointerPosition { x: 150, y: -40 },
+            },
+        )
+        .unwrap();
+
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::EndMoveWithViewport { viewport },
+        )
+        .unwrap();
+
+        let record = state.windows.iter().find(|w| w.id == win).unwrap();
+        assert_eq!(record.rect, viewport);
+        assert!(record.maximized);
+        assert!(record.restore_rect.is_some());
     }
 }

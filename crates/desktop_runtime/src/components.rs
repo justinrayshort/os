@@ -465,7 +465,9 @@ fn pointer_from_mouse_event(ev: &web_sys::MouseEvent) -> PointerPosition {
 fn end_active_pointer_interaction(runtime: DesktopRuntimeContext) {
     let interaction = runtime.interaction.get_untracked();
     if interaction.dragging.is_some() {
-        runtime.dispatch_action(DesktopAction::EndMove);
+        runtime.dispatch_action(DesktopAction::EndMoveWithViewport {
+            viewport: desktop_viewport_rect(),
+        });
     }
     if interaction.resizing.is_some() {
         runtime.dispatch_action(DesktopAction::EndResize);
