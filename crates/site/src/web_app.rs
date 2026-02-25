@@ -7,6 +7,8 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
+const DESKTOP_THEME_CSS: &str = include_str!("theme_shell.css");
+
 #[component]
 pub fn SiteApp() -> impl IntoView {
     provide_meta_context();
@@ -14,6 +16,7 @@ pub fn SiteApp() -> impl IntoView {
     view! {
         <Title text="Justin Short" />
         <Meta name="description" content="A retro desktop-style personal website shell." />
+        <style id="desktop-theme-css">{DESKTOP_THEME_CSS}</style>
 
         <Router>
             <main class="site-root">

@@ -1,0 +1,8 @@
+[alias]
+xtask = "run -p xtask --"
+dev = "xtask dev"
+setup-web = "xtask setup-web"
+web-check = "xtask check-web"
+web-build = "xtask build-web"
+verify = "xtask verify full"
+verify-fast = "xtask verify fast"

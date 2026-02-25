@@ -1,7 +1,8 @@
-use leptos::{view, IntoView, View};
-use serde_json::Value;
-
 use crate::model::{AppId, OpenWindowRequest, WindowRecord};
+use desktop_app_explorer::ExplorerApp;
+use desktop_app_notepad::NotepadApp;
+use desktop_app_terminal::TerminalApp;
+use leptos::{view, IntoView, View};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AppDescriptor {
@@ -89,46 +90,18 @@ pub fn default_open_request(app_id: AppId) -> OpenWindowRequest {
 
 pub fn render_window_contents(window: &WindowRecord) -> View {
     match window.app_id {
-        AppId::Explorer => render_explorer_placeholder(&window.launch_params),
-        AppId::Notepad => render_notepad_placeholder(&window.launch_params),
+        AppId::Explorer => {
+            view! { <ExplorerApp launch_params=window.launch_params.clone() /> }.into_view()
+        }
+        AppId::Notepad => {
+            view! { <NotepadApp launch_params=window.launch_params.clone() /> }.into_view()
+        }
         AppId::Paint => render_paint_placeholder(),
-        AppId::Terminal => render_terminal_placeholder(),
+        AppId::Terminal => {
+            view! { <TerminalApp launch_params=window.launch_params.clone() /> }.into_view()
+        }
         AppId::Dialup => render_dialup_placeholder(),
     }
-}
-
-fn render_explorer_placeholder(params: &Value) -> View {
-    let project_slug = params
-        .get("project_slug")
-        .and_then(Value::as_str)
-        .unwrap_or("root");
-    view! {
-        <div class="app app-explorer">
-            <p>"Explorer placeholder"</p>
-            <p>{format!("Folder/target: {project_slug}")}</p>
-            <ul>
-                <li>"Projects"</li>
-                <li>"Notes"</li>
-                <li>"About"</li>
-            </ul>
-        </div>
-    }
-    .into_view()
-}
-
-fn render_notepad_placeholder(params: &Value) -> View {
-    let slug = params
-        .get("slug")
-        .and_then(Value::as_str)
-        .unwrap_or("welcome");
-    view! {
-        <div class="app app-notepad">
-            <p>"Notepad placeholder"</p>
-            <p>{format!("Document slug: {slug}")}</p>
-            <pre>"This panel will render build-time HTML for notes/posts."</pre>
-        </div>
-    }
-    .into_view()
 }
 
 fn render_paint_placeholder() -> View {
@@ -136,18 +109,6 @@ fn render_paint_placeholder() -> View {
         <div class="app app-paint">
             <p>"Paint placeholder"</p>
             <p>"Canvas + IndexedDB save slots land here in Phase 3."</p>
-        </div>
-    }
-    .into_view()
-}
-
-fn render_terminal_placeholder() -> View {
-    view! {
-        <div class="app app-terminal">
-            <p>"Terminal placeholder"</p>
-            <pre>
-                "help\nopen notes welcome\nsearch wasm\ntheme classic"
-            </pre>
         </div>
     }
     .into_view()

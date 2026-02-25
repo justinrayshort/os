@@ -1,3 +1,10 @@
 [workspace]
-members = ["crates/desktop_runtime", "crates/site"]
+members = [
+  "crates/desktop_runtime",
+  "crates/site",
+  "crates/apps/explorer",
+  "crates/apps/notepad",
+  "crates/apps/terminal",
+  "xtask",
+]
 resolver = "2"

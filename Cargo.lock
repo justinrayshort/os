@@ -285,9 +285,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "desktop_app_explorer"
+version = "0.1.0"
+dependencies = [
+ "leptos",
+ "serde_json",
+]
+
+[[package]]
+name = "desktop_app_notepad"
+version = "0.1.0"
+dependencies = [
+ "leptos",
+ "serde_json",
+]
+
+[[package]]
+name = "desktop_app_terminal"
+version = "0.1.0"
+dependencies = [
+ "leptos",
+ "serde_json",
+]
+
+[[package]]
 name = "desktop_runtime"
 version = "0.1.0"
 dependencies = [
+ "desktop_app_explorer",
+ "desktop_app_notepad",
+ "desktop_app_terminal",
  "leptos",
  "pretty_assertions",
  "serde",
@@ -2100,6 +2127,10 @@ name = "writeable"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9edde0db4769d2dc68579893f2306b26c6ecfbe0ef499b013d731b7b9247e0b9"
+
+[[package]]
+name = "xtask"
+version = "0.1.0"
 
 [[package]]
 name = "xxhash-rust"

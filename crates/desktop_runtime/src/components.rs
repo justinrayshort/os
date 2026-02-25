@@ -28,7 +28,7 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
     let effects = create_rw_signal(Vec::<RuntimeEffect>::new());
 
     let dispatch = Callback::new(move |action: DesktopAction| {
-        let result = state.update(|desktop| {
+        state.update(|desktop| {
             interaction.update(|ui| match reduce_desktop(desktop, ui, action) {
                 Ok(new_effects) => effects.update(|queue| queue.extend(new_effects)),
                 Err(err) => {
@@ -36,7 +36,6 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
                 }
             });
         });
-        let _ = result;
     });
 
     provide_context(DesktopRuntimeContext {
