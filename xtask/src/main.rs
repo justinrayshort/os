@@ -293,10 +293,7 @@ fn trunk_build(root: &Path, args: Vec<String>, profile: BuildProfile) -> Result<
         "Install it with `cargo setup-web` (or `cargo install trunk`)",
     )?;
 
-    let mut trunk_args = vec![
-        "build".to_string(),
-        "index.html".to_string(),
-    ];
+    let mut trunk_args = vec!["build".to_string(), "index.html".to_string()];
     if profile == BuildProfile::Release {
         trunk_args.push("--release".to_string());
     }
@@ -480,10 +477,7 @@ fn parse_port(value: &str, flag: &str) -> Result<u16, String> {
 }
 
 fn trunk_serve_args(spec: &TrunkServeSpec) -> Vec<String> {
-    let mut trunk_args = vec![
-        "serve".to_string(),
-        "index.html".to_string(),
-    ];
+    let mut trunk_args = vec!["serve".to_string(), "index.html".to_string()];
     if spec.open {
         trunk_args.push("--open".to_string());
     }

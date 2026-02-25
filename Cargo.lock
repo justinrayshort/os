@@ -239,6 +239,7 @@ dependencies = [
  "desktop_app_explorer",
  "desktop_app_notepad",
  "desktop_app_terminal",
+ "js-sys",
  "leptos",
  "pretty_assertions",
  "serde",

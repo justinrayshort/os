@@ -137,7 +137,7 @@ impl CalculatorState {
         } else if let Some(last) = self.history.last() {
             format!("Last: {} = {}", last.expression, last.result_text)
         } else {
-            "Standard mode (95) | keyboard shortcuts enabled".to_string()
+            "Standard mode (XP) | keyboard shortcuts enabled".to_string()
         }
     }
 
@@ -927,19 +927,16 @@ mod tests {
     #[test]
     fn keyboard_action_maps_supported_keys() {
         assert_eq!(keyboard_action("0"), Some(CalcAction::Digit('0')));
-        assert_eq!(keyboard_action("+"), Some(CalcAction::Binary(BinaryOp::Add)));
+        assert_eq!(
+            keyboard_action("+"),
+            Some(CalcAction::Binary(BinaryOp::Add))
+        );
         assert_eq!(
             keyboard_action("*"),
             Some(CalcAction::Binary(BinaryOp::Multiply))
         );
-        assert_eq!(
-            keyboard_action("Enter"),
-            Some(CalcAction::Equals)
-        );
-        assert_eq!(
-            keyboard_action("Backspace"),
-            Some(CalcAction::Backspace)
-        );
+        assert_eq!(keyboard_action("Enter"), Some(CalcAction::Equals));
+        assert_eq!(keyboard_action("Backspace"), Some(CalcAction::Backspace));
         assert_eq!(keyboard_action("Delete"), Some(CalcAction::ClearEntry));
         assert_eq!(keyboard_action("Escape"), Some(CalcAction::ClearAll));
         assert_eq!(

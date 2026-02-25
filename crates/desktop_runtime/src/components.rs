@@ -1,8 +1,13 @@
+use std::time::Duration;
+
 use leptos::*;
 
 use crate::{
     apps,
-    model::{DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRect},
+    model::{
+        AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
+        WindowRect,
+    },
     persistence,
     reducer::{build_open_request_from_deeplink, reduce_desktop, DesktopAction, RuntimeEffect},
 };
@@ -73,7 +78,6 @@ pub fn DesktopShell() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
 
-    let on_toggle_menu = move |_| runtime.dispatch_action(DesktopAction::ToggleStartMenu);
     let on_pointer_move = move |ev: web_sys::MouseEvent| {
         let pointer = pointer_from_mouse_event(&ev);
         let interaction = runtime.interaction.get_untracked();
@@ -140,17 +144,26 @@ pub fn DesktopShell() -> impl IntoView {
             on:mouseleave=on_pointer_end
         >
             <div class="desktop-wallpaper">
+                <div
+                    class="desktop-surface-dismiss"
+                    on:mousedown=move |_| {
+                        runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                    }
+                />
                 <div class="desktop-icons">
                     <For each=move || apps::desktop_icon_apps() key=|app| app.app_id as u8 let:app>
                         <button
                             class="desktop-icon"
+                            data-app=app.app_id.icon_id()
                             on:click=move |_| {
                                 runtime.dispatch_action(DesktopAction::OpenWindow(
                                     apps::default_open_request(app.app_id),
                                 ));
                             }
                         >
-                            <span class="icon">{app_icon_glyph(app.app_id)}</span>
+                            <span class="icon" data-app=app.app_id.icon_id()>
+                                {app_icon_glyph(app.app_id)}
+                            </span>
                             <span>{app.desktop_icon_label}</span>
                         </button>
                     </For>
@@ -167,19 +180,19 @@ pub fn DesktopShell() -> impl IntoView {
                 </div>
             </div>
 
-            <Taskbar on_toggle_menu=on_toggle_menu />
+            <Taskbar />
         </div>
     }
 }
 
 fn app_icon_glyph(app_id: crate::model::AppId) -> &'static str {
     match app_id {
-        crate::model::AppId::Calculator => "[]",
-        crate::model::AppId::Explorer => "[ ]",
-        crate::model::AppId::Notepad => "|_|",
-        crate::model::AppId::Paint => "o~",
-        crate::model::AppId::Terminal => ">_",
-        crate::model::AppId::Dialup => "()",
+        crate::model::AppId::Calculator => "123",
+        crate::model::AppId::Explorer => "DIR",
+        crate::model::AppId::Notepad => "TXT",
+        crate::model::AppId::Paint => "ART",
+        crate::model::AppId::Terminal => "C:\\",
+        crate::model::AppId::Dialup => "56K",
     }
 }
 
@@ -393,67 +406,1197 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TaskbarClockConfig {
+    use_24_hour: bool,
+    show_date: bool,
+}
+
+impl Default for TaskbarClockConfig {
+    fn default() -> Self {
+        Self {
+            use_24_hour: false,
+            show_date: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TaskbarClockSnapshot {
+    year: u32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+}
+
+impl TaskbarClockSnapshot {
+    fn now() -> Self {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let date = js_sys::Date::new_0();
+            return Self {
+                year: date.get_full_year(),
+                month: date.get_month() + 1,
+                day: date.get_date(),
+                hour: date.get_hours(),
+                minute: date.get_minutes(),
+                second: date.get_seconds(),
+            };
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Self {
+                year: 1970,
+                month: 1,
+                day: 1,
+                hour: 0,
+                minute: 0,
+                second: 0,
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TaskbarLayoutPlan {
+    compact_running_items: bool,
+    visible_running_count: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TaskbarWindowContextMenuState {
+    window_id: WindowId,
+    x: i32,
+    y: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct PinnedTaskbarAppState {
+    running_count: usize,
+    focused: bool,
+    all_minimized: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TaskbarShortcutTarget {
+    Pinned(AppId),
+    Window(WindowId),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TaskbarTrayWidgetAction {
+    None,
+    ToggleReducedMotion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TaskbarTrayWidget {
+    id: &'static str,
+    glyph: &'static str,
+    label: &'static str,
+    value: String,
+    pressed: Option<bool>,
+    action: TaskbarTrayWidgetAction,
+}
+
+fn pinned_taskbar_apps() -> &'static [AppId] {
+    const PINNED: &[AppId] = &[
+        AppId::Explorer,
+        AppId::Terminal,
+        AppId::Notepad,
+        AppId::Calculator,
+    ];
+    PINNED
+}
+
+fn ordered_taskbar_windows(state: &DesktopState) -> Vec<WindowRecord> {
+    let mut windows = state.windows.clone();
+    windows.sort_by_key(|win| (win.z_index, win.id.0));
+    windows
+}
+
+fn preferred_window_for_app(state: &DesktopState, app_id: AppId) -> Option<WindowId> {
+    state
+        .windows
+        .iter()
+        .rev()
+        .find(|win| win.app_id == app_id && !win.minimized && win.is_focused)
+        .or_else(|| {
+            state
+                .windows
+                .iter()
+                .rev()
+                .find(|win| win.app_id == app_id && !win.minimized)
+        })
+        .or_else(|| state.windows.iter().rev().find(|win| win.app_id == app_id))
+        .map(|win| win.id)
+}
+
+fn pinned_taskbar_app_state(state: &DesktopState, app_id: AppId) -> PinnedTaskbarAppState {
+    let windows: Vec<&WindowRecord> = state
+        .windows
+        .iter()
+        .filter(|win| win.app_id == app_id)
+        .collect();
+    let running_count = windows.len();
+    let focused = windows.iter().any(|win| win.is_focused && !win.minimized);
+    let all_minimized = running_count > 0 && windows.iter().all(|win| win.minimized);
+
+    PinnedTaskbarAppState {
+        running_count,
+        focused,
+        all_minimized,
+    }
+}
+
+fn compute_taskbar_layout(
+    viewport_width: i32,
+    pinned_count: usize,
+    running_count: usize,
+    tray_widget_count: usize,
+    clock_show_date: bool,
+) -> TaskbarLayoutPlan {
+    if running_count == 0 {
+        return TaskbarLayoutPlan {
+            compact_running_items: false,
+            visible_running_count: 0,
+        };
+    }
+
+    let viewport_width = viewport_width.max(320);
+    let pinned_width = (pinned_count as i32) * 42;
+    let tray_width = 28 + ((tray_widget_count.min(4)) as i32 * 56);
+    let clock_width = if clock_show_date { 136 } else { 88 };
+    let reserved = 96 + pinned_width + tray_width + clock_width + 48;
+    let available = (viewport_width - reserved).max(0);
+
+    let full_item_width = 148;
+    let compact_item_width = 44;
+    let full_visible = (available / full_item_width).max(0) as usize;
+    if full_visible >= running_count {
+        return TaskbarLayoutPlan {
+            compact_running_items: false,
+            visible_running_count: running_count,
+        };
+    }
+
+    let mut compact_visible = (available / compact_item_width).max(0) as usize;
+    if compact_visible == 0 && available >= 32 {
+        compact_visible = 1;
+    }
+
+    TaskbarLayoutPlan {
+        compact_running_items: true,
+        visible_running_count: compact_visible.min(running_count),
+    }
+}
+
+fn taskbar_window_button_class(
+    focused: bool,
+    minimized: bool,
+    compact: bool,
+    keyboard_selected: bool,
+) -> String {
+    let mut class_name = String::from("taskbar-app");
+    if focused {
+        class_name.push_str(" focused");
+    }
+    if minimized {
+        class_name.push_str(" minimized");
+    } else {
+        class_name.push_str(" active");
+    }
+    if compact {
+        class_name.push_str(" compact");
+    }
+    if keyboard_selected {
+        class_name.push_str(" keyboard-selected");
+    }
+    class_name
+}
+
+fn taskbar_pinned_button_class(status: PinnedTaskbarAppState) -> String {
+    let mut class_name = String::from("taskbar-app taskbar-pinned");
+    if status.running_count > 0 {
+        class_name.push_str(" active");
+    }
+    if status.focused {
+        class_name.push_str(" focused");
+    }
+    if status.all_minimized {
+        class_name.push_str(" minimized");
+    }
+    class_name
+}
+
+fn taskbar_window_aria_label(win: &WindowRecord) -> String {
+    let mut parts = vec![win.title.clone()];
+    if win.is_focused && !win.minimized {
+        parts.push("focused".to_string());
+    }
+    if win.minimized {
+        parts.push("minimized".to_string());
+    }
+    if win.maximized {
+        parts.push("maximized".to_string());
+    }
+    parts.join(", ")
+}
+
+fn taskbar_pinned_aria_label(app_id: AppId, status: PinnedTaskbarAppState) -> String {
+    match status.running_count {
+        0 => format!("Pinned {} (not running)", app_id.title()),
+        1 => format!("Pinned {} (1 window running)", app_id.title()),
+        count => format!("Pinned {} ({} windows running)", app_id.title(), count),
+    }
+}
+
+fn build_taskbar_shortcut_targets(state: &DesktopState) -> Vec<TaskbarShortcutTarget> {
+    let mut targets: Vec<TaskbarShortcutTarget> = pinned_taskbar_apps()
+        .iter()
+        .copied()
+        .map(TaskbarShortcutTarget::Pinned)
+        .collect();
+
+    targets.extend(
+        ordered_taskbar_windows(state)
+            .into_iter()
+            .map(|win| TaskbarShortcutTarget::Window(win.id)),
+    );
+
+    targets
+}
+
+fn activate_pinned_taskbar_app(runtime: DesktopRuntimeContext, app_id: AppId) {
+    let state = runtime.state.get_untracked();
+    let descriptor = apps::app_descriptor(app_id);
+
+    if descriptor.single_instance {
+        if let Some(window_id) = preferred_window_for_app(&state, app_id) {
+            focus_or_unminimize_window(runtime, &state, window_id);
+            return;
+        }
+    }
+
+    runtime.dispatch_action(DesktopAction::OpenWindow(apps::default_open_request(
+        app_id,
+    )));
+}
+
+fn activate_taskbar_shortcut_target(runtime: DesktopRuntimeContext, target: TaskbarShortcutTarget) {
+    match target {
+        TaskbarShortcutTarget::Pinned(app_id) => activate_pinned_taskbar_app(runtime, app_id),
+        TaskbarShortcutTarget::Window(window_id) => {
+            let state = runtime.state.get_untracked();
+            focus_or_unminimize_window(runtime, &state, window_id);
+        }
+    }
+}
+
+fn focus_or_unminimize_window(
+    runtime: DesktopRuntimeContext,
+    state: &DesktopState,
+    window_id: WindowId,
+) {
+    if let Some(window) = state.windows.iter().find(|win| win.id == window_id) {
+        if window.minimized {
+            runtime.dispatch_action(DesktopAction::RestoreWindow { window_id });
+        } else if !window.is_focused {
+            runtime.dispatch_action(DesktopAction::FocusWindow { window_id });
+        }
+    }
+}
+
+fn cycle_selected_running_window(
+    running_windows: &[WindowRecord],
+    selected: Option<WindowId>,
+    delta: i32,
+) -> Option<WindowId> {
+    if running_windows.is_empty() {
+        return None;
+    }
+
+    let current_idx = selected
+        .and_then(|id| running_windows.iter().position(|win| win.id == id))
+        .unwrap_or_else(|| {
+            running_windows
+                .iter()
+                .position(|win| win.is_focused && !win.minimized)
+                .unwrap_or(0)
+        });
+    let len = running_windows.len() as i32;
+    let next_idx = (current_idx as i32 + delta).rem_euclid(len) as usize;
+    Some(running_windows[next_idx].id)
+}
+
+fn open_taskbar_window_context_menu(
+    menu: RwSignal<Option<TaskbarWindowContextMenuState>>,
+    window_id: WindowId,
+    x: i32,
+    y: i32,
+) {
+    let (x, y) = clamp_taskbar_popup_position(x, y, 220, 190);
+    menu.set(Some(TaskbarWindowContextMenuState { window_id, x, y }));
+}
+
+fn clamp_taskbar_popup_position(x: i32, y: i32, popup_w: i32, popup_h: i32) -> (i32, i32) {
+    let viewport = desktop_viewport_rect();
+    let max_x = (viewport.w - popup_w - 6).max(6);
+    let max_y = (viewport.h + TASKBAR_HEIGHT_PX - popup_h - 6).max(6);
+    (x.clamp(6, max_x), y.clamp(6, max_y))
+}
+
+fn shortcut_digit_index(ev: &web_sys::KeyboardEvent) -> Option<usize> {
+    match ev.key().as_str() {
+        "1" => Some(0),
+        "2" => Some(1),
+        "3" => Some(2),
+        "4" => Some(3),
+        "5" => Some(4),
+        "6" => Some(5),
+        "7" => Some(6),
+        "8" => Some(7),
+        "9" => Some(8),
+        _ => None,
+    }
+}
+
+fn is_context_menu_shortcut(ev: &web_sys::KeyboardEvent) -> bool {
+    ev.key() == "ContextMenu" || (ev.shift_key() && ev.key() == "F10")
+}
+
+fn is_activation_key(ev: &web_sys::KeyboardEvent) -> bool {
+    matches!(ev.key().as_str(), "Enter" | " " | "Spacebar")
+}
+
+fn build_taskbar_tray_widgets(state: &DesktopState) -> Vec<TaskbarTrayWidget> {
+    let total_windows = state.windows.len();
+    let minimized_windows = state.windows.iter().filter(|win| win.minimized).count();
+    let dialup_online = state
+        .windows
+        .iter()
+        .any(|win| matches!(win.app_id, AppId::Dialup) && !win.minimized);
+
+    vec![
+        TaskbarTrayWidget {
+            id: "win-count",
+            glyph: "WIN",
+            label: "Open windows",
+            value: total_windows.to_string(),
+            pressed: None,
+            action: TaskbarTrayWidgetAction::None,
+        },
+        TaskbarTrayWidget {
+            id: "bg-count",
+            glyph: "BG",
+            label: "Minimized windows",
+            value: minimized_windows.to_string(),
+            pressed: None,
+            action: TaskbarTrayWidgetAction::None,
+        },
+        TaskbarTrayWidget {
+            id: "network",
+            glyph: "NET",
+            label: "Network status",
+            value: if dialup_online { "ON" } else { "IDLE" }.to_string(),
+            pressed: Some(dialup_online),
+            action: TaskbarTrayWidgetAction::None,
+        },
+        TaskbarTrayWidget {
+            id: "motion",
+            glyph: "FX",
+            label: "Reduced motion",
+            value: if state.theme.reduced_motion {
+                "ON"
+            } else {
+                "OFF"
+            }
+            .to_string(),
+            pressed: Some(state.theme.reduced_motion),
+            action: TaskbarTrayWidgetAction::ToggleReducedMotion,
+        },
+    ]
+}
+
+fn activate_taskbar_tray_widget(runtime: DesktopRuntimeContext, action: TaskbarTrayWidgetAction) {
+    match action {
+        TaskbarTrayWidgetAction::None => {}
+        TaskbarTrayWidgetAction::ToggleReducedMotion => {
+            let enabled = runtime.state.get_untracked().theme.reduced_motion;
+            runtime.dispatch_action(DesktopAction::SetReducedMotion { enabled: !enabled });
+        }
+    }
+}
+
+fn format_taskbar_clock_time(snapshot: TaskbarClockSnapshot, config: TaskbarClockConfig) -> String {
+    if config.use_24_hour {
+        format!(
+            "{:02}:{:02}:{:02}",
+            snapshot.hour, snapshot.minute, snapshot.second
+        )
+    } else {
+        let mut hour = snapshot.hour % 12;
+        if hour == 0 {
+            hour = 12;
+        }
+        let suffix = if snapshot.hour >= 12 { "PM" } else { "AM" };
+        format!(
+            "{:02}:{:02}:{:02} {}",
+            hour, snapshot.minute, snapshot.second, suffix
+        )
+    }
+}
+
+fn format_taskbar_clock_date(snapshot: TaskbarClockSnapshot) -> String {
+    format!(
+        "{:04}-{:02}-{:02}",
+        snapshot.year, snapshot.month, snapshot.day
+    )
+}
+
+fn format_taskbar_clock_aria(snapshot: TaskbarClockSnapshot, config: TaskbarClockConfig) -> String {
+    let time_text = format_taskbar_clock_time(snapshot, config);
+    if config.show_date {
+        format!("{}, {}", format_taskbar_clock_date(snapshot), time_text)
+    } else {
+        time_text
+    }
+}
+
 #[component]
-fn Taskbar<F>(on_toggle_menu: F) -> impl IntoView
-where
-    F: Fn(web_sys::MouseEvent) + Clone + 'static,
-{
+fn Taskbar() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
 
-    view! {
-        <footer class="taskbar" role="toolbar" aria-label="Desktop taskbar">
-            <button class="start-button" on:click=on_toggle_menu.clone()>
-                "Launcher"
-            </button>
+    let viewport_width = create_rw_signal(desktop_viewport_rect().w);
+    let clock_config = create_rw_signal(TaskbarClockConfig::default());
+    let clock_now = create_rw_signal(TaskbarClockSnapshot::now());
+    let selected_running_window = create_rw_signal(None::<WindowId>);
+    let window_context_menu = create_rw_signal(None::<TaskbarWindowContextMenuState>);
+    let overflow_menu_open = create_rw_signal(false);
+    let clock_menu_open = create_rw_signal(false);
 
-            <div class="taskbar-windows">
-                <For
-                    each=move || state.get().windows
-                    key=|win| win.id.0
-                    let:win
+    let resize_listener = window_event_listener(ev::resize, move |_| {
+        viewport_width.set(desktop_viewport_rect().w);
+    });
+    on_cleanup(move || resize_listener.remove());
+
+    if let Ok(interval) = set_interval_with_handle(
+        move || clock_now.set(TaskbarClockSnapshot::now()),
+        Duration::from_secs(1),
+    ) {
+        on_cleanup(move || interval.clear());
+    }
+
+    let outside_click_listener = window_event_listener(ev::mousedown, move |_| {
+        let had_window_menu = window_context_menu.get_untracked().is_some();
+        let had_overflow_menu = overflow_menu_open.get_untracked();
+        let had_clock_menu = clock_menu_open.get_untracked();
+        let had_start_menu = runtime.state.get_untracked().start_menu_open;
+
+        window_context_menu.set(None);
+        overflow_menu_open.set(false);
+        clock_menu_open.set(false);
+
+        // Avoid dispatching on every click. A redundant desktop-state update remounts app views,
+        // which resets app-local UI state (e.g., calculator input/history signal state).
+        if had_start_menu || had_window_menu || had_overflow_menu || had_clock_menu {
+            runtime.dispatch_action(DesktopAction::CloseStartMenu);
+        }
+    });
+    on_cleanup(move || outside_click_listener.remove());
+
+    let global_shortcut_listener = window_event_listener(ev::keydown, move |ev| {
+        if ev.default_prevented() {
+            return;
+        }
+
+        if ev.ctrl_key() && !ev.alt_key() && !ev.meta_key() && ev.key() == "Escape" {
+            ev.prevent_default();
+            ev.stop_propagation();
+            window_context_menu.set(None);
+            overflow_menu_open.set(false);
+            clock_menu_open.set(false);
+            runtime.dispatch_action(DesktopAction::ToggleStartMenu);
+            return;
+        }
+
+        if ev.alt_key() && !ev.ctrl_key() && !ev.meta_key() {
+            if let Some(index) = shortcut_digit_index(&ev) {
+                let desktop = runtime.state.get_untracked();
+                if let Some(target) = build_taskbar_shortcut_targets(&desktop)
+                    .into_iter()
+                    .nth(index)
+                {
+                    ev.prevent_default();
+                    ev.stop_propagation();
+                    window_context_menu.set(None);
+                    overflow_menu_open.set(false);
+                    clock_menu_open.set(false);
+                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                    activate_taskbar_shortcut_target(runtime, target);
+                }
+                return;
+            }
+        }
+
+        if ev.key() == "Escape"
+            && (runtime.state.get_untracked().start_menu_open
+                || window_context_menu.get_untracked().is_some()
+                || overflow_menu_open.get_untracked()
+                || clock_menu_open.get_untracked())
+        {
+            ev.prevent_default();
+            ev.stop_propagation();
+            window_context_menu.set(None);
+            overflow_menu_open.set(false);
+            clock_menu_open.set(false);
+            runtime.dispatch_action(DesktopAction::CloseStartMenu);
+        }
+    });
+    on_cleanup(move || global_shortcut_listener.remove());
+
+    create_effect(move |_| {
+        let desktop = state.get();
+        let running = ordered_taskbar_windows(&desktop);
+        let focused = running
+            .iter()
+            .find(|win| win.is_focused && !win.minimized)
+            .map(|win| win.id);
+
+        selected_running_window.update(|selected| {
+            let selected_exists = selected
+                .and_then(|id| running.iter().find(|win| win.id == id))
+                .is_some();
+            if selected_exists {
+                return;
+            }
+            *selected = focused.or_else(|| running.first().map(|win| win.id));
+        });
+
+        window_context_menu.update(|menu| {
+            if let Some(current) = *menu {
+                if running.iter().all(|win| win.id != current.window_id) {
+                    *menu = None;
+                }
+            }
+        });
+    });
+
+    let on_taskbar_keydown = move |ev: web_sys::KeyboardEvent| {
+        if ev.ctrl_key() && !ev.alt_key() && !ev.meta_key() && ev.key() == "Escape" {
+            ev.prevent_default();
+            ev.stop_propagation();
+            window_context_menu.set(None);
+            overflow_menu_open.set(false);
+            clock_menu_open.set(false);
+            runtime.dispatch_action(DesktopAction::ToggleStartMenu);
+            return;
+        }
+
+        if ev.alt_key() && !ev.ctrl_key() && !ev.meta_key() {
+            if let Some(index) = shortcut_digit_index(&ev) {
+                let desktop = runtime.state.get_untracked();
+                if let Some(target) = build_taskbar_shortcut_targets(&desktop)
+                    .into_iter()
+                    .nth(index)
+                {
+                    ev.prevent_default();
+                    ev.stop_propagation();
+                    window_context_menu.set(None);
+                    overflow_menu_open.set(false);
+                    clock_menu_open.set(false);
+                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                    activate_taskbar_shortcut_target(runtime, target);
+                }
+                return;
+            }
+        }
+
+        match ev.key().as_str() {
+            "Escape" => {
+                if runtime.state.get_untracked().start_menu_open
+                    || window_context_menu.get_untracked().is_some()
+                    || overflow_menu_open.get_untracked()
+                    || clock_menu_open.get_untracked()
+                {
+                    ev.prevent_default();
+                    ev.stop_propagation();
+                    window_context_menu.set(None);
+                    overflow_menu_open.set(false);
+                    clock_menu_open.set(false);
+                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                }
+            }
+            "ArrowRight" => {
+                let desktop = runtime.state.get_untracked();
+                let running = ordered_taskbar_windows(&desktop);
+                if let Some(next) = cycle_selected_running_window(
+                    &running,
+                    selected_running_window.get_untracked(),
+                    1,
+                ) {
+                    ev.prevent_default();
+                    selected_running_window.set(Some(next));
+                }
+            }
+            "ArrowLeft" => {
+                let desktop = runtime.state.get_untracked();
+                let running = ordered_taskbar_windows(&desktop);
+                if let Some(next) = cycle_selected_running_window(
+                    &running,
+                    selected_running_window.get_untracked(),
+                    -1,
+                ) {
+                    ev.prevent_default();
+                    selected_running_window.set(Some(next));
+                }
+            }
+            "Home" => {
+                let desktop = runtime.state.get_untracked();
+                let running = ordered_taskbar_windows(&desktop);
+                if let Some(first) = running.first() {
+                    ev.prevent_default();
+                    selected_running_window.set(Some(first.id));
+                }
+            }
+            "End" => {
+                let desktop = runtime.state.get_untracked();
+                let running = ordered_taskbar_windows(&desktop);
+                if let Some(last) = running.last() {
+                    ev.prevent_default();
+                    selected_running_window.set(Some(last.id));
+                }
+            }
+            _ => {
+                if is_activation_key(&ev) {
+                    if let Some(window_id) = selected_running_window.get_untracked() {
+                        ev.prevent_default();
+                        ev.stop_propagation();
+                        window_context_menu.set(None);
+                        overflow_menu_open.set(false);
+                        clock_menu_open.set(false);
+                        runtime.dispatch_action(DesktopAction::ToggleTaskbarWindow { window_id });
+                    }
+                } else if is_context_menu_shortcut(&ev) {
+                    if let Some(window_id) = selected_running_window.get_untracked() {
+                        ev.prevent_default();
+                        ev.stop_propagation();
+                        window_context_menu.set(None);
+                        overflow_menu_open.set(false);
+                        clock_menu_open.set(false);
+                        runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                        let viewport = desktop_viewport_rect();
+                        let x = (viewport.w / 2).max(24);
+                        let y = (viewport.h + TASKBAR_HEIGHT_PX - 180).max(24);
+                        open_taskbar_window_context_menu(window_context_menu, window_id, x, y);
+                    }
+                }
+            }
+        }
+    };
+
+    view! {
+        <footer
+            class="taskbar"
+            role="toolbar"
+            aria-label="Desktop taskbar"
+            aria-keyshortcuts="Ctrl+Escape Alt+1 Alt+2 Alt+3 Alt+4 Alt+5 Alt+6 Alt+7 Alt+8 Alt+9"
+            on:mousedown=move |ev| ev.stop_propagation()
+            on:keydown=on_taskbar_keydown
+        >
+            <div class="taskbar-left">
+                <button
+                    class="start-button"
+                    aria-label="Open application launcher"
+                    aria-haspopup="menu"
+                    aria-controls="desktop-launcher-menu"
+                    aria-expanded=move || state.get().start_menu_open
+                    aria-keyshortcuts="Ctrl+Escape"
+                    on:click=move |_| {
+                        window_context_menu.set(None);
+                        overflow_menu_open.set(false);
+                        clock_menu_open.set(false);
+                        runtime.dispatch_action(DesktopAction::ToggleStartMenu);
+                    }
                 >
-                    <button
-                        class=move || {
-                            if win.is_focused { "taskbar-app focused" } else { "taskbar-app" }
-                        }
-                        on:click=move |_| {
-                            runtime.dispatch_action(DesktopAction::ToggleTaskbarWindow {
-                                window_id: win.id,
-                            });
-                        }
+                    <span class="taskbar-glyph" aria-hidden="true">"OS"</span>
+                    <span>"Launcher"</span>
+                </button>
+
+                <div class="taskbar-pins" role="group" aria-label="Pinned apps">
+                    <For
+                        each=move || pinned_taskbar_apps().to_vec()
+                        key=|app_id| *app_id as u8
+                        let:app_id
                     >
-                        {win.title.clone()}
-                    </button>
-                </For>
+                        <button
+                            class=move || {
+                                let desktop = state.get();
+                                taskbar_pinned_button_class(pinned_taskbar_app_state(&desktop, app_id))
+                            }
+                            data-app=app_id.icon_id()
+                            title=move || {
+                                let desktop = state.get();
+                                let status = pinned_taskbar_app_state(&desktop, app_id);
+                                taskbar_pinned_aria_label(app_id, status)
+                            }
+                            aria-label=move || {
+                                let desktop = state.get();
+                                let status = pinned_taskbar_app_state(&desktop, app_id);
+                                taskbar_pinned_aria_label(app_id, status)
+                            }
+                            on:click=move |_| {
+                                window_context_menu.set(None);
+                                overflow_menu_open.set(false);
+                                clock_menu_open.set(false);
+                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                                activate_pinned_taskbar_app(runtime, app_id);
+                            }
+                        >
+                            <span class="taskbar-app-icon" aria-hidden="true">{app_icon_glyph(app_id)}</span>
+                            <span class="visually-hidden">{app_id.title()}</span>
+                        </button>
+                    </For>
+                </div>
             </div>
 
-            <Show
-                when=move || state.get().start_menu_open
-                fallback=|| ()
-            >
-                <div class="start-menu" role="menu" aria-label="Launcher menu">
+            <div class="taskbar-running-region" role="group" aria-label="Running windows">
+                <div class="taskbar-running-strip">
+                    <For
+                        each=move || {
+                            let desktop = state.get();
+                            let tray_count = build_taskbar_tray_widgets(&desktop).len();
+                            let layout = compute_taskbar_layout(
+                                viewport_width.get(),
+                                pinned_taskbar_apps().len(),
+                                desktop.windows.len(),
+                                tray_count,
+                                clock_config.get().show_date,
+                            );
+                            ordered_taskbar_windows(&desktop)
+                                .into_iter()
+                                .take(layout.visible_running_count)
+                                .collect::<Vec<_>>()
+                        }
+                        key=|win| win.id.0
+                        let:win
+                    >
+                        <button
+                            class=move || {
+                                let desktop = state.get();
+                                let tray_count = build_taskbar_tray_widgets(&desktop).len();
+                                let layout = compute_taskbar_layout(
+                                    viewport_width.get(),
+                                    pinned_taskbar_apps().len(),
+                                    desktop.windows.len(),
+                                    tray_count,
+                                    clock_config.get().show_date,
+                                );
+                                taskbar_window_button_class(
+                                    win.is_focused && !win.minimized,
+                                    win.minimized,
+                                    layout.compact_running_items,
+                                    selected_running_window.get() == Some(win.id),
+                                )
+                            }
+                            data-app=win.app_id.icon_id()
+                            aria-pressed=move || win.is_focused && !win.minimized
+                            aria-label=taskbar_window_aria_label(&win)
+                            title=taskbar_window_aria_label(&win)
+                            on:click=move |_| {
+                                selected_running_window.set(Some(win.id));
+                                window_context_menu.set(None);
+                                overflow_menu_open.set(false);
+                                clock_menu_open.set(false);
+                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                                runtime.dispatch_action(DesktopAction::ToggleTaskbarWindow {
+                                    window_id: win.id,
+                                });
+                            }
+                            on:contextmenu=move |ev| {
+                                ev.prevent_default();
+                                ev.stop_propagation();
+                                selected_running_window.set(Some(win.id));
+                                overflow_menu_open.set(false);
+                                clock_menu_open.set(false);
+                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                                open_taskbar_window_context_menu(
+                                    window_context_menu,
+                                    win.id,
+                                    ev.client_x(),
+                                    ev.client_y(),
+                                );
+                            }
+                        >
+                            <span class="taskbar-app-icon" aria-hidden="true">
+                                {app_icon_glyph(win.app_id)}
+                            </span>
+                            <span class="taskbar-app-label">{win.title.clone()}</span>
+                        </button>
+                    </For>
+
+                    <Show
+                        when=move || {
+                            let desktop = state.get();
+                            let tray_count = build_taskbar_tray_widgets(&desktop).len();
+                            let layout = compute_taskbar_layout(
+                                viewport_width.get(),
+                                pinned_taskbar_apps().len(),
+                                desktop.windows.len(),
+                                tray_count,
+                                clock_config.get().show_date,
+                            );
+                            desktop.windows.len() > layout.visible_running_count
+                        }
+                        fallback=|| ()
+                    >
+                        <div class="taskbar-overflow-wrap">
+                            <button
+                                class="taskbar-overflow-button"
+                                aria-haspopup="menu"
+                                aria-controls="taskbar-overflow-menu"
+                                aria-expanded=move || overflow_menu_open.get()
+                                on:click=move |_| {
+                                    window_context_menu.set(None);
+                                    clock_menu_open.set(false);
+                                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                                    overflow_menu_open.update(|open| *open = !*open);
+                                }
+                            >
+                                {move || {
+                                    let desktop = state.get();
+                                    let tray_count = build_taskbar_tray_widgets(&desktop).len();
+                                    let layout = compute_taskbar_layout(
+                                        viewport_width.get(),
+                                        pinned_taskbar_apps().len(),
+                                        desktop.windows.len(),
+                                        tray_count,
+                                        clock_config.get().show_date,
+                                    );
+                                    let hidden = desktop.windows.len().saturating_sub(layout.visible_running_count);
+                                    format!("+{hidden}")
+                                }}
+                            </button>
+
+                            <Show when=move || overflow_menu_open.get() fallback=|| ()>
+                                <div
+                                    id="taskbar-overflow-menu"
+                                    class="taskbar-menu taskbar-overflow-menu"
+                                    role="menu"
+                                    aria-label="Hidden taskbar windows"
+                                    on:mousedown=move |ev| ev.stop_propagation()
+                                >
+                                    <For
+                                        each=move || {
+                                            let desktop = state.get();
+                                            let tray_count = build_taskbar_tray_widgets(&desktop).len();
+                                            let layout = compute_taskbar_layout(
+                                                viewport_width.get(),
+                                                pinned_taskbar_apps().len(),
+                                                desktop.windows.len(),
+                                                tray_count,
+                                                clock_config.get().show_date,
+                                            );
+                                            ordered_taskbar_windows(&desktop)
+                                                .into_iter()
+                                                .skip(layout.visible_running_count)
+                                                .collect::<Vec<_>>()
+                                        }
+                                        key=|win| win.id.0
+                                        let:win
+                                    >
+                                        <button
+                                            role="menuitem"
+                                            class=move || {
+                                                if win.minimized {
+                                                    "taskbar-menu-item minimized"
+                                                } else {
+                                                    "taskbar-menu-item"
+                                                }
+                                            }
+                                            on:click=move |_| {
+                                                selected_running_window.set(Some(win.id));
+                                                overflow_menu_open.set(false);
+                                                window_context_menu.set(None);
+                                                clock_menu_open.set(false);
+                                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                                                let desktop = runtime.state.get_untracked();
+                                                focus_or_unminimize_window(runtime, &desktop, win.id);
+                                            }
+                                            on:contextmenu=move |ev| {
+                                                ev.prevent_default();
+                                                ev.stop_propagation();
+                                                selected_running_window.set(Some(win.id));
+                                                overflow_menu_open.set(false);
+                                                clock_menu_open.set(false);
+                                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                                                open_taskbar_window_context_menu(
+                                                    window_context_menu,
+                                                    win.id,
+                                                    ev.client_x(),
+                                                    ev.client_y(),
+                                                );
+                                            }
+                                        >
+                                            <span class="taskbar-app-icon" aria-hidden="true">
+                                                {app_icon_glyph(win.app_id)}
+                                            </span>
+                                            <span class="taskbar-menu-item-label">{win.title.clone()}</span>
+                                        </button>
+                                    </For>
+                                </div>
+                            </Show>
+                        </div>
+                    </Show>
+                </div>
+            </div>
+
+            <div class="taskbar-right">
+                <div class="taskbar-tray" role="group" aria-label="System tray">
+                    <For
+                        each=move || build_taskbar_tray_widgets(&state.get())
+                        key=|widget| widget.id
+                        let:widget
+                    >
+                        <button
+                            class=move || {
+                                match widget.pressed {
+                                    Some(true) => "tray-widget pressed",
+                                    Some(false) => "tray-widget",
+                                    None => "tray-widget passive",
+                                }
+                            }
+                            aria-label=format!("{}: {}", widget.label, widget.value)
+                            aria-pressed=widget.pressed.unwrap_or(false)
+                            title=format!("{}: {}", widget.label, widget.value)
+                            on:click=move |_| {
+                                if !matches!(widget.action, TaskbarTrayWidgetAction::None) {
+                                    window_context_menu.set(None);
+                                    overflow_menu_open.set(false);
+                                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                                }
+                                activate_taskbar_tray_widget(runtime, widget.action);
+                            }
+                        >
+                            <span class="tray-widget-glyph" aria-hidden="true">{widget.glyph}</span>
+                            <span class="tray-widget-value">{widget.value.clone()}</span>
+                        </button>
+                    </For>
+                </div>
+
+                <div class="taskbar-clock-wrap">
+                    <button
+                        class="taskbar-clock"
+                        aria-label=move || format_taskbar_clock_aria(clock_now.get(), clock_config.get())
+                        aria-haspopup="menu"
+                        aria-controls="taskbar-clock-menu"
+                        aria-expanded=move || clock_menu_open.get()
+                        on:click=move |_| {
+                            window_context_menu.set(None);
+                            overflow_menu_open.set(false);
+                            runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                            clock_menu_open.update(|open| *open = !*open);
+                        }
+                    >
+                        <span class="taskbar-clock-time">
+                            {move || format_taskbar_clock_time(clock_now.get(), clock_config.get())}
+                        </span>
+                        <Show when=move || clock_config.get().show_date fallback=|| ()>
+                            <span class="taskbar-clock-date">
+                                {move || format_taskbar_clock_date(clock_now.get())}
+                            </span>
+                        </Show>
+                    </button>
+
+                    <Show when=move || clock_menu_open.get() fallback=|| ()>
+                        <div
+                            id="taskbar-clock-menu"
+                            class="taskbar-menu taskbar-clock-menu"
+                            role="menu"
+                            aria-label="Clock settings"
+                            on:mousedown=move |ev| ev.stop_propagation()
+                        >
+                            <button
+                                role="menuitemcheckbox"
+                                aria-checked=move || clock_config.get().use_24_hour
+                                class="taskbar-menu-item"
+                                on:click=move |_| {
+                                    clock_config.update(|cfg| cfg.use_24_hour = !cfg.use_24_hour);
+                                }
+                            >
+                                "24-hour time"
+                            </button>
+                            <button
+                                role="menuitemcheckbox"
+                                aria-checked=move || clock_config.get().show_date
+                                class="taskbar-menu-item"
+                                on:click=move |_| {
+                                    clock_config.update(|cfg| cfg.show_date = !cfg.show_date);
+                                }
+                            >
+                                "Show date"
+                            </button>
+                            <button
+                                role="menuitem"
+                                class="taskbar-menu-item"
+                                on:click=move |_| clock_menu_open.set(false)
+                            >
+                                "Close"
+                            </button>
+                        </div>
+                    </Show>
+                </div>
+            </div>
+
+            <Show when=move || state.get().start_menu_open fallback=|| ()>
+                <div
+                    id="desktop-launcher-menu"
+                    class="start-menu"
+                    role="menu"
+                    aria-label="Application launcher"
+                    on:mousedown=move |ev| ev.stop_propagation()
+                >
                     <For each=move || apps::launcher_apps() key=|app| app.app_id as u8 let:app>
                         <button
                             role="menuitem"
                             on:click=move |_| {
+                                window_context_menu.set(None);
+                                overflow_menu_open.set(false);
+                                clock_menu_open.set(false);
                                 runtime.dispatch_action(DesktopAction::OpenWindow(
                                     apps::default_open_request(app.app_id),
                                 ));
                             }
                         >
-                            {format!("Open {}", app.launcher_label)}
+                            <span class="taskbar-app-icon" aria-hidden="true">
+                                {app_icon_glyph(app.app_id)}
+                            </span>
+                            <span>{format!("Open {}", app.launcher_label)}</span>
                         </button>
                     </For>
                     <button
                         role="menuitem"
-                        on:click=move |_| {
-                            runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                        }
+                        on:click=move |_| runtime.dispatch_action(DesktopAction::CloseStartMenu)
                     >
                         "Close"
                     </button>
                 </div>
+            </Show>
+
+            <Show
+                when=move || {
+                    window_context_menu
+                        .get()
+                        .and_then(|menu| {
+                            state
+                                .get()
+                                .windows
+                                .into_iter()
+                                .find(|win| win.id == menu.window_id)
+                                .map(|win| (menu, win))
+                        })
+                        .is_some()
+                }
+                fallback=|| ()
+            >
+                {move || {
+                    let Some((menu, win)) = window_context_menu.get().and_then(|menu| {
+                        state
+                            .get()
+                            .windows
+                            .into_iter()
+                            .find(|win| win.id == menu.window_id)
+                            .map(|win| (menu, win))
+                    }) else {
+                        return ().into_view();
+                    };
+
+                    let menu_style = format!("left:{}px;top:{}px;", menu.x, menu.y);
+                    let can_focus = !win.is_focused && !win.minimized;
+                    let can_restore = win.minimized || win.maximized;
+                    let can_minimize = win.flags.minimizable && !win.minimized;
+                    let can_maximize = win.flags.maximizable && !win.maximized;
+                    let restore_label = if win.minimized {
+                        "Restore"
+                    } else {
+                        "Restore Size"
+                    };
+                    let window_id = win.id;
+
+                    view! {
+                        <div
+                            class="taskbar-menu taskbar-window-menu"
+                            role="menu"
+                            aria-label=format!("Window menu for {}", win.title)
+                            style=menu_style
+                            on:mousedown=move |ev| ev.stop_propagation()
+                        >
+                            <button
+                                role="menuitem"
+                                class="taskbar-menu-item"
+                                disabled=!can_focus
+                                on:click=move |_| {
+                                    window_context_menu.set(None);
+                                    let desktop = runtime.state.get_untracked();
+                                    focus_or_unminimize_window(runtime, &desktop, window_id);
+                                }
+                            >
+                                "Focus"
+                            </button>
+                            <button
+                                role="menuitem"
+                                class="taskbar-menu-item"
+                                disabled=!can_restore
+                                on:click=move |_| {
+                                    window_context_menu.set(None);
+                                    runtime.dispatch_action(DesktopAction::RestoreWindow { window_id });
+                                }
+                            >
+                                {restore_label}
+                            </button>
+                            <button
+                                role="menuitem"
+                                class="taskbar-menu-item"
+                                disabled=!can_minimize
+                                on:click=move |_| {
+                                    window_context_menu.set(None);
+                                    runtime.dispatch_action(DesktopAction::MinimizeWindow { window_id });
+                                }
+                            >
+                                "Minimize"
+                            </button>
+                            <button
+                                role="menuitem"
+                                class="taskbar-menu-item"
+                                disabled=!can_maximize
+                                on:click=move |_| {
+                                    window_context_menu.set(None);
+                                    runtime.dispatch_action(DesktopAction::MaximizeWindow {
+                                        window_id,
+                                        viewport: desktop_viewport_rect(),
+                                    });
+                                }
+                            >
+                                "Maximize"
+                            </button>
+                            <button
+                                role="menuitem"
+                                class="taskbar-menu-item danger"
+                                on:click=move |_| {
+                                    window_context_menu.set(None);
+                                    runtime.dispatch_action(DesktopAction::CloseWindow { window_id });
+                                }
+                            >
+                                "Close"
+                            </button>
+                        </div>
+                    }
+                        .into_view()
+                }}
             </Show>
         </footer>
     }

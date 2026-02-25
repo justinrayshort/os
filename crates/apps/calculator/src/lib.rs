@@ -247,13 +247,11 @@ pub fn CalculatorApp(launch_params: Value) -> impl IntoView {
 
     view! {
         <div class="app-shell app-calculator-shell">
-            <div class="app-menubar" aria-label="Calculator menu">
+            <div class="app-menubar calc-toolbar" aria-label="Calculator menu and shortcuts">
                 <button type="button">"Edit"</button>
                 <button type="button">"View"</button>
                 <button type="button">"Help"</button>
-            </div>
-
-            <div class="app-toolbar calc-toolbar" aria-label="Calculator shortcuts">
+                <span class="calc-toolbar-divider" aria-hidden="true"></span>
                 <button type="button" on:click=move |_| calc.update(|s| s.apply(CalcAction::UseLast))>
                     "Reuse Last"
                 </button>
@@ -263,7 +261,6 @@ pub fn CalculatorApp(launch_params: Value) -> impl IntoView {
                 <button type="button" on:click=move |_| calc.update(|s| s.apply(CalcAction::ClearAll))>
                     "Reset"
                 </button>
-                <span class="calc-toolbar-note">"95 shell, modern tape + keyboard workflow"</span>
             </div>
 
             <div class="calculator-workspace" tabindex="0" on:keydown=on_keydown>

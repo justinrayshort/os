@@ -18,11 +18,12 @@ desktop_app_calculator = { path = "../apps/calculator", default-features = false
 desktop_app_explorer = { path = "../apps/explorer", default-features = false }
 desktop_app_notepad = { path = "../apps/notepad", default-features = false }
 desktop_app_terminal = { path = "../apps/terminal", default-features = false }
+js-sys = "0.3"
 leptos = { version = "0.6", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
-web-sys = { version = "0.3", features = ["MouseEvent", "Window", "Storage"] }
+web-sys = { version = "0.3", features = ["KeyboardEvent", "MouseEvent", "Storage", "Window"] }
 
 [dev-dependencies]
 pretty_assertions = "1"
