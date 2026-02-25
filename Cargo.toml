@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/desktop_runtime", "crates/site"]
+resolver = "2"

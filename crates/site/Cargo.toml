@@ -1,0 +1,25 @@
+[package]
+name = "site"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = ["csr"]
+csr = ["desktop_runtime/csr", "leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
+hydrate = [
+    "csr",
+    "desktop_runtime/hydrate",
+    "leptos/hydrate",
+    "leptos_meta/hydrate",
+    "leptos_router/hydrate",
+]
+ssr = ["desktop_runtime/ssr", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr"]
+
+[dependencies]
+desktop_runtime = { path = "../desktop_runtime", default-features = false }
+leptos = { version = "0.6", default-features = false }
+leptos_meta = { version = "0.6", default-features = false }
+leptos_router = { version = "0.6", default-features = false }
