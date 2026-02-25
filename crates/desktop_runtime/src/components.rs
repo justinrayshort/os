@@ -196,7 +196,15 @@ fn DesktopWindow(window_id: WindowId) -> impl IntoView {
             .find(|w| w.id == window_id)
     });
 
-    let focus = move |_| runtime.dispatch_action(DesktopAction::FocusWindow { window_id });
+    let focus = move |_| {
+        let should_focus = window
+            .get()
+            .map(|w| !w.is_focused || w.minimized)
+            .unwrap_or(false);
+        if should_focus {
+            runtime.dispatch_action(DesktopAction::FocusWindow { window_id });
+        }
+    };
     let minimize = move |_| runtime.dispatch_action(DesktopAction::MinimizeWindow { window_id });
     let close = move |_| runtime.dispatch_action(DesktopAction::CloseWindow { window_id });
     let toggle_maximize = move |_| {
