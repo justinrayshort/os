@@ -12,21 +12,6 @@ csr = [
   "desktop_app_notepad/csr",
   "desktop_app_terminal/csr",
 ]
-hydrate = [
-  "leptos/hydrate",
-  "csr",
-  "desktop_app_calculator/hydrate",
-  "desktop_app_explorer/hydrate",
-  "desktop_app_notepad/hydrate",
-  "desktop_app_terminal/hydrate",
-]
-ssr = [
-  "leptos/ssr",
-  "desktop_app_calculator/ssr",
-  "desktop_app_explorer/ssr",
-  "desktop_app_notepad/ssr",
-  "desktop_app_terminal/ssr",
-]
 
 [dependencies]
 desktop_app_calculator = { path = "../apps/calculator", default-features = false }

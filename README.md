@@ -35,13 +35,33 @@ Start local prototype server:
 cargo dev
 ```
 
+Start/stop a managed background dev server (Rust-managed lifecycle; logs/state under `.artifacts/dev-server/`):
+
+```bash
+cargo dev start
+cargo dev status
+cargo dev stop
+```
+
+Restart the managed background server:
+
+```bash
+cargo dev restart
+```
+
+Build a development static bundle (non-release) with the same trunk pipeline:
+
+```bash
+cargo dev build
+```
+
 Build a production-like static bundle:
 
 ```bash
 cargo web-build
 ```
 
-Run prototype-specific compile checks (hydrate/ssr/wasm):
+Run prototype-specific compile checks (CSR native + WASM):
 
 ```bash
 cargo web-check
@@ -67,6 +87,8 @@ Equivalent legacy `make` targets still work (they now delegate to Cargo aliases)
 make verify-fast
 make verify
 make proto-serve
+make proto-start
+make proto-stop
 ```
 
 Direct commands remain available if you prefer (`cargo run -p xtask -- ...`, `trunk ...`, `./scripts/ci/verify.sh ...`).

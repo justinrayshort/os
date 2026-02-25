@@ -6,8 +6,6 @@ edition = "2021"
 [features]
 default = ["csr"]
 csr = ["leptos/csr"]
-hydrate = ["leptos/hydrate", "csr"]
-ssr = ["leptos/ssr"]
 
 [dependencies]
 leptos = { version = "0.6", default-features = false }

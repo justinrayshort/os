@@ -152,7 +152,12 @@ make docs-check
 make docs-audit
 make proto-check
 make proto-build
+make proto-build-dev
 make proto-serve
+make proto-start
+make proto-stop
+make proto-status
+make proto-restart
 ```
 
 ## 6) Change Workflows for Agents

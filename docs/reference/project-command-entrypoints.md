@@ -28,8 +28,14 @@ This page documents the supported top-level commands for local development, veri
 ### Prototype / Web Workflow
 
 - `cargo setup-web`: Install the WASM target and `trunk` if missing.
-- `cargo dev`: Start the prototype dev server (delegates to `xtask dev`, defaults to opening the browser).
-- `cargo web-check`: Run prototype compile checks (`hydrate`, `ssr`, and WASM when target is installed).
+- `cargo dev`: Prototype dev workflow entry point (delegates to `xtask dev`).
+- `cargo dev` / `cargo dev serve`: Start the prototype dev server in the foreground (defaults to opening the browser).
+- `cargo dev start`: Start the prototype dev server in the background (managed PID/state/logs under `.artifacts/dev-server/`).
+- `cargo dev stop`: Stop the managed background dev server.
+- `cargo dev status`: Show managed background dev server status.
+- `cargo dev restart`: Restart the managed background dev server.
+- `cargo dev build`: Build a development static bundle via `trunk` (non-release).
+- `cargo web-check`: Run prototype compile checks (CSR native and WASM when target is installed).
 - `cargo web-build`: Build the production-style static bundle via `trunk`.
 
 ### Verification Workflow
@@ -47,7 +53,12 @@ These targets exist for operator convenience and CI/local muscle memory. They de
 - `make docs-audit` -> `python3 scripts/docs/validate_docs.py audit-report --output .artifacts/docs-audit.json`
 - `make proto-check` -> `cargo web-check`
 - `make proto-build` -> `cargo web-build`
-- `make proto-serve` -> `cargo dev`
+- `make proto-build-dev` -> `cargo dev build`
+- `make proto-serve` -> `cargo dev serve`
+- `make proto-start` -> `cargo dev start`
+- `make proto-stop` -> `cargo dev stop`
+- `make proto-status` -> `cargo dev status`
+- `make proto-restart` -> `cargo dev restart`
 
 ## Guidance
 

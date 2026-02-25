@@ -46,18 +46,17 @@ run_optional_clippy() {
 
 run_prototype_compile_checks() {
   log "Prototype compile checks"
-  run cargo check -p site --features hydrate
-  run cargo check -p site --features ssr
+  run cargo check -p site --features csr
 
   if rustup target list --installed | grep -q '^wasm32-unknown-unknown$'; then
-    run cargo check -p site --target wasm32-unknown-unknown --features hydrate
+    run cargo check -p site --target wasm32-unknown-unknown --features csr
   else
     warn "wasm32-unknown-unknown target not installed; skipping wasm cargo check"
   fi
 
   if command -v trunk >/dev/null 2>&1; then
     log "Prototype static build (Trunk)"
-    run trunk build crates/site/index.html --features hydrate --release --dist target/trunk-dist
+    run trunk build crates/site/index.html --release --dist target/trunk-dist
   else
     warn "trunk not installed; skipping trunk build"
   fi
