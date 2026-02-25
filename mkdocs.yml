@@ -1,0 +1,41 @@
+site_name: "Retro Desktop Site Documentation"
+site_description: "Diataxis-structured, machine-validated documentation for the retro desktop website project."
+repo_name: "justinshort/os"
+docs_dir: docs
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.details
+nav:
+  - Home: index.md
+  - Tutorials:
+      - First Documentation Change: tutorials/first-documentation-change.md
+  - How-To:
+      - Update Documentation in a PR: how-to/update-documentation-in-a-pr.md
+  - Reference:
+      - Documentation Contracts: reference/documentation-contracts.md
+      - Toolchain and CI: reference/documentation-toolchain-and-ci.md
+      - Metrics and Observability: reference/documentation-metrics.md
+      - Ownership and Lifecycle: reference/owners-and-lifecycle.md
+      - OpenAPI Assets: reference/openapi/README.md
+  - Explanation:
+      - Documentation Architecture: explanation/documentation-architecture.md
+  - ADR:
+      - ADR-0000 Template: adr/ADR-0000-template.md
+      - ADR-0001 Documentation System Adoption: adr/ADR-0001-documentation-system-adoption.md
+  - SOP:
+      - Documentation System SOP: sop/documentation-system-sop.md
+      - Quarterly Documentation Audit: sop/quarterly-documentation-audit.md
+      - SOP Template: sop/sop-template.md
+

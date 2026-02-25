@@ -1,0 +1,64 @@
+{
+  "required_frontmatter": [
+    "title",
+    "category",
+    "owner",
+    "status",
+    "last_reviewed",
+    "audience",
+    "invariants"
+  ],
+  "allowed_categories": [
+    "tutorial",
+    "how-to",
+    "reference",
+    "explanation",
+    "adr",
+    "sop"
+  ],
+  "allowed_statuses": [
+    "draft",
+    "active",
+    "deprecated",
+    "superseded"
+  ],
+  "allowed_owners": [
+    "site-owner",
+    "platform-team",
+    "architecture-owner"
+  ],
+  "diataxis_category_by_folder": {
+    "tutorials": "tutorial",
+    "how-to": "how-to",
+    "reference": "reference",
+    "explanation": "explanation",
+    "adr": "adr",
+    "sop": "sop"
+  },
+  "required_docs_directories": [
+    "tutorials",
+    "how-to",
+    "reference",
+    "explanation",
+    "adr",
+    "sop",
+    "assets"
+  ],
+  "root_docs_allowed_categories": [
+    "explanation",
+    "reference"
+  ],
+  "stale_review_days": 180,
+  "sop_required_headings": [
+    "1. Title & Purpose",
+    "2. Scope",
+    "3. Roles & Responsibilities",
+    "4. Prerequisites",
+    "5. Step-by-Step Procedure",
+    "6. Visual Aids",
+    "7. Invariants (Critical Section)",
+    "8. Validation Checklist",
+    "9. Version History"
+  ]
+}
+

@@ -1,4 +1,8 @@
-use desktop_runtime::{DesktopProvider, DesktopShell};
+use desktop_runtime::{
+    use_desktop_runtime, DeepLinkState, DesktopAction, DesktopProvider, DesktopShell,
+};
+#[cfg(any(test, target_arch = "wasm32"))]
+use desktop_runtime::{AppId, DeepLinkOpenTarget};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
@@ -27,9 +31,25 @@ pub fn SiteApp() -> impl IntoView {
 pub fn DesktopEntry() -> impl IntoView {
     view! {
         <DesktopProvider>
+            <DesktopUrlBoot />
             <DesktopShell />
         </DesktopProvider>
     }
+}
+
+#[component]
+fn DesktopUrlBoot() -> impl IntoView {
+    let runtime = use_desktop_runtime();
+
+    create_effect(move |_| {
+        if let Some(deep_link) = current_url_deep_link() {
+            if !deep_link.open.is_empty() {
+                runtime.dispatch_action(DesktopAction::ApplyDeepLink { deep_link });
+            }
+        }
+    });
+
+    ().into_view()
 }
 
 #[component]
@@ -67,5 +87,153 @@ fn CanonicalProjectRoute() -> impl IntoView {
             <p>"Canonical SSR route placeholder. Final version renders project metadata/details."</p>
             <A href=move || format!("/?open=projects:{}", slug())>"Open in Desktop"</A>
         </section>
+    }
+}
+
+fn current_url_deep_link() -> Option<DeepLinkState> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let window = web_sys::window()?;
+        let location = window.location();
+        let search = location.search().ok()?;
+        let hash = location.hash().ok().unwrap_or_default();
+        let parsed = parse_deep_link_from_parts(&search, &hash);
+        if parsed.open.is_empty() {
+            None
+        } else {
+            Some(parsed)
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        None
+    }
+}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+fn parse_deep_link_from_parts(search: &str, hash: &str) -> DeepLinkState {
+    let mut open = Vec::new();
+    open.extend(parse_open_values_from_query_like(
+        search.trim_start_matches('?'),
+    ));
+
+    let hash_trimmed = hash.trim_start_matches('#');
+    let hash_trimmed = hash_trimmed.trim_start_matches('/');
+
+    if let Some(path_value) = hash_trimmed.strip_prefix("open/") {
+        if let Some(target) = parse_open_target(path_value) {
+            open.push(target);
+        }
+    } else {
+        open.extend(parse_open_values_from_query_like(hash_trimmed));
+    }
+
+    DeepLinkState { open }
+}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+fn parse_open_values_from_query_like(query: &str) -> Vec<DeepLinkOpenTarget> {
+    if query.is_empty() {
+        return Vec::new();
+    }
+
+    query
+        .split('&')
+        .filter_map(|pair| {
+            let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+            (key == "open").then_some(value)
+        })
+        .flat_map(|value| value.split(','))
+        .filter_map(parse_open_target)
+        .collect()
+}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+fn parse_open_target(raw: &str) -> Option<DeepLinkOpenTarget> {
+    let value = raw.trim();
+    if value.is_empty() {
+        return None;
+    }
+
+    let lowered = value.to_ascii_lowercase();
+    if lowered.strip_prefix("notes:").is_some() {
+        return Some(DeepLinkOpenTarget::NotesSlug(
+            value[6..].to_string().trim().to_string(),
+        ));
+    }
+    if let Some(rest) = lowered.strip_prefix("projects:") {
+        let _ = rest;
+        return Some(DeepLinkOpenTarget::ProjectSlug(
+            value[9..].to_string().trim().to_string(),
+        ));
+    }
+    if let Some(rest) = lowered.strip_prefix("app:") {
+        return parse_app_id(rest).map(DeepLinkOpenTarget::App);
+    }
+
+    parse_app_id(&lowered).map(DeepLinkOpenTarget::App)
+}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+fn parse_app_id(raw: &str) -> Option<AppId> {
+    match raw.trim() {
+        "explorer" | "projects" => Some(AppId::Explorer),
+        "notepad" | "notes" => Some(AppId::Notepad),
+        "paint" => Some(AppId::Paint),
+        "terminal" | "term" => Some(AppId::Terminal),
+        "dialup" | "dial-up" | "dial" | "connect" => Some(AppId::Dialup),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_query_open_targets() {
+        let parsed = parse_deep_link_from_parts("?open=notes:hello-world&open=terminal", "");
+        assert_eq!(
+            parsed.open,
+            vec![
+                DeepLinkOpenTarget::NotesSlug("hello-world".to_string()),
+                DeepLinkOpenTarget::App(AppId::Terminal),
+            ]
+        );
+    }
+
+    #[test]
+    fn parses_hash_query_style_open_targets() {
+        let parsed = parse_deep_link_from_parts("", "#open=projects:alpha&open=dial");
+        assert_eq!(
+            parsed.open,
+            vec![
+                DeepLinkOpenTarget::ProjectSlug("alpha".to_string()),
+                DeepLinkOpenTarget::App(AppId::Dialup),
+            ]
+        );
+    }
+
+    #[test]
+    fn parses_hash_path_style_open_target() {
+        let parsed = parse_deep_link_from_parts("", "#/open/notes:hello-world");
+        assert_eq!(
+            parsed.open,
+            vec![DeepLinkOpenTarget::NotesSlug("hello-world".to_string())]
+        );
+    }
+
+    #[test]
+    fn supports_comma_separated_query_targets() {
+        let parsed = parse_deep_link_from_parts("?open=explorer,terminal,projects:beta", "");
+        assert_eq!(
+            parsed.open,
+            vec![
+                DeepLinkOpenTarget::App(AppId::Explorer),
+                DeepLinkOpenTarget::App(AppId::Terminal),
+                DeepLinkOpenTarget::ProjectSlug("beta".to_string()),
+            ]
+        );
     }
 }

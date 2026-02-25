@@ -1,0 +1,25 @@
+openapi: 3.1.0
+info:
+  title: Retro Desktop Site API (Placeholder)
+  version: 0.1.0
+  description: Placeholder API contract used to validate documentation CI plumbing.
+servers:
+  - url: https://example.invalid
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+

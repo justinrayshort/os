@@ -1,0 +1,7 @@
+extends: existence
+message: "Replace '%s' with a tracked issue ID or remove it before merge."
+level: warning
+ignorecase: true
+tokens:
+  - "\\bTODO\\b"
+

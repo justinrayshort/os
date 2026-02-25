@@ -1,0 +1,69 @@
+name: Documentation CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install docs build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs mkdocs-material pymdown-extensions
+
+      - name: Install docs validation CLIs
+        run: |
+          npm install -g markdownlint-cli2 @apidevtools/swagger-cli @mermaid-js/mermaid-cli
+
+      - name: Markdown lint
+        run: markdownlint-cli2 "**/*.md"
+
+      - name: Vale prose lint
+        uses: errata-ai/vale-action@v2.1.1
+        with:
+          files: docs
+          fail_on_error: true
+
+      - name: Documentation contract validation
+        run: |
+          python3 scripts/docs/validate_docs.py structure
+          python3 scripts/docs/validate_docs.py frontmatter
+          python3 scripts/docs/validate_docs.py sop
+
+      - name: OpenAPI schema validation
+        run: python3 scripts/docs/validate_docs.py openapi --require-validator
+
+      - name: Mermaid render validation
+        run: python3 scripts/docs/validate_docs.py mermaid --require-renderer
+
+      - name: Broken internal reference detection
+        run: python3 scripts/docs/validate_docs.py links
+
+      - name: Link checker (external + HTTP)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --verbose "docs/**/*.md"
+          fail: true
+
+      - name: MkDocs build
+        run: mkdocs build --strict
+
