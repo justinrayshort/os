@@ -1,0 +1,11 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e5]:
+      - button "[ ] Explorer" [ref=e6]:
+        - generic [ref=e7]: "[ ]"
+        - generic [ref=e8]: Explorer
+      - button ">_ Terminal" [ref=e9]:
+        - generic [ref=e10]: ">_"
+        - generic [ref=e11]: Terminal
+    - toolbar "Desktop taskbar" [ref=e13]:
+      - button "Launcher" [ref=e14]

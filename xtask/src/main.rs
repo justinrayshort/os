@@ -88,7 +88,7 @@ fn dev_server(root: &Path, args: Vec<String>) -> Result<(), String> {
 
     let mut trunk_args = vec![
         "serve".to_string(),
-        "crates/site/index.html".to_string(),
+        "index.html".to_string(),
         "--features".to_string(),
         "hydrate".to_string(),
     ];
@@ -97,7 +97,7 @@ fn dev_server(root: &Path, args: Vec<String>) -> Result<(), String> {
     }
     trunk_args.extend(pass_through);
 
-    run_owned(root, "trunk", trunk_args)
+    run_trunk(site_dir(root), trunk_args)
 }
 
 fn build_web(root: &Path, args: Vec<String>) -> Result<(), String> {
@@ -108,7 +108,7 @@ fn build_web(root: &Path, args: Vec<String>) -> Result<(), String> {
 
     let mut trunk_args = vec![
         "build".to_string(),
-        "crates/site/index.html".to_string(),
+        "index.html".to_string(),
         "--features".to_string(),
         "hydrate".to_string(),
         "--release".to_string(),
@@ -117,7 +117,7 @@ fn build_web(root: &Path, args: Vec<String>) -> Result<(), String> {
     ];
     trunk_args.extend(args);
 
-    run_owned(root, "trunk", trunk_args)
+    run_trunk(site_dir(root), trunk_args)
 }
 
 fn check_web(root: &Path) -> Result<(), String> {
@@ -220,6 +220,31 @@ fn run_owned(root: &Path, program: &str, args: Vec<String>) -> Result<(), String
     } else {
         Err(format!("`{program}` exited with status {status}"))
     }
+}
+
+fn run_trunk(cwd: PathBuf, args: Vec<String>) -> Result<(), String> {
+    print_command("trunk", &args);
+    let mut cmd = Command::new("trunk");
+    cmd.current_dir(cwd).args(&args);
+
+    // Some environments export NO_COLOR=1, but trunk expects "true"/"false".
+    if env::var("NO_COLOR").as_deref() == Ok("1") {
+        cmd.env("NO_COLOR", "true");
+    }
+
+    let status = cmd
+        .status()
+        .map_err(|err| format!("failed to start `trunk`: {err}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("`trunk` exited with status {status}"))
+    }
+}
+
+fn site_dir(root: &Path) -> PathBuf {
+    root.join("crates/site")
 }
 
 fn print_command(program: &str, args: &[String]) {

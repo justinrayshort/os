@@ -3,9 +3,14 @@ fn main() {
     site::hydrate();
 }
 
-#[cfg(any(not(target_arch = "wasm32"), not(feature = "hydrate")))]
+#[cfg(all(target_arch = "wasm32", feature = "csr", not(feature = "hydrate")))]
+fn main() {
+    site::mount();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
     eprintln!(
-        "This binary is intended for Trunk/WASM. Run: trunk serve crates/site/index.html --features hydrate --open"
+        "This binary is intended for Trunk/WASM. Run: trunk serve crates/site/index.html --features csr --open (bin: site_app)"
     );
 }

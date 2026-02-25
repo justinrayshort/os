@@ -6,6 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["rlib", "cdylib"]
 
+[[bin]]
+name = "site_app"
+path = "src/main.rs"
+
 [features]
 default = ["csr"]
 csr = ["desktop_runtime/csr", "leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
