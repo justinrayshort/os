@@ -1,4 +1,5 @@
 use crate::model::{AppId, OpenWindowRequest, WindowRecord};
+use desktop_app_calculator::CalculatorApp;
 use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
 use desktop_app_terminal::TerminalApp;
@@ -14,7 +15,15 @@ pub struct AppDescriptor {
     pub single_instance: bool,
 }
 
-const APP_REGISTRY: [AppDescriptor; 5] = [
+const APP_REGISTRY: [AppDescriptor; 6] = [
+    AppDescriptor {
+        app_id: AppId::Calculator,
+        launcher_label: "Calculator",
+        desktop_icon_label: "Calculator",
+        show_in_launcher: true,
+        show_on_desktop: true,
+        single_instance: true,
+    },
     AppDescriptor {
         app_id: AppId::Explorer,
         launcher_label: "Explorer",
@@ -85,11 +94,23 @@ pub fn app_descriptor(app_id: AppId) -> &'static AppDescriptor {
 }
 
 pub fn default_open_request(app_id: AppId) -> OpenWindowRequest {
-    OpenWindowRequest::new(app_id)
+    let mut req = OpenWindowRequest::new(app_id);
+    if matches!(app_id, AppId::Calculator) {
+        req.rect = Some(crate::model::WindowRect {
+            x: 72,
+            y: 64,
+            w: 560,
+            h: 420,
+        });
+    }
+    req
 }
 
 pub fn render_window_contents(window: &WindowRecord) -> View {
     match window.app_id {
+        AppId::Calculator => {
+            view! { <CalculatorApp launch_params=window.launch_params.clone() /> }.into_view()
+        }
         AppId::Explorer => {
             view! { <ExplorerApp launch_params=window.launch_params.clone() /> }.into_view()
         }

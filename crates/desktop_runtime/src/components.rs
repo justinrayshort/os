@@ -174,6 +174,7 @@ pub fn DesktopShell() -> impl IntoView {
 
 fn app_icon_glyph(app_id: crate::model::AppId) -> &'static str {
     match app_id {
+        crate::model::AppId::Calculator => "[]",
         crate::model::AppId::Explorer => "[ ]",
         crate::model::AppId::Notepad => "|_|",
         crate::model::AppId::Paint => "o~",

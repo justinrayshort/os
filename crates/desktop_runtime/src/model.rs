@@ -10,6 +10,7 @@ pub struct WindowId(pub u64);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AppId {
+    Calculator,
     Explorer,
     Notepad,
     Paint,
@@ -20,6 +21,7 @@ pub enum AppId {
 impl AppId {
     pub fn title(self) -> &'static str {
         match self {
+            Self::Calculator => "Calculator",
             Self::Explorer => "Explorer",
             Self::Notepad => "Notepad",
             Self::Paint => "Paint",
@@ -30,6 +32,7 @@ impl AppId {
 
     pub fn icon_id(self) -> &'static str {
         match self {
+            Self::Calculator => "calculator",
             Self::Explorer => "folder",
             Self::Notepad => "notepad",
             Self::Paint => "paint",

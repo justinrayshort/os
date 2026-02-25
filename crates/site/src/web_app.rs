@@ -180,6 +180,7 @@ fn parse_open_target(raw: &str) -> Option<DeepLinkOpenTarget> {
 #[cfg(any(test, target_arch = "wasm32"))]
 fn parse_app_id(raw: &str) -> Option<AppId> {
     match raw.trim() {
+        "calculator" | "calc" => Some(AppId::Calculator),
         "explorer" | "projects" => Some(AppId::Explorer),
         "notepad" | "notes" => Some(AppId::Notepad),
         "paint" => Some(AppId::Paint),
