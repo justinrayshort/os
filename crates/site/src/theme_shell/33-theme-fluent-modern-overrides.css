@@ -2,24 +2,24 @@
 .desktop-shell[data-theme="Fluent Modern"] .desktop-wallpaper {
   position: relative;
   background:
-    radial-gradient(1200px 680px at 10% -10%, rgba(255, 255, 255, 0.36), transparent 60%),
-    radial-gradient(800px 520px at 100% 10%, rgba(109, 183, 255, 0.16), transparent 62%),
-    radial-gradient(760px 560px at 50% 120%, rgba(141, 109, 255, 0.08), transparent 64%);
+    radial-gradient(1200px 680px at 10% -10%, var(--fluent-shell-wallpaper-glow-1), transparent 60%),
+    radial-gradient(800px 520px at 100% 10%, var(--fluent-shell-wallpaper-glow-2), transparent 62%),
+    radial-gradient(760px 560px at 50% 120%, var(--fluent-shell-wallpaper-glow-3), transparent 64%);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .desktop-wallpaper::before {
   background:
-    radial-gradient(circle 220px at 12% 18%, rgba(255, 255, 255, 0.18), transparent 72%),
-    radial-gradient(circle 280px at 86% 14%, rgba(117, 178, 255, 0.14), transparent 70%),
-    radial-gradient(circle 320px at 50% 100%, rgba(131, 112, 255, 0.08), transparent 74%);
+    radial-gradient(circle 220px at 12% 18%, var(--fluent-shell-wallpaper-mist-1), transparent 72%),
+    radial-gradient(circle 280px at 86% 14%, var(--fluent-shell-wallpaper-mist-2), transparent 70%),
+    radial-gradient(circle 320px at 50% 100%, var(--fluent-shell-wallpaper-mist-3), transparent 74%);
   opacity: 1;
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .desktop-wallpaper::after {
   background:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px) 0 0 / 100% 3px,
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px) 0 0 / 3px 100%,
-    radial-gradient(120% 90% at 50% 115%, rgba(0, 0, 0, 0.2), transparent 58%);
+    linear-gradient(var(--fluent-shell-wallpaper-grid-line) 1px, transparent 1px) 0 0 / 100% 3px,
+    linear-gradient(90deg, var(--fluent-shell-wallpaper-grid-line-vertical) 1px, transparent 1px) 0 0 / 3px 100%,
+    radial-gradient(120% 90% at 50% 115%, var(--fluent-shell-wallpaper-vignette), transparent 58%);
   opacity: 0.8;
   filter: none;
 }
@@ -39,7 +39,7 @@
   border-radius: var(--fluent-radius-md);
   border: 1px solid transparent;
   color: var(--fluent-shell-desktop-icon-text);
-  text-shadow: 0 1px 1px rgba(6, 12, 22, 0.65);
+  text-shadow: 0 1px 1px var(--fluent-shell-desktop-icon-text-shadow);
   transition:
     background-color var(--fluent-motion-fast) ease,
     border-color var(--fluent-motion-fast) ease,
@@ -53,12 +53,16 @@
   place-items: center;
   border-radius: 12px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 246, 255, 0.86)),
-    rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.32);
+    linear-gradient(
+      180deg,
+      var(--fluent-shell-desktop-icon-chip-top),
+      var(--fluent-shell-desktop-icon-chip-bottom)
+    ),
+    var(--fluent-shell-desktop-icon-chip-surface);
+  border: 1px solid var(--fluent-shell-desktop-icon-chip-stroke);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 2px 8px rgba(8, 16, 31, 0.22);
+    inset 0 1px 0 var(--fluent-shell-desktop-icon-chip-inset-stroke),
+    0 2px 8px var(--fluent-shell-desktop-icon-chip-shadow);
   color: var(--fluent-shell-accent);
   filter: none;
 }
@@ -70,8 +74,8 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .desktop-icon:hover,
 .desktop-shell[data-theme="Fluent Modern"] .desktop-icon:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: var(--fluent-shell-desktop-icon-card-hover-surface);
+  border-color: var(--fluent-shell-desktop-icon-card-hover-stroke);
   transform: translateY(-1px);
 }
 
@@ -80,7 +84,7 @@
   border-radius: var(--fluent-radius-lg);
   background: var(--fluent-shell-surface-2);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.35) inset,
+    0 0 0 1px var(--fluent-shell-window-inset-stroke) inset,
     var(--fluent-shell-shadow-2);
   overflow: hidden;
   transition:
@@ -90,8 +94,8 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .desktop-window.focused {
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.45) inset,
-    0 0 0 1px rgba(15, 108, 189, 0.14),
+    0 0 0 1px var(--fluent-shell-window-focused-inset-stroke) inset,
+    0 0 0 1px var(--fluent-shell-window-focused-accent-ring),
     var(--fluent-shell-shadow-3);
 }
 
@@ -103,8 +107,8 @@
   border-bottom: 1px solid var(--fluent-shell-stroke-2);
   border-radius: 0;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0)),
-    rgba(248, 251, 255, 0.82);
+    linear-gradient(180deg, var(--fluent-shell-titlebar-sheen), rgba(255, 255, 255, 0)),
+    var(--fluent-shell-titlebar-surface);
   color: var(--fluent-shell-text-1);
   text-shadow: none;
 }
@@ -115,16 +119,21 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .desktop-window:not(.focused) .titlebar {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0)),
-    rgba(244, 247, 252, 0.74);
-  color: rgba(27, 29, 34, 0.78);
+    linear-gradient(
+      180deg,
+      var(--fluent-shell-titlebar-unfocused-sheen),
+      rgba(255, 255, 255, 0)
+    ),
+    var(--fluent-shell-titlebar-unfocused-surface);
+  color: var(--fluent-shell-titlebar-unfocused-text);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .titlebar-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
+  font-size: var(--fluent-shell-font-size-title);
+  font-weight: var(--fluent-shell-font-weight-title);
   letter-spacing: 0.01em;
 }
 
@@ -154,34 +163,34 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .titlebar-controls button:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--fluent-shell-titlebar-control-hover-surface);
   color: var(--fluent-shell-text-1);
   filter: none;
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .titlebar-controls button:active:not(:disabled) {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--fluent-shell-titlebar-control-active-surface);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .titlebar-controls button:last-child:hover:not(:disabled) {
-  background: rgba(196, 43, 28, 0.14);
-  color: #a4262c;
+  background: var(--fluent-shell-titlebar-close-hover-surface);
+  color: var(--fluent-shell-danger-text);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .window-body,
 .desktop-shell[data-theme="Fluent Modern"] .window-body-content {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--fluent-shell-window-body-surface);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar {
   gap: var(--fluent-space-2);
   padding: 6px 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.34);
+  border-top: 1px solid var(--fluent-shell-taskbar-top-stroke);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0)),
-    rgba(242, 246, 252, 0.76);
+    linear-gradient(180deg, var(--fluent-shell-taskbar-sheen), rgba(255, 255, 255, 0)),
+    var(--fluent-shell-taskbar-surface);
   box-shadow:
-    0 -1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 -1px 0 var(--fluent-shell-taskbar-inset-stroke) inset,
     0 -8px 24px var(--fluent-shell-stroke-2);
 }
 
@@ -302,7 +311,7 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app.focused {
-  font-weight: 600;
+  font-weight: var(--fluent-shell-font-weight-chrome);
   border-color: var(--fluent-shell-taskbar-button-focused-stroke);
   background:
     linear-gradient(
@@ -359,7 +368,7 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app.compact {
-  width: 42px;
+  width: var(--fluent-shell-taskbar-compact-width);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app.keyboard-selected {
@@ -414,8 +423,8 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .tray-widget-value {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fluent-shell-font-size-caption);
+  font-weight: var(--fluent-shell-font-weight-caption);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock {
@@ -428,7 +437,17 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock-time {
   font-family: var(--fluent-font-family-mono);
-  font-weight: 700;
+  font-size: var(--fluent-shell-font-size-chrome);
+  font-weight: var(--fluent-shell-font-weight-chrome-strong);
+}
+
+.desktop-shell[data-theme="Fluent Modern"] .taskbar-clock-date,
+.desktop-shell[data-theme="Fluent Modern"] .start-button,
+.desktop-shell[data-theme="Fluent Modern"] .taskbar-app,
+.desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button,
+.desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item,
+.desktop-shell[data-theme="Fluent Modern"] .start-menu button {
+  font-size: var(--fluent-shell-font-size-chrome);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock-date {
@@ -467,13 +486,16 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item.danger:hover:not(:disabled) {
-  background: rgba(196, 43, 28, 0.08);
-  color: #a4262c;
+  background: var(--fluent-shell-danger-hover-surface);
+  color: var(--fluent-shell-danger-text);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .start-menu {
-  width: min(320px, calc(100vw - 16px));
-  padding: 8px;
+  width: min(
+    var(--fluent-shell-start-menu-max-width),
+    calc(100vw - var(--fluent-shell-start-menu-viewport-inset))
+  );
+  padding: var(--fluent-shell-start-menu-padding);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .start-menu::before {
@@ -481,22 +503,22 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .desktop-context-wallpaper-check {
-  width: 18px;
-  min-width: 18px;
+  width: var(--fluent-shell-menu-check-icon-size);
+  min-width: var(--fluent-shell-menu-check-icon-size);
   display: inline-grid;
   place-items: center;
   color: var(--fluent-shell-accent);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .display-properties-overlay {
-  background: rgba(9, 14, 23, 0.18);
-  backdrop-filter: blur(4px);
+  background: var(--fluent-shell-display-overlay-surface);
+  backdrop-filter: blur(var(--fluent-shell-display-overlay-blur));
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .display-properties-dialog {
   border-radius: var(--fluent-radius-lg);
   border: 1px solid var(--fluent-shell-stroke-1);
-  background: rgba(250, 252, 255, 0.88);
+  background: var(--fluent-shell-display-dialog-surface);
   box-shadow: var(--fluent-shell-shadow-3);
 }
 
@@ -510,17 +532,17 @@
 .desktop-shell[data-theme="Fluent Modern"] .display-action-button,
 .desktop-shell[data-theme="Fluent Modern"] .display-footer-button,
 .desktop-shell[data-theme="Fluent Modern"] .display-properties-tab {
-  border-radius: 8px;
-  border: 1px solid rgba(14, 23, 38, 0.1);
-  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--fluent-shell-display-control-radius);
+  border: 1px solid var(--fluent-shell-display-control-stroke);
+  background: var(--fluent-shell-display-control-surface);
   box-shadow: none;
   color: var(--fluent-shell-text-1);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .display-properties-close {
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
+  width: var(--fluent-shell-display-close-size);
+  min-width: var(--fluent-shell-display-close-size);
+  height: var(--fluent-shell-display-close-size);
   display: grid;
   place-items: center;
   padding: 0;
@@ -528,12 +550,12 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .display-properties-tab.active {
   border-color: var(--fluent-shell-accent-border-soft);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 1px 8px rgba(14, 23, 38, 0.06);
+  background: var(--fluent-shell-display-tab-active-surface);
+  box-shadow: 0 1px 8px var(--fluent-shell-display-tab-active-shadow);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .wallpaper-picker-item {
-  border-radius: 10px;
+  border-radius: var(--fluent-shell-wallpaper-picker-radius);
   border-color: transparent;
 }
 
@@ -593,6 +615,34 @@
     --fluent-shell-accent-subtle: rgba(76, 194, 255, 0.14);
     --fluent-shell-accent-subtle-strong: rgba(76, 194, 255, 0.24);
     --fluent-shell-focus: #9cdcff;
+    --fluent-shell-titlebar-unfocused-text: rgba(197, 206, 222, 0.84);
+    --fluent-shell-titlebar-control-hover-surface: rgba(255, 255, 255, 0.08);
+    --fluent-shell-titlebar-control-active-surface: rgba(255, 255, 255, 0.12);
+    --fluent-shell-titlebar-close-hover-surface: rgba(196, 43, 28, 0.2);
+    --fluent-shell-danger-text: #ff8a80;
+    --fluent-shell-danger-hover-surface: rgba(255, 138, 128, 0.14);
+    --fluent-shell-window-inset-stroke: rgba(255, 255, 255, 0.06);
+    --fluent-shell-window-focused-inset-stroke: rgba(255, 255, 255, 0.1);
+    --fluent-shell-window-focused-accent-ring: rgba(76, 194, 255, 0.2);
+    --fluent-shell-desktop-icon-chip-top: rgba(255, 255, 255, 0.08);
+    --fluent-shell-desktop-icon-chip-bottom: rgba(255, 255, 255, 0.04);
+    --fluent-shell-desktop-icon-chip-surface: rgba(30, 36, 48, 0.9);
+    --fluent-shell-desktop-icon-chip-stroke: rgba(255, 255, 255, 0.1);
+    --fluent-shell-desktop-icon-chip-inset-stroke: rgba(255, 255, 255, 0.06);
+    --fluent-shell-desktop-icon-chip-shadow: rgba(0, 0, 0, 0.3);
+    --fluent-shell-wallpaper-glow-1: rgba(255, 255, 255, 0.08);
+    --fluent-shell-wallpaper-glow-2: rgba(77, 194, 255, 0.12);
+    --fluent-shell-wallpaper-glow-3: rgba(141, 109, 255, 0.1);
+    --fluent-shell-wallpaper-mist-1: rgba(255, 255, 255, 0.08);
+    --fluent-shell-wallpaper-mist-2: rgba(77, 194, 255, 0.12);
+    --fluent-shell-wallpaper-mist-3: rgba(141, 109, 255, 0.1);
+    --fluent-shell-wallpaper-grid-line: rgba(255, 255, 255, 0.04);
+    --fluent-shell-wallpaper-grid-line-vertical: rgba(255, 255, 255, 0.02);
+    --fluent-shell-wallpaper-vignette: rgba(0, 0, 0, 0.2);
+    --fluent-shell-titlebar-sheen: rgba(255, 255, 255, 0.06);
+    --fluent-shell-titlebar-surface: rgba(26, 30, 38, 0.85);
+    --fluent-shell-titlebar-unfocused-sheen: rgba(255, 255, 255, 0.06);
+    --fluent-shell-titlebar-unfocused-surface: rgba(26, 30, 38, 0.85);
     --fluent-shell-shadow-1: 0 2px 8px rgba(0, 0, 0, 0.28);
     --fluent-shell-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.34);
     --fluent-shell-shadow-3: 0 22px 52px rgba(0, 0, 0, 0.42);
@@ -606,6 +656,19 @@
     --fluent-shell-taskbar-glyph-chip-surface: rgba(255, 255, 255, 0.1);
     --fluent-shell-menu-item-hover-surface: rgba(255, 255, 255, 0.08);
     --fluent-shell-menu-item-hover-stroke: rgba(255, 255, 255, 0.12);
+    --fluent-shell-display-overlay-surface: rgba(3, 6, 12, 0.34);
+    --fluent-shell-display-dialog-surface: rgba(24, 28, 35, 0.9);
+    --fluent-shell-control-neutral-stroke: rgba(255, 255, 255, 0.1);
+    --fluent-shell-control-neutral-surface: rgba(255, 255, 255, 0.04);
+    --fluent-shell-display-control-stroke: var(--fluent-shell-control-neutral-stroke);
+    --fluent-shell-display-control-surface: var(--fluent-shell-control-neutral-surface);
+    --fluent-shell-display-tab-active-surface: rgba(255, 255, 255, 0.08);
+    --fluent-shell-display-tab-active-shadow: rgba(0, 0, 0, 0.18);
+    --fluent-shell-window-body-surface: rgba(22, 26, 33, 0.92);
+    --fluent-shell-taskbar-top-stroke: rgba(255, 255, 255, 0.08);
+    --fluent-shell-taskbar-sheen: rgba(255, 255, 255, 0.05);
+    --fluent-shell-taskbar-surface: rgba(17, 20, 26, 0.82);
+    --fluent-shell-taskbar-inset-stroke: rgba(255, 255, 255, 0.05);
     --fluent-shell-tray-surface: rgba(255, 255, 255, 0.04);
     --fluent-shell-tray-inset-stroke: rgba(255, 255, 255, 0.05);
     --fluent-shell-tray-item-hover-surface: rgba(255, 255, 255, 0.08);
@@ -615,39 +678,43 @@
 
   .desktop-shell[data-theme="Fluent Modern"] .desktop-wallpaper {
     background:
-      radial-gradient(1100px 620px at 10% -10%, rgba(255, 255, 255, 0.08), transparent 60%),
-      radial-gradient(900px 520px at 100% 8%, rgba(77, 194, 255, 0.12), transparent 62%),
-      radial-gradient(760px 560px at 50% 120%, rgba(141, 109, 255, 0.1), transparent 64%);
+      radial-gradient(1100px 620px at 10% -10%, var(--fluent-shell-wallpaper-glow-1), transparent 60%),
+      radial-gradient(900px 520px at 100% 8%, var(--fluent-shell-wallpaper-glow-2), transparent 62%),
+      radial-gradient(760px 560px at 50% 120%, var(--fluent-shell-wallpaper-glow-3), transparent 64%);
   }
 
   .desktop-shell[data-theme="Fluent Modern"] .desktop-icon .icon {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)),
-      rgba(30, 36, 48, 0.9);
-    border-color: rgba(255, 255, 255, 0.1);
+      linear-gradient(
+        180deg,
+        var(--fluent-shell-desktop-icon-chip-top),
+        var(--fluent-shell-desktop-icon-chip-bottom)
+      ),
+      var(--fluent-shell-desktop-icon-chip-surface);
+    border-color: var(--fluent-shell-desktop-icon-chip-stroke);
     color: var(--fluent-shell-accent);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.06),
-      0 2px 8px rgba(0, 0, 0, 0.3);
+      inset 0 1px 0 var(--fluent-shell-desktop-icon-chip-inset-stroke),
+      0 2px 8px var(--fluent-shell-desktop-icon-chip-shadow);
   }
 
   .desktop-shell[data-theme="Fluent Modern"] .desktop-window .titlebar,
   .desktop-shell[data-theme="Fluent Modern"] .desktop-window:not(.focused) .titlebar {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0)),
-      rgba(26, 30, 38, 0.85);
+      linear-gradient(180deg, var(--fluent-shell-titlebar-sheen), rgba(255, 255, 255, 0)),
+      var(--fluent-shell-titlebar-surface);
   }
 
   .desktop-shell[data-theme="Fluent Modern"] .window-body,
   .desktop-shell[data-theme="Fluent Modern"] .window-body-content {
-    background: rgba(22, 26, 33, 0.92);
+    background: var(--fluent-shell-window-body-surface);
   }
 
   .desktop-shell[data-theme="Fluent Modern"] .taskbar {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
-      rgba(17, 20, 26, 0.82);
-    border-top-color: rgba(255, 255, 255, 0.08);
+      linear-gradient(180deg, var(--fluent-shell-taskbar-sheen), rgba(255, 255, 255, 0)),
+      var(--fluent-shell-taskbar-surface);
+    border-top-color: var(--fluent-shell-taskbar-top-stroke);
   }
 
   .desktop-shell[data-theme="Fluent Modern"] .taskbar-app,
@@ -659,8 +726,8 @@
   .desktop-shell[data-theme="Fluent Modern"] .display-action-button,
   .desktop-shell[data-theme="Fluent Modern"] .display-footer-button,
   .desktop-shell[data-theme="Fluent Modern"] .display-properties-tab {
-    border-color: rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--fluent-shell-control-neutral-stroke);
+    background: var(--fluent-shell-control-neutral-surface);
   }
 
   .desktop-shell[data-theme="Fluent Modern"] .taskbar-app:hover:not(:disabled),

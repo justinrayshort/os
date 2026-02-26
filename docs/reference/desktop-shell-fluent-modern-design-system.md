@@ -64,6 +64,7 @@ Primary theme and component tokens are defined/overridden in:
 Token categories introduced:
 
 - typography (`--fluent-font-family`, `--fluent-font-family-mono`)
+- shell typography hierarchy tokens (`--fluent-shell-font-size-*`, `--fluent-shell-font-weight-*`, `--fluent-shell-line-height-*`) for body/chrome/title/caption text roles
 - spacing scale (`--fluent-space-*`)
 - radius scale (`--fluent-radius-*`)
 - icon sizing (`--fluent-icon-*`)
