@@ -135,7 +135,8 @@ cargo xtask docs all
 
 - `crates/site` - Leptos app shell, routes, runtime mounting, theme CSS
 - `crates/desktop_runtime` - desktop state, reducer, effects, shell components, registry
-- `crates/platform_storage` - browser storage service (IndexedDB, Cache API, localStorage, session store, filesystem adapters)
+- `crates/platform_host` - API-first host contracts/types crate (Phase 1 migration foundation)
+- `crates/platform_storage` - browser storage implementation + temporary compatibility facade during host-boundary migration
 - `crates/apps/explorer` - Explorer app UI crate
 - `crates/apps/notepad` - Notepad app UI crate
 - `crates/apps/calculator` - Calculator app UI crate

@@ -2,6 +2,7 @@
 members = [
   "crates/apps/calculator",
   "crates/desktop_runtime",
+  "crates/platform_host",
   "crates/platform_storage",
   "crates/site",
   "crates/apps/explorer",
