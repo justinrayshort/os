@@ -2,7 +2,11 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
-use std::{cell::Cell, rc::Rc};
+use std::{
+    cell::Cell,
+    rc::Rc,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use leptos::ev::KeyboardEvent;
 use leptos::*;
@@ -12,6 +16,7 @@ use serde_json::Value;
 
 const TERMINAL_STATE_SCHEMA_VERSION: u32 = 1;
 const MAX_TERMINAL_LINES: usize = 200;
+static NEXT_TERMINAL_INSTANCE_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct TerminalPersistedState {
@@ -68,6 +73,10 @@ pub fn TerminalApp(
     /// App launch parameters (for example, the initial working directory).
     launch_params: Value,
 ) -> impl IntoView {
+    let input_id = format!(
+        "retro-shell-input-{}",
+        NEXT_TERMINAL_INSTANCE_ID.fetch_add(1, Ordering::Relaxed)
+    );
     let launch_cwd = launch_params
         .get("cwd")
         .and_then(Value::as_str)
@@ -160,6 +169,13 @@ pub fn TerminalApp(
         });
     });
 
+    let indexed_lines = move || {
+        lines.get()
+            .into_iter()
+            .enumerate()
+            .collect::<Vec<(usize, String)>>()
+    };
+
     view! {
         <div class="app-shell app-terminal-shell">
             <div class="terminal-toolbar">
@@ -178,17 +194,21 @@ pub fn TerminalApp(
             </div>
 
             <div class="terminal-screen" role="log" aria-live="polite">
-                <For each=move || lines.get() key=|line| line.clone() let:line>
-                    <div class="terminal-line">{line}</div>
+                <For
+                    each=indexed_lines
+                    key=|(idx, _)| *idx
+                    let:entry
+                >
+                    <div class="terminal-line">{entry.1}</div>
                 </For>
             </div>
 
             <div class="terminal-input-row">
-                <label class="terminal-prompt" for="retro-shell-input">
+                <label class="terminal-prompt" for=input_id.clone()>
                     {move || format!("{}>", cwd.get())}
                 </label>
                 <input
-                    id="retro-shell-input"
+                    id=input_id.clone()
                     class="terminal-input"
                     type="text"
                     value=move || input.get()

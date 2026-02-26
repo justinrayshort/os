@@ -126,6 +126,18 @@ fn normalized_slug(slug: &str) -> String {
     }
 }
 
+fn tab_dom_id(slug: &str) -> String {
+    let mut id = String::from("notepad-tab-");
+    for ch in slug.chars() {
+        if ch.is_ascii_alphanumeric() {
+            id.push(ch.to_ascii_lowercase());
+        } else {
+            id.push('-');
+        }
+    }
+    id
+}
+
 fn restore_notepad_state(
     envelope: AppStateEnvelope,
     requested_slug: &str,
@@ -220,6 +232,32 @@ pub fn NotepadApp(
     let current_text = Signal::derive(move || workspace.get().active_text());
     let line_count = Signal::derive(move || current_text.get().lines().count());
     let char_count = Signal::derive(move || current_text.get().chars().count());
+    let on_tab_keydown = move |ev: ev::KeyboardEvent| {
+        let key = ev.key();
+        match key.as_str() {
+            "ArrowLeft" => {
+                ev.prevent_default();
+                workspace.update(|w| w.move_active_by(-1));
+            }
+            "ArrowRight" => {
+                ev.prevent_default();
+                workspace.update(|w| w.move_active_by(1));
+            }
+            "Home" => {
+                ev.prevent_default();
+                workspace.update(|w| w.select_index(0));
+            }
+            "End" => {
+                ev.prevent_default();
+                workspace.update(|w| {
+                    if !w.open_order.is_empty() {
+                        w.select_index(w.open_order.len().saturating_sub(1));
+                    }
+                });
+            }
+            _ => {}
+        }
+    };
 
     view! {
         <div class="app-shell app-notepad-shell">
@@ -274,7 +312,12 @@ pub fn NotepadApp(
                     </div>
                 </div>
 
-                <div class="notepad-tabstrip" role="tablist" aria-label="Open documents">
+                <div
+                    class="notepad-tabstrip"
+                    role="tablist"
+                    aria-label="Open documents"
+                    aria-orientation="horizontal"
+                >
                     <For
                         each=move || workspace.get().open_order.clone()
                         key=|slug| slug.clone()
@@ -285,16 +328,28 @@ pub fn NotepadApp(
                             let aria_slug = slug.clone();
                             let click_slug = slug.clone();
                             let label_slug = slug.clone();
+                            let tab_id_slug = slug.clone();
+                            let tabindex_slug = slug.clone();
                             view! {
                                 <button
                                     type="button"
+                                    id=move || tab_dom_id(&tab_id_slug)
                                     role="tab"
                                     class=move || {
                                         let active = workspace.get().active_slug == class_slug;
                                         if active { "notepad-tab active" } else { "notepad-tab" }
                                     }
                                     aria-selected=move || workspace.get().active_slug == aria_slug
+                                    aria-controls="notepad-tabpanel"
+                                    tabindex=move || {
+                                        if workspace.get().active_slug == tabindex_slug {
+                                            0
+                                        } else {
+                                            -1
+                                        }
+                                    }
                                     on:click=move |_| workspace.update(|w| w.ensure_document(&click_slug))
+                                    on:keydown=on_tab_keydown
                                 >
                                     {label_slug}
                                 </button>
@@ -303,24 +358,30 @@ pub fn NotepadApp(
                     </For>
                 </div>
 
-                <textarea
-                    class=move || {
-                        if workspace.get().wrap_lines {
-                            "notepad-page wrap"
-                        } else {
-                            "notepad-page nowrap"
+                <div
+                    id="notepad-tabpanel"
+                    role="tabpanel"
+                    aria-labelledby=move || tab_dom_id(&workspace.get().active_slug)
+                >
+                    <textarea
+                        class=move || {
+                            if workspace.get().wrap_lines {
+                                "notepad-page wrap"
+                            } else {
+                                "notepad-page nowrap"
+                            }
                         }
-                    }
-                    prop:value=move || current_text.get()
-                    on:input=move |ev| {
-                        let text = event_target_value(&ev);
-                        workspace.update(|w| w.set_active_text(text));
-                        transient_notice.set(None);
-                    }
-                    spellcheck="false"
-                    autocomplete="off"
-                    aria-label="Notepad document editor"
-                />
+                        prop:value=move || current_text.get()
+                        on:input=move |ev| {
+                            let text = event_target_value(&ev);
+                            workspace.update(|w| w.set_active_text(text));
+                            transient_notice.set(None);
+                        }
+                        spellcheck="false"
+                        autocomplete="off"
+                        aria-label="Notepad document editor"
+                    />
+                </div>
             </div>
 
             <div class="app-statusbar">

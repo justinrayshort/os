@@ -3,6 +3,7 @@
 use serde_json::{json, Value};
 use thiserror::Error;
 
+use crate::apps;
 use crate::model::{
     AppId, DeepLinkOpenTarget, DeepLinkState, DesktopSnapshot, DesktopState, InteractionState,
     OpenWindowRequest, PointerPosition, ResizeEdge, ResizeSession, WindowId, WindowRecord,
@@ -16,6 +17,14 @@ const SNAP_EDGE_THRESHOLD: i32 = 24;
 #[derive(Debug, Clone, PartialEq)]
 /// Actions accepted by [`reduce_desktop`] to mutate [`DesktopState`].
 pub enum DesktopAction {
+    /// Activate an application from a launcher surface.
+    ///
+    /// For single-instance apps, this focuses/restores the existing window if present.
+    /// For multi-instance apps (or when no instance exists), this opens a new window.
+    ActivateApp {
+        /// Application to activate.
+        app_id: AppId,
+    },
     /// Open a new window using the supplied request.
     OpenWindow(OpenWindowRequest),
     /// Close a window by id.
@@ -170,6 +179,37 @@ pub fn reduce_desktop(
 ) -> Result<Vec<RuntimeEffect>, ReducerError> {
     let mut effects = Vec::new();
     match action {
+        DesktopAction::ActivateApp { app_id } => {
+            let descriptor = apps::app_descriptor(app_id);
+
+            if descriptor.single_instance {
+                if let Some(window_id) = preferred_window_for_app(state, app_id) {
+                    let nested = if state
+                        .windows
+                        .iter()
+                        .find(|w| w.id == window_id)
+                        .map(|w| w.minimized)
+                        .unwrap_or(false)
+                    {
+                        reduce_desktop(state, interaction, DesktopAction::RestoreWindow { window_id })?
+                    } else if state.focused_window_id() != Some(window_id) {
+                        reduce_desktop(state, interaction, DesktopAction::FocusWindow { window_id })?
+                    } else {
+                        Vec::new()
+                    };
+                    effects.extend(nested);
+                    return Ok(effects);
+                }
+            }
+
+            let nested = reduce_desktop(
+                state,
+                interaction,
+                DesktopAction::OpenWindow(apps::default_open_request(app_id)),
+            )?;
+            effects.extend(nested);
+            return Ok(effects);
+        }
         DesktopAction::OpenWindow(req) => {
             let window_id = next_window_id(state);
             let default_offset = ((window_id.0 as i32) - 1) % 8 * 20;
@@ -258,6 +298,7 @@ pub fn reduce_desktop(
             window.minimized = false;
             focus_window_internal(state, window_id)?;
             effects.push(RuntimeEffect::PersistLayout);
+            effects.push(RuntimeEffect::FocusWindowInput(window_id));
         }
         DesktopAction::ToggleTaskbarWindow { window_id } => {
             let focused = state.focused_window_id() == Some(window_id);
@@ -268,22 +309,23 @@ pub fn reduce_desktop(
                 .map(|w| w.minimized)
                 .ok_or(ReducerError::WindowNotFound)?;
             if minimized {
-                let _ = reduce_desktop(
+                let nested = reduce_desktop(
                     state,
                     interaction,
                     DesktopAction::RestoreWindow { window_id },
                 )?;
-                effects.push(RuntimeEffect::PersistLayout);
+                effects.extend(nested);
             } else if focused {
-                let _ = reduce_desktop(
+                let nested = reduce_desktop(
                     state,
                     interaction,
                     DesktopAction::MinimizeWindow { window_id },
                 )?;
-                effects.push(RuntimeEffect::PersistLayout);
+                effects.extend(nested);
             } else {
-                let _ =
+                let nested =
                     reduce_desktop(state, interaction, DesktopAction::FocusWindow { window_id })?;
+                effects.extend(nested);
             }
         }
         DesktopAction::ToggleStartMenu => {
@@ -429,6 +471,23 @@ fn next_window_id(state: &mut DesktopState) -> WindowId {
     let id = WindowId(state.next_window_id);
     state.next_window_id = state.next_window_id.saturating_add(1);
     id
+}
+
+fn preferred_window_for_app(state: &DesktopState, app_id: AppId) -> Option<WindowId> {
+    state
+        .windows
+        .iter()
+        .rev()
+        .find(|win| win.app_id == app_id && !win.minimized && win.is_focused)
+        .or_else(|| {
+            state
+                .windows
+                .iter()
+                .rev()
+                .find(|win| win.app_id == app_id && !win.minimized)
+        })
+        .or_else(|| state.windows.iter().rev().find(|win| win.app_id == app_id))
+        .map(|win| win.id)
 }
 
 fn find_window_mut(
@@ -651,6 +710,93 @@ mod tests {
         let record = state.windows.iter().find(|w| w.id == win).unwrap();
         assert!(!record.minimized);
         assert!(record.is_focused);
+    }
+
+    #[test]
+    fn taskbar_toggle_restore_preserves_focus_effects() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+
+        let win = open(&mut state, &mut interaction, AppId::Explorer);
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::MinimizeWindow { window_id: win },
+        )
+        .expect("minimize");
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::ToggleTaskbarWindow { window_id: win },
+        )
+        .expect("restore");
+
+        assert!(effects.contains(&RuntimeEffect::FocusWindowInput(win)));
+        assert_eq!(
+            effects
+                .iter()
+                .filter(|effect| matches!(effect, RuntimeEffect::PersistLayout))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn activate_app_reuses_existing_single_instance_window() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+
+        let first = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::ActivateApp {
+                app_id: AppId::Terminal,
+            },
+        )
+        .expect("activate terminal");
+        assert_eq!(state.windows.len(), 1);
+        let win_id = state.windows[0].id;
+        assert!(first.contains(&RuntimeEffect::PersistLayout));
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::ActivateApp {
+                app_id: AppId::Terminal,
+            },
+        )
+        .expect("reactivate terminal");
+
+        assert_eq!(state.windows.len(), 1);
+        assert_eq!(state.windows[0].id, win_id);
+        assert!(effects.is_empty());
+    }
+
+    #[test]
+    fn activate_app_opens_new_window_for_multi_instance_apps() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::ActivateApp {
+                app_id: AppId::Explorer,
+            },
+        )
+        .expect("activate explorer first");
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::ActivateApp {
+                app_id: AppId::Explorer,
+            },
+        )
+        .expect("activate explorer second");
+
+        assert_eq!(state.windows.len(), 2);
+        assert!(state.windows.iter().all(|w| w.app_id == AppId::Explorer));
     }
 
     #[test]

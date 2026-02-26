@@ -52,9 +52,16 @@ impl DesktopHostContext {
         match effect {
             RuntimeEffect::ParseAndOpenDeepLink(deep_link) => {
                 for target in deep_link.open {
-                    runtime.dispatch_action(DesktopAction::OpenWindow(
-                        build_open_request_from_deeplink(target),
-                    ));
+                    match target {
+                        crate::model::DeepLinkOpenTarget::App(app_id) => {
+                            runtime.dispatch_action(DesktopAction::ActivateApp { app_id });
+                        }
+                        target => {
+                            runtime.dispatch_action(DesktopAction::OpenWindow(
+                                build_open_request_from_deeplink(target),
+                            ));
+                        }
+                    }
                 }
             }
             RuntimeEffect::PersistLayout => {

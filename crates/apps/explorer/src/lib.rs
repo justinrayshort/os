@@ -112,6 +112,18 @@ fn entry_name(path: &str) -> String {
     }
 }
 
+fn explorer_row_dom_id(path: &str) -> String {
+    let mut id = String::from("explorer-row-");
+    for ch in path.chars() {
+        if ch.is_ascii_alphanumeric() {
+            id.push(ch.to_ascii_lowercase());
+        } else {
+            id.push('-');
+        }
+    }
+    id
+}
+
 fn restore_explorer_state(envelope: AppStateEnvelope) -> Option<ExplorerPersistedState> {
     match envelope.schema_version {
         EXPLORER_STATE_SCHEMA_VERSION => serde_json::from_value(envelope.payload).ok(),
@@ -511,6 +523,68 @@ pub fn ExplorerApp(
             .filter(|entry| show_hidden || !entry.name.starts_with('.'))
             .collect::<Vec<_>>()
     });
+    let on_list_grid_keydown = move |ev: ev::KeyboardEvent| {
+        let rows = visible_entries.get_untracked();
+        if rows.is_empty() {
+            return;
+        }
+
+        let selected = selected_path.get_untracked();
+        let current_index = selected
+            .as_deref()
+            .and_then(|path| rows.iter().position(|entry| entry.path == path));
+        let last_index = rows.len().saturating_sub(1);
+        let key = ev.key();
+
+        match key.as_str() {
+            "ArrowDown" => {
+                ev.prevent_default();
+                let next = current_index.map(|idx| (idx + 1).min(last_index)).unwrap_or(0);
+                let entry = rows[next].clone();
+                signals.selected_path.set(Some(entry.path.clone()));
+                inspect_path(signals, entry.path);
+            }
+            "ArrowUp" => {
+                ev.prevent_default();
+                let next = current_index
+                    .map(|idx| idx.saturating_sub(1))
+                    .unwrap_or(last_index);
+                let entry = rows[next].clone();
+                signals.selected_path.set(Some(entry.path.clone()));
+                inspect_path(signals, entry.path);
+            }
+            "Home" => {
+                ev.prevent_default();
+                let entry = rows[0].clone();
+                signals.selected_path.set(Some(entry.path.clone()));
+                inspect_path(signals, entry.path);
+            }
+            "End" => {
+                ev.prevent_default();
+                let entry = rows[last_index].clone();
+                signals.selected_path.set(Some(entry.path.clone()));
+                inspect_path(signals, entry.path);
+            }
+            " " | "Spacebar" => {
+                ev.prevent_default();
+                let index = current_index.unwrap_or(0);
+                let entry = rows[index].clone();
+                signals.selected_path.set(Some(entry.path.clone()));
+                inspect_path(signals, entry.path);
+            }
+            "Enter" => {
+                ev.prevent_default();
+                let index = current_index.unwrap_or(0);
+                let entry = rows[index].clone();
+                signals.selected_path.set(Some(entry.path.clone()));
+                match entry.kind {
+                    ExplorerEntryKind::Directory => refresh_directory(signals, Some(entry.path)),
+                    ExplorerEntryKind::File => open_file(signals, entry.path),
+                }
+            }
+            _ => {}
+        }
+    };
 
     view! {
         <div class="app-shell app-explorer-shell">
@@ -656,7 +730,16 @@ pub fn ExplorerApp(
                     </div>
 
                     <div class="explorer-listwrap">
-                        <table class="explorer-list" role="grid" aria-label="Explorer list view">
+                        <table
+                            class="explorer-list"
+                            role="grid"
+                            aria-label="Explorer list view"
+                            tabindex="0"
+                            aria-activedescendant=move || {
+                                selected_path.get().map(|path| explorer_row_dom_id(&path)).unwrap_or_default()
+                            }
+                            on:keydown=on_list_grid_keydown
+                        >
                             <thead>
                                 <tr>
                                     <th>"Name"</th>
@@ -673,7 +756,9 @@ pub fn ExplorerApp(
                                         let row_selected = selected_path.get() == Some(entry.path.clone());
                                         view! {
                                             <tr
+                                                id=explorer_row_dom_id(&entry.path)
                                                 class=if row_selected { "selected" } else { "" }
+                                                aria-selected=row_selected
                                                 on:mousedown=move |_| {
                                                     signals.selected_path.set(Some(entry_for_select.path.clone()));
                                                     inspect_path(signals, entry_for_select.path.clone());

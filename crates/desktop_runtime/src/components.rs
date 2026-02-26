@@ -1,8 +1,27 @@
 //! Leptos provider, context, and desktop shell UI composition.
 
+mod a11y;
+mod display_properties;
+mod menus;
+mod taskbar;
+mod taskbar_input;
+mod window;
+
 use std::time::Duration;
 
 use leptos::*;
+
+use self::{
+    a11y::{
+        active_html_element, focus_element_by_id, focus_first_menu_item, focus_html_element,
+        handle_menu_roving_keydown, trap_tab_focus,
+    },
+    display_properties::DisplayPropertiesDialog,
+    menus::DesktopContextMenu,
+    taskbar::Taskbar,
+    taskbar_input::{is_activation_key, is_context_menu_shortcut, try_handle_taskbar_shortcuts},
+    window::DesktopWindow,
+};
 
 use crate::{
     apps,
@@ -99,6 +118,14 @@ fn wallpaper_preset_by_id(id: &str) -> WallpaperPreset {
         .unwrap_or_else(|| desktop_wallpaper_presets()[0])
 }
 
+fn wallpaper_option_dom_id(id: &str) -> String {
+    format!("wallpaper-option-{id}")
+}
+
+fn taskbar_window_button_dom_id(window_id: WindowId) -> String {
+    format!("taskbar-window-button-{}", window_id.0)
+}
+
 #[derive(Clone, Copy)]
 /// Leptos context for reading desktop runtime state and dispatching [`DesktopAction`] values.
 pub struct DesktopRuntimeContext {
@@ -112,6 +139,11 @@ pub struct DesktopRuntimeContext {
     pub effects: RwSignal<Vec<RuntimeEffect>>,
     /// Reducer dispatch callback.
     pub dispatch: Callback<DesktopAction>,
+}
+
+#[derive(Clone, Copy)]
+struct DesktopShellUiContext {
+    display_properties_open: RwSignal<bool>,
 }
 
 impl DesktopRuntimeContext {
@@ -178,6 +210,7 @@ pub fn DesktopShell() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
     let desktop_context_menu = create_rw_signal(None::<DesktopContextMenuState>);
+    let desktop_context_menu_was_open = create_rw_signal(false);
     let display_properties_open = create_rw_signal(false);
     let wallpaper_selection = create_rw_signal(
         wallpaper_preset_by_id(&state.get_untracked().theme.wallpaper_id)
@@ -185,12 +218,66 @@ pub fn DesktopShell() -> impl IntoView {
             .to_string(),
     );
     let display_properties_original_wallpaper = create_rw_signal(None::<String>);
+    let display_properties_last_focused = create_rw_signal(None::<web_sys::HtmlElement>);
+    let display_properties_was_open = create_rw_signal(false);
+    provide_context(DesktopShellUiContext {
+        display_properties_open,
+    });
 
     create_effect(move |_| {
         let active_wallpaper = wallpaper_preset_by_id(&state.get().theme.wallpaper_id);
         if !display_properties_open.get() {
             wallpaper_selection.set(active_wallpaper.id.to_string());
         }
+    });
+
+    create_effect(move |_| {
+        let is_open = desktop_context_menu.get().is_some();
+        let was_open = desktop_context_menu_was_open.get_untracked();
+        if is_open && !was_open {
+            desktop_context_menu_was_open.set(true);
+            let _ = focus_first_menu_item("desktop-context-menu");
+        } else if !is_open && was_open {
+            desktop_context_menu_was_open.set(false);
+        }
+    });
+
+    create_effect(move |_| {
+        let is_open = display_properties_open.get();
+        let was_open = display_properties_was_open.get_untracked();
+        if is_open && !was_open {
+            display_properties_last_focused.set(active_html_element());
+            display_properties_was_open.set(true);
+            if !focus_element_by_id("wallpaper-listbox") {
+                let _ = focus_element_by_id("display-properties-close-button");
+            }
+            return;
+        }
+
+        if !is_open && was_open {
+            display_properties_was_open.set(false);
+            if let Some(element) = display_properties_last_focused.get_untracked() {
+                focus_html_element(&element);
+            } else {
+                let _ = focus_element_by_id("desktop-shell-root");
+            }
+            display_properties_last_focused.set(None);
+        }
+    });
+
+    let close_display_properties_cancel = Callback::new(move |_| {
+        if let Some(original) = display_properties_original_wallpaper.get_untracked() {
+            let current = wallpaper_preset_by_id(&runtime.state.get_untracked().theme.wallpaper_id);
+            if current.id != original {
+                runtime.dispatch_action(DesktopAction::SetWallpaper {
+                    wallpaper_id: original.clone(),
+                });
+            }
+            wallpaper_selection.set(original);
+        }
+
+        display_properties_original_wallpaper.set(None);
+        display_properties_open.set(false);
     });
 
     let escape_listener = window_event_listener(ev::keydown, move |ev| {
@@ -202,32 +289,20 @@ pub fn DesktopShell() -> impl IntoView {
             ev.prevent_default();
             ev.stop_propagation();
             desktop_context_menu.set(None);
+            let _ = focus_element_by_id("desktop-shell-root");
             return;
         }
 
         if display_properties_open.get_untracked() {
             ev.prevent_default();
             ev.stop_propagation();
-
-            if let Some(original) = display_properties_original_wallpaper.get_untracked() {
-                let current =
-                    wallpaper_preset_by_id(&runtime.state.get_untracked().theme.wallpaper_id);
-                if current.id != original {
-                    runtime.dispatch_action(DesktopAction::SetWallpaper {
-                        wallpaper_id: original.clone(),
-                    });
-                }
-                wallpaper_selection.set(original);
-            }
-
-            display_properties_original_wallpaper.set(None);
-            display_properties_open.set(false);
+            close_display_properties_cancel.call(());
         }
     });
     on_cleanup(move || escape_listener.remove());
 
-    let on_pointer_move = move |ev: web_sys::MouseEvent| {
-        let pointer = pointer_from_mouse_event(&ev);
+    let on_pointer_move = move |ev: web_sys::PointerEvent| {
+        let pointer = pointer_from_pointer_event(&ev);
         let interaction = runtime.interaction.get_untracked();
 
         if interaction.dragging.is_some() {
@@ -276,6 +351,36 @@ pub fn DesktopShell() -> impl IntoView {
         });
         display_properties_original_wallpaper.set(Some(selected.id.to_string()));
     });
+    let on_wallpaper_listbox_keydown = Callback::new(move |ev: web_sys::KeyboardEvent| {
+        let presets = desktop_wallpaper_presets();
+        if presets.is_empty() {
+            return;
+        }
+
+        let selected_id = wallpaper_selection.get_untracked();
+        let current_index = presets
+            .iter()
+            .position(|preset| preset.id == selected_id)
+            .unwrap_or(0);
+        let last_index = presets.len().saturating_sub(1);
+        let next_index = match ev.key().as_str() {
+            "ArrowUp" => Some(current_index.saturating_sub(1)),
+            "ArrowDown" => Some((current_index + 1).min(last_index)),
+            "Home" => Some(0),
+            "End" => Some(last_index),
+            "Enter" | " " | "Spacebar" => {
+                ev.prevent_default();
+                preview_selected_wallpaper.call(());
+                None
+            }
+            _ => None,
+        };
+
+        if let Some(index) = next_index {
+            ev.prevent_default();
+            wallpaper_selection.set(presets[index].id.to_string());
+        }
+    });
 
     let close_display_properties_ok = Callback::new(move |_| {
         let selected = wallpaper_preset_by_id(&wallpaper_selection.get_untracked());
@@ -286,24 +391,11 @@ pub fn DesktopShell() -> impl IntoView {
         display_properties_open.set(false);
     });
 
-    let close_display_properties_cancel = Callback::new(move |_| {
-        if let Some(original) = display_properties_original_wallpaper.get_untracked() {
-            let current = wallpaper_preset_by_id(&runtime.state.get_untracked().theme.wallpaper_id);
-            if current.id != original {
-                runtime.dispatch_action(DesktopAction::SetWallpaper {
-                    wallpaper_id: original.clone(),
-                });
-            }
-            wallpaper_selection.set(original);
-        }
-
-        display_properties_original_wallpaper.set(None);
-        display_properties_open.set(false);
-    });
-
     view! {
         <div
+            id="desktop-shell-root"
             class="desktop-shell"
+            tabindex="-1"
             data-theme=move || state.get().theme.name
             data-high-contrast=move || state.get().theme.high_contrast.to_string()
             data-reduced-motion=move || state.get().theme.reduced_motion.to_string()
@@ -312,9 +404,9 @@ pub fn DesktopShell() -> impl IntoView {
                     desktop_context_menu.set(None);
                 }
             }
-            on:mousemove=on_pointer_move
-            on:mouseup=on_pointer_end
-            on:mouseleave=on_pointer_end
+            on:pointermove=on_pointer_move
+            on:pointerup=on_pointer_end
+            on:pointercancel=on_pointer_end
         >
             <div
                 class="desktop-wallpaper"
@@ -345,9 +437,9 @@ pub fn DesktopShell() -> impl IntoView {
                             class="desktop-icon"
                             data-app=app.app_id.icon_id()
                             on:click=move |_| {
-                                runtime.dispatch_action(DesktopAction::OpenWindow(
-                                    apps::default_open_request(app.app_id),
-                                ));
+                                runtime.dispatch_action(DesktopAction::ActivateApp {
+                                    app_id: app.app_id,
+                                });
                             }
                         >
                             <span class="icon" data-app=app.app_id.icon_id()>
@@ -368,493 +460,27 @@ pub fn DesktopShell() -> impl IntoView {
                     </For>
                 </div>
 
-                <Show when=move || desktop_context_menu.get().is_some() fallback=|| ()>
-                    {move || {
-                        let Some(menu) = desktop_context_menu.get() else {
-                            return ().into_view();
-                        };
-                        let active = wallpaper_preset_by_id(&state.get().theme.wallpaper_id);
-                        let menu_style = format!("left:{}px;top:{}px;", menu.x, menu.y);
+                <DesktopContextMenu
+                    state
+                    runtime
+                    desktop_context_menu
+                    wallpaper_selection
+                    open_display_properties
+                />
 
-                        view! {
-                            <div
-                                class="taskbar-menu desktop-context-menu"
-                                role="menu"
-                                aria-label="Desktop context menu"
-                                style=menu_style
-                                on:click=move |ev| ev.stop_propagation()
-                            >
-                                <button
-                                    role="menuitem"
-                                    class="taskbar-menu-item"
-                                    on:click:undelegated=move |ev| {
-                                        stop_mouse_event(&ev);
-                                        desktop_context_menu.set(None);
-                                    }
-                                >
-                                    "Refresh"
-                                </button>
-                                <button
-                                    role="menuitem"
-                                    class="taskbar-menu-item"
-                                    on:click:undelegated=move |ev| {
-                                        stop_mouse_event(&ev);
-                                        open_display_properties.call(());
-                                    }
-                                >
-                                    "Properties..."
-                                </button>
-
-                                <div class="desktop-menu-separator" role="separator" aria-hidden="true"></div>
-                                <div class="desktop-context-group-label">
-                                    "Quick Backgrounds"
-                                </div>
-
-                                <For
-                                    each=move || desktop_wallpaper_presets().to_vec()
-                                    key=|preset| preset.id
-                                    let:preset
-                                >
-                                    <button
-                                        role="menuitemradio"
-                                        aria-checked=move || active.id == preset.id
-                                        class=move || {
-                                            if active.id == preset.id {
-                                                "taskbar-menu-item desktop-context-wallpaper-item active"
-                                            } else {
-                                                "taskbar-menu-item desktop-context-wallpaper-item"
-                                            }
-                                        }
-                                        on:click:undelegated=move |ev| {
-                                            stop_mouse_event(&ev);
-                                            desktop_context_menu.set(None);
-                                            wallpaper_selection.set(preset.id.to_string());
-                                            runtime.dispatch_action(DesktopAction::SetWallpaper {
-                                                wallpaper_id: preset.id.to_string(),
-                                            });
-                                        }
-                                    >
-                                        <span class="desktop-context-wallpaper-check" aria-hidden="true">
-                                            {if active.id == preset.id {
-                                                view! { <FluentIcon icon=IconName::Checkmark size=IconSize::Xs /> }.into_view()
-                                            } else {
-                                                ().into_view()
-                                            }}
-                                        </span>
-                                        <span class="desktop-context-wallpaper-text">
-                                            <span class="desktop-context-wallpaper-label">{preset.label}</span>
-                                            <span class="desktop-context-wallpaper-meta">
-                                                {wallpaper_preset_kind_label(preset.kind)}
-                                            </span>
-                                        </span>
-                                    </button>
-                                </For>
-                            </div>
-                        }
-                            .into_view()
-                    }}
-                </Show>
-
-                <Show when=move || display_properties_open.get() fallback=|| ()>
-                    <div
-                        class="display-properties-overlay"
-                        on:mousedown=move |ev| ev.stop_propagation()
-                        on:click=move |ev| ev.stop_propagation()
-                    >
-                        <section
-                            class="display-properties-dialog"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-labelledby="display-properties-title"
-                            on:mousedown=move |ev| ev.stop_propagation()
-                            on:click=move |ev| ev.stop_propagation()
-                        >
-                            <header class="display-properties-titlebar">
-                                <div id="display-properties-title" class="display-properties-title">
-                                    "Display Properties"
-                                </div>
-                                <button
-                                    class="display-properties-close"
-                                    aria-label="Close display properties"
-                                    on:click:undelegated=move |_| close_display_properties_cancel.call(())
-                                >
-                                    <FluentIcon icon=IconName::Dismiss size=IconSize::Sm />
-                                </button>
-                            </header>
-
-                            <div class="display-properties-body">
-                                <div class="display-properties-tabs" role="tablist" aria-label="Display settings">
-                                    <button class="display-properties-tab active" role="tab" aria-selected="true">
-                                        "Background"
-                                    </button>
-                                    <button
-                                        class="display-properties-tab"
-                                        role="tab"
-                                        aria-selected="false"
-                                        disabled=true
-                                    >
-                                        "Appearance"
-                                    </button>
-                                    <button
-                                        class="display-properties-tab"
-                                        role="tab"
-                                        aria-selected="false"
-                                        disabled=true
-                                    >
-                                        "Effects"
-                                    </button>
-                                </div>
-
-                                <div class="display-properties-content">
-                                    <div class="display-preview-column">
-                                        <div class="display-preview-frame" aria-hidden="true">
-                                            <div class="display-preview-monitor">
-                                                <div
-                                                    class="display-preview-screen"
-                                                    data-wallpaper=move || {
-                                                        wallpaper_preset_by_id(&wallpaper_selection.get()).id
-                                                    }
-                                                >
-                                                    <div class="display-preview-desktop-icon">
-                                                        "My Computer"
-                                                    </div>
-                                                </div>
-                                                <div class="display-preview-taskbar">
-                                                    <span class="display-preview-start">"Start"</span>
-                                                    <span class="display-preview-clock">"9:41 AM"</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="display-preview-caption">
-                                            {move || {
-                                                let preset = wallpaper_preset_by_id(&wallpaper_selection.get());
-                                                format!("{} ({})", preset.label, wallpaper_preset_kind_label(preset.kind))
-                                            }}
-                                        </div>
-                                        <div class="display-preview-note">
-                                            {move || wallpaper_preset_by_id(&wallpaper_selection.get()).note}
-                                        </div>
-                                    </div>
-
-                                    <div class="display-options-column">
-                                        <label class="display-list-label" for="wallpaper-listbox">
-                                            "Wallpaper"
-                                        </label>
-                                        <div
-                                            id="wallpaper-listbox"
-                                            class="wallpaper-picker-list"
-                                            role="listbox"
-                                            aria-label="Wallpaper choices"
-                                        >
-                                            <For
-                                                each=move || desktop_wallpaper_presets().to_vec()
-                                                key=|preset| preset.id
-                                                let:preset
-                                            >
-                                                <button
-                                                    class=move || {
-                                                        if wallpaper_preset_by_id(&wallpaper_selection.get()).id == preset.id {
-                                                            "wallpaper-picker-item selected"
-                                                        } else {
-                                                            "wallpaper-picker-item"
-                                                        }
-                                                    }
-                                                    role="option"
-                                                    aria-selected=move || {
-                                                        wallpaper_preset_by_id(&wallpaper_selection.get()).id == preset.id
-                                                    }
-                                                    on:click:undelegated=move |_| {
-                                                        wallpaper_selection.set(preset.id.to_string());
-                                                    }
-                                                    on:dblclick:undelegated=move |_| {
-                                                        wallpaper_selection.set(preset.id.to_string());
-                                                        preview_selected_wallpaper.call(());
-                                                    }
-                                                >
-                                                    <span
-                                                        class="wallpaper-preview-thumb"
-                                                        data-wallpaper=preset.id
-                                                        aria-hidden="true"
-                                                    />
-                                                    <span class="wallpaper-picker-item-copy">
-                                                        <span class="wallpaper-picker-item-label">
-                                                            {preset.label}
-                                                        </span>
-                                                        <span class="wallpaper-picker-item-meta">
-                                                            {wallpaper_preset_kind_label(preset.kind)}
-                                                        </span>
-                                                    </span>
-                                                </button>
-                                            </For>
-                                        </div>
-
-                                        <div class="display-properties-actions-row">
-                                            <button
-                                                class="display-action-button"
-                                                on:click:undelegated=move |_| preview_selected_wallpaper.call(())
-                                            >
-                                                "Preview"
-                                            </button>
-                                            <button
-                                                class="display-action-button"
-                                                on:click:undelegated=move |_| apply_selected_wallpaper.call(())
-                                            >
-                                                "Apply"
-                                            </button>
-                                        </div>
-
-                                        <div class="display-properties-current">
-                                            {move || {
-                                                let current = wallpaper_preset_by_id(&state.get().theme.wallpaper_id);
-                                                format!("Current desktop: {}", current.label)
-                                            }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <footer class="display-properties-footer">
-                                <button
-                                    class="display-footer-button"
-                                    on:click:undelegated=move |_| close_display_properties_ok.call(())
-                                >
-                                    "OK"
-                                </button>
-                                <button
-                                    class="display-footer-button"
-                                    on:click:undelegated=move |_| close_display_properties_cancel.call(())
-                                >
-                                    "Cancel"
-                                </button>
-                            </footer>
-                        </section>
-                    </div>
-                </Show>
+                <DisplayPropertiesDialog
+                    state
+                    display_properties_open
+                    wallpaper_selection
+                    on_wallpaper_listbox_keydown
+                    preview_selected_wallpaper
+                    apply_selected_wallpaper
+                    close_display_properties_ok
+                    close_display_properties_cancel
+                />
             </div>
 
             <Taskbar />
-        </div>
-    }
-}
-
-#[component]
-fn DesktopWindow(window_id: WindowId) -> impl IntoView {
-    let runtime = use_desktop_runtime();
-
-    let window = Signal::derive(move || {
-        runtime
-            .state
-            .get()
-            .windows
-            .into_iter()
-            .find(|w| w.id == window_id)
-    });
-
-    let focus = move |_| {
-        let should_focus = window
-            .get()
-            .map(|w| !w.is_focused || w.minimized)
-            .unwrap_or(false);
-        if should_focus {
-            runtime.dispatch_action(DesktopAction::FocusWindow { window_id });
-        }
-    };
-    let minimize = move |_| runtime.dispatch_action(DesktopAction::MinimizeWindow { window_id });
-    let close = move |_| runtime.dispatch_action(DesktopAction::CloseWindow { window_id });
-    let toggle_maximize = move |_| {
-        if let Some(win) = window.get() {
-            if win.maximized {
-                runtime.dispatch_action(DesktopAction::RestoreWindow { window_id });
-            } else if win.flags.maximizable {
-                runtime.dispatch_action(DesktopAction::MaximizeWindow {
-                    window_id,
-                    viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
-                });
-            }
-        }
-    };
-    let begin_move = move |ev: web_sys::MouseEvent| {
-        if ev.button() != 0 {
-            return;
-        }
-        ev.prevent_default();
-        ev.stop_propagation();
-        runtime.dispatch_action(DesktopAction::BeginMove {
-            window_id,
-            pointer: pointer_from_mouse_event(&ev),
-        });
-    };
-    let titlebar_double_click = move |ev: web_sys::MouseEvent| {
-        ev.prevent_default();
-        ev.stop_propagation();
-        if let Some(win) = window.get() {
-            if win.flags.maximizable {
-                if win.maximized {
-                    runtime.dispatch_action(DesktopAction::RestoreWindow { window_id });
-                } else {
-                    runtime.dispatch_action(DesktopAction::MaximizeWindow {
-                        window_id,
-                        viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
-                    });
-                }
-            }
-        }
-    };
-
-    view! {
-        <Show when=move || window.get().is_some() fallback=|| ()>
-            {move || {
-                let win = window.get().expect("window exists while shown");
-                let style = format!(
-                    "left:{}px;top:{}px;width:{}px;height:{}px;z-index:{};",
-                    win.rect.x, win.rect.y, win.rect.w, win.rect.h, win.z_index
-                );
-                let focused_class = if win.is_focused { " focused" } else { "" };
-                let minimized_class = if win.minimized { " minimized" } else { "" };
-                let maximized_class = if win.maximized { " maximized" } else { "" };
-
-                view! {
-                    <section
-                        class=format!(
-                            "desktop-window{}{}{}",
-                            focused_class,
-                            minimized_class,
-                            maximized_class
-                        )
-                        style=style
-                        on:mousedown=focus
-                        role="dialog"
-                        aria-label=win.title.clone()
-                    >
-                        <header
-                            class="titlebar"
-                            on:mousedown=begin_move
-                            on:dblclick=titlebar_double_click
-                        >
-                            <div class="titlebar-title">
-                                <span class="titlebar-app-icon" aria-hidden="true">
-                                    <FluentIcon icon=app_icon_name(win.app_id) size=IconSize::Sm />
-                                </span>
-                                <span>{win.title.clone()}</span>
-                            </div>
-                            <div class="titlebar-controls">
-                                <button
-                                    disabled=!win.flags.minimizable
-                                    aria-label="Minimize window"
-                                    on:mousedown=move |ev| stop_mouse_event(&ev)
-                                    on:click=move |ev| {
-                                        stop_mouse_event(&ev);
-                                        minimize(ev);
-                                    }
-                                >
-                                    <FluentIcon icon=IconName::WindowMinimize size=IconSize::Xs />
-                                </button>
-                                <button
-                                    disabled=!win.flags.maximizable
-                                    aria-label=if win.maximized {
-                                        "Restore window"
-                                    } else {
-                                        "Maximize window"
-                                    }
-                                    on:mousedown=move |ev| stop_mouse_event(&ev)
-                                    on:click=move |ev| {
-                                        stop_mouse_event(&ev);
-                                        toggle_maximize(ev);
-                                    }
-                                >
-                                    <FluentIcon
-                                        icon=if win.maximized {
-                                            IconName::WindowRestore
-                                        } else {
-                                            IconName::WindowMaximize
-                                        }
-                                        size=IconSize::Xs
-                                    />
-                                </button>
-                                <button
-                                    aria-label="Close window"
-                                    on:mousedown=move |ev| stop_mouse_event(&ev)
-                                    on:click=move |ev| {
-                                        stop_mouse_event(&ev);
-                                        close(ev);
-                                    }
-                                >
-                                    <FluentIcon icon=IconName::Dismiss size=IconSize::Xs />
-                                </button>
-                            </div>
-                        </header>
-                        <div class="window-body">
-                            <WindowBody window_id=window_id />
-                        </div>
-                        <Show
-                            when=move || {
-                                window
-                                    .get()
-                                    .map(|w| w.flags.resizable && !w.maximized)
-                                    .unwrap_or(false)
-                            }
-                            fallback=|| ()
-                        >
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::North />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::South />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::East />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::West />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::NorthEast />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::NorthWest />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::SouthEast />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::SouthWest />
-                        </Show>
-                    </section>
-                }
-                    .into_view()
-            }}
-        </Show>
-    }
-}
-
-#[component]
-fn WindowResizeHandle(window_id: WindowId, edge: ResizeEdge) -> impl IntoView {
-    let runtime = use_desktop_runtime();
-    let class_name = format!("window-resize-handle {}", resize_edge_class(edge));
-
-    let on_mousedown = move |ev: web_sys::MouseEvent| {
-        if ev.button() != 0 {
-            return;
-        }
-        ev.prevent_default();
-        ev.stop_propagation();
-        runtime.dispatch_action(DesktopAction::BeginResize {
-            window_id,
-            edge,
-            pointer: pointer_from_mouse_event(&ev),
-        });
-    };
-
-    view! {
-        <div
-            class=class_name
-            aria-hidden="true"
-            on:mousedown=on_mousedown
-        />
-    }
-}
-
-#[component]
-fn WindowBody(window_id: WindowId) -> impl IntoView {
-    let runtime = use_desktop_runtime();
-    let state = runtime.state;
-    let contents = state
-        .get_untracked()
-        .windows
-        .into_iter()
-        .find(|w| w.id == window_id)
-        .map(|w| apps::render_window_contents(&w))
-        .unwrap_or_else(|| view! { <p>"Closed"</p> }.into_view());
-
-    view! {
-        <div class="window-body-content">
-            {contents}
         </div>
     }
 }
@@ -1134,9 +760,7 @@ fn activate_pinned_taskbar_app(runtime: DesktopRuntimeContext, app_id: AppId) {
         }
     }
 
-    runtime.dispatch_action(DesktopAction::OpenWindow(apps::default_open_request(
-        app_id,
-    )));
+    runtime.dispatch_action(DesktopAction::ActivateApp { app_id });
 }
 
 fn activate_taskbar_shortcut_target(runtime: DesktopRuntimeContext, target: TaskbarShortcutTarget) {
@@ -1230,29 +854,6 @@ fn clamp_taskbar_popup_position(
     let max_x = (viewport.w - popup_w - 6).max(6);
     let max_y = (viewport.h + TASKBAR_HEIGHT_PX - popup_h - 6).max(6);
     (x.clamp(6, max_x), y.clamp(6, max_y))
-}
-
-fn shortcut_digit_index(ev: &web_sys::KeyboardEvent) -> Option<usize> {
-    match ev.key().as_str() {
-        "1" => Some(0),
-        "2" => Some(1),
-        "3" => Some(2),
-        "4" => Some(3),
-        "5" => Some(4),
-        "6" => Some(5),
-        "7" => Some(6),
-        "8" => Some(7),
-        "9" => Some(8),
-        _ => None,
-    }
-}
-
-fn is_context_menu_shortcut(ev: &web_sys::KeyboardEvent) -> bool {
-    ev.key() == "ContextMenu" || (ev.shift_key() && ev.key() == "F10")
-}
-
-fn is_activation_key(ev: &web_sys::KeyboardEvent) -> bool {
-    matches!(ev.key().as_str(), "Enter" | " " | "Spacebar")
 }
 
 fn build_taskbar_tray_widgets(state: &DesktopState) -> Vec<TaskbarTrayWidget> {
@@ -1357,767 +958,12 @@ fn format_taskbar_clock_aria(snapshot: TaskbarClockSnapshot, config: TaskbarCloc
     }
 }
 
-#[component]
-fn Taskbar() -> impl IntoView {
-    let runtime = use_desktop_runtime();
-    let state = runtime.state;
-
-    let viewport_width = create_rw_signal(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX).w);
-    let clock_config = create_rw_signal(TaskbarClockConfig::default());
-    let clock_now = create_rw_signal(TaskbarClockSnapshot::now());
-    let selected_running_window = create_rw_signal(None::<WindowId>);
-    let window_context_menu = create_rw_signal(None::<TaskbarWindowContextMenuState>);
-    let overflow_menu_open = create_rw_signal(false);
-    let clock_menu_open = create_rw_signal(false);
-
-    let resize_listener = window_event_listener(ev::resize, move |_| {
-        viewport_width.set(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX).w);
-    });
-    on_cleanup(move || resize_listener.remove());
-
-    if let Ok(interval) = set_interval_with_handle(
-        move || clock_now.set(TaskbarClockSnapshot::now()),
-        Duration::from_secs(1),
-    ) {
-        on_cleanup(move || interval.clear());
-    }
-
-    let outside_click_listener = window_event_listener(ev::mousedown, move |_| {
-        let had_window_menu = window_context_menu.get_untracked().is_some();
-        let had_overflow_menu = overflow_menu_open.get_untracked();
-        let had_clock_menu = clock_menu_open.get_untracked();
-        let had_start_menu = runtime.state.get_untracked().start_menu_open;
-
-        window_context_menu.set(None);
-        overflow_menu_open.set(false);
-        clock_menu_open.set(false);
-
-        // Avoid dispatching on every click. A redundant desktop-state update remounts app views,
-        // which resets app-local UI state (e.g., calculator input/history signal state).
-        if had_start_menu || had_window_menu || had_overflow_menu || had_clock_menu {
-            runtime.dispatch_action(DesktopAction::CloseStartMenu);
-        }
-    });
-    on_cleanup(move || outside_click_listener.remove());
-
-    let global_shortcut_listener = window_event_listener(ev::keydown, move |ev| {
-        if ev.default_prevented() {
-            return;
-        }
-
-        if ev.ctrl_key() && !ev.alt_key() && !ev.meta_key() && ev.key() == "Escape" {
-            ev.prevent_default();
-            ev.stop_propagation();
-            window_context_menu.set(None);
-            overflow_menu_open.set(false);
-            clock_menu_open.set(false);
-            runtime.dispatch_action(DesktopAction::ToggleStartMenu);
-            return;
-        }
-
-        if ev.alt_key() && !ev.ctrl_key() && !ev.meta_key() {
-            if let Some(index) = shortcut_digit_index(&ev) {
-                let desktop = runtime.state.get_untracked();
-                if let Some(target) = build_taskbar_shortcut_targets(&desktop)
-                    .into_iter()
-                    .nth(index)
-                {
-                    ev.prevent_default();
-                    ev.stop_propagation();
-                    window_context_menu.set(None);
-                    overflow_menu_open.set(false);
-                    clock_menu_open.set(false);
-                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                    activate_taskbar_shortcut_target(runtime, target);
-                }
-                return;
-            }
-        }
-
-        if ev.key() == "Escape"
-            && (runtime.state.get_untracked().start_menu_open
-                || window_context_menu.get_untracked().is_some()
-                || overflow_menu_open.get_untracked()
-                || clock_menu_open.get_untracked())
-        {
-            ev.prevent_default();
-            ev.stop_propagation();
-            window_context_menu.set(None);
-            overflow_menu_open.set(false);
-            clock_menu_open.set(false);
-            runtime.dispatch_action(DesktopAction::CloseStartMenu);
-        }
-    });
-    on_cleanup(move || global_shortcut_listener.remove());
-
-    create_effect(move |_| {
-        let desktop = state.get();
-        let running = ordered_taskbar_windows(&desktop);
-        let focused = running
-            .iter()
-            .find(|win| win.is_focused && !win.minimized)
-            .map(|win| win.id);
-
-        selected_running_window.update(|selected| {
-            let selected_exists = selected
-                .and_then(|id| running.iter().find(|win| win.id == id))
-                .is_some();
-            if selected_exists {
-                return;
-            }
-            *selected = focused.or_else(|| running.first().map(|win| win.id));
-        });
-
-        window_context_menu.update(|menu| {
-            if let Some(current) = *menu {
-                if running.iter().all(|win| win.id != current.window_id) {
-                    *menu = None;
-                }
-            }
-        });
-    });
-
-    let on_taskbar_keydown = move |ev: web_sys::KeyboardEvent| {
-        if ev.ctrl_key() && !ev.alt_key() && !ev.meta_key() && ev.key() == "Escape" {
-            ev.prevent_default();
-            ev.stop_propagation();
-            window_context_menu.set(None);
-            overflow_menu_open.set(false);
-            clock_menu_open.set(false);
-            runtime.dispatch_action(DesktopAction::ToggleStartMenu);
-            return;
-        }
-
-        if ev.alt_key() && !ev.ctrl_key() && !ev.meta_key() {
-            if let Some(index) = shortcut_digit_index(&ev) {
-                let desktop = runtime.state.get_untracked();
-                if let Some(target) = build_taskbar_shortcut_targets(&desktop)
-                    .into_iter()
-                    .nth(index)
-                {
-                    ev.prevent_default();
-                    ev.stop_propagation();
-                    window_context_menu.set(None);
-                    overflow_menu_open.set(false);
-                    clock_menu_open.set(false);
-                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                    activate_taskbar_shortcut_target(runtime, target);
-                }
-                return;
-            }
-        }
-
-        match ev.key().as_str() {
-            "Escape" => {
-                if runtime.state.get_untracked().start_menu_open
-                    || window_context_menu.get_untracked().is_some()
-                    || overflow_menu_open.get_untracked()
-                    || clock_menu_open.get_untracked()
-                {
-                    ev.prevent_default();
-                    ev.stop_propagation();
-                    window_context_menu.set(None);
-                    overflow_menu_open.set(false);
-                    clock_menu_open.set(false);
-                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                }
-            }
-            "ArrowRight" => {
-                let desktop = runtime.state.get_untracked();
-                let running = ordered_taskbar_windows(&desktop);
-                if let Some(next) = cycle_selected_running_window(
-                    &running,
-                    selected_running_window.get_untracked(),
-                    1,
-                ) {
-                    ev.prevent_default();
-                    selected_running_window.set(Some(next));
-                }
-            }
-            "ArrowLeft" => {
-                let desktop = runtime.state.get_untracked();
-                let running = ordered_taskbar_windows(&desktop);
-                if let Some(next) = cycle_selected_running_window(
-                    &running,
-                    selected_running_window.get_untracked(),
-                    -1,
-                ) {
-                    ev.prevent_default();
-                    selected_running_window.set(Some(next));
-                }
-            }
-            "Home" => {
-                let desktop = runtime.state.get_untracked();
-                let running = ordered_taskbar_windows(&desktop);
-                if let Some(first) = running.first() {
-                    ev.prevent_default();
-                    selected_running_window.set(Some(first.id));
-                }
-            }
-            "End" => {
-                let desktop = runtime.state.get_untracked();
-                let running = ordered_taskbar_windows(&desktop);
-                if let Some(last) = running.last() {
-                    ev.prevent_default();
-                    selected_running_window.set(Some(last.id));
-                }
-            }
-            _ => {
-                if is_activation_key(&ev) {
-                    if let Some(window_id) = selected_running_window.get_untracked() {
-                        ev.prevent_default();
-                        ev.stop_propagation();
-                        window_context_menu.set(None);
-                        overflow_menu_open.set(false);
-                        clock_menu_open.set(false);
-                        runtime.dispatch_action(DesktopAction::ToggleTaskbarWindow { window_id });
-                    }
-                } else if is_context_menu_shortcut(&ev) {
-                    if let Some(window_id) = selected_running_window.get_untracked() {
-                        ev.prevent_default();
-                        ev.stop_propagation();
-                        window_context_menu.set(None);
-                        overflow_menu_open.set(false);
-                        clock_menu_open.set(false);
-                        runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                        let viewport = runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX);
-                        let x = (viewport.w / 2).max(24);
-                        let y = (viewport.h + TASKBAR_HEIGHT_PX - 180).max(24);
-                        open_taskbar_window_context_menu(
-                            runtime.host,
-                            window_context_menu,
-                            window_id,
-                            x,
-                            y,
-                        );
-                    }
-                }
-            }
-        }
-    };
-
-    view! {
-        <footer
-            class="taskbar"
-            role="toolbar"
-            aria-label="Desktop taskbar"
-            aria-keyshortcuts="Ctrl+Escape Alt+1 Alt+2 Alt+3 Alt+4 Alt+5 Alt+6 Alt+7 Alt+8 Alt+9"
-            on:mousedown=move |ev| ev.stop_propagation()
-            on:keydown=on_taskbar_keydown
-        >
-            <div class="taskbar-left">
-                <button
-                    class="start-button"
-                    aria-label="Open application launcher"
-                    aria-haspopup="menu"
-                    aria-controls="desktop-launcher-menu"
-                    aria-expanded=move || state.get().start_menu_open
-                    aria-keyshortcuts="Ctrl+Escape"
-                    on:click=move |_| {
-                        window_context_menu.set(None);
-                        overflow_menu_open.set(false);
-                        clock_menu_open.set(false);
-                        runtime.dispatch_action(DesktopAction::ToggleStartMenu);
-                    }
-                >
-                    <span class="taskbar-glyph" aria-hidden="true">
-                        <FluentIcon icon=IconName::Launcher size=IconSize::Sm />
-                    </span>
-                    <span>"Start"</span>
-                </button>
-
-                <div class="taskbar-pins" role="group" aria-label="Pinned apps">
-                    <For
-                        each=move || pinned_taskbar_apps().to_vec()
-                        key=|app_id| *app_id as u8
-                        let:app_id
-                    >
-                        <button
-                            class=move || {
-                                let desktop = state.get();
-                                taskbar_pinned_button_class(pinned_taskbar_app_state(&desktop, app_id))
-                            }
-                            data-app=app_id.icon_id()
-                            title=move || {
-                                let desktop = state.get();
-                                let status = pinned_taskbar_app_state(&desktop, app_id);
-                                taskbar_pinned_aria_label(app_id, status)
-                            }
-                            aria-label=move || {
-                                let desktop = state.get();
-                                let status = pinned_taskbar_app_state(&desktop, app_id);
-                                taskbar_pinned_aria_label(app_id, status)
-                            }
-                            on:click=move |_| {
-                                window_context_menu.set(None);
-                                overflow_menu_open.set(false);
-                                clock_menu_open.set(false);
-                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                                activate_pinned_taskbar_app(runtime, app_id);
-                            }
-                        >
-                            <span class="taskbar-app-icon" aria-hidden="true">
-                                <FluentIcon icon=app_icon_name(app_id) size=IconSize::Sm />
-                            </span>
-                            <span class="visually-hidden">{app_id.title()}</span>
-                        </button>
-                    </For>
-                </div>
-            </div>
-
-            <div class="taskbar-running-region" role="group" aria-label="Running windows">
-                <div class="taskbar-running-strip">
-                    <For
-                        each=move || {
-                            let desktop = state.get();
-                            let tray_count = build_taskbar_tray_widgets(&desktop).len();
-                            let layout = compute_taskbar_layout(
-                                viewport_width.get(),
-                                pinned_taskbar_apps().len(),
-                                desktop.windows.len(),
-                                tray_count,
-                                clock_config.get().show_date,
-                            );
-                            ordered_taskbar_windows(&desktop)
-                                .into_iter()
-                                .take(layout.visible_running_count)
-                                .collect::<Vec<_>>()
-                        }
-                        key=|win| win.id.0
-                        let:win
-                    >
-                        <button
-                            class=move || {
-                                let desktop = state.get();
-                                let tray_count = build_taskbar_tray_widgets(&desktop).len();
-                                let layout = compute_taskbar_layout(
-                                    viewport_width.get(),
-                                    pinned_taskbar_apps().len(),
-                                    desktop.windows.len(),
-                                    tray_count,
-                                    clock_config.get().show_date,
-                                );
-                                taskbar_window_button_class(
-                                    win.is_focused && !win.minimized,
-                                    win.minimized,
-                                    layout.compact_running_items,
-                                    selected_running_window.get() == Some(win.id),
-                                )
-                            }
-                            data-app=win.app_id.icon_id()
-                            aria-pressed=move || win.is_focused && !win.minimized
-                            aria-label=taskbar_window_aria_label(&win)
-                            title=taskbar_window_aria_label(&win)
-                            on:click=move |_| {
-                                selected_running_window.set(Some(win.id));
-                                window_context_menu.set(None);
-                                overflow_menu_open.set(false);
-                                clock_menu_open.set(false);
-                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                                runtime.dispatch_action(DesktopAction::ToggleTaskbarWindow {
-                                    window_id: win.id,
-                                });
-                            }
-                            on:contextmenu=move |ev| {
-                                ev.prevent_default();
-                                ev.stop_propagation();
-                                selected_running_window.set(Some(win.id));
-                                overflow_menu_open.set(false);
-                                clock_menu_open.set(false);
-                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                                open_taskbar_window_context_menu(
-                                    runtime.host,
-                                    window_context_menu,
-                                    win.id,
-                                    ev.client_x(),
-                                    ev.client_y(),
-                                );
-                            }
-                        >
-                            <span class="taskbar-app-icon" aria-hidden="true">
-                                <FluentIcon icon=app_icon_name(win.app_id) size=IconSize::Sm />
-                            </span>
-                            <span class="taskbar-app-label">{win.title.clone()}</span>
-                        </button>
-                    </For>
-
-                    <Show
-                        when=move || {
-                            let desktop = state.get();
-                            let tray_count = build_taskbar_tray_widgets(&desktop).len();
-                            let layout = compute_taskbar_layout(
-                                viewport_width.get(),
-                                pinned_taskbar_apps().len(),
-                                desktop.windows.len(),
-                                tray_count,
-                                clock_config.get().show_date,
-                            );
-                            desktop.windows.len() > layout.visible_running_count
-                        }
-                        fallback=|| ()
-                    >
-                        <div class="taskbar-overflow-wrap">
-                            <button
-                                class="taskbar-overflow-button"
-                                aria-haspopup="menu"
-                                aria-controls="taskbar-overflow-menu"
-                                aria-expanded=move || overflow_menu_open.get()
-                                on:click=move |_| {
-                                    window_context_menu.set(None);
-                                    clock_menu_open.set(false);
-                                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                                    overflow_menu_open.update(|open| *open = !*open);
-                                }
-                            >
-                                <span class="taskbar-overflow-icon" aria-hidden="true">
-                                    <FluentIcon icon=IconName::ChevronDown size=IconSize::Xs />
-                                </span>
-                                {move || {
-                                    let desktop = state.get();
-                                    let tray_count = build_taskbar_tray_widgets(&desktop).len();
-                                    let layout = compute_taskbar_layout(
-                                        viewport_width.get(),
-                                        pinned_taskbar_apps().len(),
-                                        desktop.windows.len(),
-                                        tray_count,
-                                        clock_config.get().show_date,
-                                    );
-                                    let hidden = desktop.windows.len().saturating_sub(layout.visible_running_count);
-                                    format!("+{hidden}")
-                                }}
-                            </button>
-
-                            <Show when=move || overflow_menu_open.get() fallback=|| ()>
-                                <div
-                                    id="taskbar-overflow-menu"
-                                    class="taskbar-menu taskbar-overflow-menu"
-                                    role="menu"
-                                    aria-label="Hidden taskbar windows"
-                                    on:mousedown=move |ev| ev.stop_propagation()
-                                >
-                                    <For
-                                        each=move || {
-                                            let desktop = state.get();
-                                            let tray_count = build_taskbar_tray_widgets(&desktop).len();
-                                            let layout = compute_taskbar_layout(
-                                                viewport_width.get(),
-                                                pinned_taskbar_apps().len(),
-                                                desktop.windows.len(),
-                                                tray_count,
-                                                clock_config.get().show_date,
-                                            );
-                                            ordered_taskbar_windows(&desktop)
-                                                .into_iter()
-                                                .skip(layout.visible_running_count)
-                                                .collect::<Vec<_>>()
-                                        }
-                                        key=|win| win.id.0
-                                        let:win
-                                    >
-                                        <button
-                                            role="menuitem"
-                                            class=move || {
-                                                if win.minimized {
-                                                    "taskbar-menu-item minimized"
-                                                } else {
-                                                    "taskbar-menu-item"
-                                                }
-                                            }
-                                            on:click=move |_| {
-                                                selected_running_window.set(Some(win.id));
-                                                overflow_menu_open.set(false);
-                                                window_context_menu.set(None);
-                                                clock_menu_open.set(false);
-                                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                                                let desktop = runtime.state.get_untracked();
-                                                focus_or_unminimize_window(runtime, &desktop, win.id);
-                                            }
-                                            on:contextmenu=move |ev| {
-                                                ev.prevent_default();
-                                                ev.stop_propagation();
-                                                selected_running_window.set(Some(win.id));
-                                                overflow_menu_open.set(false);
-                                                clock_menu_open.set(false);
-                                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                                                open_taskbar_window_context_menu(
-                                                    runtime.host,
-                                                    window_context_menu,
-                                                    win.id,
-                                                    ev.client_x(),
-                                                    ev.client_y(),
-                                                );
-                                            }
-                                        >
-                                            <span class="taskbar-app-icon" aria-hidden="true">
-                                                <FluentIcon icon=app_icon_name(win.app_id) size=IconSize::Sm />
-                                            </span>
-                                            <span class="taskbar-menu-item-label">{win.title.clone()}</span>
-                                        </button>
-                                    </For>
-                                </div>
-                            </Show>
-                        </div>
-                    </Show>
-                </div>
-            </div>
-
-            <div class="taskbar-right">
-                <div class="taskbar-tray" role="group" aria-label="System tray">
-                    <For
-                        each=move || build_taskbar_tray_widgets(&state.get())
-                        key=|widget| widget.id
-                        let:widget
-                    >
-                        <button
-                            class=move || {
-                                match widget.pressed {
-                                    Some(true) => "tray-widget pressed",
-                                    Some(false) => "tray-widget",
-                                    None => "tray-widget passive",
-                                }
-                            }
-                            aria-label=format!("{}: {}", widget.label, widget.value)
-                            aria-pressed=widget.pressed.unwrap_or(false)
-                            title=format!("{}: {}", widget.label, widget.value)
-                            on:click=move |_| {
-                                if !matches!(widget.action, TaskbarTrayWidgetAction::None) {
-                                    window_context_menu.set(None);
-                                    overflow_menu_open.set(false);
-                                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                                }
-                                activate_taskbar_tray_widget(runtime, widget.action);
-                            }
-                        >
-                            <span class="tray-widget-glyph" aria-hidden="true">
-                                <FluentIcon icon=widget.icon size=IconSize::Xs />
-                            </span>
-                            <span class="tray-widget-value">{widget.value.clone()}</span>
-                        </button>
-                    </For>
-                </div>
-
-                <div class="taskbar-clock-wrap">
-                    <button
-                        class="taskbar-clock"
-                        aria-label=move || format_taskbar_clock_aria(clock_now.get(), clock_config.get())
-                        aria-haspopup="menu"
-                        aria-controls="taskbar-clock-menu"
-                        aria-expanded=move || clock_menu_open.get()
-                        on:click=move |_| {
-                            window_context_menu.set(None);
-                            overflow_menu_open.set(false);
-                            runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                            clock_menu_open.update(|open| *open = !*open);
-                        }
-                    >
-                        <span class="taskbar-clock-time">
-                            {move || format_taskbar_clock_time(clock_now.get(), clock_config.get())}
-                        </span>
-                        <Show when=move || clock_config.get().show_date fallback=|| ()>
-                            <span class="taskbar-clock-date">
-                                {move || format_taskbar_clock_date(clock_now.get())}
-                            </span>
-                        </Show>
-                    </button>
-
-                    <Show when=move || clock_menu_open.get() fallback=|| ()>
-                        <div
-                            id="taskbar-clock-menu"
-                            class="taskbar-menu taskbar-clock-menu"
-                            role="menu"
-                            aria-label="Clock settings"
-                            on:mousedown=move |ev| ev.stop_propagation()
-                        >
-                            <button
-                                role="menuitemcheckbox"
-                                aria-checked=move || clock_config.get().use_24_hour
-                                class="taskbar-menu-item"
-                                on:click=move |_| {
-                                    clock_config.update(|cfg| cfg.use_24_hour = !cfg.use_24_hour);
-                                }
-                            >
-                                "24-hour time"
-                            </button>
-                            <button
-                                role="menuitemcheckbox"
-                                aria-checked=move || clock_config.get().show_date
-                                class="taskbar-menu-item"
-                                on:click=move |_| {
-                                    clock_config.update(|cfg| cfg.show_date = !cfg.show_date);
-                                }
-                            >
-                                "Show date"
-                            </button>
-                            <button
-                                role="menuitem"
-                                class="taskbar-menu-item"
-                                on:click=move |_| clock_menu_open.set(false)
-                            >
-                                "Close"
-                            </button>
-                        </div>
-                    </Show>
-                </div>
-            </div>
-
-            <Show when=move || state.get().start_menu_open fallback=|| ()>
-                <div
-                    id="desktop-launcher-menu"
-                    class="start-menu"
-                    role="menu"
-                    aria-label="Application launcher"
-                    on:mousedown=move |ev| ev.stop_propagation()
-                >
-                    <For each=move || apps::launcher_apps() key=|app| app.app_id as u8 let:app>
-                        <button
-                            role="menuitem"
-                            on:click=move |_| {
-                                window_context_menu.set(None);
-                                overflow_menu_open.set(false);
-                                clock_menu_open.set(false);
-                                runtime.dispatch_action(DesktopAction::OpenWindow(
-                                    apps::default_open_request(app.app_id),
-                                ));
-                            }
-                        >
-                            <span class="taskbar-app-icon" aria-hidden="true">
-                                <FluentIcon icon=app_icon_name(app.app_id) size=IconSize::Sm />
-                            </span>
-                            <span>{format!("Open {}", app.launcher_label)}</span>
-                        </button>
-                    </For>
-                    <button
-                        role="menuitem"
-                        on:click=move |_| runtime.dispatch_action(DesktopAction::CloseStartMenu)
-                    >
-                        "Close"
-                    </button>
-                </div>
-            </Show>
-
-            <Show
-                when=move || {
-                    window_context_menu
-                        .get()
-                        .and_then(|menu| {
-                            state
-                                .get()
-                                .windows
-                                .into_iter()
-                                .find(|win| win.id == menu.window_id)
-                                .map(|win| (menu, win))
-                        })
-                        .is_some()
-                }
-                fallback=|| ()
-            >
-                {move || {
-                    let Some((menu, win)) = window_context_menu.get().and_then(|menu| {
-                        state
-                            .get()
-                            .windows
-                            .into_iter()
-                            .find(|win| win.id == menu.window_id)
-                            .map(|win| (menu, win))
-                    }) else {
-                        return ().into_view();
-                    };
-
-                    let menu_style = format!("left:{}px;top:{}px;", menu.x, menu.y);
-                    let can_focus = !win.is_focused && !win.minimized;
-                    let can_restore = win.minimized || win.maximized;
-                    let can_minimize = win.flags.minimizable && !win.minimized;
-                    let can_maximize = win.flags.maximizable && !win.maximized;
-                    let restore_label = if win.minimized {
-                        "Restore"
-                    } else {
-                        "Restore Size"
-                    };
-                    let window_id = win.id;
-
-                    view! {
-                        <div
-                            class="taskbar-menu taskbar-window-menu"
-                            role="menu"
-                            aria-label=format!("Window menu for {}", win.title)
-                            style=menu_style
-                            on:mousedown=move |ev| ev.stop_propagation()
-                        >
-                            <button
-                                role="menuitem"
-                                class="taskbar-menu-item"
-                                disabled=!can_focus
-                                on:click=move |_| {
-                                    window_context_menu.set(None);
-                                    let desktop = runtime.state.get_untracked();
-                                    focus_or_unminimize_window(runtime, &desktop, window_id);
-                                }
-                            >
-                                "Focus"
-                            </button>
-                            <button
-                                role="menuitem"
-                                class="taskbar-menu-item"
-                                disabled=!can_restore
-                                on:click=move |_| {
-                                    window_context_menu.set(None);
-                                    runtime.dispatch_action(DesktopAction::RestoreWindow { window_id });
-                                }
-                            >
-                                {restore_label}
-                            </button>
-                            <button
-                                role="menuitem"
-                                class="taskbar-menu-item"
-                                disabled=!can_minimize
-                                on:click=move |_| {
-                                    window_context_menu.set(None);
-                                    runtime.dispatch_action(DesktopAction::MinimizeWindow { window_id });
-                                }
-                            >
-                                "Minimize"
-                            </button>
-                            <button
-                                role="menuitem"
-                                class="taskbar-menu-item"
-                                disabled=!can_maximize
-                                on:click=move |_| {
-                                    window_context_menu.set(None);
-                                    runtime.dispatch_action(DesktopAction::MaximizeWindow {
-                                        window_id,
-                                        viewport: runtime.host.desktop_viewport_rect(
-                                            TASKBAR_HEIGHT_PX,
-                                        ),
-                                    });
-                                }
-                            >
-                                "Maximize"
-                            </button>
-                            <button
-                                role="menuitem"
-                                class="taskbar-menu-item danger"
-                                on:click=move |_| {
-                                    window_context_menu.set(None);
-                                    runtime.dispatch_action(DesktopAction::CloseWindow { window_id });
-                                }
-                            >
-                                "Close"
-                            </button>
-                        </div>
-                    }
-                        .into_view()
-                }}
-            </Show>
-        </footer>
-    }
-}
-
 fn stop_mouse_event(ev: &web_sys::MouseEvent) {
     ev.prevent_default();
     ev.stop_propagation();
 }
 
-fn pointer_from_mouse_event(ev: &web_sys::MouseEvent) -> PointerPosition {
+fn pointer_from_pointer_event(ev: &web_sys::PointerEvent) -> PointerPosition {
     PointerPosition {
         x: ev.client_x(),
         y: ev.client_y(),
