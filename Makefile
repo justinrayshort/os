@@ -16,11 +16,11 @@ rustdoc-check:
 	cargo test --workspace --doc
 
 docs-check:
-	python3 scripts/docs/validate_docs.py all
+	cargo docs-check
 	$(MAKE) rustdoc-check
 
 docs-audit:
-	python3 scripts/docs/validate_docs.py audit-report --output .artifacts/docs-audit.json
+	cargo docs-audit
 
 proto-check:
 	cargo web-check

@@ -7,7 +7,7 @@ last_reviewed: "2026-02-26"
 audience: ["engineering", "platform"]
 invariants:
   - "Cargo aliases in .cargo/config.toml remain the preferred stable entry points for common project workflows."
-  - "Root Makefile targets delegate to Cargo aliases or docs validation scripts and must not diverge silently."
+  - "Root Makefile targets delegate to Cargo aliases or `xtask` docs commands and must not diverge silently."
 tags: ["reference", "commands", "tooling", "developer-workflow"]
 domain: "docs"
 lifecycle: "ga"
@@ -46,21 +46,23 @@ This page documents the supported top-level commands for local development, veri
 ### Documentation Workflow (Rustdoc + Wiki)
 
 - `git submodule update --init --recursive`: Initialize/update the `wiki/` submodule.
-- `python3 scripts/docs/validate_docs.py wiki`: Validate wiki submodule wiring and required navigation/category pages.
+- `cargo docs-check`: Run `cargo xtask docs all` (Cargo alias convenience wrapper).
+- `cargo docs-audit`: Generate `.artifacts/docs-audit.json` via `cargo xtask docs audit-report`.
+- `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages.
 - `cargo doc --workspace --no-deps`: Generate authoritative Rust API reference (`target/doc/`).
 - `cargo test --workspace --doc`: Run rustdoc examples (doctests).
-- `python3 scripts/docs/validate_docs.py all`: Run MkDocs/docs contract validation (also includes `wiki` validation).
+- `cargo xtask docs all`: Run docs contract validation (also includes `wiki` validation).
 
 ## Root `make` Compatibility Targets
 
-These targets exist for operator convenience and CI/local muscle memory. They delegate to Cargo aliases or docs validation commands.
+These targets exist for operator convenience and local muscle memory. They delegate to Cargo aliases or `xtask` docs commands.
 
 - `make verify-fast` -> `cargo verify-fast`
 - `make verify` -> `cargo verify`
 - `make wiki-init` -> `git submodule update --init --recursive`
 - `make rustdoc-check` -> `cargo doc --workspace --no-deps && cargo test --workspace --doc`
-- `make docs-check` -> `python3 scripts/docs/validate_docs.py all` + `make rustdoc-check`
-- `make docs-audit` -> `python3 scripts/docs/validate_docs.py audit-report --output .artifacts/docs-audit.json`
+- `make docs-check` -> `cargo xtask docs all` + `make rustdoc-check`
+- `make docs-audit` -> `cargo xtask docs audit-report --output .artifacts/docs-audit.json`
 - `make proto-check` -> `cargo web-check`
 - `make proto-build` -> `cargo web-build`
 - `make proto-build-dev` -> `cargo dev build`

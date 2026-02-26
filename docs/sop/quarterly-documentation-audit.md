@@ -3,7 +3,7 @@ title: "SOP: Quarterly Documentation Audit"
 category: "sop"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-25"
+last_reviewed: "2026-02-26"
 audience: ["platform", "engineering"]
 invariants:
   - "Quarterly audit produces an artifact report."
@@ -17,11 +17,11 @@ lifecycle: "ga"
 
 ## 1. Title & Purpose
 
-This SOP defines the quarterly documentation audit procedure for verifying freshness, structural integrity, and CI health of project documentation.
+This SOP defines the quarterly documentation audit procedure for verifying freshness, structural integrity, and local validation health of project documentation.
 
 ## 2. Scope
 
-- Covers: all repository documentation under `docs/`, CI workflow health, and generated audit artifacts
+- Covers: all repository documentation under `docs/`, local validation health, and generated audit artifacts
 - Does not cover: runtime production incident review processes or application SLO audits
 
 ## 3. Roles & Responsibilities
@@ -35,17 +35,16 @@ This SOP defines the quarterly documentation audit procedure for verifying fresh
 ## 4. Prerequisites
 
 - Repository access
-- CI permissions to view workflow artifacts
-- `python3`
+- Rust toolchain (`cargo`)
 - Current branch synchronized with `main`
 
 ## 5. Step-by-Step Procedure
 
-1. Run the documentation audit report locally or via CI.
+1. Run the documentation audit report locally.
    - Command:
 
    ```bash
-   python3 scripts/docs/validate_docs.py audit-report --output .artifacts/docs-audit.json
+   cargo xtask docs audit-report --output .artifacts/docs-audit.json
    ```
 
    - Expected output: JSON audit report written to `.artifacts/docs-audit.json`
@@ -54,21 +53,21 @@ This SOP defines the quarterly documentation audit procedure for verifying fresh
    - Command:
 
    ```bash
-   python3 scripts/docs/validate_docs.py frontmatter
+   cargo xtask docs frontmatter
    ```
 
    - Expected output: frontmatter freshness passes or outputs actionable stale docs
    - Failure condition: stale critical SOP/reference docs remain unresolved
-3. Re-run full validation and docs build.
+3. Re-run full validation.
    - Command:
 
    ```bash
-   python3 scripts/docs/validate_docs.py all
+   cargo xtask docs all
    ```
 
    - Expected output: all checks succeed
    - Failure condition: broken links, invalid diagrams, or contract failures persist
-4. Archive the audit artifact in CI and record follow-up actions.
+4. Preserve the audit artifact and record follow-up actions.
    - Command:
 
    ```bash
@@ -82,16 +81,16 @@ This SOP defines the quarterly documentation audit procedure for verifying fresh
 
 ```mermaid
 flowchart TD
-  A["Scheduled Audit Trigger"] --> B["Run docs validators"]
+  A["Quarterly Audit Trigger"] --> B["Run docs validators (local)"]
   B --> C["Generate audit JSON"]
-  C --> D["Upload workflow artifact"]
+  C --> D["Save/share audit artifact"]
   D --> E["Review stale/broken findings"]
   E --> F["Create remediation PRs/issues"]
 ```
 
 ## 7. Invariants (Critical Section)
 
-- Audit artifacts are generated and retained for each scheduled run.
+- Audit artifacts are generated and retained for each quarterly run.
 - Stale `active` docs are tracked to named owners.
 - Broken internal links are not ignored without an approved exception.
 - Governance contract changes require ADR review.
@@ -108,5 +107,5 @@ flowchart TD
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.1.0 | 2026-02-26 | Codex | Moved audit execution and artifact handling to local Rust `xtask` workflow |
 | 1.0.0 | 2026-02-25 | Codex | Initial quarterly audit SOP |
-

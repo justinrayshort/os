@@ -43,7 +43,7 @@ lifecycle: "ga"
 
 ## Review Freshness Policy
 
-- Documents fail CI when `last_reviewed` is older than `180` days (configurable via `DOCS_STALE_REVIEW_DAYS` or contract config).
+- Documents fail docs validation when `last_reviewed` is older than `180` days (configurable via `DOCS_STALE_REVIEW_DAYS` or contract config).
 
 ## Diataxis Folder Mapping
 
@@ -70,6 +70,6 @@ SOP documents in `docs/sop/` must contain these sections in order:
 
 ## Source of Truth
 
-- MkDocs page contracts (frontmatter/category/SOP structure) are defined in [`tools/docs/doc_contracts.json`](../../tools/docs/doc_contracts.json).
-- Wiki submodule structure contracts are enforced by [`scripts/docs/validate_docs.py`](../../scripts/docs/validate_docs.py) (`wiki` check).
-- Rust API reference contract is enforced through rustdoc/lints in the Rust crates plus CI rustdoc build/doctest steps.
+- Docs page contracts (frontmatter/category/SOP structure) are defined in [`tools/docs/doc_contracts.json`](../../tools/docs/doc_contracts.json).
+- Wiki submodule structure contracts are enforced by the Rust `xtask` docs validator ([`xtask/src/docs.rs`](../../xtask/src/docs.rs), `cargo xtask docs wiki`).
+- Rust API reference contract is enforced through rustdoc/lints in the Rust crates plus local rustdoc build/doctest steps.

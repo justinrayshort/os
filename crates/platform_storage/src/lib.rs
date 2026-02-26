@@ -80,20 +80,15 @@ impl AppStateEnvelope {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 /// Explorer backend implementation currently serving requests.
 pub enum ExplorerBackend {
     /// Browser native File System Access API.
     NativeFsAccess,
     /// IndexedDB-backed virtual filesystem implementation.
+    #[default]
     IndexedDbVirtual,
-}
-
-impl Default for ExplorerBackend {
-    fn default() -> Self {
-        Self::IndexedDbVirtual
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

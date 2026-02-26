@@ -408,7 +408,7 @@ pub fn DesktopShell() -> impl IntoView {
                 }
             }
             on:mousemove=on_pointer_move
-            on:mouseup=on_pointer_end.clone()
+            on:mouseup=on_pointer_end
             on:mouseleave=on_pointer_end
         >
             <div

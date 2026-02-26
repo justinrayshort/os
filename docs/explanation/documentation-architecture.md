@@ -33,7 +33,7 @@ Different documentation intents age at different rates:
 
 - API signatures and type contracts change with code and should be generated directly from code comments (`rustdoc`).
 - Tutorials/how-to/explanations need faster editing, lighter navigation, and reader-centric page organization (GitHub Wiki).
-- Governance and operational controls (contracts, SOPs, ADRs, CI design) belong in the main repo and remain machine-validated via MkDocs/docs tooling.
+- Governance and operational controls (contracts, SOPs, ADRs, local verification design) belong in the main repo and remain machine-validated via the Rust `xtask` docs tooling.
 
 This split reduces duplication while preserving reviewability.
 
@@ -59,10 +59,10 @@ This split reduces duplication while preserving reviewability.
 flowchart LR
   A["Code Change"] --> B["Rustdoc Update (code comments)"]
   A --> C["Wiki Update (tutorial/how-to/explanation)"]
-  A --> D["MkDocs Governance Update (if process/contracts change)"]
+  A --> D["Repo Docs Governance Update (if process/contracts change)"]
   B --> E["Rustdoc Build + Doctests"]
   C --> F["Wiki Submodule + Structure Validation"]
-  D --> G["Docs Contracts / Links / Mermaid / OpenAPI / MkDocs"]
+  D --> G["Docs Contracts / Links / Mermaid / OpenAPI (`cargo xtask docs`)"]
   E --> H["PR Review + Merge Gate"]
   F --> H
   G --> H

@@ -21,7 +21,7 @@ The project now uses a split documentation surface:
 
 - `rustdoc` is authoritative for Rust API reference.
 - The GitHub Wiki (`wiki/` submodule) is the primary surface for tutorials, how-to guides, and explanations.
-- This MkDocs site (`docs/`) is the governance/operations surface for contracts, ADRs, SOPs, and tooling reference.
+- The repo-native `docs/` corpus is the governance/operations surface for contracts, ADRs, SOPs, and tooling reference.
 
 ## Doctrine
 

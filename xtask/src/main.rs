@@ -3,6 +3,8 @@
 //! The `xtask` binary wraps common prototype, verification, and environment setup commands so the
 //! repository can expose stable entrypoints through Cargo aliases.
 
+mod docs;
+
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io;
@@ -37,6 +39,7 @@ fn main() -> ExitCode {
         "dev" => dev_command(&root, rest),
         "build-web" => build_web(&root, rest),
         "check-web" => check_web(&root),
+        "docs" => docs::run_docs_command(&root, rest),
         "verify" => verify(&root, rest),
         "help" | "--help" | "-h" => {
             print_usage();
@@ -70,7 +73,8 @@ fn print_usage() {
            dev [...]           Prototype dev workflow (serve/start/stop/status/restart/build)\n\
            build-web [args]    Build static web bundle with trunk\n\
            check-web           Run site compile checks (CSR native + wasm)\n\
-           verify [fast|full]  Run scripts/ci/verify.sh (default: full)\n"
+           docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
+           verify [fast|full]  Run standardized local verification workflow (default: full)\n"
     );
 }
 
@@ -350,11 +354,147 @@ fn check_web(root: &Path) -> Result<(), String> {
 fn verify(root: &Path, args: Vec<String>) -> Result<(), String> {
     let mode = args.first().map(String::as_str).unwrap_or("full");
     match mode {
-        "fast" | "full" => run_owned(root, "./scripts/ci/verify.sh", vec![mode.to_string()]),
+        "fast" => verify_fast(root),
+        "full" => verify_full(root),
         _ => Err(format!(
             "invalid verify mode `{mode}` (expected `fast` or `full`)"
         )),
     }
+}
+
+fn verify_fast(root: &Path) -> Result<(), String> {
+    run_cargo_matrix(root)?;
+    run_rustdoc_checks(root)?;
+    run_docs_checks(root)?;
+    println!("\n==> Verification complete");
+    Ok(())
+}
+
+fn verify_full(root: &Path) -> Result<(), String> {
+    run_cargo_matrix(root)?;
+    run_rustdoc_checks(root)?;
+    run_docs_checks(root)?;
+    run_prototype_compile_checks(root)?;
+    run_optional_clippy(root)?;
+    println!("\n==> Verification complete");
+    Ok(())
+}
+
+fn run_cargo_matrix(root: &Path) -> Result<(), String> {
+    log_stage("Rust format and tests");
+    run(root, "cargo", vec!["fmt", "--all", "--", "--check"])?;
+    run(root, "cargo", vec!["check", "--workspace"])?;
+    run(root, "cargo", vec!["test", "--workspace"])?;
+
+    log_stage("Rust feature matrix");
+    run(
+        root,
+        "cargo",
+        vec!["check", "--workspace", "--all-features"],
+    )?;
+    run(root, "cargo", vec!["test", "--workspace", "--all-features"])?;
+    Ok(())
+}
+
+fn run_rustdoc_checks(root: &Path) -> Result<(), String> {
+    log_stage("Rustdoc build and doctests");
+    run_owned_with_env(
+        root,
+        "cargo",
+        vec!["doc".into(), "--workspace".into(), "--no-deps".into()],
+        &[("RUSTDOCFLAGS", "-Dwarnings")],
+    )?;
+    run(root, "cargo", vec!["test", "--workspace", "--doc"])?;
+    Ok(())
+}
+
+fn run_docs_checks(root: &Path) -> Result<(), String> {
+    log_stage("Documentation validation");
+    docs::run_docs_command(root, vec!["all".into()])?;
+    docs::run_docs_command(
+        root,
+        vec![
+            "audit-report".into(),
+            "--output".into(),
+            ".artifacts/docs-audit.json".into(),
+        ],
+    )?;
+    Ok(())
+}
+
+fn run_optional_clippy(root: &Path) -> Result<(), String> {
+    let clippy_available = Command::new("cargo")
+        .args(["clippy", "-V"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+
+    if clippy_available {
+        log_stage("Clippy (all targets/features)");
+        run(
+            root,
+            "cargo",
+            vec![
+                "clippy",
+                "--workspace",
+                "--all-targets",
+                "--all-features",
+                "--",
+                "-D",
+                "warnings",
+            ],
+        )?;
+    } else {
+        warn_stage("cargo clippy not available; skipping clippy stage");
+    }
+
+    Ok(())
+}
+
+fn run_prototype_compile_checks(root: &Path) -> Result<(), String> {
+    log_stage("Prototype compile checks");
+    run(
+        root,
+        "cargo",
+        vec!["check", "-p", "site", "--features", SITE_CARGO_FEATURE],
+    )?;
+
+    if wasm_target_installed() {
+        run(
+            root,
+            "cargo",
+            vec![
+                "check",
+                "-p",
+                "site",
+                "--target",
+                "wasm32-unknown-unknown",
+                "--features",
+                SITE_CARGO_FEATURE,
+            ],
+        )?;
+    } else {
+        warn_stage("wasm32-unknown-unknown target not installed; skipping wasm cargo check");
+    }
+
+    if command_available("trunk") {
+        log_stage("Prototype static build (Trunk)");
+        trunk_build(root, Vec::new(), BuildProfile::Release)?;
+    } else {
+        warn_stage("trunk not installed; skipping trunk build");
+    }
+
+    Ok(())
+}
+
+fn log_stage(message: &str) {
+    println!("\n==> {message}");
+}
+
+fn warn_stage(message: &str) {
+    println!("\n[warn] {message}");
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -804,6 +944,29 @@ fn run_owned(root: &Path, program: &str, args: Vec<String>) -> Result<(), String
     let status = Command::new(program)
         .current_dir(root)
         .args(&args)
+        .status()
+        .map_err(|err| format!("failed to start `{program}`: {err}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("`{program}` exited with status {status}"))
+    }
+}
+
+fn run_owned_with_env(
+    root: &Path,
+    program: &str,
+    args: Vec<String>,
+    envs: &[(&str, &str)],
+) -> Result<(), String> {
+    print_command(program, &args);
+    let mut cmd = Command::new(program);
+    cmd.current_dir(root).args(&args);
+    for (key, value) in envs {
+        cmd.env(key, value);
+    }
+    let status = cmd
         .status()
         .map_err(|err| format!("failed to start `{program}`: {err}"))?;
 

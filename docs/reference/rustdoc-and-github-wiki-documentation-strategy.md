@@ -19,7 +19,7 @@ This repository uses a split documentation model aligned with Diataxis:
 
 - `rustdoc` is the authoritative source for code-level API reference.
 - The GitHub Wiki (`wiki/` submodule) is the high-level documentation surface for tutorials, how-to guides, and explanations.
-- MkDocs (`docs/`) remains the repo-native governance/operations surface for documentation contracts, SOPs, ADRs, and tooling/CI reference.
+- `docs/` remains the repo-native governance/operations surface for documentation contracts, SOPs, ADRs, and tooling reference (validated by `cargo xtask docs`).
 
 ## Diataxis Mapping
 
@@ -29,7 +29,7 @@ This repository uses a split documentation model aligned with Diataxis:
 | Tutorials | GitHub Wiki | `wiki/*.md` |
 | How-to guides | GitHub Wiki | `wiki/*.md` |
 | Explanations | GitHub Wiki | `wiki/*.md` |
-| ADR / SOP / docs governance | MkDocs (`docs/`) | `docs/*.md` |
+| ADR / SOP / docs governance | `docs/` (repo-native Markdown) | `docs/*.md` |
 
 ## Rustdoc Authoring Conventions (Required)
 
@@ -54,7 +54,7 @@ When code changes:
 
 1. Update rustdoc for changed public APIs (crate/module/item docs, links, examples).
 2. Update affected wiki pages when workflows, usage guidance, or rationale changed.
-3. Update MkDocs governance/SOP/reference pages when process, CI, or contracts changed.
+3. Update repo governance/SOP/reference pages under `docs/` when process, tooling, or contracts changed.
 
 When wiki content changes:
 
@@ -70,14 +70,14 @@ When wiki content changes:
   - Wiki pages are updated or explicitly marked N/A
   - `wiki/` submodule pointer is included when wiki content changes
 
-## CI and Local Validation
+## Validation
 
-Documentation CI validates both documentation layers:
+The local Rust toolchain validates both documentation layers:
 
-- `python3 scripts/docs/validate_docs.py wiki` (submodule + wiki structure checks)
+- `cargo xtask docs wiki` (submodule + wiki structure checks)
 - `cargo doc --workspace --no-deps` (`RUSTDOCFLAGS=-D warnings`)
 - `cargo test --workspace --doc` (runnable rustdoc examples)
-- Existing MkDocs/docs contract checks (`structure`, `frontmatter`, `sop`, `links`, OpenAPI, Mermaid, MkDocs build)
+- `cargo xtask docs all` (docs contracts + links + OpenAPI + Mermaid + wiki checks)
 
 Local bootstrap for the wiki submodule:
 

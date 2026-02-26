@@ -20,14 +20,14 @@ Goal: make a small documentation update across the new documentation split (rust
 ## What you will do
 
 1. Update one rustdoc comment or one wiki page.
-2. Run documentation validation (wiki + rustdoc doctests + MkDocs checks).
+2. Run documentation validation (wiki + rustdoc doctests + docs contract checks).
 3. Confirm links/examples resolve.
 4. Prepare a PR with the documentation change.
 
 ## Prerequisites
 
 - A local clone of this repository
-- `python3` available
+- Rust toolchain available (`cargo`)
 
 ## Steps
 
@@ -39,7 +39,7 @@ Goal: make a small documentation update across the new documentation split (rust
 4. Run:
 
 ```bash
-python3 scripts/docs/validate_docs.py all
+cargo xtask docs all
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
 ```

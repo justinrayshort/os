@@ -6,7 +6,7 @@ Documentation is split by intent:
 
 - `rustdoc` (generated from Rust source comments) is the authoritative API/reference surface.
 - GitHub Wiki (`wiki/` submodule) holds tutorials, how-to guides, and explanations.
-- `docs/` (MkDocs) holds documentation governance, contracts, ADRs, SOPs, and tooling/CI reference.
+- `docs/` (repo-native Markdown) holds documentation governance, contracts, ADRs, SOPs, and tooling reference, validated by `cargo xtask docs`.
 
 ## Prototype Status
 
@@ -25,7 +25,7 @@ Documentation is split by intent:
 - Placeholder app panels:
   - `Paint` (persisted placeholder settings/state schema scaffold)
   - `Dial-up`
-- Docs-as-code system with Diataxis structure, governance contracts, validation, and CI workflows
+- Docs-as-code system with Diataxis structure, governance contracts, and Rust-native local validation/audit workflows
 
 ## Run the Prototype (Browser / WASM)
 
@@ -41,7 +41,7 @@ Install prerequisites (one-time):
 cargo setup-web
 ```
 
-Initialize the GitHub Wiki submodule (required for docs workflow updates):
+Initialize the GitHub Wiki submodule (required for wiki/docs updates):
 
 ```bash
 git submodule update --init --recursive
@@ -109,9 +109,9 @@ make proto-start
 make proto-stop
 ```
 
-Direct commands remain available if you prefer (`cargo run -p xtask -- ...`, `trunk ...`, `./scripts/ci/verify.sh ...`).
+Direct commands remain available if you prefer (`cargo run -p xtask -- ...`, `trunk ...`).
 
-## Documentation Workflow (Rustdoc + Wiki + MkDocs)
+## Documentation Workflow (Rustdoc + Wiki + Repo Docs)
 
 Generate Rust API reference locally:
 
@@ -125,10 +125,10 @@ Run rustdoc examples (doctests):
 cargo test --workspace --doc
 ```
 
-Run repo docs validation (MkDocs contracts + wiki submodule checks):
+Run repo docs validation (docs contracts + wiki submodule checks):
 
 ```bash
-python3 scripts/docs/validate_docs.py all
+cargo xtask docs all
 ```
 
 ## Project Layout (Current)
@@ -141,5 +141,5 @@ python3 scripts/docs/validate_docs.py all
 - `crates/apps/calculator` - Calculator app UI crate
 - `crates/apps/terminal` - Terminal app UI crate
 - `docs/` - Diataxis documentation and SOP/governance system
-- `scripts/docs/validate_docs.py` - docs validation/audit CLI
-- `scripts/ci/verify.sh` - standardized project verification script
+- `xtask/src/docs.rs` - docs validation/audit implementation used by `cargo xtask docs`
+- `xtask/src/main.rs` - standardized project verification and developer workflow orchestration (`cargo xtask ...`)

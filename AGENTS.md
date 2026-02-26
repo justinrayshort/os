@@ -13,15 +13,15 @@ This repository is maintained with help from automated agents. Use this file as 
 - Documentation system split across:
   - Rust source comments (`//!`, `///`) -> generated `rustdoc` API reference
   - GitHub Wiki repository as submodule under `wiki/` (tutorials, how-to guides, explanations)
-  - MkDocs + Material (`docs/`, `mkdocs.yml`) for contracts, SOPs, ADRs, and docs tooling reference
-  - Validation CLI in `scripts/docs/validate_docs.py` (MkDocs contracts + wiki structure checks)
+  - Repo-native Markdown under `docs/` for contracts, SOPs, ADRs, and docs tooling reference
+  - Validation/audit CLI implemented in Rust via `cargo xtask docs` (`xtask/src/docs.rs`)
 
 ## 2) Operating Rules
 
 - Make minimal, reviewable changes that match existing patterns.
 - If behavior, API shape, architecture, or procedures change, update docs in the same change.
 - Preserve documentation contracts enforced by `tools/docs/doc_contracts.json`.
-- Do not weaken validation rules or CI workflows unless explicitly requested.
+- Do not weaken validation rules or local verification workflows unless explicitly requested.
 - Avoid destructive git commands unless explicitly requested.
 
 ## 3) Documentation Contracts (Required)
@@ -42,63 +42,46 @@ The docs validator enforces:
 - SOP docs must include the required SOP headings (validated by `sop` check).
 - Review freshness threshold is tracked (currently 180 days) in audit reporting.
 
-## 4) CI Workflows (New / Current)
+## 4) Local Verification Workflows (Current)
 
-### 4.1 Documentation CI
+### 4.1 Documentation Verification (Local Rust Toolchain)
 
-Workflow: `.github/workflows/docs.yml`
+Primary entry points:
 
-Triggers:
+- `cargo xtask docs all`
+- `cargo doc --workspace --no-deps`
+- `cargo test --workspace --doc`
+- `cargo verify-fast`
+- `cargo verify`
 
-- `pull_request`
-- `push` to `main`
+Stages (local verification order):
 
-Stages (CI order):
+1. Wiki submodule validation (`cargo xtask docs wiki`)
+2. Docs contract validation (`structure`, `frontmatter`, `sop`)
+3. OpenAPI validation (`cargo xtask docs openapi`)
+4. Mermaid validation (`cargo xtask docs mermaid`)
+5. Broken internal reference detection (`cargo xtask docs links`)
+6. Rustdoc build (`cargo doc --workspace --no-deps`, `RUSTDOCFLAGS=-D warnings`)
+7. Rustdoc doctests (`cargo test --workspace --doc`)
+8. Audit artifact generation (`cargo xtask docs audit-report --output ...`) when needed
 
-1. Markdown lint (`markdownlint-cli2`)
-2. Vale prose lint
-3. Wiki submodule validation (`wiki`)
-4. Docs contract validation (`structure`, `frontmatter`, `sop`)
-5. OpenAPI validation (`openapi --require-validator`)
-6. Mermaid render validation (`mermaid --require-renderer`)
-7. Broken internal reference detection (`links`)
-8. Rustdoc build (`cargo doc --workspace --no-deps`, `RUSTDOCFLAGS=-D warnings`)
-9. Rustdoc doctests (`cargo test --workspace --doc`)
-10. External link check (Lychee)
-11. MkDocs build (`mkdocs build --strict`)
-
-### 4.2 Quarterly Documentation Audit
-
-Workflow: `.github/workflows/docs-audit.yml`
-
-Triggers:
-
-- Manual (`workflow_dispatch`)
-- Scheduled quarterly (`0 9 1 */3 *`, 09:00 UTC on day 1 every 3rd month)
+### 4.2 Quarterly Documentation Audit (Manual / Local)
 
 Behavior:
 
-- Runs markdown/Vale checks
+- Run locally on a quarterly cadence (or before governance reviews)
 - Validates wiki submodule structure (via `audit-report`)
 - Generates `.artifacts/docs-audit.json` via `audit-report`
-- Builds MkDocs (best-effort / always-run)
-- Uploads audit artifact
-- Fails the job if audit validation fails
+- Fails locally if audit validation fails
+- Preserve/share the audit artifact through your normal review process (no hosted CI dependency)
 
 ## 5) Local Commands
 
-### 5.1 Docs Tooling Setup (match CI)
+### 5.1 Docs Tooling Setup (Rust-only)
 
 ```bash
-python -m pip install --upgrade pip
-pip install mkdocs mkdocs-material pymdown-extensions
-npm install -g markdownlint-cli2 @apidevtools/swagger-cli @mermaid-js/mermaid-cli
+cargo build -p xtask
 ```
-
-Optional local CLIs that CI also uses/actions wrap:
-
-- `vale`
-- `lychee`
 
 ### 5.2 Docs Validation (fast path)
 
@@ -106,47 +89,30 @@ Run the standard local docs validation entry point:
 
 ```bash
 git submodule update --init --recursive
-python3 scripts/docs/validate_docs.py all
+cargo xtask docs all
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
 ```
 
-For stricter local parity when the CLIs are installed:
-
-```bash
-python3 scripts/docs/validate_docs.py all --require-renderer --require-openapi-validator
-cargo doc --workspace --no-deps
-cargo test --workspace --doc
-```
-
-### 5.3 CI-Parity Docs Commands (explicit)
+### 5.3 Docs Commands (explicit)
 
 ```bash
 git submodule update --init --recursive
-markdownlint-cli2 "**/*.md"
-vale docs
-python3 scripts/docs/validate_docs.py structure
-python3 scripts/docs/validate_docs.py wiki
-python3 scripts/docs/validate_docs.py frontmatter
-python3 scripts/docs/validate_docs.py sop
-python3 scripts/docs/validate_docs.py openapi --require-validator
-python3 scripts/docs/validate_docs.py mermaid --require-renderer
-python3 scripts/docs/validate_docs.py links
+cargo xtask docs structure
+cargo xtask docs wiki
+cargo xtask docs frontmatter
+cargo xtask docs sop
+cargo xtask docs openapi
+cargo xtask docs mermaid
+cargo xtask docs links
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
-mkdocs build --strict
-```
-
-Optional external link check (if `lychee` is installed locally):
-
-```bash
-lychee --no-progress --verbose "docs/**/*.md"
 ```
 
 ### 5.4 Audit Report Command
 
 ```bash
-python3 scripts/docs/validate_docs.py audit-report --output .artifacts/docs-audit.json
+cargo xtask docs audit-report --output .artifacts/docs-audit.json
 ```
 
 ### 5.5 Rust Workspace Commands
@@ -160,7 +126,7 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets
 ```
 
-Common convenience wrappers (delegating to Cargo aliases / docs scripts):
+Common convenience wrappers (delegating to Cargo aliases / `xtask` docs commands):
 
 ```bash
 make verify-fast
@@ -183,34 +149,33 @@ make proto-restart
 
 ### 6.1 Docs-only changes
 
-1. Classify the change surface: rustdoc (`crates/**` comments), wiki (`wiki/*.md`), or MkDocs (`docs/`).
+1. Classify the change surface: rustdoc (`crates/**` comments), wiki (`wiki/*.md`), or repo docs (`docs/`).
 2. Initialize/update the wiki submodule if touching wiki content (`git submodule update --init --recursive`).
-3. Keep MkDocs frontmatter complete and valid for `docs/*.md` changes.
-4. Run `python3 scripts/docs/validate_docs.py all`.
+3. Keep docs frontmatter complete and valid for `docs/*.md` changes.
+4. Run `cargo xtask docs all`.
 5. Run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc` when rustdoc changed (recommended for all docs changes that mention APIs).
-6. If Mermaid or OpenAPI changed, prefer strict checks with required CLIs.
-7. Run `mkdocs build --strict` before finishing when `docs/` content changed.
+6. If Mermaid or OpenAPI changed, run targeted checks (`cargo xtask docs mermaid`, `cargo xtask docs openapi`) in addition to `all`.
+7. Generate an audit artifact (`cargo xtask docs audit-report --output .artifacts/docs-audit.json`) when the change affects governance/reporting flows.
 
 ### 6.2 Code + docs changes
 
 1. Update Rust code in the relevant crate(s).
 2. Update rustdoc comments for affected public APIs in the same change.
 3. Update affected wiki tutorials/how-to/explanations in `wiki/` when behavior/workflows/rationale changed.
-4. Update affected MkDocs governance docs/ADR/SOPs in `docs/` when process/contracts/architecture changed.
+4. Update affected governance docs/ADR/SOPs in `docs/` when process/contracts/architecture changed.
 5. Run targeted Cargo checks (`cargo test --workspace` if behavior changed).
 6. Run rustdoc checks (`cargo doc --workspace --no-deps`, `cargo test --workspace --doc`).
-7. Run docs validation (`python3 scripts/docs/validate_docs.py all`).
+7. Run docs validation (`cargo xtask docs all`).
 
 ## 7) Key Files
 
-- `scripts/docs/validate_docs.py` (docs contract/integrity CLI)
+- `xtask/src/docs.rs` (docs contract/integrity/audit CLI implementation)
 - `tools/docs/doc_contracts.json` (docs schema/contract rules)
 - `.gitmodules` (wiki submodule declaration)
 - `wiki/` (GitHub Wiki submodule checkout)
 - `docs/reference/rustdoc-and-github-wiki-documentation-strategy.md` (documentation surface split policy)
-- `.github/workflows/docs.yml` (docs CI)
-- `.github/workflows/docs-audit.yml` (quarterly audit workflow)
-- `mkdocs.yml` (site build config)
+- `.cargo/config.toml` (Cargo aliases for local workflows)
+- `Makefile` (optional convenience wrappers delegating to Cargo aliases)
 
 ## 8) Final Response Expectations (for agents)
 
