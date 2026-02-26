@@ -1,8 +1,9 @@
-//! Browser capability bridge implementations for [`crate`] storage operations.
+//! Browser capability bridge implementations for `platform_host_web` service adapters.
 //!
-//! This module contains the WASM/JS interop layer and a non-WASM fallback shim.
+//! This module contains the WASM/JS interop layer and a non-WASM fallback shim for app-state,
+//! cache, and explorer/filesystem services.
 
-use crate::{
+use platform_host::{
     AppStateEnvelope, ExplorerBackendStatus, ExplorerFileReadResult, ExplorerListResult,
     ExplorerMetadata, ExplorerPermissionMode, ExplorerPermissionState,
 };
@@ -17,7 +18,7 @@ mod imp {
     use wasm_bindgen::prelude::*;
     use wasm_bindgen_futures::JsFuture;
 
-    use crate::ExplorerPermissionMode;
+    use platform_host::ExplorerPermissionMode;
 
     #[wasm_bindgen(inline_js = r#"
 const DB_NAME = 'retrodesk_os';

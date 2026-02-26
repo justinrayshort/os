@@ -6,12 +6,13 @@ use leptos::*;
 
 use crate::{
     apps,
+    host::DesktopHostContext,
     model::{
         AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
         WindowRect,
     },
     persistence,
-    reducer::{build_open_request_from_deeplink, reduce_desktop, DesktopAction, RuntimeEffect},
+    reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
 };
 
 const TASKBAR_HEIGHT_PX: i32 = 38;
@@ -102,6 +103,8 @@ fn wallpaper_preset_by_id(id: &str) -> WallpaperPreset {
 #[derive(Clone, Copy)]
 /// Leptos context for reading desktop runtime state and dispatching [`DesktopAction`] values.
 pub struct DesktopRuntimeContext {
+    /// Host service bundle for executing runtime side effects and environment queries.
+    pub host: DesktopHostContext,
     /// Reactive desktop state signal.
     pub state: RwSignal<DesktopState>,
     /// Reactive pointer/drag/resize interaction state signal.
@@ -122,6 +125,7 @@ impl DesktopRuntimeContext {
 #[component]
 /// Provides [`DesktopRuntimeContext`] to descendant components and boots persisted state.
 pub fn DesktopProvider(children: Children) -> impl IntoView {
+    let host = DesktopHostContext::default();
     let state = create_rw_signal(DesktopState::default());
     let interaction = create_rw_signal(InteractionState::default());
     let effects = create_rw_signal(Vec::<RuntimeEffect>::new());
@@ -148,6 +152,7 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
     });
 
     provide_context(DesktopRuntimeContext {
+        host,
         state,
         interaction,
         effects,
@@ -264,89 +269,7 @@ pub fn DesktopShell() -> impl IntoView {
         runtime.effects.set(Vec::new());
 
         for effect in queued {
-            match effect {
-                RuntimeEffect::ParseAndOpenDeepLink(deep_link) => {
-                    for target in deep_link.open {
-                        runtime.dispatch_action(DesktopAction::OpenWindow(
-                            build_open_request_from_deeplink(target),
-                        ));
-                    }
-                }
-                RuntimeEffect::PersistLayout => {
-                    let snapshot_state = runtime.state.get_untracked();
-                    if let Err(err) = persistence::persist_layout_snapshot(&snapshot_state) {
-                        logging::warn!("persist layout failed: {err}");
-                    }
-                    let durable_state = snapshot_state.clone();
-                    let durable_envelope =
-                        persistence::build_durable_layout_snapshot_envelope(&durable_state);
-                    match durable_envelope {
-                        Ok(envelope) => {
-                            spawn_local(async move {
-                                if let Err(err) =
-                                    persistence::persist_durable_layout_snapshot_envelope(&envelope)
-                                        .await
-                                {
-                                    logging::warn!("persist durable layout failed: {err}");
-                                }
-                            });
-                        }
-                        Err(err) => logging::warn!("build durable layout envelope failed: {err}"),
-                    }
-                }
-                RuntimeEffect::PersistTheme => {
-                    let theme = runtime.state.get_untracked().theme;
-                    if let Err(err) = persistence::persist_theme(&theme) {
-                        logging::warn!("persist theme failed: {err}");
-                    }
-                    let durable_state = runtime.state.get_untracked();
-                    let durable_envelope =
-                        persistence::build_durable_layout_snapshot_envelope(&durable_state);
-                    match durable_envelope {
-                        Ok(envelope) => {
-                            spawn_local(async move {
-                                if let Err(err) =
-                                    persistence::persist_durable_layout_snapshot_envelope(&envelope)
-                                        .await
-                                {
-                                    logging::warn!("persist durable theme snapshot failed: {err}");
-                                }
-                            });
-                        }
-                        Err(err) => logging::warn!("build durable theme envelope failed: {err}"),
-                    }
-                }
-                RuntimeEffect::PersistTerminalHistory => {
-                    let history = runtime.state.get_untracked().terminal_history;
-                    if let Err(err) = persistence::persist_terminal_history(&history) {
-                        logging::warn!("persist terminal history failed: {err}");
-                    }
-                    let durable_state = runtime.state.get_untracked();
-                    let durable_envelope =
-                        persistence::build_durable_layout_snapshot_envelope(&durable_state);
-                    match durable_envelope {
-                        Ok(envelope) => {
-                            spawn_local(async move {
-                                if let Err(err) =
-                                    persistence::persist_durable_layout_snapshot_envelope(&envelope)
-                                        .await
-                                {
-                                    logging::warn!(
-                                        "persist durable terminal snapshot failed: {err}"
-                                    );
-                                }
-                            });
-                        }
-                        Err(err) => {
-                            logging::warn!("build durable terminal envelope failed: {err}")
-                        }
-                    }
-                }
-                RuntimeEffect::OpenExternalUrl(url) => {
-                    logging::log!("open external url requested: {url}");
-                }
-                RuntimeEffect::FocusWindowInput(_) | RuntimeEffect::PlaySound(_) => {}
-            }
+            runtime.host.run_runtime_effect(runtime, effect);
         }
     });
 
@@ -2194,35 +2117,5 @@ fn resize_edge_class(edge: ResizeEdge) -> &'static str {
 }
 
 fn desktop_viewport_rect() -> WindowRect {
-    #[cfg(target_arch = "wasm32")]
-    {
-        if let Some(window) = web_sys::window() {
-            let width = window
-                .inner_width()
-                .ok()
-                .and_then(|value| value.as_f64())
-                .map(|value| value as i32)
-                .unwrap_or(1024);
-            let height = window
-                .inner_height()
-                .ok()
-                .and_then(|value| value.as_f64())
-                .map(|value| value as i32)
-                .unwrap_or(768);
-
-            return WindowRect {
-                x: 0,
-                y: 0,
-                w: width.max(220),
-                h: (height - TASKBAR_HEIGHT_PX).max(140),
-            };
-        }
-    }
-
-    WindowRect {
-        x: 0,
-        y: 0,
-        w: 1024,
-        h: 768 - TASKBAR_HEIGHT_PX,
-    }
+    DesktopHostContext::default().desktop_viewport_rect(TASKBAR_HEIGHT_PX)
 }

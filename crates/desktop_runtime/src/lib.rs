@@ -5,6 +5,7 @@
 //! - data types in [`model`]
 //! - state transitions in [`reduce_desktop`]
 //! - persistence helpers in [`persistence`]
+//! - host-side effect execution helpers in [`host`]
 //! - Leptos UI primitives in [`components`]
 //!
 //! # Example
@@ -36,6 +37,8 @@ pub mod apps;
 pub mod components;
 /// Core runtime state model and serializable snapshot types.
 pub mod model;
+/// Host-side effect execution and viewport helpers used by the shell runtime.
+pub mod host;
 /// Browser/local persistence helpers for desktop runtime state.
 pub mod persistence;
 /// Reducer actions and effect generation for desktop state transitions.
@@ -43,6 +46,8 @@ pub mod reducer;
 
 /// Re-exported runtime provider and shell UI entrypoints.
 pub use components::{use_desktop_runtime, DesktopProvider, DesktopRuntimeContext, DesktopShell};
+/// Re-exported host-side effect execution context.
+pub use host::DesktopHostContext;
 /// Re-exported runtime state model types.
 pub use model::*;
 /// Re-exported persistence entrypoints used by the shell runtime.

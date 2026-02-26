@@ -9,7 +9,7 @@
 //! ```rust
 //! use platform_storage::{build_app_state_envelope, explorer_preview_cache_key, MemorySessionStore};
 //!
-//! let envelope = build_app_state_envelope("app.example", 1, &serde_json::json!({ "ok": true }))
+//! let envelope = build_app_state_envelope("app.example", 1, &3_u32)
 //!     .expect("envelope should serialize");
 //! assert_eq!(envelope.namespace, "app.example");
 //!
@@ -23,7 +23,7 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
-mod wasm_bridge;
+mod host_adapters;
 
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -46,18 +46,7 @@ pub use platform_host::{
 ///
 /// Returns `None` when the key is absent, localStorage is unavailable, or deserialization fails.
 pub fn load_local_pref<T: DeserializeOwned>(key: &str) -> Option<T> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let storage = web_sys::window()?.local_storage().ok().flatten()?;
-        let raw = storage.get_item(key).ok().flatten()?;
-        serde_json::from_str(&raw).ok()
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let _ = key;
-        None
-    }
+    host_adapters::prefs_store().load_typed(key)
 }
 
 /// Saves a typed preference value to localStorage on WASM targets.
@@ -66,22 +55,7 @@ pub fn load_local_pref<T: DeserializeOwned>(key: &str) -> Option<T> {
 ///
 /// Returns an error when localStorage is unavailable or serialization/storage fails.
 pub fn save_local_pref<T: Serialize>(key: &str, value: &T) -> Result<(), String> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let storage = web_sys::window()
-            .and_then(|w| w.local_storage().ok().flatten())
-            .ok_or_else(|| "localStorage unavailable".to_string())?;
-        let raw = serde_json::to_string(value).map_err(|e| e.to_string())?;
-        storage
-            .set_item(key, &raw)
-            .map_err(|e| format!("localStorage set_item failed: {e:?}"))
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let _ = (key, value);
-        Ok(())
-    }
+    host_adapters::prefs_store().save_typed(key, value)
 }
 
 /// Loads a persisted app-state envelope by namespace.
@@ -90,7 +64,8 @@ pub fn save_local_pref<T: Serialize>(key: &str, value: &T) -> Result<(), String>
 ///
 /// Returns an error when the browser storage bridge fails.
 pub async fn load_app_state_envelope(namespace: &str) -> Result<Option<AppStateEnvelope>, String> {
-    wasm_bridge::load_app_state_envelope(namespace).await
+    let store = host_adapters::app_state_store();
+    store.load_app_state_envelope(namespace).await
 }
 
 /// Saves a full app-state envelope.
@@ -99,7 +74,8 @@ pub async fn load_app_state_envelope(namespace: &str) -> Result<Option<AppStateE
 ///
 /// Returns an error when the browser storage bridge fails.
 pub async fn save_app_state_envelope(envelope: &AppStateEnvelope) -> Result<(), String> {
-    wasm_bridge::save_app_state_envelope(envelope).await
+    let store = host_adapters::app_state_store();
+    store.save_app_state_envelope(envelope).await
 }
 
 /// Serializes and saves an app-state payload under `namespace`.
@@ -122,7 +98,8 @@ pub async fn save_app_state<T: Serialize>(
 ///
 /// Returns an error when the browser storage bridge fails.
 pub async fn delete_app_state(namespace: &str) -> Result<(), String> {
-    wasm_bridge::delete_app_state(namespace).await
+    let store = host_adapters::app_state_store();
+    store.delete_app_state(namespace).await
 }
 
 /// Lists namespaces currently present in the app-state store.
@@ -131,7 +108,8 @@ pub async fn delete_app_state(namespace: &str) -> Result<(), String> {
 ///
 /// Returns an error when the browser storage bridge fails.
 pub async fn list_app_state_namespaces() -> Result<Vec<String>, String> {
-    wasm_bridge::list_app_state_namespaces().await
+    let store = host_adapters::app_state_store();
+    store.list_app_state_namespaces().await
 }
 
 /// Stores text content in the Cache API under `cache_name` and `key`.
@@ -140,7 +118,8 @@ pub async fn list_app_state_namespaces() -> Result<Vec<String>, String> {
 ///
 /// Returns an error when the browser storage bridge fails.
 pub async fn cache_put_text(cache_name: &str, key: &str, value: &str) -> Result<(), String> {
-    wasm_bridge::cache_put_text(cache_name, key, value).await
+    let cache = host_adapters::content_cache();
+    cache.put_text(cache_name, key, value).await
 }
 
 /// Reads text content from the Cache API.
@@ -149,7 +128,8 @@ pub async fn cache_put_text(cache_name: &str, key: &str, value: &str) -> Result<
 ///
 /// Returns an error when the browser storage bridge fails.
 pub async fn cache_get_text(cache_name: &str, key: &str) -> Result<Option<String>, String> {
-    wasm_bridge::cache_get_text(cache_name, key).await
+    let cache = host_adapters::content_cache();
+    cache.get_text(cache_name, key).await
 }
 
 /// Deletes a cached value from the Cache API.
@@ -158,7 +138,8 @@ pub async fn cache_get_text(cache_name: &str, key: &str) -> Result<Option<String
 ///
 /// Returns an error when the browser storage bridge fails.
 pub async fn cache_delete(cache_name: &str, key: &str) -> Result<(), String> {
-    wasm_bridge::cache_delete(cache_name, key).await
+    let cache = host_adapters::content_cache();
+    cache.delete(cache_name, key).await
 }
 
 /// Serializes and stores a JSON value in the Cache API.
@@ -171,8 +152,8 @@ pub async fn cache_put_json<T: Serialize>(
     key: &str,
     value: &T,
 ) -> Result<(), String> {
-    let raw = serde_json::to_string(value).map_err(|e| e.to_string())?;
-    cache_put_text(cache_name, key, &raw).await
+    let cache = host_adapters::content_cache();
+    cache_put_json_with(&cache, cache_name, key, value).await
 }
 
 /// Reads and deserializes a JSON value from the Cache API.
@@ -184,11 +165,8 @@ pub async fn cache_get_json<T: DeserializeOwned>(
     cache_name: &str,
     key: &str,
 ) -> Result<Option<T>, String> {
-    let Some(raw) = cache_get_text(cache_name, key).await? else {
-        return Ok(None);
-    };
-    let decoded = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
-    Ok(Some(decoded))
+    let cache = host_adapters::content_cache();
+    cache_get_json_with(&cache, cache_name, key).await
 }
 
 /// Returns the current explorer backend status and capability information.
@@ -197,7 +175,8 @@ pub async fn cache_get_json<T: DeserializeOwned>(
 ///
 /// Returns an error when the browser storage bridge fails.
 pub async fn explorer_status() -> Result<ExplorerBackendStatus, String> {
-    wasm_bridge::explorer_status().await
+    let fs = host_adapters::explorer_fs_service();
+    fs.status().await
 }
 
 /// Opens the browser native-directory picker and returns updated backend status.
@@ -206,7 +185,8 @@ pub async fn explorer_status() -> Result<ExplorerBackendStatus, String> {
 ///
 /// Returns an error when the picker/bridge operation fails.
 pub async fn explorer_pick_native_directory() -> Result<ExplorerBackendStatus, String> {
-    wasm_bridge::explorer_pick_native_directory().await
+    let fs = host_adapters::explorer_fs_service();
+    fs.pick_native_directory().await
 }
 
 /// Requests explorer permissions for the active backend.
@@ -217,7 +197,8 @@ pub async fn explorer_pick_native_directory() -> Result<ExplorerBackendStatus, S
 pub async fn explorer_request_permission(
     mode: ExplorerPermissionMode,
 ) -> Result<ExplorerPermissionState, String> {
-    wasm_bridge::explorer_request_permission(mode).await
+    let fs = host_adapters::explorer_fs_service();
+    fs.request_permission(mode).await
 }
 
 /// Lists a directory using the active explorer backend.
@@ -226,7 +207,8 @@ pub async fn explorer_request_permission(
 ///
 /// Returns an error when the list operation fails.
 pub async fn explorer_list_dir(path: &str) -> Result<ExplorerListResult, String> {
-    wasm_bridge::explorer_list_dir(path).await
+    let fs = host_adapters::explorer_fs_service();
+    fs.list_dir(path).await
 }
 
 /// Reads a text file using the active explorer backend.
@@ -235,7 +217,8 @@ pub async fn explorer_list_dir(path: &str) -> Result<ExplorerListResult, String>
 ///
 /// Returns an error when the read operation fails.
 pub async fn explorer_read_text_file(path: &str) -> Result<ExplorerFileReadResult, String> {
-    wasm_bridge::explorer_read_text_file(path).await
+    let fs = host_adapters::explorer_fs_service();
+    fs.read_text_file(path).await
 }
 
 /// Writes a text file using the active explorer backend.
@@ -244,7 +227,8 @@ pub async fn explorer_read_text_file(path: &str) -> Result<ExplorerFileReadResul
 ///
 /// Returns an error when the write operation fails.
 pub async fn explorer_write_text_file(path: &str, text: &str) -> Result<ExplorerMetadata, String> {
-    wasm_bridge::explorer_write_text_file(path, text).await
+    let fs = host_adapters::explorer_fs_service();
+    fs.write_text_file(path, text).await
 }
 
 /// Creates a directory using the active explorer backend.
@@ -253,7 +237,8 @@ pub async fn explorer_write_text_file(path: &str, text: &str) -> Result<Explorer
 ///
 /// Returns an error when the create operation fails.
 pub async fn explorer_create_dir(path: &str) -> Result<ExplorerMetadata, String> {
-    wasm_bridge::explorer_create_dir(path).await
+    let fs = host_adapters::explorer_fs_service();
+    fs.create_dir(path).await
 }
 
 /// Creates a text file using the active explorer backend.
@@ -262,7 +247,8 @@ pub async fn explorer_create_dir(path: &str) -> Result<ExplorerMetadata, String>
 ///
 /// Returns an error when the create operation fails.
 pub async fn explorer_create_file(path: &str, text: &str) -> Result<ExplorerMetadata, String> {
-    wasm_bridge::explorer_create_file(path, text).await
+    let fs = host_adapters::explorer_fs_service();
+    fs.create_file(path, text).await
 }
 
 /// Deletes a file or directory using the active explorer backend.
@@ -273,7 +259,8 @@ pub async fn explorer_create_file(path: &str, text: &str) -> Result<ExplorerMeta
 ///
 /// Returns an error when the delete operation fails.
 pub async fn explorer_delete(path: &str, recursive: bool) -> Result<(), String> {
-    wasm_bridge::explorer_delete(path, recursive).await
+    let fs = host_adapters::explorer_fs_service();
+    fs.delete(path, recursive).await
 }
 
 /// Retrieves metadata for a path using the active explorer backend.
@@ -282,5 +269,6 @@ pub async fn explorer_delete(path: &str, recursive: bool) -> Result<(), String> 
 ///
 /// Returns an error when the stat operation fails.
 pub async fn explorer_stat(path: &str) -> Result<ExplorerMetadata, String> {
-    wasm_bridge::explorer_stat(path).await
+    let fs = host_adapters::explorer_fs_service();
+    fs.stat(path).await
 }
