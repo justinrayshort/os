@@ -19,6 +19,15 @@ const REQUIRED_WIKI_PAGES: &[&str] = &[
     "API-Reference-(rustdoc).md",
     "Contributing-to-Docs.md",
 ];
+const WIKI_INSTRUCTIONAL_SECTION_SEQUENCE: &[&str] = &[
+    "Outcome",
+    "Entry Criteria",
+    "Procedure",
+    "Validation",
+    "Next Steps",
+];
+const WIKI_INSTRUCTIONAL_ENTRY_CRITERIA_SUBSECTIONS: &[&str] =
+    &["Prior Knowledge", "Environment Setup", "Dependencies"];
 
 #[derive(Clone, Debug)]
 struct Problem {
@@ -560,6 +569,10 @@ fn parse_fence_lang(line: &str) -> Option<String> {
 }
 
 fn parse_markdown_heading(line: &str) -> Option<&str> {
+    parse_markdown_heading_parts(line).map(|(_, text)| text)
+}
+
+fn parse_markdown_heading_parts(line: &str) -> Option<(usize, &str)> {
     let bytes = line.as_bytes();
     let mut count = 0usize;
     while count < bytes.len() && bytes[count] == b'#' {
@@ -571,7 +584,7 @@ fn parse_markdown_heading(line: &str) -> Option<&str> {
     if bytes.get(count).copied().map(|b| b.is_ascii_whitespace()) != Some(true) {
         return None;
     }
-    Some(line[count..].trim_start())
+    Some((count, line[count..].trim_start()))
 }
 
 fn slugify_heading(text: &str) -> String {
@@ -850,7 +863,172 @@ fn validate_wiki_submodule(root: &Path) -> Vec<Problem> {
         }
     }
 
+    problems.extend(validate_wiki_instructional_templates(&wiki_root));
+
     problems
+}
+
+#[derive(Clone, Debug)]
+struct MarkdownHeadingRecord {
+    level: usize,
+    text: String,
+    line: usize,
+}
+
+fn validate_wiki_instructional_templates(wiki_root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    let mut files = match collect_files_with_suffix(wiki_root, ".md") {
+        Ok(files) => files,
+        Err(err) => {
+            problems.push(Problem::new(
+                "wiki",
+                WIKI_SUBMODULE_PATH,
+                format!("failed to scan wiki pages for instructional template validation: {err}"),
+                None,
+            ));
+            return problems;
+        }
+    };
+    files.sort();
+
+    for path in files {
+        let Some(file_name) = path.file_name().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        if !is_wiki_instructional_page(file_name) {
+            continue;
+        }
+
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(err) => {
+                problems.push(Problem::new(
+                    "wiki",
+                    rel_posix(wiki_root.parent().unwrap_or(wiki_root), &path),
+                    format!("failed to read wiki instructional page: {err}"),
+                    None,
+                ));
+                continue;
+            }
+        };
+
+        problems.extend(validate_wiki_instructional_page_template(file_name, &text));
+    }
+
+    problems
+}
+
+fn is_wiki_instructional_page(file_name: &str) -> bool {
+    (file_name.starts_with("Tutorial-") || file_name.starts_with("How-to-"))
+        && file_name.ends_with(".md")
+}
+
+fn validate_wiki_instructional_page_template(file_name: &str, text: &str) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    let headings = extract_markdown_heading_records(text);
+    let path = format!("{WIKI_SUBMODULE_PATH}/{file_name}");
+
+    let h2_headings: Vec<&MarkdownHeadingRecord> =
+        headings.iter().filter(|h| h.level == 2).collect();
+    let h2_normalized: Vec<String> = h2_headings
+        .iter()
+        .map(|h| normalize_heading(&h.text))
+        .collect();
+    let expected_h2: Vec<String> = WIKI_INSTRUCTIONAL_SECTION_SEQUENCE
+        .iter()
+        .map(|h| normalize_heading(h))
+        .collect();
+    if h2_normalized != expected_h2 {
+        let line = h2_headings.first().map(|h| h.line);
+        let found = if h2_headings.is_empty() {
+            "<none>".to_string()
+        } else {
+            h2_headings
+                .iter()
+                .map(|h| format!("{}@L{}", h.text, h.line))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        problems.push(Problem::new(
+            "wiki",
+            path.clone(),
+            format!(
+                "instructional page must use exact level-2 section sequence `{}` (found `{found}`)",
+                WIKI_INSTRUCTIONAL_SECTION_SEQUENCE.join("`, `")
+            ),
+            line,
+        ));
+    }
+
+    let entry_idx = headings.iter().position(|h| {
+        h.level == 2 && normalize_heading(&h.text) == normalize_heading("Entry Criteria")
+    });
+    let procedure_idx = headings
+        .iter()
+        .position(|h| h.level == 2 && normalize_heading(&h.text) == normalize_heading("Procedure"));
+
+    if let Some(entry_idx) = entry_idx {
+        let boundary = procedure_idx.unwrap_or(headings.len());
+        let entry_subsections: Vec<&MarkdownHeadingRecord> = headings[entry_idx + 1..boundary]
+            .iter()
+            .filter(|h| h.level == 3)
+            .collect();
+        let entry_subsection_names: Vec<String> = entry_subsections
+            .iter()
+            .map(|h| normalize_heading(&h.text))
+            .collect();
+        let expected_entry_subsections: Vec<String> = WIKI_INSTRUCTIONAL_ENTRY_CRITERIA_SUBSECTIONS
+            .iter()
+            .map(|h| normalize_heading(h))
+            .collect();
+        if entry_subsection_names != expected_entry_subsections {
+            let found = if entry_subsections.is_empty() {
+                "<none>".to_string()
+            } else {
+                entry_subsections
+                    .iter()
+                    .map(|h| format!("{}@L{}", h.text, h.line))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            problems.push(Problem::new(
+                "wiki",
+                path,
+                format!(
+                    "`## Entry Criteria` must contain exact level-3 subsection sequence `{}` before `## Procedure` (found `{found}`)",
+                    WIKI_INSTRUCTIONAL_ENTRY_CRITERIA_SUBSECTIONS.join("`, `")
+                ),
+                Some(headings[entry_idx].line),
+            ));
+        }
+    }
+
+    problems
+}
+
+fn extract_markdown_heading_records(body: &str) -> Vec<MarkdownHeadingRecord> {
+    let mut headings = Vec::new();
+    let mut in_fence = false;
+
+    for (line_idx, line) in body.lines().enumerate() {
+        if parse_fence_lang(line).is_some() {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+        let Some((level, heading_text)) = parse_markdown_heading_parts(line) else {
+            continue;
+        };
+        headings.push(MarkdownHeadingRecord {
+            level,
+            text: heading_text.trim().to_string(),
+            line: line_idx + 1,
+        });
+    }
+
+    headings
 }
 
 fn parse_gitmodules_section(text: &str, target_section: &str) -> Option<HashMap<String, String>> {
@@ -1793,4 +1971,99 @@ fn normalize_path(path: &Path) -> PathBuf {
     }
 
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wiki_instructional_template_accepts_standard_page() {
+        let text = r#"# Tutorial: Example
+
+## Outcome
+
+Do a thing.
+
+## Entry Criteria
+
+### Prior Knowledge
+
+Basic shell usage.
+
+### Environment Setup
+
+Repo checked out.
+
+### Dependencies
+
+Rust installed.
+
+## Procedure
+
+### Step 1: Do the thing
+
+```md
+## Validation
+### Prior Knowledge
+```
+
+## Validation
+
+Check the thing.
+
+## Next Steps
+
+Continue.
+"#;
+
+        let problems = validate_wiki_instructional_page_template("Tutorial-Example.md", text);
+        assert!(
+            problems.is_empty(),
+            "expected no problems, found: {problems:#?}"
+        );
+    }
+
+    #[test]
+    fn wiki_instructional_template_rejects_h2_sequence_drift() {
+        let text = r#"# How to: Example
+
+## Outcome
+## Entry Criteria
+### Prior Knowledge
+### Environment Setup
+### Dependencies
+## Common Mistakes
+## Procedure
+## Validation
+## Next Steps
+"#;
+
+        let problems = validate_wiki_instructional_page_template("How-to-Example.md", text);
+        assert_eq!(problems.len(), 1, "unexpected problems: {problems:#?}");
+        assert!(problems[0]
+            .message
+            .contains("exact level-2 section sequence"));
+    }
+
+    #[test]
+    fn wiki_instructional_template_rejects_entry_criteria_subsection_drift() {
+        let text = r#"# Tutorial: Example
+
+## Outcome
+## Entry Criteria
+### Environment Setup
+### Prior Knowledge
+### Dependencies
+## Procedure
+## Validation
+## Next Steps
+"#;
+
+        let problems = validate_wiki_instructional_page_template("Tutorial-Example.md", text);
+        assert_eq!(problems.len(), 1, "unexpected problems: {problems:#?}");
+        assert!(problems[0]
+            .message
+            .contains("`## Entry Criteria` must contain exact level-3 subsection sequence"));
+    }
 }
