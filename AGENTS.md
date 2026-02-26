@@ -11,20 +11,31 @@ This repository is maintained with help from automated agents. Use this file as 
   - `crates/apps/*`
   - `xtask`
 - Documentation system split across:
-  - Rust source comments (`//!`, `///`) -> generated `rustdoc` API reference
-  - GitHub Wiki repository as submodule under `wiki/` (tutorials, how-to guides, explanations)
-  - Repo-native Markdown under `docs/` for contracts, SOPs, ADRs, and docs tooling reference
+  - Rust source comments (`//!`, `///`) -> generated `rustdoc` API reference (authoritative code-level Reference documentation)
+  - GitHub Wiki repository as submodule under `wiki/` (canonical documentation hub and narrative/architectural record, organized by Diataxis)
+  - Repo-native Markdown under `docs/` for formal artifact source files (contracts, SOPs, ADRs, tooling reference, diagrams/assets) that are indexed and cross-linked from the Wiki
   - Validation/audit CLI implemented in Rust via `cargo xtask docs` (`xtask/src/docs.rs`)
 
 ## 2) Operating Rules
 
 - Make minimal, reviewable changes that match existing patterns.
-- If behavior, API shape, architecture, or procedures change, update docs in the same change.
+- Treat project documentation (`rustdoc` + Wiki + repo-native `docs/` artifacts) as the authoritative human-readable source of truth for system behavior, architecture, design decisions, and operations; keep it synchronized with implementation.
+- If behavior, API shape, architecture, or procedures change, update docs in the same change/review workflow.
+- Material code changes must update both:
+  - `rustdoc` reference documentation for affected code
+  - relevant Wiki pages (tutorial/how-to/explanation/reference registries) for changed behavior, interfaces, boundaries, or operational guidance
+- All Rust source code must be documented using idiomatic `rustdoc` conventions at the crate, module, type, trait, and function levels.
+- Rustdoc updates must include accurate behavior descriptions, invariants/constraints, error semantics, and examples/cross-references where appropriate.
+- All documentation must follow Diataxis intent separation:
+  - `rustdoc` content is Reference
+  - Wiki pages must be explicitly authored as Tutorial / How-to Guide / Reference / Explanation and must not mix intents
 - Preserve documentation contracts enforced by `tools/docs/doc_contracts.json`.
 - Do not weaken validation rules or local verification workflows unless explicitly requested.
 - Avoid destructive git commands unless explicitly requested.
 
 ## 3) Documentation Contracts (Required)
+
+### 3.1 Validator-enforced (`cargo xtask docs`)
 
 The docs validator enforces:
 
@@ -41,6 +52,23 @@ The docs validator enforces:
 - Folder/category mapping (Diataxis) under `docs/` must remain consistent.
 - SOP docs must include the required SOP headings (validated by `sop` check).
 - Review freshness threshold is tracked (currently 180 days) in audit reporting.
+
+### 3.2 Agent-enforced Documentation Requirements (Required)
+
+- Wiki is the canonical documentation hub and canonical narrative/architectural record for the project, including:
+  - architecture overviews and explanations
+  - design rationale and decision context
+  - ADR/SOP/diagram/tutorial/operational guidance indexes and cross-links
+  - contributor-facing workflows and maintainership guidance
+- Formal ADR/SOP/reference/asset source files may remain canonically stored in `docs/`, but the Wiki must be updated as the canonical navigation and narrative layer when those artifacts are added or materially changed.
+- Rustdoc is the authoritative code-level Reference surface and must be kept current for all affected crates/modules/public types/traits/functions.
+- Rustdoc should use idiomatic conventions:
+  - crate/module overviews with `//!`
+  - item-level docs with `///`
+  - clear summaries, invariants, and error behavior
+  - runnable examples for user-facing APIs when practical
+  - intra-doc links/cross-references to related components
+- Documentation changes must preserve strict Diataxis separation by user intent.
 
 ## 4) Local Verification Workflows (Current)
 
@@ -150,22 +178,29 @@ make proto-restart
 ### 6.1 Docs-only changes
 
 1. Classify the change surface: rustdoc (`crates/**` comments), wiki (`wiki/*.md`), or repo docs (`docs/`).
+   - For Wiki changes, classify the page explicitly as Tutorial / How-to Guide / Reference / Explanation and keep content scoped to that intent.
+   - For rustdoc changes, treat the content as Reference documentation.
 2. Initialize/update the wiki submodule if touching wiki content (`git submodule update --init --recursive`).
 3. Keep docs frontmatter complete and valid for `docs/*.md` changes.
-4. Run `cargo xtask docs all`.
-5. Run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc` when rustdoc changed (recommended for all docs changes that mention APIs).
-6. If Mermaid or OpenAPI changed, run targeted checks (`cargo xtask docs mermaid`, `cargo xtask docs openapi`) in addition to `all`.
-7. Generate an audit artifact (`cargo xtask docs audit-report --output .artifacts/docs-audit.json`) when the change affects governance/reporting flows.
+4. If ADRs, SOPs, diagrams, or other formal artifacts changed in `docs/`, update the relevant Wiki reference/index pages in the same change.
+5. Run `cargo xtask docs all`.
+6. Run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc` when rustdoc changed (recommended for all docs changes that mention APIs).
+7. If Mermaid or OpenAPI changed, run targeted checks (`cargo xtask docs mermaid`, `cargo xtask docs openapi`) in addition to `all`.
+8. Generate an audit artifact (`cargo xtask docs audit-report --output .artifacts/docs-audit.json`) when the change affects governance/reporting flows.
 
 ### 6.2 Code + docs changes
 
 1. Update Rust code in the relevant crate(s).
-2. Update rustdoc comments for affected public APIs in the same change.
-3. Update affected wiki tutorials/how-to/explanations in `wiki/` when behavior/workflows/rationale changed.
-4. Update affected governance docs/ADR/SOPs in `docs/` when process/contracts/architecture changed.
-5. Run targeted Cargo checks (`cargo test --workspace` if behavior changed).
-6. Run rustdoc checks (`cargo doc --workspace --no-deps`, `cargo test --workspace --doc`).
-7. Run docs validation (`cargo xtask docs all`).
+2. Update rustdoc in the same change for affected crates/modules/types/traits/functions (behavior, invariants, errors, examples, and cross-references as applicable).
+3. Update relevant Wiki content in the same change/review workflow whenever interfaces, behavior, user workflows, operational guidance, or system boundaries changed.
+   - Choose the correct Diataxis page type (Tutorial / How-to Guide / Reference / Explanation).
+   - Update Wiki reference/index pages when formal artifacts (ADR/SOP/diagram/command catalogs) are added or changed.
+4. Update affected governance docs/ADR/SOPs/diagrams/specs in `docs/` when process/contracts/architecture/operations changed.
+5. Keep rustdoc and Wiki descriptions synchronized with each other and with the implementation before requesting review.
+6. Run targeted Cargo checks (`cargo test --workspace` if behavior changed).
+7. Run rustdoc checks (`cargo doc --workspace --no-deps`, `cargo test --workspace --doc`).
+8. Run docs validation (`cargo xtask docs all`).
+9. If wiki content changed, commit `wiki/` changes and include the updated `wiki/` submodule pointer in the same PR/change set.
 
 ## 7) Key Files
 

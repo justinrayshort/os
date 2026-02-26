@@ -5,8 +5,8 @@ This repository contains a debranded retro desktop website prototype with a desk
 Documentation is split by intent:
 
 - `rustdoc` (generated from Rust source comments) is the authoritative API/reference surface.
-- GitHub Wiki (`wiki/` submodule) holds tutorials, how-to guides, and explanations.
-- `docs/` (repo-native Markdown) holds documentation governance, contracts, ADRs, SOPs, and tooling reference, validated by `cargo xtask docs`.
+- GitHub Wiki (`wiki/` submodule) is the canonical documentation hub and navigation surface, organized with Diataxis (tutorials, how-to guides, explanations, and project reference indexes).
+- `docs/` (repo-native Markdown) remains the canonical storage for documentation governance, contracts, ADRs, SOPs, diagrams/assets, and tooling reference, validated by `cargo xtask docs`.
 
 ## Prototype Status
 
@@ -113,6 +113,8 @@ Direct commands remain available if you prefer (`cargo run -p xtask -- ...`, `tr
 
 ## Documentation Workflow (Rustdoc + Wiki + Repo Docs)
 
+Use the GitHub Wiki (`wiki/Home.md`) as the primary documentation entry point for project navigation and artifact discovery. Update the relevant wiki reference/index pages when adding or changing formal artifacts (for example ADRs, SOPs, diagrams, or command references).
+
 Generate Rust API reference locally:
 
 ```bash
@@ -141,6 +143,7 @@ cargo xtask docs all
 - `crates/apps/notepad` - Notepad app UI crate
 - `crates/apps/calculator` - Calculator app UI crate
 - `crates/apps/terminal` - Terminal app UI crate
-- `docs/` - Diataxis documentation and SOP/governance system
+- `wiki/` - GitHub Wiki submodule (canonical documentation hub: Diataxis pages + reference indexes)
+- `docs/` - repo-native formal documentation artifacts (ADR/SOP/contracts/reference/assets) backing the wiki hub
 - `xtask/src/docs.rs` - docs validation/audit implementation used by `cargo xtask docs`
 - `xtask/src/main.rs` - standardized project verification and developer workflow orchestration (`cargo xtask ...`)
