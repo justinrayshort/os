@@ -204,6 +204,8 @@ name = "desktop_app_calculator"
 version = "0.1.0"
 dependencies = [
  "leptos",
+ "platform_storage",
+ "serde",
  "serde_json",
 ]
 
@@ -212,6 +214,8 @@ name = "desktop_app_explorer"
 version = "0.1.0"
 dependencies = [
  "leptos",
+ "platform_storage",
+ "serde",
  "serde_json",
 ]
 
@@ -220,6 +224,8 @@ name = "desktop_app_notepad"
 version = "0.1.0"
 dependencies = [
  "leptos",
+ "platform_storage",
+ "serde",
  "serde_json",
 ]
 
@@ -228,6 +234,8 @@ name = "desktop_app_terminal"
 version = "0.1.0"
 dependencies = [
  "leptos",
+ "platform_storage",
+ "serde",
  "serde_json",
 ]
 
@@ -241,6 +249,7 @@ dependencies = [
  "desktop_app_terminal",
  "js-sys",
  "leptos",
+ "platform_storage",
  "pretty_assertions",
  "serde",
  "serde_json",
@@ -1032,6 +1041,20 @@ name = "pin-project-lite"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b3cff922bd51709b605d9ead9aa71031d81447142d828eb4a6eba76fe619f9b"
+
+[[package]]
+name = "platform_storage"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "leptos",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
 
 [[package]]
 name = "potential_utf"

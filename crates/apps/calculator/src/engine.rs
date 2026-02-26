@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 const MAX_HISTORY_ITEMS: usize = 24;
 const MAX_ENTRY_DIGITS: usize = 16;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct HistoryEntry {
     pub(crate) id: u64,
     pub(crate) expression: String,
@@ -9,7 +11,7 @@ pub(crate) struct HistoryEntry {
     pub(crate) result_value: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum BinaryOp {
     Add,
     Subtract,
@@ -28,7 +30,7 @@ impl BinaryOp {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum UnaryOp {
     ToggleSign,
     Sqrt,
@@ -55,7 +57,7 @@ pub(crate) enum CalcAction {
     UseLast,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct CalculatorState {
     entry: String,
     accumulator: Option<f64>,

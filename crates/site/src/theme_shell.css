@@ -310,12 +310,14 @@ textarea {
   width: 100%;
   height: 100%;
   min-height: 0;
+  pointer-events: none;
 }
 
 .desktop-window {
   position: absolute;
   display: flex;
   flex-direction: column;
+  pointer-events: auto;
   border: var(--win-border) solid #000;
   background: var(--ui-panel);
   box-shadow: var(--bevel-out), 2px 2px 0 rgba(0, 0, 0, 0.25);
@@ -898,7 +900,7 @@ textarea {
 }
 
 .app-explorer-shell {
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
 }
 
 .explorer-workspace {
@@ -974,6 +976,7 @@ textarea {
 .explorer-listwrap {
   min-height: 0;
   overflow: auto;
+  scroll-padding-top: 28px;
   background: #fff;
   border-top: 1px solid #8a8a8a;
   border-bottom: 1px solid #8a8a8a;
@@ -998,6 +1001,20 @@ textarea {
 .explorer-list tbody td {
   padding: 3px 6px;
   border-bottom: 1px solid #eee;
+}
+
+.explorer-list tbody tr {
+  scroll-margin-top: 28px;
+}
+
+.explorer-create-name {
+  min-width: 0;
+  flex: 1 1 220px;
+  min-height: 22px;
+  border: 1px solid #000;
+  box-shadow: var(--bevel-in);
+  background: #fff;
+  padding: 1px 6px;
 }
 
 .explorer-list tbody tr.selected {

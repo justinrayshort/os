@@ -5,6 +5,7 @@ use crate::engine::{
 };
 use leptos::ev::KeyboardEvent;
 use leptos::*;
+use platform_storage::{self, AppStateEnvelope, CALCULATOR_STATE_NAMESPACE};
 use serde_json::Value;
 
 #[derive(Clone, Copy)]
@@ -229,10 +230,80 @@ const CALC_KEYS: [CalcKeySpec; 30] = [
     },
 ];
 
+const CALCULATOR_STATE_SCHEMA_VERSION: u32 = 1;
+
+fn restore_calculator_state(envelope: AppStateEnvelope) -> Option<CalculatorState> {
+    match envelope.schema_version {
+        CALCULATOR_STATE_SCHEMA_VERSION => serde_json::from_value(envelope.payload).ok(),
+        // Migration fallback for any pre-envelope experiments that stored the state directly.
+        _ => serde_json::from_value(envelope.payload).ok(),
+    }
+}
+
 #[component]
 pub fn CalculatorApp(launch_params: Value) -> impl IntoView {
     let _ = launch_params;
     let calc = create_rw_signal(CalculatorState::default());
+    let hydrated = create_rw_signal(false);
+    let last_saved = create_rw_signal::<Option<String>>(None);
+
+    create_effect(move |_| {
+        let calc = calc;
+        let hydrated = hydrated;
+        let last_saved = last_saved;
+        spawn_local(async move {
+            match platform_storage::load_app_state_envelope(CALCULATOR_STATE_NAMESPACE).await {
+                Ok(Some(envelope)) => {
+                    if let Some(restored) = restore_calculator_state(envelope) {
+                        let serialized = serde_json::to_string(&restored).ok();
+                        calc.set(restored);
+                        last_saved.set(serialized);
+                    }
+                }
+                Ok(None) => {}
+                Err(err) => logging::warn!("calculator state hydrate failed: {err}"),
+            }
+            hydrated.set(true);
+        });
+    });
+
+    create_effect(move |_| {
+        if !hydrated.get() {
+            return;
+        }
+
+        let snapshot = calc.get();
+        let serialized = match serde_json::to_string(&snapshot) {
+            Ok(raw) => raw,
+            Err(err) => {
+                logging::warn!("calculator state serialize failed: {err}");
+                return;
+            }
+        };
+
+        if last_saved.get().as_deref() == Some(serialized.as_str()) {
+            return;
+        }
+        last_saved.set(Some(serialized));
+
+        let envelope = match platform_storage::build_app_state_envelope(
+            CALCULATOR_STATE_NAMESPACE,
+            CALCULATOR_STATE_SCHEMA_VERSION,
+            &snapshot,
+        ) {
+            Ok(envelope) => envelope,
+            Err(err) => {
+                logging::warn!("calculator state envelope build failed: {err}");
+                return;
+            }
+        };
+
+        spawn_local(async move {
+            if let Err(err) = platform_storage::save_app_state_envelope(&envelope).await {
+                logging::warn!("calculator state persist failed: {err}");
+            }
+        });
+    });
 
     let on_keydown = move |ev: KeyboardEvent| {
         if ev.ctrl_key() || ev.meta_key() || ev.alt_key() {
@@ -359,7 +430,7 @@ pub fn CalculatorApp(launch_params: Value) -> impl IntoView {
                         )
                     }}
                 </span>
-                <span>"Click tape item to restore result"</span>
+                <span>{move || if hydrated.get() { "State: synced" } else { "State: hydrating..." }}</span>
             </div>
         </div>
     }

@@ -1,22 +1,154 @@
+use std::{cell::Cell, rc::Rc};
+
 use leptos::ev::KeyboardEvent;
 use leptos::*;
+use platform_storage::{self, AppStateEnvelope, TERMINAL_STATE_NAMESPACE};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+const TERMINAL_STATE_SCHEMA_VERSION: u32 = 1;
+const MAX_TERMINAL_LINES: usize = 200;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct TerminalPersistedState {
+    cwd: String,
+    input: String,
+    lines: Vec<String>,
+}
+
+fn default_terminal_lines() -> Vec<String> {
+    vec![
+        "RetroShell 0.1".to_string(),
+        "Type `help` for commands.".to_string(),
+    ]
+}
+
+fn normalize_terminal_lines(lines: &mut Vec<String>) {
+    if lines.is_empty() {
+        *lines = default_terminal_lines();
+        return;
+    }
+
+    if lines.len() > MAX_TERMINAL_LINES {
+        let overflow = lines.len() - MAX_TERMINAL_LINES;
+        lines.drain(0..overflow);
+    }
+}
+
+fn restore_terminal_state(
+    envelope: AppStateEnvelope,
+    launch_cwd: &str,
+) -> Option<TerminalPersistedState> {
+    if envelope.envelope_version != platform_storage::APP_STATE_ENVELOPE_VERSION {
+        return None;
+    }
+
+    if envelope.schema_version > TERMINAL_STATE_SCHEMA_VERSION {
+        return None;
+    }
+
+    let mut restored = serde_json::from_value::<TerminalPersistedState>(envelope.payload).ok()?;
+    if restored.cwd.trim().is_empty() {
+        restored.cwd = launch_cwd.to_string();
+    }
+    normalize_terminal_lines(&mut restored.lines);
+    Some(restored)
+}
 
 #[component]
 pub fn TerminalApp(launch_params: Value) -> impl IntoView {
-    let cwd = launch_params
+    let launch_cwd = launch_params
         .get("cwd")
         .and_then(Value::as_str)
         .unwrap_or("~/desktop")
         .to_string();
+    let cwd = create_rw_signal(launch_cwd.clone());
     let input = create_rw_signal(String::new());
-    let lines = create_rw_signal(vec![
-        "RetroShell 0.1".to_string(),
-        "Type `help` for commands.".to_string(),
-    ]);
-    let prompt_cwd = cwd.clone();
-    let keydown_cwd = cwd.clone();
-    let click_cwd = cwd.clone();
+    let lines = create_rw_signal(default_terminal_lines());
+    let hydrated = create_rw_signal(false);
+    let last_saved = create_rw_signal::<Option<String>>(None);
+    let hydrate_alive = Rc::new(Cell::new(true));
+    on_cleanup({
+        let hydrate_alive = hydrate_alive.clone();
+        move || hydrate_alive.set(false)
+    });
+
+    create_effect(move |_| {
+        let cwd = cwd;
+        let input = input;
+        let lines = lines;
+        let hydrated = hydrated;
+        let last_saved = last_saved;
+        let hydrate_alive = hydrate_alive.clone();
+        let launch_cwd = launch_cwd.clone();
+        spawn_local(async move {
+            match platform_storage::load_app_state_envelope(TERMINAL_STATE_NAMESPACE).await {
+                Ok(Some(envelope)) => {
+                    if let Some(restored) = restore_terminal_state(envelope, &launch_cwd) {
+                        if !hydrate_alive.get() {
+                            return;
+                        }
+                        let serialized = serde_json::to_string(&restored).ok();
+                        cwd.set(restored.cwd);
+                        input.set(restored.input);
+                        lines.set(restored.lines);
+                        last_saved.set(serialized);
+                    }
+                }
+                Ok(None) => {}
+                Err(err) => logging::warn!("terminal hydrate failed: {err}"),
+            }
+            if !hydrate_alive.get() {
+                return;
+            }
+            hydrated.set(true);
+        });
+    });
+
+    create_effect(move |_| {
+        if !hydrated.get() {
+            return;
+        }
+
+        let mut snapshot = TerminalPersistedState {
+            cwd: cwd.get(),
+            input: input.get(),
+            lines: lines.get(),
+        };
+        normalize_terminal_lines(&mut snapshot.lines);
+
+        let serialized = match serde_json::to_string(&snapshot) {
+            Ok(raw) => raw,
+            Err(err) => {
+                logging::warn!("terminal serialize failed: {err}");
+                return;
+            }
+        };
+
+        if last_saved.get().as_deref() == Some(serialized.as_str()) {
+            return;
+        }
+        last_saved.set(Some(serialized));
+
+        let envelope = match platform_storage::build_app_state_envelope(
+            TERMINAL_STATE_NAMESPACE,
+            TERMINAL_STATE_SCHEMA_VERSION,
+            &snapshot,
+        ) {
+            Ok(envelope) => envelope,
+            Err(err) => {
+                logging::warn!("terminal envelope build failed: {err}");
+                return;
+            }
+        };
+
+        spawn_local(async move {
+            if let Err(err) = platform_storage::save_app_state_envelope(&envelope).await {
+                logging::warn!("terminal persist failed: {err}");
+            }
+        });
+    });
+
     view! {
         <div class="app-shell app-terminal-shell">
             <div class="terminal-toolbar">
@@ -30,6 +162,7 @@ pub fn TerminalApp(launch_params: Value) -> impl IntoView {
                 }>"Open Projects"</button>
                 <button type="button" on:click=move |_| {
                     lines.set(vec!["RetroShell 0.1".to_string(), "Screen cleared.".to_string()]);
+                    input.set(String::new());
                 }>"Clear"</button>
             </div>
 
@@ -40,7 +173,9 @@ pub fn TerminalApp(launch_params: Value) -> impl IntoView {
             </div>
 
             <div class="terminal-input-row">
-                <label class="terminal-prompt" for="retro-shell-input">{format!("{prompt_cwd}>")}</label>
+                <label class="terminal-prompt" for="retro-shell-input">
+                    {move || format!("{}>", cwd.get())}
+                </label>
                 <input
                     id="retro-shell-input"
                     class="terminal-input"
@@ -49,7 +184,7 @@ pub fn TerminalApp(launch_params: Value) -> impl IntoView {
                     on:input=move |ev| input.set(event_target_value(&ev))
                     on:keydown=move |ev: KeyboardEvent| {
                         if ev.key() == "Enter" {
-                            submit_input_command(input, lines, &keydown_cwd);
+                            submit_input_command(input, lines, cwd);
                         }
                     }
                     placeholder="Try: help"
@@ -59,31 +194,42 @@ pub fn TerminalApp(launch_params: Value) -> impl IntoView {
                 <button
                     type="button"
                     class="terminal-run"
-                    on:click=move |_| submit_input_command(input, lines, &click_cwd)
+                    on:click=move |_| submit_input_command(input, lines, cwd)
                 >
                     "Run"
                 </button>
             </div>
 
             <div class="app-statusbar">
-                <span>"Local terminal sandbox (UI only)"</span>
+                <span>
+                    {move || if hydrated.get() {
+                        "Local terminal sandbox (UI only, hydrated)"
+                    } else {
+                        "Local terminal sandbox (UI only, hydrating)"
+                    }}
+                </span>
                 <span>{move || format!("{} line(s)", lines.get().len())}</span>
             </div>
         </div>
     }
 }
 
-fn submit_input_command(input: RwSignal<String>, lines: RwSignal<Vec<String>>, cwd: &str) {
+fn submit_input_command(
+    input: RwSignal<String>,
+    lines: RwSignal<Vec<String>>,
+    cwd: RwSignal<String>,
+) {
     let command = input.get_untracked().trim().to_string();
     if command.is_empty() {
         return;
     }
 
+    let prompt_cwd = cwd.get_untracked();
     lines.update(|out| {
-        out.push(format!("{cwd}> {command}"));
+        out.push(format!("{prompt_cwd}> {command}"));
         out.extend(simulate_command(&command));
-        if out.len() > 200 {
-            let overflow = out.len() - 200;
+        if out.len() > MAX_TERMINAL_LINES {
+            let overflow = out.len() - MAX_TERMINAL_LINES;
             out.drain(0..overflow);
         }
     });

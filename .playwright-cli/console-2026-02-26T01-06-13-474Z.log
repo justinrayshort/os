@@ -1,0 +1,8 @@
+Total messages: 6 (Errors: 0, Warnings: 6)
+
+[WARNING] dispatch -> effects: action=OpenWindow(OpenWindowRequest { app_id: Explorer, title: None, icon_id: None, rect: None, persist_key: None, launch_params: Null, app_state: Null, flags: WindowFlags { resizable: true, minimizable: true, maximizable: true, modal_parent: None } }) effects=[PersistLayout, FocusWindowInput(WindowId(1))] @ http://127.0.0.1:8081/site_app-c6a3d1bfe7c9a486.js:1039
+[WARNING] persist layout effect: 1 window(s): Explorer @ http://127.0.0.1:8081/site_app-c6a3d1bfe7c9a486.js:1039
+[WARNING] dispatch -> effects: action=CloseStartMenu effects=[] @ http://127.0.0.1:8081/site_app-c6a3d1bfe7c9a486.js:1039
+[WARNING] dispatch -> effects: action=OpenWindow(OpenWindowRequest { app_id: Notepad, title: None, icon_id: None, rect: None, persist_key: None, launch_params: Null, app_state: Null, flags: WindowFlags { resizable: true, minimizable: true, maximizable: true, modal_parent: None } }) effects=[PersistLayout, FocusWindowInput(WindowId(2))] @ http://127.0.0.1:8081/site_app-c6a3d1bfe7c9a486.js:1039
+[WARNING] dispatch -> effects: action=CloseStartMenu effects=[] @ http://127.0.0.1:8081/site_app-c6a3d1bfe7c9a486.js:1039
+[WARNING] dispatch -> effects: action=OpenWindow(OpenWindowRequest { app_id: Calculator, title: None, icon_id: None, rect: Some(WindowRect { x: 72, y: 64, w: 560, h: 420 }), persist_key: None, launch_params: Null, app_state: Null, flags: WindowFlags { resizable: true, minimizable: true, maximizable: true, modal_parent: None } }) effects=[PersistLayout, FocusWindowInput(WindowId(3))] @ http://127.0.0.1:8081/site_app-c6a3d1bfe7c9a486.js:1039

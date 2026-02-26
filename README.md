@@ -5,13 +5,19 @@ This repository contains a debranded retro desktop website prototype with a desk
 ## Prototype Status
 
 - Desktop shell with taskbar, launcher menu, windows, and persistence hooks
+- Offline-first browser storage architecture:
+  - IndexedDB for versioned namespaced app/system state and virtual filesystem
+  - Cache API for cached file previews/responses
+  - localStorage for lightweight preferences/config
+  - in-memory session store for ephemeral UI state
 - Deep-link bootstrap (`/?open=...`, hash variants)
 - Mounted app crates:
-  - `Explorer`
-  - `Notepad`
-  - `Terminal`
+  - `Explorer` (File System Access API + IndexedDB virtual FS fallback)
+  - `Notepad` (editable persisted workspace)
+  - `Calculator` (persisted memory/tape/history state)
+  - `Terminal` (persisted transcript/input workspace)
 - Placeholder app panels:
-  - `Paint`
+  - `Paint` (persisted placeholder settings/state schema scaffold)
   - `Dial-up`
 - Docs-as-code system with Diataxis structure, governance contracts, validation, and CI workflows
 
@@ -97,8 +103,10 @@ Direct commands remain available if you prefer (`cargo run -p xtask -- ...`, `tr
 
 - `crates/site` - Leptos app shell, routes, runtime mounting, theme CSS
 - `crates/desktop_runtime` - desktop state, reducer, effects, shell components, registry
+- `crates/platform_storage` - browser storage service (IndexedDB, Cache API, localStorage, session store, filesystem adapters)
 - `crates/apps/explorer` - Explorer app UI crate
 - `crates/apps/notepad` - Notepad app UI crate
+- `crates/apps/calculator` - Calculator app UI crate
 - `crates/apps/terminal` - Terminal app UI crate
 - `docs/` - Diataxis documentation and SOP/governance system
 - `scripts/docs/validate_docs.py` - docs validation/audit CLI

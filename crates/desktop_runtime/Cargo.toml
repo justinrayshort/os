@@ -11,6 +11,7 @@ csr = [
   "desktop_app_explorer/csr",
   "desktop_app_notepad/csr",
   "desktop_app_terminal/csr",
+  "platform_storage/csr",
 ]
 
 [dependencies]
@@ -20,6 +21,7 @@ desktop_app_notepad = { path = "../apps/notepad", default-features = false }
 desktop_app_terminal = { path = "../apps/terminal", default-features = false }
 js-sys = "0.3"
 leptos = { version = "0.6", default-features = false }
+platform_storage = { path = "../platform_storage", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"

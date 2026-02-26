@@ -67,14 +67,49 @@ pub fn load_boot_snapshot() -> Option<DesktopSnapshot> {
     }
 }
 
+pub async fn load_durable_boot_snapshot() -> Option<DesktopSnapshot> {
+    let envelope =
+        match platform_storage::load_app_state_envelope(platform_storage::DESKTOP_STATE_NAMESPACE)
+            .await
+        {
+            Ok(value) => value?,
+            Err(err) => {
+                leptos::logging::warn!("durable boot snapshot load failed: {err}");
+                return None;
+            }
+        };
+
+    serde_json::from_value::<DesktopSnapshot>(envelope.payload).ok()
+}
+
+pub async fn persist_durable_layout_snapshot(state: &DesktopState) -> Result<(), String> {
+    let envelope = build_durable_layout_snapshot_envelope(state)?;
+    persist_durable_layout_snapshot_envelope(&envelope).await
+}
+
+pub fn build_durable_layout_snapshot_envelope(
+    state: &DesktopState,
+) -> Result<platform_storage::AppStateEnvelope, String> {
+    let snapshot = state.snapshot();
+    platform_storage::build_app_state_envelope(
+        platform_storage::DESKTOP_STATE_NAMESPACE,
+        crate::model::DESKTOP_LAYOUT_SCHEMA_VERSION,
+        &snapshot,
+    )
+}
+
+pub async fn persist_durable_layout_snapshot_envelope(
+    envelope: &platform_storage::AppStateEnvelope,
+) -> Result<(), String> {
+    platform_storage::save_app_state_envelope(envelope).await
+}
+
 pub fn persist_layout_snapshot(state: &DesktopState) -> Result<(), String> {
     #[cfg(target_arch = "wasm32")]
     {
-        let storage = local_storage().ok_or_else(|| "localStorage unavailable".to_string())?;
-        let serialized = serde_json::to_string(&state.snapshot()).map_err(|e| e.to_string())?;
-        storage
-            .set_item(SNAPSHOT_KEY, &serialized)
-            .map_err(|e| format!("set snapshot failed: {e:?}"))?;
+        // Full desktop layout is durably persisted in IndexedDB via `platform_storage`.
+        // Keep localStorage reserved for lightweight compatibility/prefs paths.
+        let _ = state;
     }
 
     #[cfg(not(target_arch = "wasm32"))]

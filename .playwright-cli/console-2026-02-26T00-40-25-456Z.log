@@ -1,0 +1,1 @@
+[  182667ms] [ERROR] [JavaScript Error: "Firefox can’t establish a connection to the server at ws://127.0.0.1:8081/.well-known/trunk/ws." {file: "http://127.0.0.1:8081/" line: 125}] @ http://127.0.0.1:8081/:125

@@ -46,7 +46,9 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
         match reducer_outcome.expect("desktop reducer executed") {
             Ok(new_effects) => {
                 if !new_effects.is_empty() {
-                    effects.update(|queue| queue.extend(new_effects));
+                    let mut queue = effects.get_untracked();
+                    queue.extend(new_effects);
+                    effects.set(queue);
                 }
             }
             Err(err) => logging::warn!("desktop reducer error: {err}"),
@@ -61,9 +63,24 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
     });
 
     create_effect(move |_| {
-        if let Some(snapshot) = persistence::load_boot_snapshot() {
+        let legacy_snapshot = persistence::load_boot_snapshot();
+        if let Some(snapshot) = legacy_snapshot.clone() {
             dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
         }
+
+        let dispatch = dispatch;
+        spawn_local(async move {
+            if let Some(snapshot) = persistence::load_durable_boot_snapshot().await {
+                dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
+            } else if let Some(snapshot) = legacy_snapshot {
+                let migrated_state = DesktopState::from_snapshot(snapshot);
+                if let Err(err) =
+                    persistence::persist_durable_layout_snapshot(&migrated_state).await
+                {
+                    logging::warn!("migrate legacy snapshot to durable store failed: {err}");
+                }
+            }
+        });
     });
 
     children().into_view()
@@ -114,17 +131,69 @@ pub fn DesktopShell() -> impl IntoView {
                     if let Err(err) = persistence::persist_layout_snapshot(&snapshot_state) {
                         logging::warn!("persist layout failed: {err}");
                     }
+                    let durable_state = snapshot_state.clone();
+                    let durable_envelope =
+                        persistence::build_durable_layout_snapshot_envelope(&durable_state);
+                    match durable_envelope {
+                        Ok(envelope) => {
+                            spawn_local(async move {
+                                if let Err(err) =
+                                    persistence::persist_durable_layout_snapshot_envelope(&envelope)
+                                        .await
+                                {
+                                    logging::warn!("persist durable layout failed: {err}");
+                                }
+                            });
+                        }
+                        Err(err) => logging::warn!("build durable layout envelope failed: {err}"),
+                    }
                 }
                 RuntimeEffect::PersistTheme => {
                     let theme = runtime.state.get_untracked().theme;
                     if let Err(err) = persistence::persist_theme(&theme) {
                         logging::warn!("persist theme failed: {err}");
                     }
+                    let durable_state = runtime.state.get_untracked();
+                    let durable_envelope =
+                        persistence::build_durable_layout_snapshot_envelope(&durable_state);
+                    match durable_envelope {
+                        Ok(envelope) => {
+                            spawn_local(async move {
+                                if let Err(err) =
+                                    persistence::persist_durable_layout_snapshot_envelope(&envelope)
+                                        .await
+                                {
+                                    logging::warn!("persist durable theme snapshot failed: {err}");
+                                }
+                            });
+                        }
+                        Err(err) => logging::warn!("build durable theme envelope failed: {err}"),
+                    }
                 }
                 RuntimeEffect::PersistTerminalHistory => {
                     let history = runtime.state.get_untracked().terminal_history;
                     if let Err(err) = persistence::persist_terminal_history(&history) {
                         logging::warn!("persist terminal history failed: {err}");
+                    }
+                    let durable_state = runtime.state.get_untracked();
+                    let durable_envelope =
+                        persistence::build_durable_layout_snapshot_envelope(&durable_state);
+                    match durable_envelope {
+                        Ok(envelope) => {
+                            spawn_local(async move {
+                                if let Err(err) =
+                                    persistence::persist_durable_layout_snapshot_envelope(&envelope)
+                                        .await
+                                {
+                                    logging::warn!(
+                                        "persist durable terminal snapshot failed: {err}"
+                                    );
+                                }
+                            });
+                        }
+                        Err(err) => {
+                            logging::warn!("build durable terminal envelope failed: {err}")
+                        }
                     }
                 }
                 RuntimeEffect::OpenExternalUrl(url) => {
@@ -390,18 +459,17 @@ fn WindowResizeHandle(window_id: WindowId, edge: ResizeEdge) -> impl IntoView {
 fn WindowBody(window_id: WindowId) -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
+    let contents = state
+        .get_untracked()
+        .windows
+        .into_iter()
+        .find(|w| w.id == window_id)
+        .map(|w| apps::render_window_contents(&w))
+        .unwrap_or_else(|| view! { <p>"Closed"</p> }.into_view());
 
     view! {
         <div class="window-body-content">
-            {move || {
-                state
-                    .get()
-                    .windows
-                    .into_iter()
-                    .find(|w| w.id == window_id)
-                    .map(|w| apps::render_window_contents(&w))
-                    .unwrap_or_else(|| view! { <p>"Closed"</p> }.into_view())
-            }}
+            {contents}
         </div>
     }
 }

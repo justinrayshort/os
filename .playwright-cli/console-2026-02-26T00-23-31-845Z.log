@@ -1,0 +1,11 @@
+[  208735ms] [ERROR] Build failed: error from build pipeline
+
+Caused by:
+	0: HTML build pipeline failed (1 errors), showing first
+	1: error from asset pipeline
+	2: running wasm-bindgen
+	3: error minifying or copying JS loader file to stage dir
+	4: error writing JS loader file to stage dir
+	5: No such file or directory (os error 2)
+ @ http://127.0.0.1:8081/:137
+[  230507ms] [ERROR] [JavaScript Error: "Firefox can’t establish a connection to the server at ws://127.0.0.1:8081/.well-known/trunk/ws." {file: "http://127.0.0.1:8081/" line: 125}] @ http://127.0.0.1:8081/:125
