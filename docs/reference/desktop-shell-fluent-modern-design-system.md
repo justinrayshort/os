@@ -93,6 +93,7 @@ Conventions:
 - Icons are decorative unless otherwise specified (`aria-hidden="true"` by default).
 - Labels remain text-based for discoverability and assistive tech compatibility.
 - Icon color is inherited from component foreground color (`currentColor`) to preserve state styling.
+- Layout and component metrics should use spacing/radius/component metric tokens; remaining raw `px` values in Fluent overrides are limited to effect geometry (for example hairline borders, shadows, outline widths/offsets, transform nudges, and decorative gradient dimensions) unless explicitly documented otherwise.
 
 ## Accessibility and Usability Requirements
 

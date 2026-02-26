@@ -28,6 +28,12 @@
   --fluent-shell-shadow-3: 0 20px 48px rgba(14, 23, 38, 0.2);
   --fluent-shell-desktop-icon-text: #f3f6ff;
   --fluent-shell-desktop-icon-text-shadow: rgba(6, 12, 22, 0.65);
+  --fluent-shell-desktop-icons-column-width: 108px;
+  --fluent-shell-desktop-icon-card-width: 100px;
+  --fluent-shell-desktop-icon-card-min-height: 86px;
+  --fluent-shell-desktop-icon-card-gap: 6px;
+  --fluent-shell-desktop-icon-chip-size: 42px;
+  --fluent-shell-desktop-icon-chip-radius: var(--fluent-radius-md);
   --fluent-shell-desktop-icon-card-hover-surface: rgba(255, 255, 255, 0.12);
   --fluent-shell-desktop-icon-card-hover-stroke: rgba(255, 255, 255, 0.25);
   --fluent-shell-desktop-icon-chip-top: rgba(255, 255, 255, 0.92);
@@ -46,6 +52,15 @@
   --fluent-shell-wallpaper-grid-line-vertical: rgba(255, 255, 255, 0.02);
   --fluent-shell-wallpaper-vignette: rgba(0, 0, 0, 0.2);
   --fluent-shell-titlebar-unfocused-text: rgba(27, 29, 34, 0.78);
+  --fluent-shell-titlebar-min-height: 34px;
+  --fluent-shell-titlebar-padding-block: 6px;
+  --fluent-shell-titlebar-padding-inline: 8px;
+  --fluent-shell-titlebar-gap: var(--fluent-space-2);
+  --fluent-shell-titlebar-app-icon-size: 18px;
+  --fluent-shell-titlebar-controls-gap: var(--fluent-space-1);
+  --fluent-shell-titlebar-control-width: 28px;
+  --fluent-shell-titlebar-control-height: 26px;
+  --fluent-shell-titlebar-control-radius: var(--fluent-radius-sm);
   --fluent-shell-titlebar-control-hover-surface: rgba(0, 0, 0, 0.05);
   --fluent-shell-titlebar-control-active-surface: rgba(0, 0, 0, 0.08);
   --fluent-shell-titlebar-close-hover-surface: rgba(196, 43, 28, 0.14);
@@ -72,6 +87,7 @@
   --fluent-shell-font-weight-caption: 600;
   --fluent-shell-font-weight-chrome-strong: 700;
   --fluent-shell-line-height-body: 1.35;
+  --fluent-shell-radius-pill: 999px;
   --fluent-shell-start-button-min-width: 96px;
   --fluent-shell-start-button-padding-block: 6px;
   --fluent-shell-start-button-padding-inline: 10px;
@@ -128,6 +144,10 @@
   --fluent-shell-display-tab-active-shadow: rgba(14, 23, 38, 0.06);
   --fluent-shell-wallpaper-picker-radius: 10px;
   --fluent-shell-window-body-surface: rgba(255, 255, 255, 0.9);
+  --fluent-shell-taskbar-padding-block: 6px;
+  --fluent-shell-taskbar-padding-inline: 8px;
+  --fluent-shell-shell-surface-backdrop-blur: 14px;
+  --fluent-shell-shell-surface-backdrop-saturate: 1.06;
   --fluent-shell-taskbar-top-stroke: rgba(255, 255, 255, 0.34);
   --fluent-shell-taskbar-sheen: rgba(255, 255, 255, 0.22);
   --fluent-shell-taskbar-surface: rgba(242, 246, 252, 0.76);

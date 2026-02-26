@@ -539,7 +539,9 @@ pub fn ExplorerApp(
         match key.as_str() {
             "ArrowDown" => {
                 ev.prevent_default();
-                let next = current_index.map(|idx| (idx + 1).min(last_index)).unwrap_or(0);
+                let next = current_index
+                    .map(|idx| (idx + 1).min(last_index))
+                    .unwrap_or(0);
                 let entry = rows[next].clone();
                 signals.selected_path.set(Some(entry.path.clone()));
                 inspect_path(signals, entry.path);

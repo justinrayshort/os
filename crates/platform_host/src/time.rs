@@ -1,8 +1,8 @@
 //! Time helpers shared across host contracts and adapters.
 
+use std::cell::Cell;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::cell::Cell;
 
 thread_local! {
     static LAST_ENVELOPE_TIMESTAMP_MS: Cell<u64> = const { Cell::new(0) };
@@ -35,4 +35,3 @@ pub fn next_monotonic_timestamp_ms() -> u64 {
         next
     })
 }
-

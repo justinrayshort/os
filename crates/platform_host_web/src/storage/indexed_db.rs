@@ -34,4 +34,3 @@ impl AppStateStore for WebAppStateStore {
         Box::pin(async move { crate::bridge::list_app_state_namespaces().await })
     }
 }
-

@@ -77,10 +77,9 @@ impl ContentCache for MemoryContentCache {
         value: &'a str,
     ) -> ContentCacheFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            self.inner.borrow_mut().insert(
-                (cache_name.to_string(), key.to_string()),
-                value.to_string(),
-            );
+            self.inner
+                .borrow_mut()
+                .insert((cache_name.to_string(), key.to_string()), value.to_string());
             Ok(())
         })
     }
@@ -179,8 +178,13 @@ mod tests {
         let cache = MemoryContentCache::default();
         let cache_obj: &dyn ContentCache = &cache;
 
-        block_on(cache_put_json_with(cache_obj, "preview", "k", &CachedThing { answer: 42 }))
-            .expect("put json");
+        block_on(cache_put_json_with(
+            cache_obj,
+            "preview",
+            "k",
+            &CachedThing { answer: 42 },
+        ))
+        .expect("put json");
         let loaded: Option<CachedThing> =
             block_on(cache_get_json_with(cache_obj, "preview", "k")).expect("get json");
         assert_eq!(loaded, Some(CachedThing { answer: 42 }));
@@ -195,4 +199,3 @@ mod tests {
         block_on(cache_obj.delete("x", "y")).expect("delete");
     }
 }
-

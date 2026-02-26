@@ -114,4 +114,3 @@ impl PrefsStore for WebPrefsStore {
         Box::pin(async move { store.delete_json(key) })
     }
 }
-

@@ -32,4 +32,3 @@ impl ContentCache for WebContentCache {
         Box::pin(async move { crate::bridge::cache_delete(cache_name, key).await })
     }
 }
-

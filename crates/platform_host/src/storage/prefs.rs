@@ -139,15 +139,24 @@ mod tests {
             Some("{\"k\":1}".to_string())
         );
         block_on(store_obj.delete_pref("pref.key")).expect("delete");
-        assert_eq!(block_on(store_obj.load_pref("pref.key")).expect("load"), None);
+        assert_eq!(
+            block_on(store_obj.load_pref("pref.key")).expect("load"),
+            None
+        );
     }
 
     #[test]
     fn typed_pref_helpers_round_trip() {
         let store = MemoryPrefsStore::default();
         let store_obj: &dyn PrefsStore = &store;
-        block_on(save_pref_with(store_obj, "explorer", &PrefThing { details_visible: true }))
-            .expect("save typed pref");
+        block_on(save_pref_with(
+            store_obj,
+            "explorer",
+            &PrefThing {
+                details_visible: true,
+            },
+        ))
+        .expect("save typed pref");
 
         let loaded: Option<PrefThing> =
             block_on(load_pref_with(store_obj, "explorer")).expect("load typed pref");

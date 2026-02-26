@@ -1,0 +1,14 @@
+{
+  "browser": {
+    "launchOptions": {
+      "headless": false,
+      "executablePath": "/Users/justinshort/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    },
+    "contextOptions": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  }
+}

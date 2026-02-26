@@ -27,7 +27,10 @@ pub trait ExplorerFsService {
     ) -> ExplorerFsFuture<'a, Result<ExplorerPermissionState, String>>;
 
     /// Lists a directory using the active explorer backend.
-    fn list_dir<'a>(&'a self, path: &'a str) -> ExplorerFsFuture<'a, Result<ExplorerListResult, String>>;
+    fn list_dir<'a>(
+        &'a self,
+        path: &'a str,
+    ) -> ExplorerFsFuture<'a, Result<ExplorerListResult, String>>;
 
     /// Reads a text file using the active explorer backend.
     fn read_text_file<'a>(
@@ -43,7 +46,10 @@ pub trait ExplorerFsService {
     ) -> ExplorerFsFuture<'a, Result<ExplorerMetadata, String>>;
 
     /// Creates a directory using the active explorer backend.
-    fn create_dir<'a>(&'a self, path: &'a str) -> ExplorerFsFuture<'a, Result<ExplorerMetadata, String>>;
+    fn create_dir<'a>(
+        &'a self,
+        path: &'a str,
+    ) -> ExplorerFsFuture<'a, Result<ExplorerMetadata, String>>;
 
     /// Creates a text file using the active explorer backend.
     fn create_file<'a>(
@@ -177,4 +183,3 @@ mod tests {
         assert!(err.contains("list_dir"));
     }
 }
-

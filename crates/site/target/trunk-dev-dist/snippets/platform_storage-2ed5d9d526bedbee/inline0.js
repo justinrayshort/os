@@ -540,6 +540,14 @@ async function appStateLoad(namespace) {
 
 async function appStateSave(envelope) {
   if (!envelope || typeof envelope !== 'object') fail('Invalid app-state envelope');
+  const existing = await getByKey(APP_STATE_STORE, envelope.namespace);
+  if (existing && typeof existing.updated_at_unix_ms === 'number') {
+    const incomingTs = Number(envelope.updated_at_unix_ms ?? 0);
+    const existingTs = Number(existing.updated_at_unix_ms ?? 0);
+    if (existingTs >= incomingTs) {
+      return null;
+    }
+  }
   await putRecord(APP_STATE_STORE, envelope);
   return null;
 }

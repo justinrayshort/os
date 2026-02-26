@@ -61,4 +61,3 @@ thread_local! {
 pub fn session_store() -> MemorySessionStore {
     GLOBAL_SESSION_STORE.with(|store| store.clone())
 }
-

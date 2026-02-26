@@ -93,10 +93,11 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    ```bash
    cargo check --workspace
    cargo test --workspace
+   cargo xtask docs ui-conformance
    cargo xtask docs all
    ```
 
-   - Expected output: implementation and documentation checks pass for the current change set
+   - Expected output: implementation, machine-checkable UI conformance checks (including Fluent token/literal hygiene and shell icon-standardization regressions), and documentation checks pass for the current change set
    - Failure condition: compile/test/docs validation failures or skipped checks without explanation
    - If rustdoc comments were changed: also run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc`
 
@@ -177,6 +178,7 @@ flowchart TD
 - [ ] Contrast measurements recorded when colors/focus/borders changed
 - [ ] `cargo check --workspace` passes
 - [ ] `cargo test --workspace` passes (or skipped with reason)
+- [ ] `cargo xtask docs ui-conformance` passes
 - [ ] `cargo xtask docs all` passes
 - [ ] Rustdoc checks run if rustdoc changed (`cargo doc`, `cargo test --doc`)
 - [ ] Wiki registry pages updated when formal docs artifacts changed

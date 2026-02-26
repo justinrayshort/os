@@ -71,7 +71,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 | `TOK-01` | Complete | Fluent-modern theme defines named token layers for typography, spacing, radius, icon sizes, and motion durations in dedicated token files. | `crates/site/src/theme_shell/30-theme-fluent-modern-tokens-core.css` and `crates/site/src/theme_shell/32-theme-fluent-modern-theme-tokens.css` define `--fluent-font-*`, `--fluent-space-*`, `--fluent-radius-*`, `--fluent-icon-*`, `--fluent-motion-*`, and shell semantic tokens. |
 | `TOK-02` | Complete | Fluent-modern tokens are scoped via theme attribute and do not replace legacy themes globally. | Fluent theme values are applied under `.desktop-shell[data-theme="Fluent Modern"]` in `32-theme-fluent-modern-theme-tokens.css` and `33-theme-fluent-modern-overrides.css`. |
 | `TOK-03` | Complete | Interactive state colors (hover/active/focus/selection) use semantic tokens rather than repeated color literals, except documented visual-only overlays/gradients. | Fluent interactive and component surface colors are tokenized across shell/taskbar/menu/tray/clock/titlebar/display-properties/desktop-icon surfaces. Remaining raw color literals in `33-theme-fluent-modern-overrides.css` are limited to transparent gradient stops (`rgba(..., 0)`) used in decorative/overlay gradients, which are accepted visual-only exceptions. |
-| `TOK-04` | Partial | Layout spacing/radius values in Fluent overrides use spacing/radius tokens for new work; raw `px` values require documented exceptions. | Fluent spacing/radius tokens are used in places, and taskbar/start/menu/tray/clock Fluent overrides now use shared spacing/radius plus component metric tokens (including taskbar compact/icon/pinned/active-indicator, start-menu width/padding, menu check-icon metrics, and display-properties/wallpaper-picker control metrics); many raw size literals remain elsewhere in `33-theme-fluent-modern-overrides.css`. |
+| `TOK-04` | Complete | Layout spacing/radius values in Fluent overrides use spacing/radius tokens for new work; raw `px` values require documented exceptions. | Fluent shell/taskbar/menu/tray/titlebar/display-properties/desktop-icon layout metrics and radii now use shared spacing/radius and component metric tokens. Remaining raw `px` literals in `33-theme-fluent-modern-overrides.css` are limited to documented effect geometry exceptions (hairline borders, shadow kernels, outline widths/offsets, transform nudges, and decorative gradient dimensions). |
 | `TOK-05` | Complete | Typography hierarchy is tokenized beyond font family (minimum: body, caption/dense, title/chrome weights/sizes) or an explicit exception policy documents remaining fixed sizes. | Fluent shell typography tokens now define body/chrome/title/caption sizes plus body/chrome/title/caption emphasis weights (and body line-height) and are applied across shell root text, titlebar chrome, taskbar/start/menu labels, and tray/clock text in Fluent overrides. |
 | `TOK-06` | Complete | Motion timings for Fluent shell transitions use shared motion tokens and support reduced-motion override suppression. | `--fluent-motion-*` tokens are used in Fluent overrides; runtime `data-reduced-motion="true"` CSS disables transitions/animations in `33-theme-fluent-modern-overrides.css`. |
 
@@ -127,7 +127,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 | `ICO-02` | Complete | Icon sizing is standardized through named size tokens/enum values and reused consistently. | `IconSize::{Xs,Sm,Md,Lg}` maps to standard sizes; shell components use those enum values. |
 | `ICO-03` | Complete | Decorative icons are hidden from assistive tech when labels/ARIA carry meaning. | `FluentIcon` renders `aria-hidden="true"`; components provide labels via text or `aria-label`. |
 | `ICO-04` | Partial | Fluent asset provenance, subset policy, and update expectations are documented and linked from design-system governance docs. | Asset subset/provenance is documented in `desktop-shell-fluent-modern-design-system.md`; formal change-control/update procedure is introduced by this SOP but version pin/update checklist remains lightweight. |
-| `ICO-05` | Outstanding | Static enforcement prevents regressions to legacy text glyphs/inline icon markup in shell components (lint/check/test). | No repository lint/check currently verifies icon standardization rules. |
+| `ICO-05` | Complete | Static enforcement prevents regressions to legacy text glyphs/inline icon markup in shell components (lint/check/test). | `cargo xtask docs ui-conformance` (and `cargo xtask docs all`) now scans core shell component files for inline SVG/icon markup (`<svg`, `inner_html=`, path data) and legacy text glyph markers (`DIR`, `TXT`, `56K`) and fails on regressions, reinforcing `FluentIcon`/`IconName` usage. |
 
 ### G. Responsive and Adaptive Behavior
 
@@ -147,7 +147,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 | `DOC-03` | Complete | A repeatable SOP defines review steps, evidence requirements, invariants, and change-control for UI conformance reviews. | `docs/sop/ui-design-conformance-review-sop.md`. |
 | `DOC-04` | Complete | `AGENTS.md` codifies enforceable UI conformance expectations for future agent-driven UI changes. | `AGENTS.md` (UI conformance sections added in this change). |
 | `DOC-05` | Complete | Wiki artifact/SOP registries index the conformance checklist and review SOP as part of canonical navigation. | Wiki reference registry pages updated in this change. |
-| `DOC-06` | Partial | CI/local tooling includes machine-checkable UI conformance gates beyond documentation validation. | Docs governance is validated (`cargo xtask docs`), but no automated UI contrast/a11y/visual gates exist yet. |
+| `DOC-06` | Complete | CI/local tooling includes machine-checkable UI conformance gates beyond documentation validation. | `cargo xtask docs ui-conformance` (and `cargo xtask docs all`) now enforces Fluent shell token/literal hygiene rules for `33-theme-fluent-modern-overrides.css` (with documented exception boundaries such as transparent gradient stops/effect geometry) and static icon-standardization regressions in shell component files. |
 
 ## Current Assessment Summary (2026-02-26)
 
@@ -163,15 +163,9 @@ However, the project should not yet claim rigorous conformance at a high bar of 
 
 - no automated accessibility or contrast validation pipeline
 - no formal viewport/screenshot evidence matrix for responsive/polish review
-- incomplete token coverage (many raw color/size literals remain in Fluent overrides)
-- no static enforcement for icon standardization regressions
-
 ## Required Exit Criteria for "Rigorous Conformance" Claim
 
-Before declaring the desktop shell rigorously conformant (rather than aspirational/partial), all `Outstanding` items in sections `A11Y`, `ICO`, and `RSP` must be closed, and `TOK-04` and `DOC-06` must be either:
-
-- upgraded to `Complete`, or
-- explicitly accepted as documented deviations with rationale and reviewer approval in the UI conformance review record defined by the SOP.
+Before declaring the desktop shell rigorously conformant (rather than aspirational/partial), all `Outstanding` items in sections `A11Y`, `ICO`, and `RSP` must be closed.
 
 ## Related Documents
 

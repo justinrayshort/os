@@ -2,4 +2,3 @@
 
 pub mod indexed_db;
 pub mod local_prefs;
-

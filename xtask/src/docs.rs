@@ -98,6 +98,7 @@ enum DocsCommand {
     Links,
     Mermaid,
     OpenApi,
+    UiConformance,
     All,
     AuditReport,
 }
@@ -114,6 +115,7 @@ pub(crate) fn print_docs_usage() {
            links                             Validate internal markdown links and anchors\n\
            mermaid [--require-renderer]      Validate Mermaid blocks/files (structural checks)\n\
            openapi [--require-validator]     Validate OpenAPI specs (Rust-native parse/sanity)\n\
+           ui-conformance                    Validate machine-checkable UI conformance token/literal rules\n\
            all [flags]                       Run all docs checks\n\
              Flags: --require-renderer --require-openapi-validator\n\
            audit-report --output <path>      Write docs audit report JSON and fail on validation issues\n"
@@ -156,6 +158,7 @@ pub(crate) fn run_docs_command(root: &Path, args: Vec<String>) -> Result<(), Str
             println!("OpenAPI specs checked: {count}");
             fail_if_problems(problems)
         }
+        DocsCommand::UiConformance => fail_if_problems(validate_ui_conformance(root)),
         DocsCommand::All => {
             let problems = run_all(root, &records, parse_problems, &contracts, &flags);
             fail_if_problems(problems)
@@ -181,6 +184,7 @@ fn parse_docs_command(
         "links" => DocsCommand::Links,
         "mermaid" => DocsCommand::Mermaid,
         "openapi" => DocsCommand::OpenApi,
+        "ui-conformance" => DocsCommand::UiConformance,
         "all" => DocsCommand::All,
         "audit-report" => DocsCommand::AuditReport,
         other => return Err(format!("unsupported docs command: {other}")),
@@ -233,6 +237,11 @@ fn parse_docs_command(
         DocsCommand::OpenApi => {
             if flags.require_renderer || output.is_some() {
                 return Err("`openapi` only supports `--require-validator`".to_string());
+            }
+        }
+        DocsCommand::UiConformance => {
+            if flags.require_renderer || flags.require_openapi_validator || output.is_some() {
+                return Err("`ui-conformance` does not accept extra arguments".to_string());
             }
         }
         DocsCommand::AuditReport => {
@@ -1790,8 +1799,10 @@ fn run_all(
     problems.extend(validate_links(root, records));
     let (mermaid_problems, _) = validate_mermaid(root, records, flags.require_renderer);
     let (openapi_problems, _) = validate_openapi(root, flags.require_openapi_validator);
+    let ui_conformance_problems = validate_ui_conformance(root);
     problems.extend(mermaid_problems);
     problems.extend(openapi_problems);
+    problems.extend(ui_conformance_problems);
     problems
 }
 
@@ -1809,6 +1820,7 @@ fn write_audit_report(
     let link_problems = validate_links(root, records);
     let (mermaid_problems, mermaid_count) = validate_mermaid(root, records, false);
     let (openapi_problems, openapi_count) = validate_openapi(root, false);
+    let ui_conformance_problems = validate_ui_conformance(root);
 
     let (fresh, total_reviewed, stale_docs) = frontmatter_freshness_metrics(records, contracts);
     let fresh_percent = if total_reviewed == 0 {
@@ -1836,6 +1848,7 @@ fn write_audit_report(
             "links": link_problems.len(),
             "mermaid": mermaid_problems.len(),
             "openapi": openapi_problems.len(),
+            "ui_conformance": ui_conformance_problems.len(),
         }
     });
 
@@ -1858,7 +1871,236 @@ fn write_audit_report(
     all_problems.extend(link_problems);
     all_problems.extend(mermaid_problems);
     all_problems.extend(openapi_problems);
+    all_problems.extend(ui_conformance_problems);
     fail_if_problems(all_problems)
+}
+
+const FLUENT_OVERRIDES_PATH: &str =
+    "crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css";
+const SHELL_ICON_COMPONENT_FILES: &[&str] = &[
+    "crates/desktop_runtime/src/components.rs",
+    "crates/desktop_runtime/src/components/display_properties.rs",
+    "crates/desktop_runtime/src/components/menus.rs",
+    "crates/desktop_runtime/src/components/taskbar.rs",
+    "crates/desktop_runtime/src/components/window.rs",
+];
+
+fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
+    let path = root.join(FLUENT_OVERRIDES_PATH);
+    let Ok(text) = fs::read_to_string(&path) else {
+        return vec![Problem::new(
+            "ui-conformance",
+            FLUENT_OVERRIDES_PATH,
+            "failed to read Fluent overrides CSS for UI conformance checks",
+            None,
+        )];
+    };
+
+    let mut problems = Vec::new();
+    for (idx, line) in text.lines().enumerate() {
+        let line_no = idx + 1;
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("/*") || trimmed.starts_with('*') {
+            continue;
+        }
+        if trimmed.starts_with("--") {
+            // Token definitions may contain raw literals by design.
+            continue;
+        }
+
+        if has_disallowed_raw_color_literal(trimmed) {
+            problems.push(Problem::new(
+                "ui-conformance",
+                FLUENT_OVERRIDES_PATH,
+                "raw color literal outside token definitions (allowed exception: transparent rgba(..., 0) stops)",
+                Some(line_no),
+            ));
+        }
+
+        if has_disallowed_raw_px_literal(trimmed) {
+            problems.push(Problem::new(
+                "ui-conformance",
+                FLUENT_OVERRIDES_PATH,
+                "raw px literal outside token definitions/effect-geometry exceptions",
+                Some(line_no),
+            ));
+        }
+    }
+
+    problems.extend(validate_shell_icon_standardization(root));
+
+    problems
+}
+
+fn validate_shell_icon_standardization(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+
+    for rel_path in SHELL_ICON_COMPONENT_FILES {
+        let path = root.join(rel_path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            problems.push(Problem::new(
+                "ui-conformance",
+                *rel_path,
+                "failed to read shell component file for icon standardization checks",
+                None,
+            ));
+            continue;
+        };
+
+        for (idx, line) in text.lines().enumerate() {
+            let line_no = idx + 1;
+            let trimmed = line.trim();
+
+            if trimmed.starts_with("//") {
+                continue;
+            }
+
+            if trimmed.contains("<svg")
+                || trimmed.contains("inner_html=")
+                || trimmed.contains("path d=\"")
+            {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    *rel_path,
+                    "inline icon markup detected in shell component; use `FluentIcon` + `IconName`",
+                    Some(line_no),
+                ));
+            }
+
+            if contains_legacy_shell_icon_text_glyph(trimmed) {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    *rel_path,
+                    "legacy text glyph icon marker detected in shell component; use semantic `IconName`/`FluentIcon`",
+                    Some(line_no),
+                ));
+            }
+        }
+    }
+
+    problems
+}
+
+fn contains_legacy_shell_icon_text_glyph(line: &str) -> bool {
+    // Narrow list of legacy shell icon markers previously used in place of semantic icons.
+    const LEGACY_MARKERS: &[&str] = &["\"DIR\"", "\"TXT\"", "\"56K\"", "'DIR'", "'TXT'", "'56K'"];
+    LEGACY_MARKERS.iter().any(|marker| line.contains(marker))
+}
+
+fn has_disallowed_raw_color_literal(line: &str) -> bool {
+    let has_rgba = line.contains("rgba(");
+    let has_hex = contains_hex_color_literal(line);
+    if !has_rgba && !has_hex {
+        return false;
+    }
+
+    if has_hex {
+        return true;
+    }
+
+    let mut rest = line;
+    while let Some(start) = rest.find("rgba(") {
+        let after = &rest[start + 5..];
+        let Some(end) = after.find(')') else {
+            return true;
+        };
+        let args = &after[..end];
+        if !is_transparent_rgba_stop(args) {
+            return true;
+        }
+        rest = &after[end + 1..];
+    }
+    false
+}
+
+fn is_transparent_rgba_stop(args: &str) -> bool {
+    let parts: Vec<_> = args.split(',').map(|p| p.trim()).collect();
+    parts.len() == 4 && parts[3] == "0"
+}
+
+fn contains_hex_color_literal(line: &str) -> bool {
+    let bytes = line.as_bytes();
+    for i in 0..bytes.len() {
+        if bytes[i] != b'#' {
+            continue;
+        }
+        let mut count = 0usize;
+        let mut j = i + 1;
+        while j < bytes.len() && bytes[j].is_ascii_hexdigit() && count < 8 {
+            count += 1;
+            j += 1;
+        }
+        if matches!(count, 3 | 4 | 6 | 8) {
+            return true;
+        }
+    }
+    false
+}
+
+fn has_disallowed_raw_px_literal(line: &str) -> bool {
+    if !line.contains("px") || !contains_px_number(line) {
+        return false;
+    }
+
+    if is_px_effect_geometry_exception(line) {
+        return false;
+    }
+
+    true
+}
+
+fn contains_px_number(line: &str) -> bool {
+    let bytes = line.as_bytes();
+    for i in 0..bytes.len().saturating_sub(1) {
+        if bytes[i] != b'p' || bytes[i + 1] != b'x' || i == 0 {
+            continue;
+        }
+        let mut j = i;
+        let mut saw_digit = false;
+        while j > 0 {
+            let c = bytes[j - 1];
+            if c.is_ascii_digit() {
+                saw_digit = true;
+                j -= 1;
+                continue;
+            }
+            break;
+        }
+        if saw_digit {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_px_effect_geometry_exception(line: &str) -> bool {
+    let effect_keywords = [
+        "radial-gradient(",
+        "linear-gradient(",
+        "text-shadow:",
+        "box-shadow:",
+        "outline:",
+        "outline-offset:",
+        "transform:",
+        "@supports (backdrop-filter:",
+        "border:",
+        "border-top:",
+        "border-bottom:",
+    ];
+    if effect_keywords.iter().any(|kw| line.contains(kw)) {
+        return true;
+    }
+
+    // Continuation lines for shadow values and gradient stops.
+    line.contains("inset 0 ")
+        || line.starts_with("0 ")
+        || line.contains("transparent 60%")
+        || line.contains("transparent 62%")
+        || line.contains("transparent 64%")
+        || line.contains("transparent 70%")
+        || line.contains("transparent 72%")
+        || line.contains("transparent 74%")
+        || line.contains("transparent 58%")
 }
 
 fn frontmatter_freshness_metrics(

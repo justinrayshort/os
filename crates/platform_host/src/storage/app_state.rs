@@ -1,12 +1,6 @@
 //! App-state persistence contracts, envelope types, and helpers.
 
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    future::Future,
-    pin::Pin,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, future::Future, pin::Pin, rc::Rc};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
@@ -336,7 +330,10 @@ mod tests {
         assert_eq!(loaded.payload, json!({"v": 2}));
 
         let namespaces = block_on(store_obj.list_app_state_namespaces()).expect("list");
-        assert_eq!(namespaces, vec!["app.one".to_string(), "app.two".to_string()]);
+        assert_eq!(
+            namespaces,
+            vec!["app.one".to_string(), "app.two".to_string()]
+        );
 
         block_on(store_obj.delete_app_state("app.two")).expect("delete");
         assert_eq!(

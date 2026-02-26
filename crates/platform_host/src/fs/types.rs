@@ -235,4 +235,3 @@ mod tests {
         assert_eq!(round_trip.text, "hello");
     }
 }
-

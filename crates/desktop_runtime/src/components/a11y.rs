@@ -128,7 +128,11 @@ fn focus_menu_item_edge(menu_id: &str, first: bool) -> bool {
     if items.is_empty() {
         return false;
     }
-    let index = if first { 0 } else { items.len().saturating_sub(1) };
+    let index = if first {
+        0
+    } else {
+        items.len().saturating_sub(1)
+    };
     focus_html_element(&items[index]);
     true
 }

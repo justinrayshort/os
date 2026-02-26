@@ -170,7 +170,8 @@ pub fn TerminalApp(
     });
 
     let indexed_lines = move || {
-        lines.get()
+        lines
+            .get()
             .into_iter()
             .enumerate()
             .collect::<Vec<(usize, String)>>()

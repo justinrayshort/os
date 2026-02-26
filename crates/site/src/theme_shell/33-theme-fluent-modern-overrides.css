@@ -28,14 +28,14 @@
   left: var(--fluent-space-3);
   top: var(--fluent-space-3);
   gap: var(--fluent-space-2);
-  width: 108px;
+  width: var(--fluent-shell-desktop-icons-column-width);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .desktop-icon {
-  width: 100px;
-  min-height: 86px;
+  width: var(--fluent-shell-desktop-icon-card-width);
+  min-height: var(--fluent-shell-desktop-icon-card-min-height);
   padding: var(--fluent-space-2) var(--fluent-space-1);
-  gap: 6px;
+  gap: var(--fluent-shell-desktop-icon-card-gap);
   border-radius: var(--fluent-radius-md);
   border: 1px solid transparent;
   color: var(--fluent-shell-desktop-icon-text);
@@ -47,11 +47,11 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .desktop-icon .icon {
-  width: 42px;
-  height: 42px;
+  width: var(--fluent-shell-desktop-icon-chip-size);
+  height: var(--fluent-shell-desktop-icon-chip-size);
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: var(--fluent-shell-desktop-icon-chip-radius);
   background:
     linear-gradient(
       180deg,
@@ -100,9 +100,11 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .desktop-window .titlebar {
-  min-height: 34px;
-  padding: 6px 8px;
-  gap: 8px;
+  min-height: var(--fluent-shell-titlebar-min-height);
+  padding:
+    var(--fluent-shell-titlebar-padding-block)
+    var(--fluent-shell-titlebar-padding-inline);
+  gap: var(--fluent-shell-titlebar-gap);
   border: 0;
   border-bottom: 1px solid var(--fluent-shell-stroke-2);
   border-radius: 0;
@@ -131,7 +133,7 @@
 .desktop-shell[data-theme="Fluent Modern"] .titlebar-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--fluent-space-2);
   font-size: var(--fluent-shell-font-size-title);
   font-weight: var(--fluent-shell-font-weight-title);
   letter-spacing: 0.01em;
@@ -140,22 +142,22 @@
 .desktop-shell[data-theme="Fluent Modern"] .titlebar-app-icon {
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: var(--fluent-shell-titlebar-app-icon-size);
+  height: var(--fluent-shell-titlebar-app-icon-size);
   color: var(--fluent-shell-accent);
   opacity: 0.95;
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .titlebar-controls {
-  gap: 4px;
+  gap: var(--fluent-shell-titlebar-controls-gap);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .titlebar-controls button {
-  width: 28px;
-  height: 26px;
+  width: var(--fluent-shell-titlebar-control-width);
+  height: var(--fluent-shell-titlebar-control-height);
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: var(--fluent-shell-titlebar-control-radius);
   border: 1px solid transparent;
   background: transparent;
   color: var(--fluent-shell-text-2);
@@ -184,7 +186,9 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar {
   gap: var(--fluent-space-2);
-  padding: 6px 8px;
+  padding:
+    var(--fluent-shell-taskbar-padding-block)
+    var(--fluent-shell-taskbar-padding-inline);
   border-top: 1px solid var(--fluent-shell-taskbar-top-stroke);
   background:
     linear-gradient(180deg, var(--fluent-shell-taskbar-sheen), rgba(255, 255, 255, 0)),
@@ -200,7 +204,9 @@
   .desktop-shell[data-theme="Fluent Modern"] .start-menu,
   .desktop-shell[data-theme="Fluent Modern"] .desktop-context-menu,
   .desktop-shell[data-theme="Fluent Modern"] .display-properties-dialog {
-    backdrop-filter: blur(14px) saturate(1.06);
+    backdrop-filter:
+      blur(var(--fluent-shell-shell-surface-backdrop-blur))
+      saturate(var(--fluent-shell-shell-surface-backdrop-saturate));
   }
 }
 
@@ -215,7 +221,7 @@
     var(--fluent-shell-start-button-padding-block)
     var(--fluent-shell-start-button-padding-inline);
   gap: var(--fluent-shell-start-button-gap);
-  border-radius: 999px;
+  border-radius: var(--fluent-shell-radius-pill);
   border: 1px solid var(--fluent-shell-start-button-stroke);
   background:
     linear-gradient(
@@ -265,7 +271,7 @@
   min-height: var(--fluent-shell-taskbar-glyph-size);
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--fluent-shell-radius-pill);
   background: var(--fluent-shell-taskbar-glyph-chip-surface);
   box-shadow: none;
   color: currentColor;
@@ -333,7 +339,7 @@
   right: var(--fluent-shell-taskbar-active-indicator-inset-inline);
   bottom: var(--fluent-shell-taskbar-active-indicator-offset-bottom);
   height: var(--fluent-shell-taskbar-active-indicator-height);
-  border-radius: 999px;
+  border-radius: var(--fluent-shell-radius-pill);
   background: var(--fluent-shell-accent);
 }
 
