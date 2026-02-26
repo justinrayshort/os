@@ -128,8 +128,8 @@ pub struct DesktopTheme {
 impl Default for DesktopTheme {
     fn default() -> Self {
         Self {
-            name: "Classic Slate".to_string(),
-            wallpaper_id: "slate-grid".to_string(),
+            name: "Retro Classic".to_string(),
+            wallpaper_id: "teal-solid".to_string(),
             high_contrast: false,
             reduced_motion: false,
             audio_enabled: false,

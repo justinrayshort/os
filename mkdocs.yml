@@ -35,6 +35,7 @@ nav:
   - ADR:
       - ADR-0000 Template: adr/ADR-0000-template.md
       - ADR-0001 Documentation System Adoption: adr/ADR-0001-documentation-system-adoption.md
+      - ADR-0002 Unified Browser Host Abstraction Layer: adr/ADR-0002-browser-host-abstraction-layer.md
   - SOP:
       - Documentation System SOP: sop/documentation-system-sop.md
       - Quarterly Documentation Audit: sop/quarterly-documentation-audit.md

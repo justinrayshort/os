@@ -14,6 +14,89 @@ use crate::{
 
 const TASKBAR_HEIGHT_PX: i32 = 38;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DesktopContextMenuState {
+    x: i32,
+    y: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WallpaperPresetKind {
+    Pattern,
+    Picture,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct WallpaperPreset {
+    id: &'static str,
+    label: &'static str,
+    kind: WallpaperPresetKind,
+    note: &'static str,
+}
+
+fn desktop_wallpaper_presets() -> &'static [WallpaperPreset] {
+    const PRESETS: &[WallpaperPreset] = &[
+        WallpaperPreset {
+            id: "teal-solid",
+            label: "Solid Teal",
+            kind: WallpaperPresetKind::Pattern,
+            note: "Classic single-color desktop fill",
+        },
+        WallpaperPreset {
+            id: "teal-grid",
+            label: "Teal Grid",
+            kind: WallpaperPresetKind::Pattern,
+            note: "Subtle tiled grid on teal",
+        },
+        WallpaperPreset {
+            id: "woven-steel",
+            label: "Woven Steel",
+            kind: WallpaperPresetKind::Pattern,
+            note: "Crosshatch weave pattern",
+        },
+        WallpaperPreset {
+            id: "cloud-bands",
+            label: "Cloud Bands",
+            kind: WallpaperPresetKind::Picture,
+            note: "Soft sky bands and clouds",
+        },
+        WallpaperPreset {
+            id: "green-hills",
+            label: "Green Hills",
+            kind: WallpaperPresetKind::Picture,
+            note: "Rolling hills and blue sky",
+        },
+        WallpaperPreset {
+            id: "sunset-lake",
+            label: "Sunset Lake",
+            kind: WallpaperPresetKind::Picture,
+            note: "Warm dusk landscape scene",
+        },
+    ];
+    PRESETS
+}
+
+fn wallpaper_preset_kind_label(kind: WallpaperPresetKind) -> &'static str {
+    match kind {
+        WallpaperPresetKind::Pattern => "Pattern",
+        WallpaperPresetKind::Picture => "Picture",
+    }
+}
+
+fn wallpaper_preset_by_id(id: &str) -> WallpaperPreset {
+    let normalized = match id {
+        // Backward-compatible alias for older snapshots.
+        "slate-grid" => "teal-grid",
+        _ => id,
+    };
+
+    desktop_wallpaper_presets()
+        .iter()
+        .copied()
+        .find(|preset| preset.id == normalized)
+        .unwrap_or_else(|| desktop_wallpaper_presets()[0])
+}
+
 #[derive(Clone, Copy)]
 pub struct DesktopRuntimeContext {
     pub state: RwSignal<DesktopState>,
@@ -94,6 +177,54 @@ pub fn use_desktop_runtime() -> DesktopRuntimeContext {
 pub fn DesktopShell() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
+    let desktop_context_menu = create_rw_signal(None::<DesktopContextMenuState>);
+    let display_properties_open = create_rw_signal(false);
+    let wallpaper_selection = create_rw_signal(
+        wallpaper_preset_by_id(&state.get_untracked().theme.wallpaper_id)
+            .id
+            .to_string(),
+    );
+    let display_properties_original_wallpaper = create_rw_signal(None::<String>);
+
+    create_effect(move |_| {
+        let active_wallpaper = wallpaper_preset_by_id(&state.get().theme.wallpaper_id);
+        if !display_properties_open.get() {
+            wallpaper_selection.set(active_wallpaper.id.to_string());
+        }
+    });
+
+    let escape_listener = window_event_listener(ev::keydown, move |ev| {
+        if ev.default_prevented() || ev.key() != "Escape" {
+            return;
+        }
+
+        if desktop_context_menu.get_untracked().is_some() {
+            ev.prevent_default();
+            ev.stop_propagation();
+            desktop_context_menu.set(None);
+            return;
+        }
+
+        if display_properties_open.get_untracked() {
+            ev.prevent_default();
+            ev.stop_propagation();
+
+            if let Some(original) = display_properties_original_wallpaper.get_untracked() {
+                let current =
+                    wallpaper_preset_by_id(&runtime.state.get_untracked().theme.wallpaper_id);
+                if current.id != original {
+                    runtime.dispatch_action(DesktopAction::SetWallpaper {
+                        wallpaper_id: original.clone(),
+                    });
+                }
+                wallpaper_selection.set(original);
+            }
+
+            display_properties_original_wallpaper.set(None);
+            display_properties_open.set(false);
+        }
+    });
+    on_cleanup(move || escape_listener.remove());
 
     let on_pointer_move = move |ev: web_sys::MouseEvent| {
         let pointer = pointer_from_mouse_event(&ev);
@@ -204,19 +335,87 @@ pub fn DesktopShell() -> impl IntoView {
         }
     });
 
+    let open_display_properties = Callback::new(move |_| {
+        let active = wallpaper_preset_by_id(&runtime.state.get_untracked().theme.wallpaper_id);
+        desktop_context_menu.set(None);
+        runtime.dispatch_action(DesktopAction::CloseStartMenu);
+        wallpaper_selection.set(active.id.to_string());
+        display_properties_original_wallpaper.set(Some(active.id.to_string()));
+        display_properties_open.set(true);
+    });
+
+    let preview_selected_wallpaper = Callback::new(move |_| {
+        let selected = wallpaper_preset_by_id(&wallpaper_selection.get_untracked());
+        runtime.dispatch_action(DesktopAction::SetWallpaper {
+            wallpaper_id: selected.id.to_string(),
+        });
+    });
+
+    let apply_selected_wallpaper = Callback::new(move |_| {
+        let selected = wallpaper_preset_by_id(&wallpaper_selection.get_untracked());
+        runtime.dispatch_action(DesktopAction::SetWallpaper {
+            wallpaper_id: selected.id.to_string(),
+        });
+        display_properties_original_wallpaper.set(Some(selected.id.to_string()));
+    });
+
+    let close_display_properties_ok = Callback::new(move |_| {
+        let selected = wallpaper_preset_by_id(&wallpaper_selection.get_untracked());
+        runtime.dispatch_action(DesktopAction::SetWallpaper {
+            wallpaper_id: selected.id.to_string(),
+        });
+        display_properties_original_wallpaper.set(None);
+        display_properties_open.set(false);
+    });
+
+    let close_display_properties_cancel = Callback::new(move |_| {
+        if let Some(original) = display_properties_original_wallpaper.get_untracked() {
+            let current = wallpaper_preset_by_id(&runtime.state.get_untracked().theme.wallpaper_id);
+            if current.id != original {
+                runtime.dispatch_action(DesktopAction::SetWallpaper {
+                    wallpaper_id: original.clone(),
+                });
+            }
+            wallpaper_selection.set(original);
+        }
+
+        display_properties_original_wallpaper.set(None);
+        display_properties_open.set(false);
+    });
+
     view! {
         <div
             class="desktop-shell"
             data-theme=move || state.get().theme.name
+            on:click=move |_| {
+                if desktop_context_menu.get_untracked().is_some() {
+                    desktop_context_menu.set(None);
+                }
+            }
             on:mousemove=on_pointer_move
             on:mouseup=on_pointer_end.clone()
             on:mouseleave=on_pointer_end
         >
-            <div class="desktop-wallpaper">
+            <div
+                class="desktop-wallpaper"
+                data-wallpaper=move || wallpaper_preset_by_id(&state.get().theme.wallpaper_id).id
+            >
                 <div
                     class="desktop-surface-dismiss"
                     on:mousedown=move |_| {
+                        desktop_context_menu.set(None);
                         runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                    }
+                    on:contextmenu=move |ev| {
+                        ev.prevent_default();
+                        ev.stop_propagation();
+                        runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                        display_properties_open.set(false);
+                        open_desktop_context_menu(
+                            desktop_context_menu,
+                            ev.client_x(),
+                            ev.client_y(),
+                        );
                     }
                 />
                 <div class="desktop-icons">
@@ -247,6 +446,266 @@ pub fn DesktopShell() -> impl IntoView {
                         <DesktopWindow window_id=win.id />
                     </For>
                 </div>
+
+                <Show when=move || desktop_context_menu.get().is_some() fallback=|| ()>
+                    {move || {
+                        let Some(menu) = desktop_context_menu.get() else {
+                            return ().into_view();
+                        };
+                        let active = wallpaper_preset_by_id(&state.get().theme.wallpaper_id);
+                        let menu_style = format!("left:{}px;top:{}px;", menu.x, menu.y);
+
+                        view! {
+                            <div
+                                class="taskbar-menu desktop-context-menu"
+                                role="menu"
+                                aria-label="Desktop context menu"
+                                style=menu_style
+                                on:click=move |ev| ev.stop_propagation()
+                            >
+                                <button
+                                    role="menuitem"
+                                    class="taskbar-menu-item"
+                                    on:click:undelegated=move |ev| {
+                                        stop_mouse_event(&ev);
+                                        desktop_context_menu.set(None);
+                                    }
+                                >
+                                    "Refresh"
+                                </button>
+                                <button
+                                    role="menuitem"
+                                    class="taskbar-menu-item"
+                                    on:click:undelegated=move |ev| {
+                                        stop_mouse_event(&ev);
+                                        open_display_properties.call(());
+                                    }
+                                >
+                                    "Properties..."
+                                </button>
+
+                                <div class="desktop-menu-separator" role="separator" aria-hidden="true"></div>
+                                <div class="desktop-context-group-label">
+                                    "Quick Backgrounds"
+                                </div>
+
+                                <For
+                                    each=move || desktop_wallpaper_presets().to_vec()
+                                    key=|preset| preset.id
+                                    let:preset
+                                >
+                                    <button
+                                        role="menuitemradio"
+                                        aria-checked=move || active.id == preset.id
+                                        class=move || {
+                                            if active.id == preset.id {
+                                                "taskbar-menu-item desktop-context-wallpaper-item active"
+                                            } else {
+                                                "taskbar-menu-item desktop-context-wallpaper-item"
+                                            }
+                                        }
+                                        on:click:undelegated=move |ev| {
+                                            stop_mouse_event(&ev);
+                                            desktop_context_menu.set(None);
+                                            wallpaper_selection.set(preset.id.to_string());
+                                            runtime.dispatch_action(DesktopAction::SetWallpaper {
+                                                wallpaper_id: preset.id.to_string(),
+                                            });
+                                        }
+                                    >
+                                        <span class="desktop-context-wallpaper-check" aria-hidden="true">
+                                            {if active.id == preset.id { "*" } else { "" }}
+                                        </span>
+                                        <span class="desktop-context-wallpaper-text">
+                                            <span class="desktop-context-wallpaper-label">{preset.label}</span>
+                                            <span class="desktop-context-wallpaper-meta">
+                                                {wallpaper_preset_kind_label(preset.kind)}
+                                            </span>
+                                        </span>
+                                    </button>
+                                </For>
+                            </div>
+                        }
+                            .into_view()
+                    }}
+                </Show>
+
+                <Show when=move || display_properties_open.get() fallback=|| ()>
+                    <div
+                        class="display-properties-overlay"
+                        on:mousedown=move |ev| ev.stop_propagation()
+                        on:click=move |ev| ev.stop_propagation()
+                    >
+                        <section
+                            class="display-properties-dialog"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="display-properties-title"
+                            on:mousedown=move |ev| ev.stop_propagation()
+                            on:click=move |ev| ev.stop_propagation()
+                        >
+                            <header class="display-properties-titlebar">
+                                <div id="display-properties-title" class="display-properties-title">
+                                    "Display Properties"
+                                </div>
+                                <button
+                                    class="display-properties-close"
+                                    aria-label="Close display properties"
+                                    on:click:undelegated=move |_| close_display_properties_cancel.call(())
+                                >
+                                    "X"
+                                </button>
+                            </header>
+
+                            <div class="display-properties-body">
+                                <div class="display-properties-tabs" role="tablist" aria-label="Display settings">
+                                    <button class="display-properties-tab active" role="tab" aria-selected="true">
+                                        "Background"
+                                    </button>
+                                    <button
+                                        class="display-properties-tab"
+                                        role="tab"
+                                        aria-selected="false"
+                                        disabled=true
+                                    >
+                                        "Appearance"
+                                    </button>
+                                    <button
+                                        class="display-properties-tab"
+                                        role="tab"
+                                        aria-selected="false"
+                                        disabled=true
+                                    >
+                                        "Effects"
+                                    </button>
+                                </div>
+
+                                <div class="display-properties-content">
+                                    <div class="display-preview-column">
+                                        <div class="display-preview-frame" aria-hidden="true">
+                                            <div class="display-preview-monitor">
+                                                <div
+                                                    class="display-preview-screen"
+                                                    data-wallpaper=move || {
+                                                        wallpaper_preset_by_id(&wallpaper_selection.get()).id
+                                                    }
+                                                >
+                                                    <div class="display-preview-desktop-icon">
+                                                        "My Computer"
+                                                    </div>
+                                                </div>
+                                                <div class="display-preview-taskbar">
+                                                    <span class="display-preview-start">"Start"</span>
+                                                    <span class="display-preview-clock">"9:41 AM"</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="display-preview-caption">
+                                            {move || {
+                                                let preset = wallpaper_preset_by_id(&wallpaper_selection.get());
+                                                format!("{} ({})", preset.label, wallpaper_preset_kind_label(preset.kind))
+                                            }}
+                                        </div>
+                                        <div class="display-preview-note">
+                                            {move || wallpaper_preset_by_id(&wallpaper_selection.get()).note}
+                                        </div>
+                                    </div>
+
+                                    <div class="display-options-column">
+                                        <label class="display-list-label" for="wallpaper-listbox">
+                                            "Wallpaper"
+                                        </label>
+                                        <div
+                                            id="wallpaper-listbox"
+                                            class="wallpaper-picker-list"
+                                            role="listbox"
+                                            aria-label="Wallpaper choices"
+                                        >
+                                            <For
+                                                each=move || desktop_wallpaper_presets().to_vec()
+                                                key=|preset| preset.id
+                                                let:preset
+                                            >
+                                                <button
+                                                    class=move || {
+                                                        if wallpaper_preset_by_id(&wallpaper_selection.get()).id == preset.id {
+                                                            "wallpaper-picker-item selected"
+                                                        } else {
+                                                            "wallpaper-picker-item"
+                                                        }
+                                                    }
+                                                    role="option"
+                                                    aria-selected=move || {
+                                                        wallpaper_preset_by_id(&wallpaper_selection.get()).id == preset.id
+                                                    }
+                                                    on:click:undelegated=move |_| {
+                                                        wallpaper_selection.set(preset.id.to_string());
+                                                    }
+                                                    on:dblclick:undelegated=move |_| {
+                                                        wallpaper_selection.set(preset.id.to_string());
+                                                        preview_selected_wallpaper.call(());
+                                                    }
+                                                >
+                                                    <span
+                                                        class="wallpaper-preview-thumb"
+                                                        data-wallpaper=preset.id
+                                                        aria-hidden="true"
+                                                    />
+                                                    <span class="wallpaper-picker-item-copy">
+                                                        <span class="wallpaper-picker-item-label">
+                                                            {preset.label}
+                                                        </span>
+                                                        <span class="wallpaper-picker-item-meta">
+                                                            {wallpaper_preset_kind_label(preset.kind)}
+                                                        </span>
+                                                    </span>
+                                                </button>
+                                            </For>
+                                        </div>
+
+                                        <div class="display-properties-actions-row">
+                                            <button
+                                                class="display-action-button"
+                                                on:click:undelegated=move |_| preview_selected_wallpaper.call(())
+                                            >
+                                                "Preview"
+                                            </button>
+                                            <button
+                                                class="display-action-button"
+                                                on:click:undelegated=move |_| apply_selected_wallpaper.call(())
+                                            >
+                                                "Apply"
+                                            </button>
+                                        </div>
+
+                                        <div class="display-properties-current">
+                                            {move || {
+                                                let current = wallpaper_preset_by_id(&state.get().theme.wallpaper_id);
+                                                format!("Current desktop: {}", current.label)
+                                            }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <footer class="display-properties-footer">
+                                <button
+                                    class="display-footer-button"
+                                    on:click:undelegated=move |_| close_display_properties_ok.call(())
+                                >
+                                    "OK"
+                                </button>
+                                <button
+                                    class="display-footer-button"
+                                    on:click:undelegated=move |_| close_display_properties_cancel.call(())
+                                >
+                                    "Cancel"
+                                </button>
+                            </footer>
+                        </section>
+                    </div>
+                </Show>
             </div>
 
             <Taskbar />
@@ -800,6 +1259,18 @@ fn cycle_selected_running_window(
     Some(running_windows[next_idx].id)
 }
 
+fn open_desktop_context_menu(menu: RwSignal<Option<DesktopContextMenuState>>, x: i32, y: i32) {
+    let (x, y) = clamp_desktop_popup_position(x, y, 260, 340);
+    menu.set(Some(DesktopContextMenuState { x, y }));
+}
+
+fn clamp_desktop_popup_position(x: i32, y: i32, popup_w: i32, popup_h: i32) -> (i32, i32) {
+    let viewport = desktop_viewport_rect();
+    let max_x = (viewport.w - popup_w - 6).max(6);
+    let max_y = (viewport.h - popup_h - 6).max(6);
+    (x.clamp(6, max_x), y.clamp(6, max_y))
+}
+
 fn open_taskbar_window_context_menu(
     menu: RwSignal<Option<TaskbarWindowContextMenuState>>,
     window_id: WindowId,
@@ -1192,7 +1663,7 @@ fn Taskbar() -> impl IntoView {
                     }
                 >
                     <span class="taskbar-glyph" aria-hidden="true">"OS"</span>
-                    <span>"Launcher"</span>
+                    <span>"Start"</span>
                 </button>
 
                 <div class="taskbar-pins" role="group" aria-label="Pinned apps">

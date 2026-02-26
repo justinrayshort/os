@@ -6,8 +6,8 @@
     <title>Retro Desktop Prototype</title>
     
 <script type="module">
-import init, * as bindings from '/site_app-6ba4a09bb50f87df.js';
-const wasm = await init({ module_or_path: '/site_app-6ba4a09bb50f87df_bg.wasm' });
+import init, * as bindings from '/site_app-881de7e11813525c.js';
+const wasm = await init({ module_or_path: '/site_app-881de7e11813525c_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -17,7 +17,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
     <base href="/" />
-  <link rel="modulepreload" href="/site_app-6ba4a09bb50f87df.js" crossorigin="anonymous" integrity="sha384-hD6oL82hsJLtDdQ3egZvxil1xcX7ouZA+2QGahRfTnq0tLOUoj6ZbpFCYdlhas6a"><link rel="modulepreload" href="/snippets/platform_storage-2ed5d9d526bedbee/inline0.js" crossorigin="anonymous" integrity="sha384-gKms1utUI/f0V1/Tttj6EgT9H04tabaDLw4YVevR5GywEO0c5MNaaBuW2BYnynbH"><link rel="preload" href="/site_app-6ba4a09bb50f87df_bg.wasm" crossorigin="anonymous" integrity="sha384-yVrIj9QtdGkqbt0+qaqOYYNrFjZNK1k1G34y2kw3bf03UXgwK3TV7+UdEMwwF2ZS" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/site_app-881de7e11813525c.js" crossorigin="anonymous" integrity="sha384-ym+Hy2chY7pJnrbEpbKEiPYbPkVh93JAcefd9tNhEGBFzHXKvzyWnYVI5eUbnnXE"><link rel="modulepreload" href="/snippets/platform_storage-2ed5d9d526bedbee/inline0.js" crossorigin="anonymous" integrity="sha384-gKms1utUI/f0V1/Tttj6EgT9H04tabaDLw4YVevR5GywEO0c5MNaaBuW2BYnynbH"><link rel="preload" href="/site_app-881de7e11813525c_bg.wasm" crossorigin="anonymous" integrity="sha384-Yn100rLyTPTwpliSRg/odKcdl0vg2fYg4Y5VWThsmXEwx1HVs2pA916v4mtUvNV3" as="fetch" type="application/wasm"></head>
   <body>
     <noscript>This prototype requires JavaScript/WebAssembly enabled.</noscript>
   <script>"use strict";
