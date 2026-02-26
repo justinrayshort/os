@@ -18,6 +18,35 @@ use crate::{
 pub struct DesktopHostContext;
 
 impl DesktopHostContext {
+    /// Installs boot hydration/migration side effects for the desktop provider.
+    ///
+    /// This preserves the current boot sequence:
+    /// 1. hydrate from legacy localStorage snapshot immediately (if present)
+    /// 2. asynchronously hydrate from durable storage if present
+    /// 3. otherwise migrate the legacy snapshot into durable storage
+    pub fn install_boot_hydration(self, dispatch: Callback<DesktopAction>) {
+        create_effect(move |_| {
+            let legacy_snapshot = persistence::load_boot_snapshot();
+            if let Some(snapshot) = legacy_snapshot.clone() {
+                dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
+            }
+
+            let dispatch = dispatch;
+            spawn_local(async move {
+                if let Some(snapshot) = persistence::load_durable_boot_snapshot().await {
+                    dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
+                } else if let Some(snapshot) = legacy_snapshot {
+                    let migrated_state = crate::model::DesktopState::from_snapshot(snapshot);
+                    if let Err(err) =
+                        persistence::persist_durable_layout_snapshot(&migrated_state).await
+                    {
+                        logging::warn!("migrate legacy snapshot to durable store failed: {err}");
+                    }
+                }
+            });
+        });
+    }
+
     /// Executes a single [`RuntimeEffect`] emitted by the reducer.
     pub fn run_runtime_effect(self, runtime: DesktopRuntimeContext, effect: RuntimeEffect) {
         match effect {
@@ -49,11 +78,24 @@ impl DesktopHostContext {
                 }
                 self.persist_durable_snapshot(runtime.state.get_untracked(), "terminal");
             }
-            RuntimeEffect::OpenExternalUrl(url) => {
-                logging::log!("open external url requested: {url}");
-            }
-            RuntimeEffect::FocusWindowInput(_) | RuntimeEffect::PlaySound(_) => {}
+            RuntimeEffect::OpenExternalUrl(url) => self.open_external_url(&url),
+            RuntimeEffect::FocusWindowInput(window_id) => self.focus_window_input(window_id),
+            RuntimeEffect::PlaySound(_) => {}
         }
+    }
+
+    /// Handles a request to focus the active window's primary input.
+    ///
+    /// The reducer emits this intent when a window opens or is focused. The desktop shell does not
+    /// yet assign stable DOM anchors per app window, so this remains a no-op host hook for now.
+    pub fn focus_window_input(self, _window_id: crate::model::WindowId) {}
+
+    /// Handles requests to open a URL outside the desktop shell.
+    ///
+    /// This is intentionally a host hook so browser integration can evolve independently of the UI
+    /// reducer/effect pipeline.
+    pub fn open_external_url(self, url: &str) {
+        logging::log!("open external url requested: {url}");
     }
 
     fn persist_durable_snapshot(self, state: crate::model::DesktopState, cause: &str) {
@@ -108,4 +150,3 @@ impl DesktopHostContext {
         }
     }
 }
-

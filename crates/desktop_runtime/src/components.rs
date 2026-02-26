@@ -9,9 +9,7 @@ use crate::{
     host::DesktopHostContext,
     model::{
         AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
-        WindowRect,
     },
-    persistence,
     reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
 };
 
@@ -159,26 +157,7 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
         dispatch,
     });
 
-    create_effect(move |_| {
-        let legacy_snapshot = persistence::load_boot_snapshot();
-        if let Some(snapshot) = legacy_snapshot.clone() {
-            dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
-        }
-
-        let dispatch = dispatch;
-        spawn_local(async move {
-            if let Some(snapshot) = persistence::load_durable_boot_snapshot().await {
-                dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
-            } else if let Some(snapshot) = legacy_snapshot {
-                let migrated_state = DesktopState::from_snapshot(snapshot);
-                if let Err(err) =
-                    persistence::persist_durable_layout_snapshot(&migrated_state).await
-                {
-                    logging::warn!("migrate legacy snapshot to durable store failed: {err}");
-                }
-            }
-        });
-    });
+    host.install_boot_hydration(dispatch);
 
     children().into_view()
 }
@@ -350,6 +329,7 @@ pub fn DesktopShell() -> impl IntoView {
                         runtime.dispatch_action(DesktopAction::CloseStartMenu);
                         display_properties_open.set(false);
                         open_desktop_context_menu(
+                            runtime.host,
                             desktop_context_menu,
                             ev.client_x(),
                             ev.client_y(),
@@ -693,7 +673,7 @@ fn DesktopWindow(window_id: WindowId) -> impl IntoView {
             } else if win.flags.maximizable {
                 runtime.dispatch_action(DesktopAction::MaximizeWindow {
                     window_id,
-                    viewport: desktop_viewport_rect(),
+                    viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
                 });
             }
         }
@@ -719,7 +699,7 @@ fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                 } else {
                     runtime.dispatch_action(DesktopAction::MaximizeWindow {
                         window_id,
-                        viewport: desktop_viewport_rect(),
+                        viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
                     });
                 }
             }
@@ -1197,30 +1177,48 @@ fn cycle_selected_running_window(
     Some(running_windows[next_idx].id)
 }
 
-fn open_desktop_context_menu(menu: RwSignal<Option<DesktopContextMenuState>>, x: i32, y: i32) {
-    let (x, y) = clamp_desktop_popup_position(x, y, 260, 340);
+fn open_desktop_context_menu(
+    host: DesktopHostContext,
+    menu: RwSignal<Option<DesktopContextMenuState>>,
+    x: i32,
+    y: i32,
+) {
+    let (x, y) = clamp_desktop_popup_position(host, x, y, 260, 340);
     menu.set(Some(DesktopContextMenuState { x, y }));
 }
 
-fn clamp_desktop_popup_position(x: i32, y: i32, popup_w: i32, popup_h: i32) -> (i32, i32) {
-    let viewport = desktop_viewport_rect();
+fn clamp_desktop_popup_position(
+    host: DesktopHostContext,
+    x: i32,
+    y: i32,
+    popup_w: i32,
+    popup_h: i32,
+) -> (i32, i32) {
+    let viewport = host.desktop_viewport_rect(TASKBAR_HEIGHT_PX);
     let max_x = (viewport.w - popup_w - 6).max(6);
     let max_y = (viewport.h - popup_h - 6).max(6);
     (x.clamp(6, max_x), y.clamp(6, max_y))
 }
 
 fn open_taskbar_window_context_menu(
+    host: DesktopHostContext,
     menu: RwSignal<Option<TaskbarWindowContextMenuState>>,
     window_id: WindowId,
     x: i32,
     y: i32,
 ) {
-    let (x, y) = clamp_taskbar_popup_position(x, y, 220, 190);
+    let (x, y) = clamp_taskbar_popup_position(host, x, y, 220, 190);
     menu.set(Some(TaskbarWindowContextMenuState { window_id, x, y }));
 }
 
-fn clamp_taskbar_popup_position(x: i32, y: i32, popup_w: i32, popup_h: i32) -> (i32, i32) {
-    let viewport = desktop_viewport_rect();
+fn clamp_taskbar_popup_position(
+    host: DesktopHostContext,
+    x: i32,
+    y: i32,
+    popup_w: i32,
+    popup_h: i32,
+) -> (i32, i32) {
+    let viewport = host.desktop_viewport_rect(TASKBAR_HEIGHT_PX);
     let max_x = (viewport.w - popup_w - 6).max(6);
     let max_y = (viewport.h + TASKBAR_HEIGHT_PX - popup_h - 6).max(6);
     (x.clamp(6, max_x), y.clamp(6, max_y))
@@ -1348,7 +1346,7 @@ fn Taskbar() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
 
-    let viewport_width = create_rw_signal(desktop_viewport_rect().w);
+    let viewport_width = create_rw_signal(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX).w);
     let clock_config = create_rw_signal(TaskbarClockConfig::default());
     let clock_now = create_rw_signal(TaskbarClockSnapshot::now());
     let selected_running_window = create_rw_signal(None::<WindowId>);
@@ -1357,7 +1355,7 @@ fn Taskbar() -> impl IntoView {
     let clock_menu_open = create_rw_signal(false);
 
     let resize_listener = window_event_listener(ev::resize, move |_| {
-        viewport_width.set(desktop_viewport_rect().w);
+        viewport_width.set(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX).w);
     });
     on_cleanup(move || resize_listener.remove());
 
@@ -1566,10 +1564,16 @@ fn Taskbar() -> impl IntoView {
                         overflow_menu_open.set(false);
                         clock_menu_open.set(false);
                         runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                        let viewport = desktop_viewport_rect();
+                        let viewport = runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX);
                         let x = (viewport.w / 2).max(24);
                         let y = (viewport.h + TASKBAR_HEIGHT_PX - 180).max(24);
-                        open_taskbar_window_context_menu(window_context_menu, window_id, x, y);
+                        open_taskbar_window_context_menu(
+                            runtime.host,
+                            window_context_menu,
+                            window_id,
+                            x,
+                            y,
+                        );
                     }
                 }
             }
@@ -1702,6 +1706,7 @@ fn Taskbar() -> impl IntoView {
                                 clock_menu_open.set(false);
                                 runtime.dispatch_action(DesktopAction::CloseStartMenu);
                                 open_taskbar_window_context_menu(
+                                    runtime.host,
                                     window_context_menu,
                                     win.id,
                                     ev.client_x(),
@@ -1812,6 +1817,7 @@ fn Taskbar() -> impl IntoView {
                                                 clock_menu_open.set(false);
                                                 runtime.dispatch_action(DesktopAction::CloseStartMenu);
                                                 open_taskbar_window_context_menu(
+                                                    runtime.host,
                                                     window_context_menu,
                                                     win.id,
                                                     ev.client_x(),
@@ -2054,7 +2060,9 @@ fn Taskbar() -> impl IntoView {
                                     window_context_menu.set(None);
                                     runtime.dispatch_action(DesktopAction::MaximizeWindow {
                                         window_id,
-                                        viewport: desktop_viewport_rect(),
+                                        viewport: runtime.host.desktop_viewport_rect(
+                                            TASKBAR_HEIGHT_PX,
+                                        ),
                                     });
                                 }
                             >
@@ -2095,7 +2103,7 @@ fn end_active_pointer_interaction(runtime: DesktopRuntimeContext) {
     let interaction = runtime.interaction.get_untracked();
     if interaction.dragging.is_some() {
         runtime.dispatch_action(DesktopAction::EndMoveWithViewport {
-            viewport: desktop_viewport_rect(),
+            viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
         });
     }
     if interaction.resizing.is_some() {
@@ -2114,8 +2122,4 @@ fn resize_edge_class(edge: ResizeEdge) -> &'static str {
         ResizeEdge::SouthEast => "edge-se",
         ResizeEdge::SouthWest => "edge-sw",
     }
-}
-
-fn desktop_viewport_rect() -> WindowRect {
-    DesktopHostContext::default().desktop_viewport_rect(TASKBAR_HEIGHT_PX)
 }
