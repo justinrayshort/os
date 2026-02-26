@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: verify verify-fast wiki-init rustdoc-check docs-check docs-audit proto-check proto-build proto-build-dev proto-serve proto-start proto-stop proto-status proto-restart
+.PHONY: verify verify-fast wiki-init rustdoc-check docs-check docs-audit perf-doctor perf-check perf-bench perf-baseline perf-compare perf-flamegraph perf-heaptrack proto-check proto-build proto-build-dev proto-serve proto-start proto-stop proto-status proto-restart
 
 verify:
 	cargo verify
@@ -22,6 +22,33 @@ docs-check:
 
 docs-audit:
 	cargo docs-audit
+
+perf-doctor:
+	cargo perf doctor
+
+perf-check:
+	cargo perf check
+
+perf-bench:
+	cargo perf bench
+
+perf-baseline:
+	@echo "usage: make perf-baseline BASELINE=<name>"
+	@test -n "$(BASELINE)"
+	cargo perf baseline "$(BASELINE)"
+
+perf-compare:
+	@echo "usage: make perf-compare BASELINE=<name>"
+	@test -n "$(BASELINE)"
+	cargo perf compare "$(BASELINE)"
+
+perf-flamegraph:
+	@echo "usage: make perf-flamegraph ARGS='--bench <bench_name>'"
+	@test -n "$(ARGS)"
+	cargo perf flamegraph $(ARGS)
+
+perf-heaptrack:
+	cargo perf heaptrack $(ARGS)
 
 proto-check:
 	cargo web-check

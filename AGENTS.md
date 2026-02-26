@@ -81,6 +81,9 @@ Primary entry points:
 - `cargo test --workspace --doc`
 - `cargo verify-fast`
 - `cargo verify`
+- `cargo perf doctor`
+- `cargo perf check`
+- `cargo perf bench`
 
 Stages (local verification order):
 
@@ -154,6 +157,26 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets
 ```
 
+### 5.6 Performance Engineering Commands (Local / Controlled Benchmarking)
+
+Standardized performance workflow entry points are exposed via `cargo xtask perf` and the `cargo perf` alias. Use these commands to keep profiling and benchmark runs repeatable, with artifacts under `.artifacts/perf/`.
+
+```bash
+cargo perf doctor
+cargo perf check
+cargo perf bench
+cargo perf baseline local-main
+cargo perf compare local-main
+cargo perf flamegraph --bench <bench_name>
+cargo perf heaptrack -- cargo bench --workspace
+```
+
+Notes:
+
+- `cargo perf check` runs tests/doctests and compiles benchmark targets before optimization work.
+- `cargo perf baseline` / `cargo perf compare` assume Criterion-style benchmark flags and append `-- --save-baseline/--baseline` automatically.
+- `cargo perf flamegraph` and `cargo perf heaptrack` require optional local tooling and may be platform-specific.
+
 Common convenience wrappers (delegating to Cargo aliases / `xtask` docs commands):
 
 ```bash
@@ -163,6 +186,11 @@ make wiki-init
 make rustdoc-check
 make docs-check
 make docs-audit
+make perf-doctor
+make perf-check
+make perf-bench
+make perf-baseline BASELINE=<name>
+make perf-compare BASELINE=<name>
 make proto-check
 make proto-build
 make proto-build-dev
@@ -187,6 +215,7 @@ make proto-restart
 6. Run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc` when rustdoc changed (recommended for all docs changes that mention APIs).
 7. If Mermaid or OpenAPI changed, run targeted checks (`cargo xtask docs mermaid`, `cargo xtask docs openapi`) in addition to `all`.
 8. Generate an audit artifact (`cargo xtask docs audit-report --output .artifacts/docs-audit.json`) when the change affects governance/reporting flows.
+9. For performance-sensitive changes, run `cargo perf check` and the relevant benchmark/profile commands (for example `cargo perf bench`, `cargo perf compare <baseline>`) and document measured deltas/tradeoffs in code review plus the relevant wiki/docs pages.
 
 ### 6.2 Code + docs changes
 
@@ -205,6 +234,7 @@ make proto-restart
 ## 7) Key Files
 
 - `xtask/src/docs.rs` (docs contract/integrity/audit CLI implementation)
+- `xtask/src/perf.rs` (performance benchmarking/profiling workflow CLI implementation)
 - `tools/docs/doc_contracts.json` (docs schema/contract rules)
 - `.gitmodules` (wiki submodule declaration)
 - `wiki/` (GitHub Wiki submodule checkout)

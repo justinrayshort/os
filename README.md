@@ -111,6 +111,44 @@ make proto-stop
 
 Direct commands remain available if you prefer (`cargo run -p xtask -- ...`, `trunk ...`).
 
+## Performance Engineering Workflow (Benchmarks + Profiling)
+
+The repository now exposes a standardized performance workflow through `xtask` so benchmark runs, baselines, and profiling artifacts are repeatable across local environments.
+
+Tooling availability check:
+
+```bash
+cargo perf doctor
+```
+
+Preflight functional correctness before optimization (unit/integration tests, all-features tests, doctests, benchmark target compile):
+
+```bash
+cargo perf check
+```
+
+Run workspace benchmarks (including Criterion benches where present):
+
+```bash
+cargo perf bench
+```
+
+Capture and compare Criterion baselines:
+
+```bash
+cargo perf baseline local-main
+cargo perf compare local-main
+```
+
+Profile CPU and memory (optional tools; host/OS dependent):
+
+```bash
+cargo perf flamegraph --bench <bench_name>
+cargo perf heaptrack -- cargo bench --workspace
+```
+
+Performance artifacts default to `.artifacts/perf/`. See the performance SOP/reference pages (indexed from the wiki) for baseline thresholds, workload guidance, and documentation expectations for optimization decisions.
+
 ## Documentation Workflow (Rustdoc + Wiki + Repo Docs)
 
 Use the GitHub Wiki (`wiki/Home.md`) as the primary documentation entry point for project navigation and artifact discovery. Update the relevant wiki reference/index pages when adding or changing formal artifacts (for example ADRs, SOPs, diagrams, or command references).

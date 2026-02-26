@@ -4,6 +4,7 @@
 //! repository can expose stable entrypoints through Cargo aliases.
 
 mod docs;
+mod perf;
 
 use std::env;
 use std::fs::{self, OpenOptions};
@@ -40,6 +41,7 @@ fn main() -> ExitCode {
         "build-web" => build_web(&root, rest),
         "check-web" => check_web(&root),
         "docs" => docs::run_docs_command(&root, rest),
+        "perf" => perf::run_perf_command(&root, rest),
         "verify" => verify(&root, rest),
         "help" | "--help" | "-h" => {
             print_usage();
@@ -74,6 +76,7 @@ fn print_usage() {
            build-web [args]    Build static web bundle with trunk\n\
            check-web           Run site compile checks (CSR native + wasm)\n\
            docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
+           perf <subcommand>   Performance benchmarks/profiling workflows\n\
            verify [fast|full]  Run standardized local verification workflow (default: full)\n"
     );
 }

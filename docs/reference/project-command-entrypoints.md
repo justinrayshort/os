@@ -15,7 +15,7 @@ lifecycle: "ga"
 
 # Project Command Entry Points
 
-This page documents the supported top-level commands for local development, verification, and documentation checks.
+This page documents the supported top-level commands for local development, verification, performance engineering workflows, and documentation checks.
 
 ## Source of Truth
 
@@ -43,6 +43,16 @@ This page documents the supported top-level commands for local development, veri
 - `cargo verify-fast`: Run fast project verification (`xtask verify fast`).
 - `cargo verify`: Run full project verification (`xtask verify full`).
 
+### Performance Engineering Workflow
+
+- `cargo perf doctor`: Check availability of local benchmark/profiling tools (`cargo`, `cargo flamegraph`, `perf`, `heaptrack`).
+- `cargo perf check`: Run functional test preflight (workspace tests, all-features tests, doctests) and compile benchmark targets (`cargo bench --no-run`).
+- `cargo perf bench [args...]`: Run workspace benchmark suites (`cargo xtask perf bench` passthrough).
+- `cargo perf baseline <name> [cargo-bench-args...]`: Run Criterion benchmarks and save a baseline for regression comparison.
+- `cargo perf compare <name> [cargo-bench-args...]`: Run Criterion benchmarks and compare against a named baseline.
+- `cargo perf flamegraph [args...]`: Run CPU profiling via `cargo flamegraph` with a default SVG output path under `.artifacts/perf/flamegraphs/` when none is provided.
+- `cargo perf heaptrack [-- <cmd...>]`: Run heap profiling with `heaptrack` (default command: `cargo bench --workspace`).
+
 ### Documentation Workflow (Rustdoc + Wiki)
 
 - `git submodule sync --recursive && git submodule update --init --recursive`: Refresh submodule wiring and initialize/update the `wiki/` submodule.
@@ -63,6 +73,13 @@ These targets exist for operator convenience and local muscle memory. They deleg
 - `make rustdoc-check` -> `cargo doc --workspace --no-deps && cargo test --workspace --doc`
 - `make docs-check` -> `cargo xtask docs all` + `make rustdoc-check`
 - `make docs-audit` -> `cargo xtask docs audit-report --output .artifacts/docs-audit.json`
+- `make perf-doctor` -> `cargo perf doctor`
+- `make perf-check` -> `cargo perf check`
+- `make perf-bench` -> `cargo perf bench`
+- `make perf-baseline BASELINE=<name>` -> `cargo perf baseline <name>`
+- `make perf-compare BASELINE=<name>` -> `cargo perf compare <name>`
+- `make perf-flamegraph ARGS='--bench <bench_name>'` -> `cargo perf flamegraph <args>`
+- `make perf-heaptrack [ARGS='-- cargo bench --workspace']` -> `cargo perf heaptrack <args>`
 - `make proto-check` -> `cargo web-check`
 - `make proto-build` -> `cargo web-build`
 - `make proto-build-dev` -> `cargo dev build`
