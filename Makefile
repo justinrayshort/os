@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: verify verify-fast docs-check docs-audit proto-check proto-build proto-build-dev proto-serve proto-start proto-stop proto-status proto-restart
+.PHONY: verify verify-fast wiki-init rustdoc-check docs-check docs-audit proto-check proto-build proto-build-dev proto-serve proto-start proto-stop proto-status proto-restart
 
 verify:
 	cargo verify
@@ -8,8 +8,16 @@ verify:
 verify-fast:
 	cargo verify-fast
 
+wiki-init:
+	git submodule update --init --recursive
+
+rustdoc-check:
+	cargo doc --workspace --no-deps
+	cargo test --workspace --doc
+
 docs-check:
 	python3 scripts/docs/validate_docs.py all
+	$(MAKE) rustdoc-check
 
 docs-audit:
 	python3 scripts/docs/validate_docs.py audit-report --output .artifacts/docs-audit.json

@@ -3,7 +3,7 @@ title: "SOP: Documentation System Operation and Governance"
 category: "sop"
 owner: "architecture-owner"
 status: "active"
-last_reviewed: "2026-02-25"
+last_reviewed: "2026-02-26"
 audience: ["engineering", "platform"]
 invariants:
   - "Documentation is reviewed and versioned with code."
@@ -17,50 +17,53 @@ lifecycle: "ga"
 
 ## 1. Title & Purpose
 
-This SOP defines the procedure for authoring, validating, reviewing, and auditing project documentation without violating documentation governance invariants.
+This SOP defines the procedure for authoring, validating, reviewing, and auditing project documentation across rustdoc, the GitHub Wiki submodule, and the MkDocs governance docs without violating documentation governance invariants.
 
 ## 2. Scope
 
-- Covers: Diataxis-classified docs, ADRs, SOPs, OpenAPI assets, Mermaid diagrams, and CI validation
-- Does not cover: runtime application behavior, non-repository knowledge bases, or third-party documentation sites
+- Covers: rustdoc API reference comments, GitHub Wiki tutorials/how-to/explanations, MkDocs governance docs, ADRs, SOPs, OpenAPI assets, Mermaid diagrams, and CI validation
+- Does not cover: runtime application behavior itself, external third-party documentation sites, or non-versioned documentation channels
 
 ## 3. Roles & Responsibilities
 
 | Role | Responsibility |
 | --- | --- |
-| Author | Creates or updates documentation in the same repository/PR as related changes |
-| Reviewer | Verifies correctness, category fit, and postconditions |
+| Author | Creates or updates rustdoc/wiki/MkDocs documentation in the same review cycle as related changes |
+| Reviewer | Verifies correctness, surface placement (rustdoc vs wiki vs MkDocs), and postconditions |
 | Architecture Owner | Approves structural changes, ADRs, and governance deviations |
 | Platform Team | Maintains CI/documentation tooling and audit workflows |
 
 ## 4. Prerequisites
 
 - Repository checkout with `python3`
+- Repository checkout with git submodules initialized (`wiki/`)
 - Ability to run repository validation scripts
 - Required ownership and status values known
 - Related code/API/architecture changes identified (if applicable)
 
 ## 5. Step-by-Step Procedure
 
-1. Classify the change by intent (`tutorial`, `how-to`, `reference`, `explanation`, `adr`, `sop`).
+1. Classify the change by intent and documentation surface (`rustdoc`, GitHub Wiki, MkDocs docs/ADR/SOP).
    - Command:
 
    ```bash
-   ls docs
+   git submodule update --init --recursive
    ```
 
-   - Expected output: category directories exist under `docs/`
-   - Failure condition: content intent is unclear or spans multiple categories
-2. Create or update the document with valid frontmatter and invariants.
+   - Expected output: `wiki/` submodule is present and up to date
+   - Failure condition: wiki submodule missing or detached workflow not updated
+2. Create or update the documentation in the correct place.
    - Command:
 
    ```bash
-   $EDITOR docs/<category>/<file>.md
+   $EDITOR crates/<crate>/src/<file>.rs   # rustdoc
+   $EDITOR wiki/<Page>.md                 # GitHub Wiki
+   $EDITOR docs/<category>/<file>.md      # MkDocs governance/ADR/SOP
    ```
 
-   - Expected output: file contains required frontmatter and appropriate category content
-   - Failure condition: missing metadata, mixed intent, or no owner assigned
-3. Add/update related contracts (ADR, OpenAPI, diagrams) when architecture/API changes.
+   - Expected output: API reference docs are in rustdoc; tutorials/how-to/explanations are in wiki; governance docs remain in `docs/`
+   - Failure condition: wrong surface, missing rustdoc update, or mixed intent page
+3. Add/update related contracts (ADR, OpenAPI, diagrams) when architecture/API/process changes.
    - Command:
 
    ```bash
@@ -74,10 +77,12 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
 
    ```bash
    python3 scripts/docs/validate_docs.py all
+   cargo doc --workspace --no-deps
+   cargo test --workspace --doc
    ```
 
-   - Expected output: all validation stages report success
-   - Failure condition: frontmatter/link/SOP/diagram validation fails
+   - Expected output: wiki/MkDocs validation and rustdoc build/doctests report success
+   - Failure condition: wiki structure, frontmatter/link/SOP/diagram validation, rustdoc warnings, or doctests fail
 5. Submit a pull request and complete documentation checklist items.
    - Command:
 
@@ -85,8 +90,8 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
    git status --short
    ```
 
-   - Expected output: docs changes are included with related code changes
-   - Failure condition: behavioral code change ships without docs update or ADR requirement is skipped
+   - Expected output: code changes plus rustdoc/wiki/MkDocs updates (and `wiki/` submodule pointer when applicable) are included
+   - Failure condition: behavioral code change ships without rustdoc/wiki updates or ADR requirement is skipped
 
 ## 6. Visual Aids
 
@@ -96,9 +101,9 @@ sequenceDiagram
   participant CI
   participant Reviewer
   participant Repo
-  Author->>Repo: Push PR (code + docs)
+  Author->>Repo: Push PR (code + rustdoc + wiki/MkDocs)
   Repo->>CI: Trigger docs workflow
-  CI->>CI: Validate contracts/lints/links/OpenAPI/Mermaid
+  CI->>CI: Validate wiki + rustdoc + contracts/lints/links/OpenAPI/Mermaid
   CI-->>Reviewer: Pass/Fail status
   Reviewer->>Repo: Approve or request changes
 ```
@@ -106,6 +111,8 @@ sequenceDiagram
 ## 7. Invariants (Critical Section)
 
 - Documentation remains in the same repository as source code.
+- Rust API reference remains generated from rustdoc, not duplicated as hand-maintained Markdown reference.
+- Tutorials/how-to/explanations are maintained in the GitHub Wiki (`wiki/` submodule).
 - Critical procedures include explicit invariants and validation checklists.
 - `category` matches folder placement.
 - `owner`, `status`, and `last_reviewed` remain machine-validated.
@@ -114,6 +121,9 @@ sequenceDiagram
 ## 8. Validation Checklist
 
 - [ ] Frontmatter contract passes
+- [ ] Wiki submodule and structure checks pass
+- [ ] Rustdoc builds with no warnings
+- [ ] Rustdoc examples/doctests pass
 - [ ] Internal links resolve
 - [ ] Mermaid blocks validate
 - [ ] OpenAPI specs validate (if present/changed)
@@ -124,5 +134,5 @@ sequenceDiagram
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.1.0 | 2026-02-26 | Codex | Added rustdoc + GitHub Wiki split workflow, validation, and review requirements |
 | 1.0.0 | 2026-02-25 | Codex | Initial documentation system SOP |
-

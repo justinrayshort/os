@@ -1,3 +1,7 @@
+//! Calculator desktop app UI component and persistence integration.
+
+#![warn(missing_docs, rustdoc::broken_intra_doc_links)]
+
 mod engine;
 
 use crate::engine::{
@@ -241,7 +245,13 @@ fn restore_calculator_state(envelope: AppStateEnvelope) -> Option<CalculatorStat
 }
 
 #[component]
-pub fn CalculatorApp(launch_params: Value) -> impl IntoView {
+/// Calculator app window contents.
+///
+/// The component restores and persists calculator state through [`platform_storage`].
+pub fn CalculatorApp(
+    /// App launch parameters from the desktop runtime (currently unused).
+    launch_params: Value,
+) -> impl IntoView {
     let _ = launch_params;
     let calc = create_rw_signal(CalculatorState::default());
     let hydrated = create_rw_signal(false);

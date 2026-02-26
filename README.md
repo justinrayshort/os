@@ -2,6 +2,12 @@
 
 This repository contains a debranded retro desktop website prototype with a desktop shell runtime, window manager reducer, and mounted mini-apps (`Explorer`, `Notepad`, `Terminal`).
 
+Documentation is split by intent:
+
+- `rustdoc` (generated from Rust source comments) is the authoritative API/reference surface.
+- GitHub Wiki (`wiki/` submodule) holds tutorials, how-to guides, and explanations.
+- `docs/` (MkDocs) holds documentation governance, contracts, ADRs, SOPs, and tooling/CI reference.
+
 ## Prototype Status
 
 - Desktop shell with taskbar, launcher menu, windows, and persistence hooks
@@ -33,6 +39,12 @@ Install prerequisites (one-time):
 
 ```bash
 cargo setup-web
+```
+
+Initialize the GitHub Wiki submodule (required for docs workflow updates):
+
+```bash
+git submodule update --init --recursive
 ```
 
 Start local prototype server:
@@ -98,6 +110,26 @@ make proto-stop
 ```
 
 Direct commands remain available if you prefer (`cargo run -p xtask -- ...`, `trunk ...`, `./scripts/ci/verify.sh ...`).
+
+## Documentation Workflow (Rustdoc + Wiki + MkDocs)
+
+Generate Rust API reference locally:
+
+```bash
+cargo doc --workspace --no-deps
+```
+
+Run rustdoc examples (doctests):
+
+```bash
+cargo test --workspace --doc
+```
+
+Run repo docs validation (MkDocs contracts + wiki submodule checks):
+
+```bash
+python3 scripts/docs/validate_docs.py all
+```
 
 ## Project Layout (Current)
 

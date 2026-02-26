@@ -1,3 +1,5 @@
+//! Leptos provider, context, and desktop shell UI composition.
+
 use std::time::Duration;
 
 use leptos::*;
@@ -98,20 +100,27 @@ fn wallpaper_preset_by_id(id: &str) -> WallpaperPreset {
 }
 
 #[derive(Clone, Copy)]
+/// Leptos context for reading desktop runtime state and dispatching [`DesktopAction`] values.
 pub struct DesktopRuntimeContext {
+    /// Reactive desktop state signal.
     pub state: RwSignal<DesktopState>,
+    /// Reactive pointer/drag/resize interaction state signal.
     pub interaction: RwSignal<InteractionState>,
+    /// Queue of runtime effects emitted by the reducer and processed by the shell.
     pub effects: RwSignal<Vec<RuntimeEffect>>,
+    /// Reducer dispatch callback.
     pub dispatch: Callback<DesktopAction>,
 }
 
 impl DesktopRuntimeContext {
+    /// Dispatches a reducer action through the runtime context callback.
     pub fn dispatch_action(&self, action: DesktopAction) {
         self.dispatch.call(action);
     }
 }
 
 #[component]
+/// Provides [`DesktopRuntimeContext`] to descendant components and boots persisted state.
 pub fn DesktopProvider(children: Children) -> impl IntoView {
     let state = create_rw_signal(DesktopState::default());
     let interaction = create_rw_signal(InteractionState::default());
@@ -169,11 +178,17 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
     children().into_view()
 }
 
+/// Returns the current [`DesktopRuntimeContext`].
+///
+/// # Panics
+///
+/// Panics if called outside [`DesktopProvider`].
 pub fn use_desktop_runtime() -> DesktopRuntimeContext {
     use_context::<DesktopRuntimeContext>().expect("DesktopRuntimeContext not provided")
 }
 
 #[component]
+/// Renders the full desktop shell UI and processes queued [`RuntimeEffect`] values.
 pub fn DesktopShell() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;

@@ -1,3 +1,5 @@
+//! Internal calculator state machine and formatting helpers.
+
 use serde::{Deserialize, Serialize};
 
 const MAX_HISTORY_ITEMS: usize = 24;

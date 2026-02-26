@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import datetime as dt
 import json
 import os
@@ -21,6 +22,17 @@ SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 HEADER_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 FENCE_RE = re.compile(r"^```(?P<lang>[A-Za-z0-9_-]*)\s*$")
+WIKI_SUBMODULE_PATH = "wiki"
+WIKI_SUBMODULE_URL = "https://github.com/justinrayshort/os.wiki.git"
+REQUIRED_WIKI_PAGES = [
+    "Home.md",
+    "_Sidebar.md",
+    "Tutorials.md",
+    "How-To-Guides.md",
+    "Explanations.md",
+    "API-Reference-(rustdoc).md",
+    "Contributing-to-Docs.md",
+]
 
 
 @dataclass(frozen=True)
@@ -264,6 +276,107 @@ def validate_structure(contracts: dict) -> list[Problem]:
         path = root / dirname
         if not path.exists():
             problems.append(Problem("structure", f"docs/{dirname}", "required directory is missing"))
+    return problems
+
+
+def load_gitmodules() -> configparser.ConfigParser | None:
+    path = repo_root() / ".gitmodules"
+    if not path.exists():
+        return None
+
+    parser = configparser.ConfigParser()
+    parser.read(path, encoding="utf-8")
+    return parser
+
+
+def validate_wiki_submodule() -> list[Problem]:
+    problems: list[Problem] = []
+    parser = load_gitmodules()
+    if parser is None:
+        problems.append(Problem("wiki", ".gitmodules", "missing .gitmodules; expected `wiki` submodule"))
+        return problems
+
+    section = 'submodule "wiki"'
+    if not parser.has_section(section):
+        problems.append(Problem("wiki", ".gitmodules", 'missing `[submodule "wiki"]` section'))
+    else:
+        path_value = parser.get(section, "path", fallback="")
+        url_value = parser.get(section, "url", fallback="")
+        if path_value != WIKI_SUBMODULE_PATH:
+            problems.append(
+                Problem(
+                    "wiki",
+                    ".gitmodules",
+                    f"`wiki` submodule path must be `{WIKI_SUBMODULE_PATH}` (found `{path_value or '<missing>'}`)",
+                )
+            )
+        if url_value != WIKI_SUBMODULE_URL:
+            problems.append(
+                Problem(
+                    "wiki",
+                    ".gitmodules",
+                    f"`wiki` submodule url must be `{WIKI_SUBMODULE_URL}` (found `{url_value or '<missing>'}`)",
+                )
+            )
+
+    wiki_root = repo_root() / WIKI_SUBMODULE_PATH
+    if not wiki_root.exists():
+        problems.append(
+            Problem(
+                "wiki",
+                WIKI_SUBMODULE_PATH,
+                "wiki submodule is not initialized; run `git submodule update --init --recursive`",
+            )
+        )
+        return problems
+
+    if not (wiki_root / ".git").exists():
+        problems.append(
+            Problem(
+                "wiki",
+                WIKI_SUBMODULE_PATH,
+                "expected `wiki/` to be a git submodule working tree (`wiki/.git` missing)",
+            )
+        )
+
+    for page in REQUIRED_WIKI_PAGES:
+        page_path = wiki_root / page
+        if not page_path.exists():
+            problems.append(Problem("wiki", f"{WIKI_SUBMODULE_PATH}/{page}", "required wiki page is missing"))
+
+    home_path = wiki_root / "Home.md"
+    if home_path.exists():
+        home_text = home_path.read_text(encoding="utf-8")
+        if "Diataxis" not in home_text:
+            problems.append(
+                Problem(
+                    "wiki",
+                    f"{WIKI_SUBMODULE_PATH}/Home.md",
+                    "Home page should describe the Diataxis organization of the wiki",
+                )
+            )
+        if "rustdoc" not in home_text.lower():
+            problems.append(
+                Problem(
+                    "wiki",
+                    f"{WIKI_SUBMODULE_PATH}/Home.md",
+                    "Home page should point readers to rustdoc for API/reference material",
+                )
+            )
+
+    sidebar_path = wiki_root / "_Sidebar.md"
+    if sidebar_path.exists():
+        sidebar_text = sidebar_path.read_text(encoding="utf-8")
+        for expected in ("Tutorials", "How-To", "Explanations", "API Reference"):
+            if expected.lower() not in sidebar_text.lower():
+                problems.append(
+                    Problem(
+                        "wiki",
+                        f"{WIKI_SUBMODULE_PATH}/_Sidebar.md",
+                        f"sidebar should include `{expected}` navigation entry",
+                    )
+                )
+
     return problems
 
 
@@ -669,6 +782,7 @@ def counts_by_category(records: list[DocRecord]) -> dict[str, int]:
 def run_all(records: list[DocRecord], parse_problems: list[Problem], contracts: dict, args) -> int:
     problems = list(parse_problems)
     problems.extend(validate_structure(contracts))
+    problems.extend(validate_wiki_submodule())
     problems.extend(validate_frontmatter(records, contracts))
     problems.extend(validate_sop_headings(records, contracts))
     problems.extend(validate_links(records))
@@ -681,6 +795,7 @@ def run_all(records: list[DocRecord], parse_problems: list[Problem], contracts: 
 
 def write_audit_report(records: list[DocRecord], parse_problems: list[Problem], contracts: dict, output: Path) -> int:
     structure_problems = validate_structure(contracts)
+    wiki_problems = validate_wiki_submodule()
     frontmatter_problems = validate_frontmatter(records, contracts)
     sop_problems = validate_sop_headings(records, contracts)
     link_problems = validate_links(records)
@@ -703,6 +818,7 @@ def write_audit_report(records: list[DocRecord], parse_problems: list[Problem], 
         "validation_issue_counts": {
             "parse": len(parse_problems),
             "structure": len(structure_problems),
+            "wiki": len(wiki_problems),
             "frontmatter": len(frontmatter_problems),
             "sop": len(sop_problems),
             "links": len(link_problems),
@@ -718,6 +834,7 @@ def write_audit_report(records: list[DocRecord], parse_problems: list[Problem], 
     all_problems = (
         parse_problems
         + structure_problems
+        + wiki_problems
         + frontmatter_problems
         + sop_problems
         + link_problems
@@ -737,6 +854,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("structure")
+    sub.add_parser("wiki")
     sub.add_parser("frontmatter")
     sub.add_parser("sop")
     sub.add_parser("links")
@@ -770,6 +888,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "structure":
         return fail_if_problems(validate_structure(contracts))
+    if args.command == "wiki":
+        return fail_if_problems(validate_wiki_submodule())
     if args.command == "frontmatter":
         return fail_if_problems(parse_problems + validate_frontmatter(records, contracts))
     if args.command == "sop":

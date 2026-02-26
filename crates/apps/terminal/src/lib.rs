@@ -1,3 +1,7 @@
+//! Terminal desktop app UI component and simulated command transcript persistence.
+
+#![warn(missing_docs, rustdoc::broken_intra_doc_links)]
+
 use std::{cell::Cell, rc::Rc};
 
 use leptos::ev::KeyboardEvent;
@@ -56,7 +60,14 @@ fn restore_terminal_state(
 }
 
 #[component]
-pub fn TerminalApp(launch_params: Value) -> impl IntoView {
+/// Terminal app window contents.
+///
+/// This component presents a UI-only shell simulation and persists the transcript via
+/// [`platform_storage`].
+pub fn TerminalApp(
+    /// App launch parameters (for example, the initial working directory).
+    launch_params: Value,
+) -> impl IntoView {
     let launch_cwd = launch_params
         .get("cwd")
         .and_then(Value::as_str)

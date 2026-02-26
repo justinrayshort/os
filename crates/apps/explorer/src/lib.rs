@@ -1,3 +1,7 @@
+//! Explorer desktop app UI component backed by [`platform_storage`].
+
+#![warn(missing_docs, rustdoc::broken_intra_doc_links)]
+
 use leptos::*;
 use platform_storage::{
     self, AppStateEnvelope, ExplorerBackend, ExplorerBackendStatus, ExplorerEntry,
@@ -349,7 +353,14 @@ fn connect_native_folder(signals: ExplorerSignals) {
 }
 
 #[component]
-pub fn ExplorerApp(launch_params: Value) -> impl IntoView {
+/// Explorer app window contents.
+///
+/// The component hydrates persisted UI state and proxies filesystem/cache operations through
+/// [`platform_storage`].
+pub fn ExplorerApp(
+    /// App launch parameters (for example, initial project slug hints).
+    launch_params: Value,
+) -> impl IntoView {
     let initial_target = launch_params
         .get("project_slug")
         .and_then(Value::as_str)

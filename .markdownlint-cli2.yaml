@@ -10,4 +10,4 @@ globs:
   - "**/*.md"
 ignores:
   - "target/**"
-
+  - "wiki/**"

@@ -3,7 +3,7 @@ title: "Explanation: Documentation Architecture and Governance"
 category: "explanation"
 owner: "architecture-owner"
 status: "active"
-last_reviewed: "2026-02-25"
+last_reviewed: "2026-02-26"
 audience: ["engineering", "platform"]
 invariants:
   - "Description of the documentation system remains separate from operational procedures."
@@ -27,17 +27,29 @@ Documentation failures are production failures when they cause incorrect operati
 
 Ownership, lifecycle status, and invariants are governance signals. They enable automated freshness checks, review routing, and long-horizon maintainability.
 
+## Why the rustdoc + Wiki split exists
+
+Different documentation intents age at different rates:
+
+- API signatures and type contracts change with code and should be generated directly from code comments (`rustdoc`).
+- Tutorials/how-to/explanations need faster editing, lighter navigation, and reader-centric page organization (GitHub Wiki).
+- Governance and operational controls (contracts, SOPs, ADRs, CI design) belong in the main repo and remain machine-validated via MkDocs/docs tooling.
+
+This split reduces duplication while preserving reviewability.
+
 ## Failure modes this system addresses
 
 - Orphaned procedures with no owner
 - Stale recovery docs that still pass manual review
 - Mixed intent pages (tutorial + reference + explanation in one file)
+- Drift between hand-written API reference and real code
+- Wiki pages that describe workflows but are not reviewed with code changes
 - Broken internal links after refactors
 - Diagram drift when screenshots replace source diagrams
 
 ## Evolution strategy
 
-- Add generated references as the codebase grows (OpenAPI, CLI help, schema exports).
+- Expand generated references as the codebase grows (rustdoc, OpenAPI, CLI help, schema exports).
 - Expand ownership vocabulary and CODEOWNERS mapping when teams formalize.
 - Feed audit reports into dashboards for trend analysis.
 
@@ -45,11 +57,14 @@ Ownership, lifecycle status, and invariants are governance signals. They enable 
 
 ```mermaid
 flowchart LR
-  A["Code Change"] --> B["Docs Change in Same PR"]
-  B --> C["Contract Validation"]
-  C --> D["Lint + Links + Diagrams + OpenAPI"]
-  D --> E["MkDocs Build"]
-  E --> F["Merge Gate"]
-  F --> G["Quarterly Audit Report"]
+  A["Code Change"] --> B["Rustdoc Update (code comments)"]
+  A --> C["Wiki Update (tutorial/how-to/explanation)"]
+  A --> D["MkDocs Governance Update (if process/contracts change)"]
+  B --> E["Rustdoc Build + Doctests"]
+  C --> F["Wiki Submodule + Structure Validation"]
+  D --> G["Docs Contracts / Links / Mermaid / OpenAPI / MkDocs"]
+  E --> H["PR Review + Merge Gate"]
+  F --> H
+  G --> H
+  H --> I["Quarterly Audit Report"]
 ```
-

@@ -1,24 +1,41 @@
+//! Core runtime data model, window geometry, persistence snapshots, and deep-link types.
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Schema version for serialized [`DesktopSnapshot`] layout payloads.
 pub const DESKTOP_LAYOUT_SCHEMA_VERSION: u32 = 1;
+/// Default window width used when no explicit geometry is provided.
 pub const DEFAULT_WINDOW_WIDTH: i32 = 420;
+/// Default window height used when no explicit geometry is provided.
 pub const DEFAULT_WINDOW_HEIGHT: i32 = 300;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct WindowId(pub u64);
+/// Stable runtime identifier for an open desktop window.
+pub struct WindowId(
+    /// Monotonic numeric window id value.
+    pub u64,
+);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Application ids supported by the desktop shell.
 pub enum AppId {
+    /// Calculator app.
     Calculator,
+    /// Explorer app.
     Explorer,
+    /// Notepad app.
     Notepad,
+    /// Paint placeholder app.
     Paint,
+    /// Terminal app.
     Terminal,
+    /// Dial-up placeholder app.
     Dialup,
 }
 
 impl AppId {
+    /// Human-readable app title for window chrome and launcher entries.
     pub fn title(self) -> &'static str {
         match self {
             Self::Calculator => "Calculator",
@@ -30,6 +47,7 @@ impl AppId {
         }
     }
 
+    /// Stable icon id used by shell icon renderers.
     pub fn icon_id(self) -> &'static str {
         match self {
             Self::Calculator => "calculator",
@@ -43,14 +61,20 @@ impl AppId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Window rectangle in desktop viewport coordinates.
 pub struct WindowRect {
+    /// Left position in pixels.
     pub x: i32,
+    /// Top position in pixels.
     pub y: i32,
+    /// Width in pixels.
     pub w: i32,
+    /// Height in pixels.
     pub h: i32,
 }
 
 impl WindowRect {
+    /// Returns a copy of the rectangle offset by `dx`/`dy`.
     pub fn offset(self, dx: i32, dy: i32) -> Self {
         Self {
             x: self.x + dx,
@@ -59,6 +83,7 @@ impl WindowRect {
         }
     }
 
+    /// Returns a copy of the rectangle with minimum width/height enforced.
     pub fn clamped_min(self, min_w: i32, min_h: i32) -> Self {
         Self {
             w: self.w.max(min_w),
@@ -80,10 +105,15 @@ impl Default for WindowRect {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Window behavior flags for shell interactions and layout logic.
 pub struct WindowFlags {
+    /// Whether resize handles should be available.
     pub resizable: bool,
+    /// Whether the window can be minimized.
     pub minimizable: bool,
+    /// Whether the window can be maximized or snap-maximized.
     pub maximizable: bool,
+    /// Optional modal parent window id for modal child windows.
     pub modal_parent: Option<WindowId>,
 }
 
@@ -99,29 +129,50 @@ impl Default for WindowFlags {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Runtime record for an open desktop window instance.
 pub struct WindowRecord {
+    /// Unique runtime id for this window.
     pub id: WindowId,
+    /// Application id rendered by the window.
     pub app_id: AppId,
+    /// Current window title shown in the chrome.
     pub title: String,
+    /// Current icon id used in window chrome/taskbar.
     pub icon_id: String,
+    /// Current window geometry.
     pub rect: WindowRect,
+    /// Geometry to restore when leaving a maximized/snapped state.
     pub restore_rect: Option<WindowRect>,
+    /// Window stack order used by rendering/taskbar logic.
     pub z_index: u32,
+    /// Whether the window is the focused window.
     pub is_focused: bool,
+    /// Whether the window is minimized.
     pub minimized: bool,
+    /// Whether the window is maximized.
     pub maximized: bool,
+    /// Window behavior flags.
     pub flags: WindowFlags,
+    /// Optional persistence key for app-specific state reuse.
     pub persist_key: Option<String>,
+    /// App-specific serialized state payload.
     pub app_state: Value,
+    /// Launch parameters provided to the app component.
     pub launch_params: Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// User-configurable desktop theme preferences.
 pub struct DesktopTheme {
+    /// Human-readable theme preset name.
     pub name: String,
+    /// Wallpaper preset id.
     pub wallpaper_id: String,
+    /// Whether high contrast rendering is enabled.
     pub high_contrast: bool,
+    /// Whether reduced motion rendering is enabled.
     pub reduced_motion: bool,
+    /// Whether desktop sound effects are enabled.
     pub audio_enabled: bool,
 }
 
@@ -138,9 +189,13 @@ impl Default for DesktopTheme {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Desktop runtime preferences that affect restore behavior and feature toggles.
 pub struct DesktopPreferences {
+    /// Whether prior layout state should be restored during boot.
     pub restore_on_boot: bool,
+    /// Maximum number of windows to restore from persisted snapshots.
     pub max_restore_windows: usize,
+    /// Whether terminal command history should be retained across sessions.
     pub terminal_history_enabled: bool,
 }
 
@@ -155,15 +210,25 @@ impl Default for DesktopPreferences {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Root desktop runtime state used by the reducer and shell components.
 pub struct DesktopState {
+    /// Next window id to assign when opening a window.
     pub next_window_id: u64,
+    /// Open windows ordered by stacking position.
     pub windows: Vec<WindowRecord>,
+    /// Whether the start menu is currently open.
     pub start_menu_open: bool,
+    /// Optional active modal window id.
     pub active_modal: Option<WindowId>,
+    /// Current desktop theme.
     pub theme: DesktopTheme,
+    /// Runtime/user preferences.
     pub preferences: DesktopPreferences,
+    /// Last explorer path used by shell shortcuts/workflows.
     pub last_explorer_path: Option<String>,
+    /// Last notepad slug used by shell shortcuts/workflows.
     pub last_notepad_slug: Option<String>,
+    /// Recent terminal commands captured for history.
     pub terminal_history: Vec<String>,
 }
 
@@ -184,10 +249,12 @@ impl Default for DesktopState {
 }
 
 impl DesktopState {
+    /// Returns the focused window id, if any.
     pub fn focused_window_id(&self) -> Option<WindowId> {
         self.windows.iter().find(|w| w.is_focused).map(|w| w.id)
     }
 
+    /// Creates a serializable snapshot of the current desktop state.
     pub fn snapshot(&self) -> DesktopSnapshot {
         DesktopSnapshot {
             schema_version: DESKTOP_LAYOUT_SCHEMA_VERSION,
@@ -200,6 +267,9 @@ impl DesktopState {
         }
     }
 
+    /// Rebuilds runtime state from a persisted snapshot.
+    ///
+    /// The next window id is recomputed from the restored window list.
     pub fn from_snapshot(snapshot: DesktopSnapshot) -> Self {
         let mut state = Self::default();
         state.theme = snapshot.theme;
@@ -220,29 +290,59 @@ impl DesktopState {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Serializable snapshot persisted for desktop layout restore.
 pub struct DesktopSnapshot {
+    /// Layout schema version for migration logic.
     pub schema_version: u32,
+    /// Persisted theme state.
     pub theme: DesktopTheme,
+    /// Persisted desktop preferences.
     pub preferences: DesktopPreferences,
+    /// Persisted open window records.
     pub windows: Vec<WindowRecord>,
+    /// Persisted explorer path hint.
     pub last_explorer_path: Option<String>,
+    /// Persisted notepad slug hint.
     pub last_notepad_slug: Option<String>,
+    /// Persisted terminal history lines.
     pub terminal_history: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Request payload used by the reducer to open a new window.
 pub struct OpenWindowRequest {
+    /// Target application id.
     pub app_id: AppId,
+    /// Optional window title override.
     pub title: Option<String>,
+    /// Optional icon id override.
     pub icon_id: Option<String>,
+    /// Optional initial geometry override.
     pub rect: Option<WindowRect>,
+    /// Optional persistence key for app instance reuse.
     pub persist_key: Option<String>,
+    /// App-specific launch parameters.
     pub launch_params: Value,
+    /// Initial app state payload.
     pub app_state: Value,
+    /// Window behavior flags.
     pub flags: WindowFlags,
 }
 
 impl OpenWindowRequest {
+    /// Creates a request with defaults for `app_id`.
+    ///
+    /// Additional fields can be customized before dispatching [`crate::reducer::DesktopAction::OpenWindow`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use desktop_runtime::{AppId, OpenWindowRequest};
+    ///
+    /// let request = OpenWindowRequest::new(AppId::Explorer);
+    /// assert_eq!(request.app_id, AppId::Explorer);
+    /// assert!(request.rect.is_none());
+    /// ```
     pub fn new(app_id: AppId) -> Self {
         Self {
             app_id,
@@ -258,53 +358,84 @@ impl OpenWindowRequest {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Pointer coordinates in desktop viewport space.
 pub struct PointerPosition {
+    /// Horizontal position in pixels.
     pub x: i32,
+    /// Vertical position in pixels.
     pub y: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Edge or corner used for window resize interactions.
 pub enum ResizeEdge {
+    /// Top edge.
     North,
+    /// Bottom edge.
     South,
+    /// Right edge.
     East,
+    /// Left edge.
     West,
+    /// Top-right corner.
     NorthEast,
+    /// Top-left corner.
     NorthWest,
+    /// Bottom-right corner.
     SouthEast,
+    /// Bottom-left corner.
     SouthWest,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Active window drag interaction state.
 pub struct DragSession {
+    /// Window being dragged.
     pub window_id: WindowId,
+    /// Pointer position where dragging began.
     pub pointer_start: PointerPosition,
+    /// Window rectangle when dragging began.
     pub rect_start: WindowRect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Active window resize interaction state.
 pub struct ResizeSession {
+    /// Window being resized.
     pub window_id: WindowId,
+    /// Edge/corner being dragged.
     pub edge: ResizeEdge,
+    /// Pointer position where resizing began.
     pub pointer_start: PointerPosition,
+    /// Window rectangle when resizing began.
     pub rect_start: WindowRect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// Non-persisted UI interaction state tracked alongside [`DesktopState`].
 pub struct InteractionState {
+    /// Active drag session, if any.
     pub dragging: Option<DragSession>,
+    /// Active resize session, if any.
     pub resizing: Option<ResizeSession>,
+    /// Origin of a desktop selection gesture, if any.
     pub desktop_selection_origin: Option<PointerPosition>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Deep-link targets that can be translated into window-open requests.
 pub enum DeepLinkOpenTarget {
+    /// Open an app by id.
     App(AppId),
+    /// Open a notepad window for a note slug.
     NotesSlug(String),
+    /// Open an explorer window scoped to a project slug.
     ProjectSlug(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// Parsed deep-link payload extracted from URL query/hash components.
 pub struct DeepLinkState {
+    /// Ordered list of targets to open.
     pub open: Vec<DeepLinkOpenTarget>,
 }

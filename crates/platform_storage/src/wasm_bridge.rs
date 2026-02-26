@@ -1,3 +1,7 @@
+//! Browser capability bridge implementations for [`crate`] storage operations.
+//!
+//! This module contains the WASM/JS interop layer and a non-WASM fallback shim.
+
 use crate::{
     AppStateEnvelope, ExplorerBackendStatus, ExplorerFileReadResult, ExplorerListResult,
     ExplorerMetadata, ExplorerPermissionMode, ExplorerPermissionState,

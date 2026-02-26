@@ -14,6 +14,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -46,6 +51,7 @@ jobs:
       - name: Documentation contract validation
         run: |
           python3 scripts/docs/validate_docs.py structure
+          python3 scripts/docs/validate_docs.py wiki
           python3 scripts/docs/validate_docs.py frontmatter
           python3 scripts/docs/validate_docs.py sop
 
@@ -58,12 +64,27 @@ jobs:
       - name: Broken internal reference detection
         run: python3 scripts/docs/validate_docs.py links
 
+      - name: Rustdoc build (workspace reference output)
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps
+
+      - name: Rustdoc doctests (workspace)
+        run: cargo test --workspace --doc
+
       - name: Link checker (external + HTTP)
         uses: lycheeverse/lychee-action@v2
         with:
           args: --no-progress --verbose "docs/**/*.md"
           fail: true
 
+      - name: Upload rustdoc artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdoc-html
+          path: target/doc
+          if-no-files-found: error
+
       - name: MkDocs build
         run: mkdocs build --strict
-

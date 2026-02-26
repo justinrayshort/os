@@ -3,7 +3,7 @@ title: "Documentation Contracts"
 category: "reference"
 owner: "architecture-owner"
 status: "active"
-last_reviewed: "2026-02-25"
+last_reviewed: "2026-02-26"
 audience: ["engineering", "platform"]
 invariants:
   - "Every markdown document under docs/ includes required frontmatter."
@@ -70,5 +70,6 @@ SOP documents in `docs/sop/` must contain these sections in order:
 
 ## Source of Truth
 
-Machine-enforced contracts are defined in [`tools/docs/doc_contracts.json`](../../tools/docs/doc_contracts.json).
-
+- MkDocs page contracts (frontmatter/category/SOP structure) are defined in [`tools/docs/doc_contracts.json`](../../tools/docs/doc_contracts.json).
+- Wiki submodule structure contracts are enforced by [`scripts/docs/validate_docs.py`](../../scripts/docs/validate_docs.py) (`wiki` check).
+- Rust API reference contract is enforced through rustdoc/lints in the Rust crates plus CI rustdoc build/doctest steps.

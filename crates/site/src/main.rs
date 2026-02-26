@@ -1,3 +1,5 @@
+//! Binary entrypoint for the browser-hosted `site` application.
+
 #[cfg(all(target_arch = "wasm32", feature = "csr"))]
 fn main() {
     site::mount();

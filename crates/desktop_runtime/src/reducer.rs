@@ -1,3 +1,5 @@
+//! Reducer actions, side-effect intents, and transition logic for the desktop runtime.
+
 use serde_json::{json, Value};
 use thiserror::Error;
 
@@ -12,90 +14,155 @@ const MIN_WINDOW_HEIGHT: i32 = 140;
 const SNAP_EDGE_THRESHOLD: i32 = 24;
 
 #[derive(Debug, Clone, PartialEq)]
+/// Actions accepted by [`reduce_desktop`] to mutate [`DesktopState`].
 pub enum DesktopAction {
+    /// Open a new window using the supplied request.
     OpenWindow(OpenWindowRequest),
+    /// Close a window by id.
     CloseWindow {
+        /// Window to close.
         window_id: WindowId,
     },
+    /// Focus (and raise) a window by id.
     FocusWindow {
+        /// Window to focus.
         window_id: WindowId,
     },
+    /// Minimize a window.
     MinimizeWindow {
+        /// Window to minimize.
         window_id: WindowId,
     },
+    /// Maximize a window to the provided viewport.
     MaximizeWindow {
+        /// Window to maximize.
         window_id: WindowId,
+        /// Viewport rectangle to maximize into.
         viewport: WindowRect,
     },
+    /// Restore a minimized or maximized window.
     RestoreWindow {
+        /// Window to restore.
         window_id: WindowId,
     },
+    /// Toggle taskbar behavior for a window (focus, minimize, or restore).
     ToggleTaskbarWindow {
+        /// Window associated with the taskbar button.
         window_id: WindowId,
     },
+    /// Toggle the start menu open/closed.
     ToggleStartMenu,
+    /// Close the start menu if open.
     CloseStartMenu,
+    /// Begin dragging a window.
     BeginMove {
+        /// Window being dragged.
         window_id: WindowId,
+        /// Pointer position at drag start.
         pointer: PointerPosition,
     },
+    /// Update an in-progress window drag.
     UpdateMove {
+        /// Current pointer position.
         pointer: PointerPosition,
     },
+    /// End the active window drag.
     EndMove,
+    /// End the active window drag and apply viewport-edge snapping.
     EndMoveWithViewport {
+        /// Current desktop viewport rectangle.
         viewport: WindowRect,
     },
+    /// Begin resizing a window.
     BeginResize {
+        /// Window being resized.
         window_id: WindowId,
+        /// Edge or corner being dragged.
         edge: ResizeEdge,
+        /// Pointer position at resize start.
         pointer: PointerPosition,
     },
+    /// Update an in-progress window resize.
     UpdateResize {
+        /// Current pointer position.
         pointer: PointerPosition,
     },
+    /// End the active window resize.
     EndResize,
+    /// Set the desktop theme display name.
     SetThemeName {
+        /// New theme name.
         theme_name: String,
     },
+    /// Set the active wallpaper preset id.
     SetWallpaper {
+        /// Wallpaper preset id.
         wallpaper_id: String,
     },
+    /// Toggle reduced-motion rendering.
     SetReducedMotion {
+        /// Whether reduced motion is enabled.
         enabled: bool,
     },
+    /// Append a command to terminal history (subject to preferences and limits).
     PushTerminalHistory {
+        /// Terminal command text.
         command: String,
     },
+    /// Replace the app-specific state payload for a window.
     SetAppState {
+        /// Window whose app state should be replaced.
         window_id: WindowId,
+        /// New app state payload.
         app_state: Value,
     },
+    /// Hydrate runtime state from a persisted snapshot.
     HydrateSnapshot {
+        /// Snapshot payload to restore.
         snapshot: DesktopSnapshot,
     },
+    /// Apply URL-derived deep-link instructions.
     ApplyDeepLink {
+        /// Parsed deep-link payload.
         deep_link: DeepLinkState,
     },
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Side-effect intents emitted by [`reduce_desktop`] for the shell runtime to execute.
 pub enum RuntimeEffect {
+    /// Persist the current desktop layout snapshot.
     PersistLayout,
+    /// Persist theme changes.
     PersistTheme,
+    /// Persist terminal history changes.
     PersistTerminalHistory,
+    /// Move focus into the newly focused window's primary input.
     FocusWindowInput(WindowId),
+    /// Parse and open deep-link targets in the UI layer.
     ParseAndOpenDeepLink(DeepLinkState),
+    /// Open an external URL (for app actions that leave the shell).
     OpenExternalUrl(String),
+    /// Play a named UI sound effect.
     PlaySound(&'static str),
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
+/// Reducer errors for invalid actions (for example, referencing a missing window).
 pub enum ReducerError {
+    /// The target window id was not found in the current state.
     #[error("window not found")]
     WindowNotFound,
 }
 
+/// Applies a [`DesktopAction`] to the desktop runtime state and collects resulting side effects.
+///
+/// This function is the authoritative state transition engine for desktop window management and
+/// shell-level preferences.
+///
+/// # Errors
+///
+/// Returns [`ReducerError::WindowNotFound`] when an action references a window that is not present.
 pub fn reduce_desktop(
     state: &mut DesktopState,
     interaction: &mut InteractionState,
@@ -337,6 +404,7 @@ pub fn reduce_desktop(
     Ok(effects)
 }
 
+/// Converts a parsed deep-link target into an [`OpenWindowRequest`].
 pub fn build_open_request_from_deeplink(target: DeepLinkOpenTarget) -> OpenWindowRequest {
     match target {
         DeepLinkOpenTarget::App(app_id) => OpenWindowRequest::new(app_id),

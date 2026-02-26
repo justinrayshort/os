@@ -1,3 +1,7 @@
+//! Notepad desktop app UI component and multi-document workspace persistence.
+
+#![warn(missing_docs, rustdoc::broken_intra_doc_links)]
+
 use std::collections::BTreeMap;
 
 use leptos::*;
@@ -135,7 +139,14 @@ fn restore_notepad_state(
 }
 
 #[component]
-pub fn NotepadApp(launch_params: Value) -> impl IntoView {
+/// Notepad app window contents.
+///
+/// The component restores and persists a lightweight tabbed note workspace via
+/// [`platform_storage`].
+pub fn NotepadApp(
+    /// App launch parameters (for example, the initial note slug).
+    launch_params: Value,
+) -> impl IntoView {
     let requested_slug = launch_params
         .get("slug")
         .and_then(Value::as_str)

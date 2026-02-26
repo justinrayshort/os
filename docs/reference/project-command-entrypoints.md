@@ -3,7 +3,7 @@ title: "Project Command Entry Points"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-25"
+last_reviewed: "2026-02-26"
 audience: ["engineering", "platform"]
 invariants:
   - "Cargo aliases in .cargo/config.toml remain the preferred stable entry points for common project workflows."
@@ -43,13 +43,23 @@ This page documents the supported top-level commands for local development, veri
 - `cargo verify-fast`: Run fast project verification (`xtask verify fast`).
 - `cargo verify`: Run full project verification (`xtask verify full`).
 
+### Documentation Workflow (Rustdoc + Wiki)
+
+- `git submodule update --init --recursive`: Initialize/update the `wiki/` submodule.
+- `python3 scripts/docs/validate_docs.py wiki`: Validate wiki submodule wiring and required navigation/category pages.
+- `cargo doc --workspace --no-deps`: Generate authoritative Rust API reference (`target/doc/`).
+- `cargo test --workspace --doc`: Run rustdoc examples (doctests).
+- `python3 scripts/docs/validate_docs.py all`: Run MkDocs/docs contract validation (also includes `wiki` validation).
+
 ## Root `make` Compatibility Targets
 
 These targets exist for operator convenience and CI/local muscle memory. They delegate to Cargo aliases or docs validation commands.
 
 - `make verify-fast` -> `cargo verify-fast`
 - `make verify` -> `cargo verify`
-- `make docs-check` -> `python3 scripts/docs/validate_docs.py all`
+- `make wiki-init` -> `git submodule update --init --recursive`
+- `make rustdoc-check` -> `cargo doc --workspace --no-deps && cargo test --workspace --doc`
+- `make docs-check` -> `python3 scripts/docs/validate_docs.py all` + `make rustdoc-check`
 - `make docs-audit` -> `python3 scripts/docs/validate_docs.py audit-report --output .artifacts/docs-audit.json`
 - `make proto-check` -> `cargo web-check`
 - `make proto-build` -> `cargo web-build`
@@ -65,3 +75,5 @@ These targets exist for operator convenience and CI/local muscle memory. They de
 - Prefer Cargo aliases in automation and documentation because they are defined in-repo and map directly to `xtask`.
 - Use `make` targets when you want shorter commands or to align with existing shell habits.
 - When adding or changing a top-level command, update this page, `README.md`, and `AGENTS.md` in the same change.
+- When public APIs change, update rustdoc comments and run doctests in the same change.
+- When tutorials/how-to/explanations change, update the `wiki/` submodule in the same review cycle.

@@ -3,7 +3,7 @@ title: "Documentation System"
 category: "explanation"
 owner: "architecture-owner"
 status: "active"
-last_reviewed: "2026-02-25"
+last_reviewed: "2026-02-26"
 audience: ["engineering", "platform"]
 invariants:
   - "Documentation is versioned in the same repository as source code."
@@ -17,6 +17,12 @@ lifecycle: "ga"
 
 This repository treats documentation as production infrastructure: versioned, review-gated, machine-validated, and classified by intent using Diataxis.
 
+The project now uses a split documentation surface:
+
+- `rustdoc` is authoritative for Rust API reference.
+- The GitHub Wiki (`wiki/` submodule) is the primary surface for tutorials, how-to guides, and explanations.
+- This MkDocs site (`docs/`) is the governance/operations surface for contracts, ADRs, SOPs, and tooling reference.
+
 ## Doctrine
 
 - Documentation is a first-class system artifact.
@@ -26,10 +32,12 @@ This repository treats documentation as production infrastructure: versioned, re
 
 ## Canonical Information Architecture
 
-- `docs/tutorials`: learning-oriented paths with complete beginner wins
-- `docs/how-to`: task-oriented operational procedures
-- `docs/reference`: precise, mechanically accurate facts and contracts
-- `docs/explanation`: rationale, tradeoffs, and architectural context
+- `rustdoc` (generated): Rust API reference (crate/module/item docs)
+- `wiki/`: learning-oriented tutorials, task-oriented how-to guides, and explanatory content
+- `docs/reference`: precise documentation-system contracts, tooling, and governance references
+- `docs/tutorials`: maintainer onboarding pointers for the documentation workflow (canonical tutorials live in the wiki)
+- `docs/how-to`: maintainer workflow pointers for the documentation system (canonical how-to content lives in the wiki)
+- `docs/explanation`: documentation-system rationale (project/product explanations live in the wiki)
 - `docs/adr`: architecture decision records
 - `docs/sop`: controlled operational procedures and templates
 - `docs/assets`: source-controlled diagrams and shared assets
@@ -37,7 +45,7 @@ This repository treats documentation as production infrastructure: versioned, re
 ## Start Here
 
 - Read the operating model in [`docs/sop/documentation-system-sop.md`](sop/documentation-system-sop.md).
+- Read the split-strategy policy in [`docs/reference/rustdoc-and-github-wiki-documentation-strategy.md`](reference/rustdoc-and-github-wiki-documentation-strategy.md).
 - Use [`docs/sop/sop-template.md`](sop/sop-template.md) for new SOPs.
 - Use [`docs/adr/ADR-0000-template.md`](adr/ADR-0000-template.md) for structural decisions.
 - Follow [`docs/how-to/update-documentation-in-a-pr.md`](how-to/update-documentation-in-a-pr.md) for day-to-day changes.
-

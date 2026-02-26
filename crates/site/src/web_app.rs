@@ -1,3 +1,5 @@
+//! Root route components and URL deep-link bootstrap for the site shell.
+
 use desktop_runtime::{
     use_desktop_runtime, DeepLinkState, DesktopAction, DesktopProvider, DesktopShell,
 };
@@ -10,6 +12,7 @@ use leptos_router::*;
 const DESKTOP_THEME_CSS: &str = include_str!("theme_shell.css");
 
 #[component]
+/// Root application component that configures metadata, routes, and the desktop shell entrypoint.
 pub fn SiteApp() -> impl IntoView {
     provide_meta_context();
 
@@ -31,6 +34,7 @@ pub fn SiteApp() -> impl IntoView {
 }
 
 #[component]
+/// Default route that mounts the desktop runtime provider and shell.
 pub fn DesktopEntry() -> impl IntoView {
     view! {
         <DesktopProvider>

@@ -1,3 +1,5 @@
+//! Desktop app registry metadata and app-content rendering helpers.
+
 use std::{cell::Cell, rc::Rc};
 
 use crate::model::{AppId, OpenWindowRequest, WindowRecord};
@@ -12,12 +14,19 @@ use serde::{Deserialize, Serialize};
 const PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Metadata describing how an app appears in the launcher/desktop and how it is instantiated.
 pub struct AppDescriptor {
+    /// Stable runtime application identifier.
     pub app_id: AppId,
+    /// Label shown in the start/launcher menu.
     pub launcher_label: &'static str,
+    /// Label shown under the desktop icon.
     pub desktop_icon_label: &'static str,
+    /// Whether the app is listed in launcher menus.
     pub show_in_launcher: bool,
+    /// Whether the app is rendered as a desktop icon.
     pub show_on_desktop: bool,
+    /// Whether only one instance should be open at a time.
     pub single_instance: bool,
 }
 
@@ -72,10 +81,12 @@ const APP_REGISTRY: [AppDescriptor; 6] = [
     },
 ];
 
+/// Returns the static app registry used by the desktop shell.
 pub fn app_registry() -> &'static [AppDescriptor] {
     &APP_REGISTRY
 }
 
+/// Returns app descriptors that should appear in launcher menus.
 pub fn launcher_apps() -> Vec<AppDescriptor> {
     app_registry()
         .iter()
@@ -84,6 +95,7 @@ pub fn launcher_apps() -> Vec<AppDescriptor> {
         .collect()
 }
 
+/// Returns app descriptors that should appear as desktop icons.
 pub fn desktop_icon_apps() -> Vec<AppDescriptor> {
     app_registry()
         .iter()
@@ -92,6 +104,11 @@ pub fn desktop_icon_apps() -> Vec<AppDescriptor> {
         .collect()
 }
 
+/// Returns the descriptor for `app_id`.
+///
+/// # Panics
+///
+/// Panics if the app id is not present in the registry.
 pub fn app_descriptor(app_id: AppId) -> &'static AppDescriptor {
     app_registry()
         .iter()
@@ -99,6 +116,9 @@ pub fn app_descriptor(app_id: AppId) -> &'static AppDescriptor {
         .expect("app descriptor exists")
 }
 
+/// Builds the default [`OpenWindowRequest`] for a given app.
+///
+/// Some apps override the default geometry to better fit their UI.
 pub fn default_open_request(app_id: AppId) -> OpenWindowRequest {
     let mut req = OpenWindowRequest::new(app_id);
     if matches!(app_id, AppId::Calculator) {
@@ -112,6 +132,7 @@ pub fn default_open_request(app_id: AppId) -> OpenWindowRequest {
     req
 }
 
+/// Renders the Leptos view for a runtime window record.
 pub fn render_window_contents(window: &WindowRecord) -> View {
     match window.app_id {
         AppId::Calculator => {

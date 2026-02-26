@@ -29,6 +29,12 @@ run_cargo_matrix() {
   run cargo test --workspace --all-features
 }
 
+run_rustdoc_checks() {
+  log "Rustdoc build and doctests"
+  run env RUSTDOCFLAGS=-Dwarnings cargo doc --workspace --no-deps
+  run cargo test --workspace --doc
+}
+
 run_docs_checks() {
   log "Documentation validation"
   run python3 scripts/docs/validate_docs.py all
@@ -65,10 +71,12 @@ run_prototype_compile_checks() {
 case "$MODE" in
   fast)
     run_cargo_matrix
+    run_rustdoc_checks
     run_docs_checks
     ;;
   full)
     run_cargo_matrix
+    run_rustdoc_checks
     run_docs_checks
     run_prototype_compile_checks
     run_optional_clippy

@@ -1,8 +1,16 @@
+//! Web entrypoints for the retro desktop site.
+//!
+//! This crate exposes the root Leptos components and the browser mount helper used by the
+//! `site_app` binary.
+
+#![warn(missing_docs, rustdoc::broken_intra_doc_links)]
+
 mod web_app;
 
 pub use web_app::{DesktopEntry, SiteApp};
 
 #[cfg(all(feature = "csr", target_arch = "wasm32"))]
+/// Mounts [`SiteApp`] into the document body for client-side rendering.
 pub fn mount() {
     leptos::mount_to_body(|| leptos::view! { <SiteApp /> })
 }

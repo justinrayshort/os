@@ -1,3 +1,5 @@
+//! Desktop runtime persistence adapters for boot hydration and lightweight local preferences.
+
 use crate::model::{DesktopSnapshot, DesktopState, DesktopTheme};
 
 #[cfg(target_arch = "wasm32")]
@@ -7,6 +9,9 @@ const THEME_KEY: &str = "retrodesk.theme.v1";
 #[cfg(target_arch = "wasm32")]
 const TERMINAL_HISTORY_KEY: &str = "retrodesk.terminal_history.v1";
 
+/// Loads the legacy local-storage boot snapshot, theme override, and terminal history if present.
+///
+/// On non-WASM targets this returns `None`.
 pub fn load_boot_snapshot() -> Option<DesktopSnapshot> {
     #[cfg(target_arch = "wasm32")]
     {
@@ -67,6 +72,7 @@ pub fn load_boot_snapshot() -> Option<DesktopSnapshot> {
     }
 }
 
+/// Loads the durable boot snapshot from [`platform_storage`] (IndexedDB-backed).
 pub async fn load_durable_boot_snapshot() -> Option<DesktopSnapshot> {
     let envelope =
         match platform_storage::load_app_state_envelope(platform_storage::DESKTOP_STATE_NAMESPACE)
@@ -82,11 +88,13 @@ pub async fn load_durable_boot_snapshot() -> Option<DesktopSnapshot> {
     serde_json::from_value::<DesktopSnapshot>(envelope.payload).ok()
 }
 
+/// Persists a durable desktop layout snapshot through [`platform_storage`].
 pub async fn persist_durable_layout_snapshot(state: &DesktopState) -> Result<(), String> {
     let envelope = build_durable_layout_snapshot_envelope(state)?;
     persist_durable_layout_snapshot_envelope(&envelope).await
 }
 
+/// Builds a durable app-state envelope for the current desktop layout snapshot.
 pub fn build_durable_layout_snapshot_envelope(
     state: &DesktopState,
 ) -> Result<platform_storage::AppStateEnvelope, String> {
@@ -98,12 +106,17 @@ pub fn build_durable_layout_snapshot_envelope(
     )
 }
 
+/// Persists a prebuilt durable desktop layout envelope.
 pub async fn persist_durable_layout_snapshot_envelope(
     envelope: &platform_storage::AppStateEnvelope,
 ) -> Result<(), String> {
     platform_storage::save_app_state_envelope(envelope).await
 }
 
+/// Persists compatibility layout state.
+///
+/// The current implementation keeps full layout persistence in [`platform_storage`] and reserves
+/// localStorage for lightweight compatibility/prefs state.
 pub fn persist_layout_snapshot(state: &DesktopState) -> Result<(), String> {
     #[cfg(target_arch = "wasm32")]
     {
@@ -120,6 +133,7 @@ pub fn persist_layout_snapshot(state: &DesktopState) -> Result<(), String> {
     Ok(())
 }
 
+/// Persists the desktop theme to localStorage on WASM targets.
 pub fn persist_theme(theme: &DesktopTheme) -> Result<(), String> {
     #[cfg(target_arch = "wasm32")]
     {
@@ -138,6 +152,7 @@ pub fn persist_theme(theme: &DesktopTheme) -> Result<(), String> {
     Ok(())
 }
 
+/// Persists the terminal history list to localStorage on WASM targets.
 pub fn persist_terminal_history(history: &[String]) -> Result<(), String> {
     #[cfg(target_arch = "wasm32")]
     {

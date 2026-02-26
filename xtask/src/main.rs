@@ -1,3 +1,8 @@
+//! Workspace maintenance and developer workflow commands (`cargo xtask`).
+//!
+//! The `xtask` binary wraps common prototype, verification, and environment setup commands so the
+//! repository can expose stable entrypoints through Cargo aliases.
+
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io;
