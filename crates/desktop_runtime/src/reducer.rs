@@ -108,6 +108,11 @@ pub enum DesktopAction {
         /// Wallpaper preset id.
         wallpaper_id: String,
     },
+    /// Toggle high-contrast rendering.
+    SetHighContrast {
+        /// Whether high contrast is enabled.
+        enabled: bool,
+    },
     /// Toggle reduced-motion rendering.
     SetReducedMotion {
         /// Whether reduced motion is enabled.
@@ -191,9 +196,17 @@ pub fn reduce_desktop(
                         .map(|w| w.minimized)
                         .unwrap_or(false)
                     {
-                        reduce_desktop(state, interaction, DesktopAction::RestoreWindow { window_id })?
+                        reduce_desktop(
+                            state,
+                            interaction,
+                            DesktopAction::RestoreWindow { window_id },
+                        )?
                     } else if state.focused_window_id() != Some(window_id) {
-                        reduce_desktop(state, interaction, DesktopAction::FocusWindow { window_id })?
+                        reduce_desktop(
+                            state,
+                            interaction,
+                            DesktopAction::FocusWindow { window_id },
+                        )?
                     } else {
                         Vec::new()
                     };
@@ -405,6 +418,10 @@ pub fn reduce_desktop(
         }
         DesktopAction::SetWallpaper { wallpaper_id } => {
             state.theme.wallpaper_id = wallpaper_id;
+            effects.push(RuntimeEffect::PersistTheme);
+        }
+        DesktopAction::SetHighContrast { enabled } => {
+            state.theme.high_contrast = enabled;
             effects.push(RuntimeEffect::PersistTheme);
         }
         DesktopAction::SetReducedMotion { enabled } => {
@@ -940,5 +957,21 @@ mod tests {
         assert_eq!(record.rect, viewport);
         assert!(record.maximized);
         assert!(record.restore_rect.is_some());
+    }
+
+    #[test]
+    fn set_high_contrast_updates_theme_and_persists() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::SetHighContrast { enabled: true },
+        )
+        .expect("set high contrast");
+
+        assert!(state.theme.high_contrast);
+        assert_eq!(effects, vec![RuntimeEffect::PersistTheme]);
     }
 }

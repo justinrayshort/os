@@ -70,8 +70,8 @@ This project is not attempting a literal macOS clone. Conformance means:
 | --- | --- | --- | --- |
 | `TOK-01` | Complete | Fluent-modern theme defines named token layers for typography, spacing, radius, icon sizes, and motion durations in dedicated token files. | `crates/site/src/theme_shell/30-theme-fluent-modern-tokens-core.css` and `crates/site/src/theme_shell/32-theme-fluent-modern-theme-tokens.css` define `--fluent-font-*`, `--fluent-space-*`, `--fluent-radius-*`, `--fluent-icon-*`, `--fluent-motion-*`, and shell semantic tokens. |
 | `TOK-02` | Complete | Fluent-modern tokens are scoped via theme attribute and do not replace legacy themes globally. | Fluent theme values are applied under `.desktop-shell[data-theme="Fluent Modern"]` in `32-theme-fluent-modern-theme-tokens.css` and `33-theme-fluent-modern-overrides.css`. |
-| `TOK-03` | Partial | Interactive state colors (hover/active/focus/selection) use semantic tokens rather than repeated color literals, except documented visual-only overlays/gradients. | Tokenization is improving (accent/select/start-button tokens added), but Fluent overrides still contain many raw color literals (current scan: `119` color literals in `33-theme-fluent-modern-overrides.css`). |
-| `TOK-04` | Partial | Layout spacing/radius values in Fluent overrides use spacing/radius tokens for new work; raw `px` values require documented exceptions. | Fluent spacing/radius tokens are used in places, but many raw size literals remain (current scan: `149` `px` literals in `33-theme-fluent-modern-overrides.css`). |
+| `TOK-03` | Partial | Interactive state colors (hover/active/focus/selection) use semantic tokens rather than repeated color literals, except documented visual-only overlays/gradients. | Tokenization is improving (accent/select/start-button tokens plus taskbar/start/menu/tray/clock interactive state tokens, including taskbar glyph chip surface), but Fluent overrides still contain many raw color literals in gradients, overlays, and non-tokenized component surfaces. |
+| `TOK-04` | Partial | Layout spacing/radius values in Fluent overrides use spacing/radius tokens for new work; raw `px` values require documented exceptions. | Fluent spacing/radius tokens are used in places, and taskbar/start/menu/tray/clock Fluent overrides now use shared spacing/radius plus component metric tokens (including taskbar icon/pinned/active-indicator metrics); many raw size literals remain elsewhere in `33-theme-fluent-modern-overrides.css`. |
 | `TOK-05` | Partial | Typography hierarchy is tokenized beyond font family (minimum: body, caption/dense, title/chrome weights/sizes) or an explicit exception policy documents remaining fixed sizes. | Font family tokens exist and shell base typography is set; most component-level typography sizes/weights remain direct declarations without a formal typography token scale. |
 | `TOK-06` | Complete | Motion timings for Fluent shell transitions use shared motion tokens and support reduced-motion override suppression. | `--fluent-motion-*` tokens are used in Fluent overrides; runtime `data-reduced-motion="true"` CSS disables transitions/animations in `33-theme-fluent-modern-overrides.css`. |
 
@@ -91,7 +91,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 | --- | --- | --- | --- |
 | `STA-01` | Complete | Theme-affecting shell preferences are modeled in runtime state and serialized for persistence. | `DesktopTheme` (`name`, `wallpaper_id`, `high_contrast`, `reduced_motion`, `audio_enabled`) in `crates/desktop_runtime/src/model.rs`; persisted via `persist_theme()` in `persistence.rs`. |
 | `STA-02` | Complete | Shell root exposes theme state to CSS through stable `data-*` attributes. | `DesktopShell` sets `data-theme`, `data-high-contrast`, `data-reduced-motion` in `crates/desktop_runtime/src/components.rs`. |
-| `STA-03` | Partial | Every user-visible theme accessibility toggle (at minimum reduced motion + high contrast) has a reducer action, UI trigger, persistence, and CSS effect. | Reduced motion is complete (`SetReducedMotion`, tray toggle, persistence, CSS). High contrast has state field + CSS override hook, but no reducer action/UI toggle path was found. |
+| `STA-03` | Complete | Every user-visible theme accessibility toggle (at minimum reduced motion + high contrast) has a reducer action, UI trigger, persistence, and CSS effect. | Reduced motion and high contrast now both have reducer actions (`SetReducedMotion`, `SetHighContrast`), taskbar tray toggle triggers, persisted theme writes, and CSS/data-attribute effects. |
 | `STA-04` | Complete | Theme changes persist without bypassing reducer/runtime effect flow. | Reducer emits `RuntimeEffect::PersistTheme`; host persists theme via `DesktopHostContext` effect handler. |
 | `STA-05` | Partial | Theme variant behavior (light/dark/high-contrast) has documented validation coverage criteria and recorded results per release/review. | Light/dark/high-contrast CSS branches exist, but no repeatable validation evidence workflow existed prior to this checklist/SOP. |
 
@@ -104,7 +104,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 | `A11Y-03` | Complete | Interactive shell regions and menus use explicit roles and ARIA attributes appropriate to interaction patterns. | `role="toolbar"`, `group`, `menu`, `menuitem*`, `dialog`, `tablist`, `tab`, `tabpanel`, `listbox`, `option`, `aria-pressed`, `aria-haspopup`, `aria-expanded`, etc. |
 | `A11Y-04` | Complete | Focus indicators are visible and theme-consistent for keyboard navigation using `:focus-visible`. | Fluent overrides define focus outlines with `--fluent-shell-focus`; keyboard-selected taskbar state is visually distinct. |
 | `A11Y-05` | Partial | Reduced-motion support includes both system preference fallback and runtime override. | System fallback exists in `04-motion-base.css`; runtime override exists in Fluent theme via `data-reduced-motion`. Manual verification matrix not yet codified before this change. |
-| `A11Y-06` | Partial | High-contrast rendering support includes token overrides and a reachable user-facing control path. | Token overrides exist in Fluent CSS; no user-facing high-contrast toggle action/control path found. |
+| `A11Y-06` | Complete | High-contrast rendering support includes token overrides and a reachable user-facing control path. | Fluent CSS token overrides remain in place and a taskbar tray widget now toggles high contrast through reducer state (`SetHighContrast`) and persisted theme updates. |
 | `A11Y-07` | Outstanding | Contrast compliance is measured and recorded for text, icons, focus rings, and non-text boundaries across light/dark/high-contrast variants (`>=4.5:1` text, `>=3:1` UI boundaries/focus). | Design docs describe contrast goals, but no stored measurement reports or automated checks were found. |
 | `A11Y-08` | Outstanding | Automated accessibility validation (e.g., axe/pa11y or equivalent) runs on key shell flows and is review-gated. | No a11y automation harness or results were found in repo tooling/docs. |
 | `A11Y-09` | Outstanding | Manual screen-reader and keyboard test matrix results are documented per material UI change. | ARIA semantics are strong, but no formal evidence log/template existed before this SOP/checklist. |
@@ -163,13 +163,12 @@ However, the project should not yet claim rigorous conformance at a high bar of 
 
 - no automated accessibility or contrast validation pipeline
 - no formal viewport/screenshot evidence matrix for responsive/polish review
-- incomplete high-contrast control path (state field + CSS hook exist; reducer/UI toggle missing)
 - incomplete token coverage (many raw color/size literals remain in Fluent overrides)
 - no static enforcement for icon standardization regressions
 
 ## Required Exit Criteria for "Rigorous Conformance" Claim
 
-Before declaring the desktop shell rigorously conformant (rather than aspirational/partial), all `Outstanding` items in sections `A11Y`, `ICO`, and `RSP` must be closed, and `TOK-03`, `TOK-04`, `TOK-05`, `STA-03`, and `DOC-06` must be either:
+Before declaring the desktop shell rigorously conformant (rather than aspirational/partial), all `Outstanding` items in sections `A11Y`, `ICO`, and `RSP` must be closed, and `TOK-03`, `TOK-04`, `TOK-05`, and `DOC-06` must be either:
 
 - upgraded to `Complete`, or
 - explicitly accepted as documented deviations with rationale and reviewer approval in the UI conformance review record defined by the SOP.

@@ -197,28 +197,38 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-left,
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-right {
-  gap: 6px;
+  gap: var(--fluent-shell-taskbar-cluster-gap);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .start-button {
-  min-width: 96px;
-  padding: 6px 10px;
-  gap: 8px;
+  min-width: var(--fluent-shell-start-button-min-width);
+  padding:
+    var(--fluent-shell-start-button-padding-block)
+    var(--fluent-shell-start-button-padding-inline);
+  gap: var(--fluent-shell-start-button-gap);
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.36);
+  border: 1px solid var(--fluent-shell-start-button-stroke);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0)),
+    linear-gradient(
+      180deg,
+      var(--fluent-shell-start-button-gloss),
+      rgba(255, 255, 255, 0)
+    ),
     linear-gradient(180deg, var(--fluent-shell-start-button-top), var(--fluent-shell-accent));
-  color: #fff;
+  color: var(--fluent-shell-start-button-text);
   text-shadow: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 1px 2px rgba(14, 23, 38, 0.2);
+    inset 0 1px 0 var(--fluent-shell-start-button-inset-stroke),
+    0 1px 2px var(--fluent-shell-start-button-shadow);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .start-button:hover:not(:disabled) {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0)),
+    linear-gradient(
+      180deg,
+      var(--fluent-shell-start-button-gloss-hover),
+      rgba(255, 255, 255, 0)
+    ),
     linear-gradient(
       180deg,
       var(--fluent-shell-start-button-top-hover),
@@ -229,7 +239,11 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .start-button:active:not(:disabled) {
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0)),
+    linear-gradient(
+      180deg,
+      var(--fluent-shell-start-button-active-overlay),
+      rgba(0, 0, 0, 0)
+    ),
     linear-gradient(
       180deg,
       var(--fluent-shell-start-button-top-active),
@@ -238,22 +252,22 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-glyph {
-  min-width: 20px;
-  min-height: 20px;
+  min-width: var(--fluent-shell-taskbar-glyph-size);
+  min-height: var(--fluent-shell-taskbar-glyph-size);
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--fluent-shell-taskbar-glyph-chip-surface);
   box-shadow: none;
   color: currentColor;
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app,
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button {
-  min-height: 32px;
-  border-radius: 10px;
+  min-height: var(--fluent-shell-taskbar-button-min-height);
+  border-radius: var(--fluent-shell-taskbar-button-radius);
   border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.48);
+  background: var(--fluent-shell-taskbar-button-surface);
   color: var(--fluent-shell-text-1);
   text-shadow: none;
   box-shadow: none;
@@ -264,12 +278,14 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button {
-  min-width: 44px;
+  min-width: var(--fluent-shell-overflow-button-min-width);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: var(--fluent-shell-overflow-button-gap);
+  padding:
+    var(--fluent-shell-overflow-button-padding-block)
+    var(--fluent-shell-overflow-button-padding-inline);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-icon {
@@ -280,18 +296,22 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app:hover:not(:disabled),
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button:hover:not(:disabled) {
-  border-color: rgba(15, 108, 189, 0.16);
-  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--fluent-shell-taskbar-button-hover-stroke);
+  background: var(--fluent-shell-taskbar-button-hover-surface);
   filter: none;
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app.focused {
   font-weight: 600;
-  border-color: rgba(15, 108, 189, 0.2);
+  border-color: var(--fluent-shell-taskbar-button-focused-stroke);
   background:
-    linear-gradient(180deg, rgba(15, 108, 189, 0.08), rgba(15, 108, 189, 0)),
-    rgba(255, 255, 255, 0.82);
-  box-shadow: 0 1px 8px rgba(14, 23, 38, 0.08);
+    linear-gradient(
+      180deg,
+      var(--fluent-shell-taskbar-button-focused-overlay),
+      rgba(15, 108, 189, 0)
+    ),
+    var(--fluent-shell-taskbar-button-focused-surface);
+  box-shadow: 0 1px 8px var(--fluent-shell-taskbar-button-focused-shadow);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app.minimized {
@@ -300,10 +320,10 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app.active::after {
-  left: 8px;
-  right: 8px;
-  bottom: 3px;
-  height: 3px;
+  left: var(--fluent-shell-taskbar-active-indicator-inset-inline);
+  right: var(--fluent-shell-taskbar-active-indicator-inset-inline);
+  bottom: var(--fluent-shell-taskbar-active-indicator-offset-bottom);
+  height: var(--fluent-shell-taskbar-active-indicator-height);
   border-radius: 999px;
   background: var(--fluent-shell-accent);
 }
@@ -316,9 +336,9 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app-icon {
-  min-width: 20px;
-  width: 20px;
-  height: 20px;
+  min-width: var(--fluent-shell-taskbar-app-icon-size);
+  width: var(--fluent-shell-taskbar-app-icon-size);
+  height: var(--fluent-shell-taskbar-app-icon-size);
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -328,14 +348,14 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-pinned {
-  width: 40px;
-  min-width: 40px;
-  max-width: 40px;
+  width: var(--fluent-shell-taskbar-pinned-width);
+  min-width: var(--fluent-shell-taskbar-pinned-width);
+  max-width: var(--fluent-shell-taskbar-pinned-width);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-pinned .taskbar-app-icon {
-  width: 18px;
-  height: 18px;
+  width: var(--fluent-shell-taskbar-pinned-icon-size);
+  height: var(--fluent-shell-taskbar-pinned-icon-size);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-app.compact {
@@ -348,19 +368,19 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-tray {
-  min-height: 34px;
-  padding: 2px;
-  gap: 2px;
+  min-height: var(--fluent-shell-tray-min-height);
+  padding: var(--fluent-shell-tray-padding);
+  gap: var(--fluent-shell-tray-gap);
   border: 1px solid var(--fluent-shell-stroke-2);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.58);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border-radius: var(--fluent-radius-md);
+  background: var(--fluent-shell-tray-surface);
+  box-shadow: inset 0 1px 0 var(--fluent-shell-tray-inset-stroke);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .tray-widget,
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock {
-  min-height: 28px;
-  border-radius: 8px;
+  min-height: var(--fluent-shell-tray-item-min-height);
+  border-radius: var(--fluent-radius-sm);
   border: 1px solid transparent;
   background: transparent;
   color: var(--fluent-shell-text-1);
@@ -369,21 +389,23 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .tray-widget {
-  min-width: 54px;
-  gap: 6px;
-  padding: 2px 6px;
+  min-width: var(--fluent-shell-tray-item-min-width);
+  gap: var(--fluent-shell-tray-item-gap);
+  padding:
+    var(--fluent-shell-tray-item-padding-block)
+    var(--fluent-shell-tray-item-padding-inline);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .tray-widget:hover:not(:disabled),
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.52);
-  border-color: var(--fluent-shell-stroke-2);
+  background: var(--fluent-shell-tray-item-hover-surface);
+  border-color: var(--fluent-shell-tray-item-hover-stroke);
   filter: none;
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .tray-widget.pressed {
-  background: var(--fluent-shell-accent-subtle);
-  border-color: var(--fluent-shell-accent-border-soft);
+  background: var(--fluent-shell-tray-item-pressed-surface);
+  border-color: var(--fluent-shell-tray-item-pressed-stroke);
   box-shadow: none;
 }
 
@@ -397,9 +419,11 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock {
-  min-width: 106px;
-  padding: 4px 9px;
-  gap: 2px;
+  min-width: var(--fluent-shell-clock-min-width);
+  padding:
+    var(--fluent-shell-clock-padding-block)
+    var(--fluent-shell-clock-padding-inline);
+  gap: var(--fluent-shell-tray-gap);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock-time {
@@ -422,9 +446,9 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item,
 .desktop-shell[data-theme="Fluent Modern"] .start-menu button {
-  min-height: 32px;
+  min-height: var(--fluent-shell-menu-item-min-height);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--fluent-shell-menu-item-radius);
   background: transparent;
   color: var(--fluent-shell-text-1);
   box-shadow: none;
@@ -433,13 +457,13 @@
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item:hover:not(:disabled),
 .desktop-shell[data-theme="Fluent Modern"] .start-menu button:hover:not(:disabled) {
-  border-color: rgba(15, 108, 189, 0.12);
-  background: rgba(255, 255, 255, 0.56);
+  border-color: var(--fluent-shell-menu-item-hover-stroke);
+  background: var(--fluent-shell-menu-item-hover-surface);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item:active:not(:disabled),
 .desktop-shell[data-theme="Fluent Modern"] .start-menu button:active:not(:disabled) {
-  background: var(--fluent-shell-accent-subtle);
+  background: var(--fluent-shell-menu-item-active-surface);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item.danger:hover:not(:disabled) {
@@ -572,6 +596,20 @@
     --fluent-shell-shadow-1: 0 2px 8px rgba(0, 0, 0, 0.28);
     --fluent-shell-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.34);
     --fluent-shell-shadow-3: 0 22px 52px rgba(0, 0, 0, 0.42);
+    --fluent-shell-taskbar-button-surface: rgba(255, 255, 255, 0.04);
+    --fluent-shell-taskbar-button-hover-surface: rgba(255, 255, 255, 0.08);
+    --fluent-shell-taskbar-button-hover-stroke: rgba(255, 255, 255, 0.1);
+    --fluent-shell-taskbar-button-focused-surface: rgba(255, 255, 255, 0.08);
+    --fluent-shell-taskbar-button-focused-overlay: rgba(76, 194, 255, 0.14);
+    --fluent-shell-taskbar-button-focused-stroke: rgba(76, 194, 255, 0.2);
+    --fluent-shell-taskbar-button-focused-shadow: rgba(0, 0, 0, 0.24);
+    --fluent-shell-taskbar-glyph-chip-surface: rgba(255, 255, 255, 0.1);
+    --fluent-shell-menu-item-hover-surface: rgba(255, 255, 255, 0.08);
+    --fluent-shell-menu-item-hover-stroke: rgba(255, 255, 255, 0.12);
+    --fluent-shell-tray-surface: rgba(255, 255, 255, 0.04);
+    --fluent-shell-tray-inset-stroke: rgba(255, 255, 255, 0.05);
+    --fluent-shell-tray-item-hover-surface: rgba(255, 255, 255, 0.08);
+    --fluent-shell-tray-item-hover-stroke: rgba(255, 255, 255, 0.1);
     color-scheme: dark;
   }
 
@@ -629,12 +667,12 @@
   .desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button:hover:not(:disabled),
   .desktop-shell[data-theme="Fluent Modern"] .tray-widget:hover:not(:disabled),
   .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--fluent-shell-taskbar-button-hover-surface);
   }
 
   .desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item:hover:not(:disabled),
   .desktop-shell[data-theme="Fluent Modern"] .start-menu button:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.12);
+    background: var(--fluent-shell-menu-item-hover-surface);
+    border-color: var(--fluent-shell-menu-item-hover-stroke);
   }
 }

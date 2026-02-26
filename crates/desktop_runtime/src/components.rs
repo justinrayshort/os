@@ -568,6 +568,7 @@ enum TaskbarShortcutTarget {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TaskbarTrayWidgetAction {
     None,
+    ToggleHighContrast,
     ToggleReducedMotion,
 }
 
@@ -894,6 +895,23 @@ fn build_taskbar_tray_widgets(state: &DesktopState) -> Vec<TaskbarTrayWidget> {
             action: TaskbarTrayWidgetAction::None,
         },
         TaskbarTrayWidget {
+            id: "contrast",
+            icon: if state.theme.high_contrast {
+                IconName::Checkmark
+            } else {
+                IconName::Dismiss
+            },
+            label: "High contrast",
+            value: if state.theme.high_contrast {
+                "ON"
+            } else {
+                "OFF"
+            }
+            .to_string(),
+            pressed: Some(state.theme.high_contrast),
+            action: TaskbarTrayWidgetAction::ToggleHighContrast,
+        },
+        TaskbarTrayWidget {
             id: "motion",
             icon: if state.theme.reduced_motion {
                 IconName::MotionOff
@@ -916,6 +934,10 @@ fn build_taskbar_tray_widgets(state: &DesktopState) -> Vec<TaskbarTrayWidget> {
 fn activate_taskbar_tray_widget(runtime: DesktopRuntimeContext, action: TaskbarTrayWidgetAction) {
     match action {
         TaskbarTrayWidgetAction::None => {}
+        TaskbarTrayWidgetAction::ToggleHighContrast => {
+            let enabled = runtime.state.get_untracked().theme.high_contrast;
+            runtime.dispatch_action(DesktopAction::SetHighContrast { enabled: !enabled });
+        }
         TaskbarTrayWidgetAction::ToggleReducedMotion => {
             let enabled = runtime.state.get_untracked().theme.reduced_motion;
             runtime.dispatch_action(DesktopAction::SetReducedMotion { enabled: !enabled });

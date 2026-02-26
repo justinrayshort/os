@@ -68,7 +68,7 @@ Token categories introduced:
 - radius scale (`--fluent-radius-*`)
 - icon sizing (`--fluent-icon-*`)
 - motion timing (`--fluent-motion-*`)
-- shell surfaces, strokes, text, accent, focus, elevation (`--fluent-shell-*`)
+- shell surfaces, strokes, text, accent, focus, elevation, and component state/metrics tokens (including taskbar/start/menu/tray interactive states) (`--fluent-shell-*`)
 
 Compatibility strategy:
 
@@ -82,6 +82,7 @@ The redesign standardizes these shell primitives:
 
 - `FluentIcon` for SVG icon rendering
 - icon wrapper containers (`.taskbar-app-icon`, `.taskbar-glyph`, `.tray-widget-glyph`, `.titlebar-app-icon`)
+- reducer-backed taskbar tray accessibility toggles (high contrast and reduced motion)
 - consistent shell surfaces for windows, taskbar, menus, and dialogs
 - shared corner radii and elevation tokens
 - focus-visible styles using a single theme focus token
@@ -98,8 +99,8 @@ The visual refresh must preserve shell usability:
 
 - keyboard navigation remains unchanged (taskbar shortcuts, menu navigation, context menus, window activation)
 - focus indicators remain visible via `:focus-visible` theme overrides
-- reduced motion is supported via runtime theme state (`data-reduced-motion="true"`) and CSS transition suppression
-- high contrast is supported via runtime theme state (`data-high-contrast="true"`) token overrides
+- reduced motion is supported via a user-facing taskbar tray toggle, runtime theme state (`data-reduced-motion="true"`), and CSS transition suppression
+- high contrast is supported via a user-facing taskbar tray toggle and runtime theme state (`data-high-contrast="true"`) token overrides
 - text labels are not replaced by icon-only controls where labels carry meaning (taskbar/start/menu entries)
 
 Contrast guidance for future refinements:
@@ -132,6 +133,7 @@ When extending the redesign to more shell or app surfaces:
 
 - [`crates/desktop_runtime/src/components.rs`](../../crates/desktop_runtime/src/components.rs)
 - [`crates/desktop_runtime/src/model.rs`](../../crates/desktop_runtime/src/model.rs)
+- [`crates/desktop_runtime/src/reducer.rs`](../../crates/desktop_runtime/src/reducer.rs)
 - [`crates/site/src/theme_shell.css`](../../crates/site/src/theme_shell.css)
 - [`docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`](desktop-shell-hig-fluent-conformance-checklist.md)
 - [`docs/sop/ui-design-conformance-review-sop.md`](../sop/ui-design-conformance-review-sop.md)
