@@ -164,7 +164,7 @@ pub struct WindowRecord {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// User-configurable desktop theme preferences.
 pub struct DesktopTheme {
-    /// Human-readable theme preset name.
+    /// Human-readable theme preset name rendered as the shell root `data-theme`.
     pub name: String,
     /// Wallpaper preset id.
     pub wallpaper_id: String,
@@ -179,8 +179,8 @@ pub struct DesktopTheme {
 impl Default for DesktopTheme {
     fn default() -> Self {
         Self {
-            name: "Retro Classic".to_string(),
-            wallpaper_id: "teal-solid".to_string(),
+            name: "Fluent Modern".to_string(),
+            wallpaper_id: "cloud-bands".to_string(),
             high_contrast: false,
             reduced_motion: false,
             audio_enabled: false,

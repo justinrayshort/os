@@ -6,6 +6,7 @@
 //! - state transitions in [`reduce_desktop`]
 //! - persistence helpers in [`persistence`]
 //! - host-side effect execution helpers in [`host`]
+//! - centralized Fluent icon primitives in [`icons`]
 //! - Leptos UI primitives in [`components`]
 //!
 //! # Example
@@ -35,10 +36,12 @@
 pub mod apps;
 /// Leptos provider/context and desktop shell UI components.
 pub mod components;
-/// Core runtime state model and serializable snapshot types.
-pub mod model;
 /// Host-side effect execution and viewport helpers used by the shell runtime.
 pub mod host;
+/// Centralized Fluent UI System Icon abstraction used by shell surfaces.
+pub mod icons;
+/// Core runtime state model and serializable snapshot types.
+pub mod model;
 /// Browser/local persistence helpers for desktop runtime state.
 pub mod persistence;
 /// Reducer actions and effect generation for desktop state transitions.
@@ -48,6 +51,8 @@ pub mod reducer;
 pub use components::{use_desktop_runtime, DesktopProvider, DesktopRuntimeContext, DesktopShell};
 /// Re-exported host-side effect execution context.
 pub use host::DesktopHostContext;
+/// Re-exported centralized shell icon primitives.
+pub use icons::{app_icon_name, FluentIcon, IconName, IconSize};
 /// Re-exported runtime state model types.
 pub use model::*;
 /// Re-exported persistence entrypoints used by the shell runtime.

@@ -7,6 +7,7 @@ use leptos::*;
 use crate::{
     apps,
     host::DesktopHostContext,
+    icons::{app_icon_name, FluentIcon, IconName, IconSize},
     model::{
         AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
     },
@@ -304,6 +305,8 @@ pub fn DesktopShell() -> impl IntoView {
         <div
             class="desktop-shell"
             data-theme=move || state.get().theme.name
+            data-high-contrast=move || state.get().theme.high_contrast.to_string()
+            data-reduced-motion=move || state.get().theme.reduced_motion.to_string()
             on:click=move |_| {
                 if desktop_context_menu.get_untracked().is_some() {
                     desktop_context_menu.set(None);
@@ -348,7 +351,7 @@ pub fn DesktopShell() -> impl IntoView {
                             }
                         >
                             <span class="icon" data-app=app.app_id.icon_id()>
-                                {app_icon_glyph(app.app_id)}
+                                <FluentIcon icon=app_icon_name(app.app_id) size=IconSize::Lg />
                             </span>
                             <span>{app.desktop_icon_label}</span>
                         </button>
@@ -432,7 +435,11 @@ pub fn DesktopShell() -> impl IntoView {
                                         }
                                     >
                                         <span class="desktop-context-wallpaper-check" aria-hidden="true">
-                                            {if active.id == preset.id { "*" } else { "" }}
+                                            {if active.id == preset.id {
+                                                view! { <FluentIcon icon=IconName::Checkmark size=IconSize::Xs /> }.into_view()
+                                            } else {
+                                                ().into_view()
+                                            }}
                                         </span>
                                         <span class="desktop-context-wallpaper-text">
                                             <span class="desktop-context-wallpaper-label">{preset.label}</span>
@@ -471,7 +478,7 @@ pub fn DesktopShell() -> impl IntoView {
                                     aria-label="Close display properties"
                                     on:click:undelegated=move |_| close_display_properties_cancel.call(())
                                 >
-                                    "X"
+                                    <FluentIcon icon=IconName::Dismiss size=IconSize::Sm />
                                 </button>
                             </header>
 
@@ -631,17 +638,6 @@ pub fn DesktopShell() -> impl IntoView {
     }
 }
 
-fn app_icon_glyph(app_id: crate::model::AppId) -> &'static str {
-    match app_id {
-        crate::model::AppId::Calculator => "123",
-        crate::model::AppId::Explorer => "DIR",
-        crate::model::AppId::Notepad => "TXT",
-        crate::model::AppId::Paint => "ART",
-        crate::model::AppId::Terminal => "C:\\",
-        crate::model::AppId::Dialup => "56K",
-    }
-}
-
 #[component]
 fn DesktopWindow(window_id: WindowId) -> impl IntoView {
     let runtime = use_desktop_runtime();
@@ -736,7 +732,12 @@ fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                             on:mousedown=begin_move
                             on:dblclick=titlebar_double_click
                         >
-                            <div class="titlebar-title">{win.title.clone()}</div>
+                            <div class="titlebar-title">
+                                <span class="titlebar-app-icon" aria-hidden="true">
+                                    <FluentIcon icon=app_icon_name(win.app_id) size=IconSize::Sm />
+                                </span>
+                                <span>{win.title.clone()}</span>
+                            </div>
                             <div class="titlebar-controls">
                                 <button
                                     disabled=!win.flags.minimizable
@@ -747,7 +748,7 @@ fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                                         minimize(ev);
                                     }
                                 >
-                                    "_"
+                                    <FluentIcon icon=IconName::WindowMinimize size=IconSize::Xs />
                                 </button>
                                 <button
                                     disabled=!win.flags.maximizable
@@ -762,7 +763,14 @@ fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                                         toggle_maximize(ev);
                                     }
                                 >
-                                    {if win.maximized { "o" } else { "[]" }}
+                                    <FluentIcon
+                                        icon=if win.maximized {
+                                            IconName::WindowRestore
+                                        } else {
+                                            IconName::WindowMaximize
+                                        }
+                                        size=IconSize::Xs
+                                    />
                                 </button>
                                 <button
                                     aria-label="Close window"
@@ -772,7 +780,7 @@ fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                                         close(ev);
                                     }
                                 >
-                                    "X"
+                                    <FluentIcon icon=IconName::Dismiss size=IconSize::Xs />
                                 </button>
                             </div>
                         </header>
@@ -940,7 +948,7 @@ enum TaskbarTrayWidgetAction {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TaskbarTrayWidget {
     id: &'static str,
-    glyph: &'static str,
+    icon: IconName,
     label: &'static str,
     value: String,
     pressed: Option<bool>,
@@ -1258,7 +1266,7 @@ fn build_taskbar_tray_widgets(state: &DesktopState) -> Vec<TaskbarTrayWidget> {
     vec![
         TaskbarTrayWidget {
             id: "win-count",
-            glyph: "WIN",
+            icon: IconName::WindowMultiple,
             label: "Open windows",
             value: total_windows.to_string(),
             pressed: None,
@@ -1266,7 +1274,7 @@ fn build_taskbar_tray_widgets(state: &DesktopState) -> Vec<TaskbarTrayWidget> {
         },
         TaskbarTrayWidget {
             id: "bg-count",
-            glyph: "BG",
+            icon: IconName::DesktopArrowDown,
             label: "Minimized windows",
             value: minimized_windows.to_string(),
             pressed: None,
@@ -1274,7 +1282,11 @@ fn build_taskbar_tray_widgets(state: &DesktopState) -> Vec<TaskbarTrayWidget> {
         },
         TaskbarTrayWidget {
             id: "network",
-            glyph: "NET",
+            icon: if dialup_online {
+                IconName::WifiOn
+            } else {
+                IconName::WifiOff
+            },
             label: "Network status",
             value: if dialup_online { "ON" } else { "IDLE" }.to_string(),
             pressed: Some(dialup_online),
@@ -1282,7 +1294,11 @@ fn build_taskbar_tray_widgets(state: &DesktopState) -> Vec<TaskbarTrayWidget> {
         },
         TaskbarTrayWidget {
             id: "motion",
-            glyph: "FX",
+            icon: if state.theme.reduced_motion {
+                IconName::MotionOff
+            } else {
+                IconName::MotionOn
+            },
             label: "Reduced motion",
             value: if state.theme.reduced_motion {
                 "ON"
@@ -1604,7 +1620,9 @@ fn Taskbar() -> impl IntoView {
                         runtime.dispatch_action(DesktopAction::ToggleStartMenu);
                     }
                 >
-                    <span class="taskbar-glyph" aria-hidden="true">"OS"</span>
+                    <span class="taskbar-glyph" aria-hidden="true">
+                        <FluentIcon icon=IconName::Launcher size=IconSize::Sm />
+                    </span>
                     <span>"Start"</span>
                 </button>
 
@@ -1638,7 +1656,9 @@ fn Taskbar() -> impl IntoView {
                                 activate_pinned_taskbar_app(runtime, app_id);
                             }
                         >
-                            <span class="taskbar-app-icon" aria-hidden="true">{app_icon_glyph(app_id)}</span>
+                            <span class="taskbar-app-icon" aria-hidden="true">
+                                <FluentIcon icon=app_icon_name(app_id) size=IconSize::Sm />
+                            </span>
                             <span class="visually-hidden">{app_id.title()}</span>
                         </button>
                     </For>
@@ -1715,7 +1735,7 @@ fn Taskbar() -> impl IntoView {
                             }
                         >
                             <span class="taskbar-app-icon" aria-hidden="true">
-                                {app_icon_glyph(win.app_id)}
+                                <FluentIcon icon=app_icon_name(win.app_id) size=IconSize::Sm />
                             </span>
                             <span class="taskbar-app-label">{win.title.clone()}</span>
                         </button>
@@ -1749,6 +1769,9 @@ fn Taskbar() -> impl IntoView {
                                     overflow_menu_open.update(|open| *open = !*open);
                                 }
                             >
+                                <span class="taskbar-overflow-icon" aria-hidden="true">
+                                    <FluentIcon icon=IconName::ChevronDown size=IconSize::Xs />
+                                </span>
                                 {move || {
                                     let desktop = state.get();
                                     let tray_count = build_taskbar_tray_widgets(&desktop).len();
@@ -1826,7 +1849,7 @@ fn Taskbar() -> impl IntoView {
                                             }
                                         >
                                             <span class="taskbar-app-icon" aria-hidden="true">
-                                                {app_icon_glyph(win.app_id)}
+                                                <FluentIcon icon=app_icon_name(win.app_id) size=IconSize::Sm />
                                             </span>
                                             <span class="taskbar-menu-item-label">{win.title.clone()}</span>
                                         </button>
@@ -1865,7 +1888,9 @@ fn Taskbar() -> impl IntoView {
                                 activate_taskbar_tray_widget(runtime, widget.action);
                             }
                         >
-                            <span class="tray-widget-glyph" aria-hidden="true">{widget.glyph}</span>
+                            <span class="tray-widget-glyph" aria-hidden="true">
+                                <FluentIcon icon=widget.icon size=IconSize::Xs />
+                            </span>
                             <span class="tray-widget-value">{widget.value.clone()}</span>
                         </button>
                     </For>
@@ -1956,7 +1981,7 @@ fn Taskbar() -> impl IntoView {
                             }
                         >
                             <span class="taskbar-app-icon" aria-hidden="true">
-                                {app_icon_glyph(app.app_id)}
+                                <FluentIcon icon=app_icon_name(app.app_id) size=IconSize::Sm />
                             </span>
                             <span>{format!("Open {}", app.launcher_label)}</span>
                         </button>
