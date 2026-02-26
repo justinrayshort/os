@@ -47,11 +47,13 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
    - Command:
 
    ```bash
+   git submodule sync --recursive
    git submodule update --init --recursive
    ```
 
    - Expected output: `wiki/` submodule is present and up to date
    - Failure condition: wiki submodule missing or detached workflow not updated
+   - If editing wiki content: run `git -C wiki status --short && git -C wiki fetch origin`, then fast-forward the local wiki branch (or switch off detached HEAD before committing).
 2. Create or update the documentation in the correct place.
    - Command:
 
@@ -91,7 +93,7 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
    ```
 
    - Expected output: code changes plus rustdoc/wiki/docs updates (and `wiki/` submodule pointer when applicable) are included
-   - Failure condition: behavioral code change ships without rustdoc/wiki updates or ADR requirement is skipped
+   - Failure condition: behavioral code change ships without rustdoc/wiki updates, wiki changes are committed without a parent submodule pointer update, or ADR requirement is skipped
 
 ## 6. Visual Aids
 
@@ -133,6 +135,7 @@ sequenceDiagram
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.2.1 | 2026-02-26 | Codex | Added explicit wiki submodule sync/refresh procedure and clarified wiki pointer update failure mode |
 | 1.2.0 | 2026-02-26 | Codex | Migrated documentation validation/audit workflow to Rust-only `xtask`; removed hosted CI/MkDocs runtime dependency |
 | 1.1.0 | 2026-02-26 | Codex | Added rustdoc + GitHub Wiki split workflow, validation, and review requirements |
 | 1.0.0 | 2026-02-25 | Codex | Initial documentation system SOP |

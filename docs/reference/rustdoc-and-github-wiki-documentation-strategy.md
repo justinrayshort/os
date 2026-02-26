@@ -60,6 +60,42 @@ When wiki content changes:
 
 1. Confirm rustdoc links still point to valid crates/modules/items.
 2. Update the `wiki/` submodule pointer in the main repo PR.
+3. Keep repo-native pointer pages in `docs/tutorials`, `docs/how-to`, and `docs/explanation` in sync only when the canonical wiki page name/path changes (to avoid duplicate procedural content).
+
+## Wiki Submodule Maintenance Workflow (Required)
+
+Use a consistent submodule refresh flow before authoring or validating wiki content:
+
+```bash
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
+Before editing wiki pages:
+
+```bash
+git -C wiki status --short
+git -C wiki fetch origin
+```
+
+- If `wiki/` is on a local branch, fast-forward with `git -C wiki pull --ff-only`.
+- If `wiki/` is detached (common after submodule updates), switch to a local branch tracking the wiki default branch before committing wiki edits.
+
+Commit and review workflow for wiki edits:
+
+1. Commit changes inside `wiki/`.
+2. Stage the `wiki/` submodule pointer in the main repo.
+3. Include both in the same PR as related code and rustdoc/docs changes.
+
+## Migrated Documentation Surface
+
+The existing maintainer-facing documentation workflow pages have been migrated into the wiki and are now canonical there:
+
+- Tutorial: `wiki/Tutorial-First-Documentation-Change.md`
+- How-to: `wiki/How-to-Update-Documentation-in-a-Pull-Request.md`
+- Explanation: `wiki/Explanation-Documentation-Architecture-and-Governance.md`
+
+Repo-native pages under `docs/tutorials`, `docs/how-to`, and `docs/explanation` remain as machine-validated pointers for discoverability and governance navigation.
 
 ## Review and Pull Request Requirements
 
@@ -82,5 +118,6 @@ The local Rust toolchain validates both documentation layers:
 Local bootstrap for the wiki submodule:
 
 ```bash
+git submodule sync --recursive
 git submodule update --init --recursive
 ```

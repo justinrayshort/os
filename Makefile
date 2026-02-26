@@ -9,6 +9,7 @@ verify-fast:
 	cargo verify-fast
 
 wiki-init:
+	git submodule sync --recursive
 	git submodule update --init --recursive
 
 rustdoc-check:
