@@ -1,0 +1,48 @@
+@media (hover: hover) {
+  .calc-key:hover,
+  .calc-tape-header button:hover,
+  .calc-tape-item:hover {
+    filter: brightness(1.02);
+  }
+}
+
+.app-paint,
+.app-dialup {
+  height: 100%;
+  min-height: 0;
+  border: 1px solid #000;
+  box-shadow: var(--bevel-in);
+  background: #fff;
+  padding: 10px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.app-dialup progress {
+  width: 100%;
+}
+
+.canonical-content {
+  max-width: 780px;
+  margin: 24px auto;
+  background: var(--ui-panel);
+  border: 2px solid #000;
+  box-shadow: var(--bevel-out);
+  padding: 16px;
+}
+
+.canonical-content h1 {
+  margin: 0 0 8px;
+  color: var(--ui-title);
+}
+
+.canonical-content a {
+  color: #0031aa;
+  text-decoration: underline;
+}
+
+.canonical-content a:hover {
+  color: #001f6d;
+}
+

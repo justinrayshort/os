@@ -1,0 +1,22 @@
+/* XP/Luna theme override */
+:root {
+  --ui-bg: #ece9d8;
+  --ui-panel: #ece9d8;
+  --ui-panel-alt: #f5f3ea;
+  --ui-shadow: #a7a7a0;
+  --ui-shadow-dark: #6f6f69;
+  --ui-highlight: #ffffff;
+  --ui-title: #0a57d6;
+  --ui-title-inactive: #7f98c7;
+  --ui-text: #000000;
+  --ui-text-muted: #5a6777;
+  --ui-focus: #316ac5;
+  --bevel-out:
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 0 #6f8fcb,
+    inset 0 0 0 1px #c5d5ef;
+  --bevel-in:
+    inset 1px 1px 0 #8ea7d7,
+    inset -1px -1px 0 #fff,
+    inset 0 0 0 1px #7f9db9;
+}

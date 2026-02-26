@@ -1,0 +1,596 @@
+
+.site-root {
+  background: linear-gradient(180deg, #6a93ff 0%, #8eb2ff 100%);
+}
+
+.desktop-shell {
+  background: linear-gradient(180deg, #6d96ff, #74a1ff);
+}
+
+.desktop-wallpaper {
+  background:
+    radial-gradient(circle at 78% 16%, rgba(255, 255, 255, 0.55) 0 8%, transparent 12%),
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.18), transparent 36%),
+    linear-gradient(180deg, #7fc0ff 0%, #74b8fb 46%, #7ac06d 47%, #5ea84b 100%);
+}
+
+.desktop-wallpaper::before {
+  background:
+    radial-gradient(120% 54% at 22% 100%, rgba(129, 210, 98, 0.95) 0 54%, transparent 55%),
+    radial-gradient(128% 62% at 74% 100%, rgba(103, 186, 72, 0.95) 0 56%, transparent 57%),
+    radial-gradient(140% 70% at 48% 108%, rgba(87, 169, 61, 0.96) 0 60%, transparent 61%);
+  opacity: 1;
+}
+
+.desktop-wallpaper::after {
+  background:
+    radial-gradient(26px 10px at 18% 17%, rgba(255, 255, 255, 0.92) 0 60%, transparent 62%),
+    radial-gradient(34px 12px at 24% 18%, rgba(255, 255, 255, 0.92) 0 58%, transparent 60%),
+    radial-gradient(28px 10px at 30% 16%, rgba(255, 255, 255, 0.92) 0 60%, transparent 62%),
+    radial-gradient(24px 9px at 61% 21%, rgba(255, 255, 255, 0.88) 0 58%, transparent 60%),
+    radial-gradient(30px 11px at 67% 22%, rgba(255, 255, 255, 0.88) 0 58%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 48%);
+  filter: none;
+}
+
+.desktop-icon {
+  color: #ffffff;
+  text-shadow: 1px 1px 0 rgba(0, 32, 96, 0.65);
+}
+
+.desktop-icon:hover,
+.desktop-icon:focus-visible {
+  background: rgba(49, 106, 197, 0.32);
+  border-color: rgba(205, 226, 255, 0.95);
+}
+
+.desktop-window {
+  border: 1px solid #0e4596;
+  border-radius: 8px 8px 0 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 0 0 1px rgba(5, 28, 79, 0.2),
+    4px 6px 10px rgba(0, 28, 84, 0.35);
+  background: linear-gradient(180deg, #f3f1e7, #e7e2d3 28px, #ece9d8 28px, #ece9d8 100%);
+}
+
+.desktop-window .titlebar {
+  min-height: 28px;
+  padding: 3px 6px;
+  gap: 6px;
+  border-radius: 7px 7px 0 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(90deg, #0d67f0, #368df6 40%, #4ca0ff 72%, #2f7ae5 100%);
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(0, 23, 74, 0.6);
+}
+
+.desktop-window:not(.focused) .titlebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(90deg, #8ca8d7, #9fb7e1 45%, #b4c8ea 100%);
+  color: #f8fbff;
+  text-shadow: 1px 1px 0 rgba(50, 73, 112, 0.45);
+}
+
+.titlebar-title {
+  font-weight: 700;
+  letter-spacing: 0.1px;
+}
+
+.titlebar-controls {
+  gap: 3px;
+}
+
+.titlebar-controls button {
+  width: 22px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #1f4694;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, #f8fbff, #d3e3ff 48%, #b4cff8 100%);
+  color: #14366f;
+}
+
+.titlebar-controls button:nth-child(1) {
+  background: linear-gradient(180deg, #fefefe, #dcecff 45%, #c3d8fb 100%);
+}
+
+.titlebar-controls button:nth-child(2) {
+  background: linear-gradient(180deg, #fefefe, #d5e9ff 45%, #b7d4fe 100%);
+}
+
+.titlebar-controls button:nth-child(3) {
+  border-color: #8d220f;
+  background: linear-gradient(180deg, #ffb7a6, #ff7f5e 48%, #de3f24 100%);
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(87, 13, 0, 0.6);
+}
+
+.window-body {
+  padding: 3px;
+  background: #ece9d8;
+}
+
+.window-body-content {
+  background: #ece9d8;
+}
+
+.taskbar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 26%),
+    linear-gradient(180deg, #2c71f2 0%, #215fdb 44%, #1e56cd 45%, #2259d4 100%);
+  border-top: 1px solid #6aa7ff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(0, 32, 92, 0.45);
+}
+
+.taskbar-left,
+.taskbar-right {
+  gap: 4px;
+}
+
+.start-button {
+  border: 1px solid #2b5f00;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 22% 20%, rgba(255, 255, 255, 0.55), transparent 45%),
+    linear-gradient(180deg, #53cf33 0%, #38b51f 52%, #2a9615 100%);
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(24, 72, 8, 0.75);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.start-button:active {
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.24),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.taskbar-glyph {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.12));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
+.taskbar-app,
+.taskbar-overflow-button {
+  border: 1px solid #1647a2;
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(180deg, #4d8ff6, #2d6ee3);
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(7, 32, 84, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 30, 88, 0.25);
+}
+
+.taskbar-app:hover,
+.taskbar-overflow-button:hover {
+  filter: brightness(1.05);
+}
+
+.taskbar-app.focused {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #5ba0ff, #3277ea 52%, #225dcc 100%);
+}
+
+.taskbar-app.minimized {
+  color: #e4efff;
+  opacity: 0.95;
+}
+
+.taskbar-app.active::after {
+  background: linear-gradient(90deg, #fff6ad, #ffd95f);
+}
+
+.taskbar-app-icon {
+  border: 1px solid #6286c5;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #ffffff, #dfe9fb);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.taskbar-tray {
+  border: 1px solid #1548a6;
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 36%),
+    linear-gradient(180deg, #4387f1, #2f72e0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 33, 93, 0.22);
+}
+
+.tray-widget,
+.taskbar-clock {
+  border: 1px solid rgba(15, 56, 136, 0.9);
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #4f92f5, #2d6fe0);
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(7, 31, 82, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 35, 95, 0.2);
+}
+
+.tray-widget.passive {
+  opacity: 0.98;
+}
+
+.tray-widget.pressed {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #3a7de9, #245fc6);
+}
+
+.taskbar-clock-date {
+  color: #e0ecff;
+}
+
+.taskbar-menu,
+.start-menu {
+  border: 1px solid #3f62ad;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #fbfdff, #eef3ff);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+    0 6px 14px rgba(0, 22, 70, 0.28);
+}
+
+.taskbar-menu-item {
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  color: #00143a;
+}
+
+.taskbar-menu-item:hover:not(:disabled),
+.start-menu button:hover {
+  border-color: #98b8ea;
+  background: linear-gradient(180deg, #fffce7, #ffd26a);
+}
+
+.taskbar-menu-item:active:not(:disabled),
+.start-menu button:active {
+  box-shadow: none;
+  background: linear-gradient(180deg, #ffd670, #ffbe45);
+}
+
+.start-menu {
+  width: 286px;
+  padding: 6px 6px 6px 50px;
+  overflow: hidden;
+}
+
+.start-menu::before {
+  content: "XP";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  display: grid;
+  place-items: end center;
+  padding-bottom: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.4px;
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(7, 34, 94, 0.65);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 28%),
+    linear-gradient(180deg, #3b87f0, #245fcb);
+}
+
+.start-menu button {
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-menubar {
+  border: 1px solid #b8c7e2;
+  border-bottom-color: #9fb2d6;
+  background: linear-gradient(180deg, #fefefe, #edf3ff);
+}
+
+.app-menubar button {
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-menubar button:hover {
+  border-color: #9db7e4;
+  background: linear-gradient(180deg, #fffde8, #ffd870);
+}
+
+.app-toolbar,
+.terminal-toolbar {
+  border: 1px solid #b6c7e6;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #f8fbff, #dde9fb);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.app-toolbar button,
+.terminal-toolbar button,
+.terminal-run {
+  border: 1px solid #8da9d6;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #ffffff, #e7eefb 55%, #d7e4fb 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -1px 0 rgba(73, 103, 153, 0.14);
+}
+
+.app-statusbar {
+  border-top: 1px solid #c9c5b8;
+  background: linear-gradient(180deg, #f6f4ed, #ebe6d9);
+}
+
+.app-statusbar > span {
+  border: 1px solid #bdc7d8;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ffffff, #f0f5ff);
+  box-shadow: none;
+}
+
+.explorer-tree,
+.explorer-pane,
+.explorer-listwrap,
+.explorer-details {
+  border-color: #7f9db9;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.tree-header,
+.pane-header {
+  background: linear-gradient(180deg, #f9fbff, #dde8fb);
+  border-bottom: 1px solid #aac0e4;
+}
+
+.tree-node {
+  border-radius: 2px;
+}
+
+.tree-node:hover {
+  border-color: #b7cceb;
+  background: #edf4ff;
+}
+
+.tree-node.selected {
+  border-color: #204e92;
+  background: linear-gradient(180deg, #3f7dd6, #2a62ba);
+  color: #fff;
+}
+
+.tree-node.selected .tree-glyph {
+  color: #eaf2ff;
+}
+
+.explorer-list thead th {
+  background: linear-gradient(180deg, #fdfefe, #dce8fb);
+  border-bottom-color: #a9bddf;
+  border-right-color: #c0d0ea;
+}
+
+.explorer-list tbody tr:hover {
+  background: #f2f7ff;
+}
+
+.explorer-list tbody tr.selected {
+  background: linear-gradient(180deg, #3a7ad8, #255fb6);
+}
+
+.explorer-details {
+  background: linear-gradient(180deg, #f7faff, #edf3fe);
+}
+
+.notepad-ruler {
+  border-color: #9fb2d6;
+  background: linear-gradient(180deg, #fbfdff, #e3ecfb);
+  color: #556983;
+}
+
+.notepad-document {
+  border-color: #7f9db9;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 0 0 1px rgba(190, 208, 235, 0.35);
+}
+
+.notepad-document-header {
+  background: linear-gradient(180deg, #f9fbff, #e1ebfb);
+}
+
+.notepad-page {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 18px,
+      rgba(49, 106, 197, 0.08) 18px,
+      rgba(49, 106, 197, 0.08) 19px
+    );
+}
+
+.terminal-screen {
+  border-color: #6a88bc;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 0 0 1px rgba(152, 180, 234, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, #05070c, #0c1220);
+}
+
+.terminal-input {
+  border: 1px solid #7f9db9;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow:
+    inset 1px 1px 0 rgba(0, 0, 0, 0.05),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.calculator-workspace {
+  border: 1px solid #b8c7df;
+  border-radius: 6px;
+  padding: 4px;
+  background: linear-gradient(180deg, #f8f6ef, #ece7da);
+}
+
+.calculator-main,
+.calc-tape {
+  border: 1px solid #97add0;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 0 0 1px rgba(191, 206, 232, 0.35);
+}
+
+.calculator-main {
+  background: linear-gradient(180deg, #f0ede4, #e6e0d0);
+}
+
+.calc-display-panel {
+  border: 1px solid #8c9f5f;
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0) 45%),
+    linear-gradient(180deg, #e7f0c3, #cfdda0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 0 0 1px rgba(158, 175, 112, 0.25);
+}
+
+.calc-display-meta {
+  color: #46573a;
+}
+
+.calc-expression {
+  color: #526641;
+}
+
+.calc-display {
+  color: #182110;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.calc-key {
+  border: 1px solid #7f9db9;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(92, 113, 150, 0.16);
+  background: linear-gradient(180deg, #fbfdff, #e5edf9 55%, #d7e3f7 100%);
+}
+
+.calc-key.digit {
+  background: linear-gradient(180deg, #ffffff, #f2f6fd 52%, #e5edf9 100%);
+}
+
+.calc-key.memory,
+.calc-key.util {
+  background: linear-gradient(180deg, #f6f6f2, #ece9e0 52%, #ddd8cb 100%);
+}
+
+.calc-key.operator {
+  background: linear-gradient(180deg, #fff9ec, #ffe7b5 52%, #ffd98e 100%);
+}
+
+.calc-key.equals {
+  color: #fff;
+  background: linear-gradient(180deg, #6ea8ff, #3d7de8 52%, #265ec2 100%);
+  border-color: #275bb8;
+  text-shadow: 0 1px 0 rgba(0, 26, 77, 0.55);
+}
+
+.calc-key:active,
+.calc-tape-header button:active,
+.calc-tape-item:active {
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.18),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.calc-toolbar-divider {
+  background: #b8c8e2;
+  box-shadow: 1px 0 0 #fff;
+}
+
+.calc-tape {
+  background: linear-gradient(180deg, #f8f9fd, #edf2fb);
+}
+
+.calc-tape-header {
+  border-bottom: 1px solid #aec1e2;
+  background: linear-gradient(180deg, #fefefe, #dee8fa);
+}
+
+.calc-tape-header button {
+  border: 1px solid #8da9d6;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fff, #e6eefb);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.calc-tape-item {
+  border: 1px solid #b3c5e3;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fff, #f3f7ff);
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.calc-tape-item:hover {
+  border-color: #8fb0df;
+  background: linear-gradient(180deg, #fffbe8, #ffe7a7);
+}
+
+.calc-tape-result {
+  color: #1b5dbf;
+}
+
+.calc-empty-tape {
+  border-color: #b8c7de;
+  background: linear-gradient(180deg, #f9fbff, #edf3fd);
+}
+
+.app-paint,
+.app-dialup {
+  border-color: #7f9db9;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 0 0 1px rgba(190, 207, 234, 0.25);
+  background: linear-gradient(180deg, #ffffff, #f6f8fd);
+}
+
+.site-root button:focus-visible,
+.site-root input:focus-visible,
+.site-root textarea:focus-visible,
+.site-root select:focus-visible {
+  outline: 1px dotted #0f3278;
+  outline-offset: -3px;
+}

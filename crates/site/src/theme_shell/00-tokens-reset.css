@@ -1,0 +1,55 @@
+:root {
+  --ui-bg: #c0c0c0;
+  --ui-panel: #d4d0c8;
+  --ui-panel-alt: #c6c2ba;
+  --ui-shadow: #808080;
+  --ui-shadow-dark: #404040;
+  --ui-highlight: #ffffff;
+  --ui-title: #000080;
+  --ui-title-inactive: #6b6b6b;
+  --ui-text: #111111;
+  --ui-text-muted: #4f4f4f;
+  --ui-desktop: #0c5b57;
+  --ui-desktop-grid: rgba(255, 255, 255, 0.08);
+  --ui-focus: #000080;
+  --ui-terminal-bg: #040404;
+  --ui-terminal-fg: #c7f9b8;
+  --ui-terminal-dim: #8fba84;
+  --taskbar-h: 38px;
+  --win-border: 2px;
+  --bevel-out: inset -1px -1px 0 var(--ui-shadow-dark), inset 1px 1px 0 var(--ui-highlight),
+    inset -2px -2px 0 var(--ui-shadow), inset 2px 2px 0 #ece9d8;
+  --bevel-in: inset -1px -1px 0 var(--ui-highlight), inset 1px 1px 0 var(--ui-shadow-dark),
+    inset -2px -2px 0 #ece9d8, inset 2px 2px 0 var(--ui-shadow);
+}
+
+.site-root,
+.site-root * {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+.site-root {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: Tahoma, "Segoe UI", Geneva, sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.site-root button,
+.site-root input,
+.site-root select,
+.site-root textarea {
+  font: inherit;
+}
+
+.site-root {
+  min-height: 100vh;
+}

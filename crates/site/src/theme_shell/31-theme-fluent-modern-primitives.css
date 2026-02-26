@@ -1,0 +1,10 @@
+.ui-icon {
+  display: block;
+  line-height: 0;
+  shape-rendering: geometricPrecision;
+}
+
+.ui-icon path {
+  vector-effect: non-scaling-stroke;
+}
+

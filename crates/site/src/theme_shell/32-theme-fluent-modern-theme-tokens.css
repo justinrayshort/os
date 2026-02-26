@@ -1,0 +1,31 @@
+.desktop-shell[data-theme="Fluent Modern"] {
+  --taskbar-h: 46px;
+  --ui-bg: #f5f7fb;
+  --ui-panel: #f9fbff;
+  --ui-panel-alt: #eef3fb;
+  --ui-text: #1b1d22;
+  --ui-text-muted: #5c6470;
+  --ui-focus: #0f6cbd;
+  --ui-terminal-bg: #0f1117;
+  --ui-terminal-fg: #d7f7d2;
+  --ui-terminal-dim: #8db596;
+  --fluent-shell-surface-1: rgba(255, 255, 255, 0.78);
+  --fluent-shell-surface-2: rgba(255, 255, 255, 0.92);
+  --fluent-shell-stroke-1: rgba(14, 23, 38, 0.12);
+  --fluent-shell-stroke-2: rgba(14, 23, 38, 0.08);
+  --fluent-shell-text-1: #1b1d22;
+  --fluent-shell-text-2: #5c6470;
+  --fluent-shell-accent: #0f6cbd;
+  --fluent-shell-accent-hover: #115ea3;
+  --fluent-shell-accent-subtle: rgba(15, 108, 189, 0.12);
+  --fluent-shell-accent-subtle-strong: rgba(15, 108, 189, 0.2);
+  --fluent-shell-focus: #005fb8;
+  --fluent-shell-shadow-1: 0 2px 8px rgba(14, 23, 38, 0.08);
+  --fluent-shell-shadow-2: 0 8px 24px rgba(14, 23, 38, 0.14);
+  --fluent-shell-shadow-3: 0 20px 48px rgba(14, 23, 38, 0.2);
+  color: var(--fluent-shell-text-1);
+  font-family: var(--fluent-font-family);
+  font-size: 13px;
+  line-height: 1.35;
+  color-scheme: light;
+}

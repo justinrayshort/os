@@ -1,0 +1,104 @@
+@media (max-width: 900px) {
+  .desktop-icons {
+    grid-auto-flow: column;
+    grid-auto-columns: 88px;
+    width: calc(100% - 16px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    top: 6px;
+  }
+
+  .explorer-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(110px, auto) minmax(0, 1fr);
+  }
+
+  .calculator-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) 150px;
+  }
+
+  .taskbar {
+    gap: 3px;
+  }
+
+  .taskbar-app {
+    min-width: 104px;
+  }
+
+  .tray-widget {
+    min-width: 28px;
+    padding-inline: 3px;
+  }
+
+  .tray-widget-value {
+    display: none;
+  }
+
+  .taskbar-clock {
+    min-width: 84px;
+    padding-inline: 6px;
+  }
+
+  .taskbar-clock-date {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --taskbar-h: 42px;
+  }
+
+  .desktop-window {
+    left: 6px !important;
+    top: 50px !important;
+    width: calc(100vw - 12px) !important;
+    height: calc(100vh - 56px - var(--taskbar-h)) !important;
+  }
+
+  .titlebar-controls button {
+    width: 26px;
+  }
+
+  .taskbar-app {
+    min-width: 96px;
+  }
+
+  .taskbar-pins {
+    display: none;
+  }
+
+  .start-button {
+    min-width: 42px;
+    padding-inline: 6px;
+  }
+
+  .start-button > span:last-child {
+    display: none;
+  }
+
+  .taskbar-clock {
+    min-width: 76px;
+  }
+
+  .start-menu {
+    width: min(260px, calc(100vw - 12px));
+  }
+
+  .calc-keypad {
+    gap: 3px;
+  }
+
+  .calc-key {
+    min-height: 28px;
+    padding: 3px 4px;
+  }
+
+  .calc-toolbar-note {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
