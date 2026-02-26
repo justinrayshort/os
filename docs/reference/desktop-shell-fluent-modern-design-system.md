@@ -133,4 +133,6 @@ When extending the redesign to more shell or app surfaces:
 - [`crates/desktop_runtime/src/components.rs`](../../crates/desktop_runtime/src/components.rs)
 - [`crates/desktop_runtime/src/model.rs`](../../crates/desktop_runtime/src/model.rs)
 - [`crates/site/src/theme_shell.css`](../../crates/site/src/theme_shell.css)
+- [`docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`](desktop-shell-hig-fluent-conformance-checklist.md)
+- [`docs/sop/ui-design-conformance-review-sop.md`](../sop/ui-design-conformance-review-sop.md)
 - [`wiki/Reference-Design-Materials-and-Artifacts.md`](../../wiki/Reference-Design-Materials-and-Artifacts.md)

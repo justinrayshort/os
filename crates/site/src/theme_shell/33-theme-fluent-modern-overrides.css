@@ -38,7 +38,7 @@
   gap: 6px;
   border-radius: var(--fluent-radius-md);
   border: 1px solid transparent;
-  color: #f3f6ff;
+  color: var(--fluent-shell-desktop-icon-text);
   text-shadow: 0 1px 1px rgba(6, 12, 22, 0.65);
   transition:
     background-color var(--fluent-motion-fast) ease,
@@ -182,7 +182,7 @@
     rgba(242, 246, 252, 0.76);
   box-shadow:
     0 -1px 0 rgba(255, 255, 255, 0.25) inset,
-    0 -8px 24px rgba(14, 23, 38, 0.08);
+    0 -8px 24px var(--fluent-shell-stroke-2);
 }
 
 @supports (backdrop-filter: blur(8px)) {
@@ -208,7 +208,7 @@
   border: 1px solid rgba(255, 255, 255, 0.36);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0)),
-    linear-gradient(180deg, #1274d1, #0f6cbd);
+    linear-gradient(180deg, var(--fluent-shell-start-button-top), var(--fluent-shell-accent));
   color: #fff;
   text-shadow: none;
   box-shadow:
@@ -219,14 +219,22 @@
 .desktop-shell[data-theme="Fluent Modern"] .start-button:hover:not(:disabled) {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0)),
-    linear-gradient(180deg, #1481e8, #0f6cbd);
+    linear-gradient(
+      180deg,
+      var(--fluent-shell-start-button-top-hover),
+      var(--fluent-shell-accent)
+    );
   filter: none;
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .start-button:active:not(:disabled) {
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0)),
-    linear-gradient(180deg, #0d62ad, #0d5a9f);
+    linear-gradient(
+      180deg,
+      var(--fluent-shell-start-button-top-active),
+      var(--fluent-shell-start-button-bottom-active)
+    );
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-glyph {
@@ -343,7 +351,7 @@
   min-height: 34px;
   padding: 2px;
   gap: 2px;
-  border: 1px solid rgba(14, 23, 38, 0.08);
+  border: 1px solid var(--fluent-shell-stroke-2);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.58);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
@@ -369,13 +377,13 @@
 .desktop-shell[data-theme="Fluent Modern"] .tray-widget:hover:not(:disabled),
 .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.52);
-  border-color: rgba(14, 23, 38, 0.08);
+  border-color: var(--fluent-shell-stroke-2);
   filter: none;
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .tray-widget.pressed {
   background: var(--fluent-shell-accent-subtle);
-  border-color: rgba(15, 108, 189, 0.16);
+  border-color: var(--fluent-shell-accent-border-soft);
   box-shadow: none;
 }
 
@@ -495,7 +503,7 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .display-properties-tab.active {
-  border-color: rgba(15, 108, 189, 0.16);
+  border-color: var(--fluent-shell-accent-border-soft);
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 1px 8px rgba(14, 23, 38, 0.06);
 }
@@ -506,8 +514,8 @@
 }
 
 .desktop-shell[data-theme="Fluent Modern"] .wallpaper-picker-item.selected {
-  border-color: rgba(15, 108, 189, 0.22);
-  background: rgba(15, 108, 189, 0.08);
+  border-color: var(--fluent-shell-accent-border-strong);
+  background: var(--fluent-shell-accent-subtle-soft);
 }
 
 .desktop-shell[data-theme="Fluent Modern"] button:focus-visible,

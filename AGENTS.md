@@ -29,6 +29,11 @@ This repository is maintained with help from automated agents. Use this file as 
 - All documentation must follow Diataxis intent separation:
   - `rustdoc` content is Reference
   - Wiki pages must be explicitly authored as Tutorial / How-to Guide / Reference / Explanation and must not mix intents
+- Material shell/UI design-system changes (theme tokens, shell component visuals, interaction patterns, iconography, responsive behavior, accessibility-affecting UI) must be reviewed against Apple HIG principles and Fluent UI integration standards using:
+  - `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`
+  - `docs/sop/ui-design-conformance-review-sop.md`
+- UI conformance claims must be evidence-based (checklist status updates plus keyboard/focus/motion/responsive validation and contrast measurements when colors/focus/borders change), not subjective visual approval alone.
+- Preserve centralized Fluent icon usage (`crates/desktop_runtime/src/icons.rs`), theme-scoped tokenization, and accessibility behavior during visual refinements; document any intentional deviations.
 - Preserve documentation contracts enforced by `tools/docs/doc_contracts.json`.
 - Do not weaken validation rules or local verification workflows unless explicitly requested.
 - Avoid destructive git commands unless explicitly requested.
@@ -105,6 +110,24 @@ Behavior:
 - Generates `.artifacts/docs-audit.json` via `audit-report`
 - Fails locally if audit validation fails
 - Preserve/share the audit artifact through your normal review process (no hosted CI dependency)
+
+### 4.3 UI Design Conformance Review (Local / Per Material UI Change)
+
+Use the formal checklist and SOP for shell/UI design changes:
+
+- `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`
+- `docs/sop/ui-design-conformance-review-sop.md`
+
+Minimum local review expectations for material UI changes:
+
+1. Classify affected surfaces (`tokens`, `primitives`, `interaction`, `a11y`, `iconography`, `responsive`, `docs-governance`).
+2. Gather evidence for the affected checklist IDs (keyboard/focus behavior, reduced motion, adaptive theming, responsive behavior, contrast if colors/focus/borders changed).
+3. Run correctness/docs validation:
+   - `cargo check --workspace`
+   - `cargo test --workspace`
+   - `cargo xtask docs all`
+4. Update the checklist status entries and related design-system docs in the same review workflow.
+5. If a formal docs artifact is added/changed, update the relevant Wiki registry page(s) in `wiki/`.
 
 ## 5) Local Commands
 
@@ -231,6 +254,17 @@ make proto-restart
 8. Run docs validation (`cargo xtask docs all`).
 9. If wiki content changed, commit `wiki/` changes and include the updated `wiki/` submodule pointer in the same PR/change set.
 
+### 6.3 UI design-system changes (code + visuals + docs)
+
+1. Classify the UI change surface (tokens, primitives/components, interaction behavior, accessibility, iconography, responsive/adaptive theming).
+2. Reuse existing shell primitives and conventions first (`FluentIcon`, semantic `IconName` mapping, theme-scoped token overrides, reducer-driven UI state).
+3. Update implementation and preserve behavioral/accessibility invariants (keyboard navigation, focus visibility, reduced motion support, dialog/menu semantics).
+4. Update `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md` with evidence-based status changes for affected checklist items.
+5. Update `docs/reference/desktop-shell-fluent-modern-design-system.md` when token sets, primitives, invariants, or scope materially change.
+6. Follow `docs/sop/ui-design-conformance-review-sop.md` for evidence collection, validation, and deviation handling.
+7. Run `cargo check --workspace`, `cargo test --workspace`, and `cargo xtask docs all` (plus rustdoc checks when rustdoc changed).
+8. If formal docs artifacts or registries changed, update the relevant wiki reference pages and include the `wiki/` submodule pointer update in the same PR/change set.
+
 ## 7) Key Files
 
 - `xtask/src/docs.rs` (docs contract/integrity/audit CLI implementation)
@@ -239,6 +273,9 @@ make proto-restart
 - `.gitmodules` (wiki submodule declaration)
 - `wiki/` (GitHub Wiki submodule checkout)
 - `docs/reference/rustdoc-and-github-wiki-documentation-strategy.md` (documentation surface split policy)
+- `docs/reference/desktop-shell-fluent-modern-design-system.md` (shell Fluent design-system reference and invariants)
+- `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md` (objective HIG + Fluent conformance status checklist)
+- `docs/sop/ui-design-conformance-review-sop.md` (repeatable UI conformance review and change-control procedure)
 - `.cargo/config.toml` (Cargo aliases for local workflows)
 - `Makefile` (optional convenience wrappers delegating to Cargo aliases)
 
