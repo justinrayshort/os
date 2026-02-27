@@ -15,7 +15,5 @@
 # Trunk/Tauri local build artifacts
 /crates/site/target/
 
-# Hashed web bundles generated during local web builds
-/crates/site/dist/site_app-*.js
-/crates/site/dist/site_app-*_bg.wasm
-/crates/site/dist/snippets/
+# Trunk web bundles generated during local web builds
+/crates/site/dist/
