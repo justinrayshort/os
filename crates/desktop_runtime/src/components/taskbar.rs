@@ -44,13 +44,17 @@ pub(super) fn Taskbar() -> impl IntoView {
         let had_clock_menu = clock_menu_open.get_untracked();
         let had_start_menu = runtime.state.get_untracked().start_menu_open;
 
-        window_context_menu.set(None);
-        overflow_menu_open.set(false);
-        clock_menu_open.set(false);
+        if had_window_menu {
+            window_context_menu.set(None);
+        }
+        if had_overflow_menu {
+            overflow_menu_open.set(false);
+        }
+        if had_clock_menu {
+            clock_menu_open.set(false);
+        }
 
-        // Avoid dispatching on every click. A redundant desktop-state update remounts app views,
-        // which resets app-local UI state (e.g., calculator input/history signal state).
-        if had_start_menu || had_window_menu || had_overflow_menu || had_clock_menu {
+        if had_start_menu {
             runtime.dispatch_action(DesktopAction::CloseStartMenu);
         }
     });

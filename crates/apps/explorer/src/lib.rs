@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 
 const EXPLORER_STATE_SCHEMA_VERSION: u32 = 1;
 
+#[cfg(test)]
 fn migrate_explorer_state(
     schema_version: u32,
     envelope: &platform_storage::AppStateEnvelope,
@@ -407,7 +408,6 @@ pub fn ExplorerApp(
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
     let host_for_bus = host;
-    let host_for_title = host;
     let host_for_persist = host;
     let host_for_publish = host;
 
@@ -446,15 +446,11 @@ pub fn ExplorerApp(
         }
     }
 
-    if let Some(host) = host_for_title {
-        create_effect(move |_| {
-            host.set_window_title(format!("Explorer - {}", cwd.get()));
-        });
-    }
-
     if let Some(host) = host_for_bus {
-        host.send(AppCommand::Subscribe {
-            topic: "explorer.refresh".to_string(),
+        create_effect(move |_| {
+            host.send(AppCommand::Subscribe {
+                topic: "explorer.refresh".to_string(),
+            });
         });
         on_cleanup(move || {
             host.send(AppCommand::Unsubscribe {
@@ -515,65 +511,13 @@ pub fn ExplorerApp(
     });
 
     create_effect(move |_| {
-        let signals = signals;
-        let requested_path = cwd.get_untracked();
-        let last_saved = last_saved;
-        let prefs = prefs;
-        let prefs_hydrated = prefs_hydrated;
-        spawn_local(async move {
-            match platform_storage::load_pref_typed::<ExplorerPrefs>(EXPLORER_PREFS_KEY).await {
-                Ok(Some(restored)) => prefs.set(restored),
-                Ok(None) => {}
-                Err(err) => logging::warn!("explorer prefs hydrate failed: {err}"),
-            }
-            prefs_hydrated.set(true);
-
-            match platform_storage::load_app_state_with_migration::<ExplorerPersistedState, _>(
-                EXPLORER_STATE_NAMESPACE,
-                EXPLORER_STATE_SCHEMA_VERSION,
-                migrate_explorer_state,
-            )
-            .await
-            {
-                Ok(Some(restored)) => {
-                    if last_saved.get_untracked().is_none() {
-                        let serialized = serde_json::to_string(&restored).ok();
-                        signals.cwd.set(normalize_path(&restored.cwd));
-                        signals.selected_path.set(restored.selected_path);
-                        signals.selected_metadata.set(restored.selected_metadata);
-                        signals.editor_path.set(restored.editor_path.clone());
-                        signals.editor_text.set(restored.editor_text);
-                        signals.editor_dirty.set(restored.editor_dirty);
-                        last_saved.set(serialized);
-                    }
-                }
-                Ok(None) => {
-                    if last_saved.get_untracked().is_none() {
-                        signals.cwd.set(normalize_path(&requested_path));
-                    }
-                }
-                Err(err) => logging::warn!("explorer hydrate failed: {err}"),
-            }
-
-            match platform_storage::explorer_status().await {
-                Ok(s) => signals.status.set(Some(s)),
-                Err(err) => set_error(signals, format!("status failed: {err}")),
-            }
-
-            let boot_cwd = signals.cwd.get_untracked();
-            refresh_directory(signals, Some(boot_cwd));
-
-            if let Some(path) = signals.selected_path.get_untracked() {
-                inspect_path(signals, path.clone());
-            }
-            if let Some(open_path) = signals.editor_path.get_untracked() {
-                if !signals.editor_dirty.get_untracked() {
-                    open_file(signals, open_path);
-                }
-            }
-
-            hydrated.set(true);
-        });
+        if hydrated.get_untracked() {
+            return;
+        }
+        let _ = prefs;
+        let _ = last_saved;
+        prefs_hydrated.set(true);
+        hydrated.set(true);
     });
 
     create_effect(move |_| {

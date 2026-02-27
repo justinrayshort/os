@@ -195,16 +195,23 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
     let app_runtime = create_rw_signal(AppRuntimeState::default());
 
     let dispatch = Callback::new(move |action: DesktopAction| {
-        let mut reducer_outcome = None;
+        let mut desktop = state.get_untracked();
+        let mut ui = interaction.get_untracked();
+        let previous_desktop = desktop.clone();
+        let previous_ui = ui.clone();
 
-        state.update(|desktop| {
-            interaction.update(|ui| {
-                reducer_outcome = Some(reduce_desktop(desktop, ui, action));
-            });
-        });
-
-        match reducer_outcome.expect("desktop reducer executed") {
+        match reduce_desktop(&mut desktop, &mut ui, action) {
             Ok(new_effects) => {
+                let windows_changed = desktop.windows != previous_desktop.windows;
+                if windows_changed {
+                    sync_runtime_sessions(app_runtime, &desktop.windows);
+                }
+                if desktop != previous_desktop {
+                    state.set(desktop);
+                }
+                if ui != previous_ui {
+                    interaction.set(ui);
+                }
                 if !new_effects.is_empty() {
                     let mut queue = effects.get_untracked();
                     queue.extend(new_effects);
@@ -272,11 +279,6 @@ pub fn DesktopShell() -> impl IntoView {
         if !display_properties_open.get() {
             skin_selection.set(active_skin);
         }
-    });
-
-    create_effect(move |_| {
-        let windows = state.get().windows;
-        sync_runtime_sessions(runtime.app_runtime, &windows);
     });
 
     create_effect(move |_| {

@@ -94,7 +94,6 @@ pub fn TerminalApp(
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
     let host_for_persist = host;
-    let host_for_title = host;
     let hydrate_alive = Rc::new(Cell::new(true));
     on_cleanup({
         let hydrate_alive = hydrate_alive.clone();
@@ -113,12 +112,6 @@ pub fn TerminalApp(
             last_saved.set(serialized);
             hydrated.set(true);
         }
-    }
-
-    if let Some(host) = host_for_title {
-        create_effect(move |_| {
-            host.set_window_title(format!("Terminal - {}", cwd.get()));
-        });
     }
 
     create_effect(move |_| {

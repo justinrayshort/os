@@ -249,7 +249,9 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
     let lifecycle = session.lifecycle.read_only();
     let inbox = session.inbox;
     let command_sender = Callback::new(move |command| {
-        runtime.dispatch_action(DesktopAction::HandleAppCommand { window_id, command });
+        spawn_local(async move {
+            runtime.dispatch_action(DesktopAction::HandleAppCommand { window_id, command });
+        });
     });
     let host = AppHost::new(command_sender);
     let contents = state

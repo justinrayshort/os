@@ -273,10 +273,6 @@ pub fn CalculatorApp(
             hydrated.set(true);
         }
     }
-    if let Some(host) = host {
-        host.set_window_title("Calculator");
-    }
-
     create_effect(move |_| {
         let calc = calc;
         let hydrated = hydrated;

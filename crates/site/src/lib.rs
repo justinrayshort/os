@@ -12,5 +12,6 @@ pub use web_app::{DesktopEntry, SiteApp};
 #[cfg(all(feature = "csr", target_arch = "wasm32"))]
 /// Mounts [`SiteApp`] into the document body for client-side rendering.
 pub fn mount() {
+    console_error_panic_hook::set_once();
     leptos::mount_to_body(|| leptos::view! { <SiteApp /> })
 }

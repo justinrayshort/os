@@ -173,7 +173,6 @@ pub fn NotepadApp(
     let last_saved = create_rw_signal::<Option<String>>(None);
     let transient_notice = create_rw_signal::<Option<String>>(None);
     let host_for_persist = host;
-    let host_for_title = host;
 
     if let Some(restored_state) = restored_state.as_ref() {
         if let Ok(mut restored) =
@@ -185,12 +184,6 @@ pub fn NotepadApp(
             last_saved.set(serialized);
             hydrated.set(true);
         }
-    }
-
-    if let Some(host) = host_for_title {
-        create_effect(move |_| {
-            host.set_window_title(format!("Notes - {}", workspace.get().active_slug));
-        });
     }
 
     create_effect(move |_| {

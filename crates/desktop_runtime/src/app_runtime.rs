@@ -102,6 +102,11 @@ impl AppRuntimeState {
 
     fn sync_windows(&mut self, windows: &[WindowRecord]) {
         let active: BTreeSet<WindowId> = windows.iter().map(|win| win.id).collect();
+
+        for window_id in &active {
+            self.ensure_session(*window_id);
+        }
+
         let stale: Vec<WindowId> = self
             .sessions
             .keys()
@@ -120,6 +125,12 @@ pub fn ensure_window_session(
     runtime_state: RwSignal<AppRuntimeState>,
     window_id: WindowId,
 ) -> WindowAppSession {
+    if let Some(session) =
+        runtime_state.with_untracked(|state| state.sessions.get(&window_id).copied())
+    {
+        return session;
+    }
+
     let mut session = None;
     runtime_state.update(|state| {
         session = Some(state.ensure_session(window_id));
