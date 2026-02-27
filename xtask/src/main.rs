@@ -384,7 +384,7 @@ fn print_tauri_usage() {
            check               Compile-check the Tauri crate (`cargo check -p desktop_tauri`)\n\
          \n\
          Notes:\n\
-           - `tauri.conf.json` hooks run Trunk against `crates/site/index.html`.\n\
+           - `tauri.conf.json` hooks delegate to `cargo dev serve/build` for the frontend pipeline.\n\
            - Install CLI with `cargo install tauri-cli --version '^2.0'`.\n"
     );
 }
@@ -401,7 +401,7 @@ fn tauri_dev(root: &Path, args: Vec<String>) -> Result<(), String> {
 
     let mut tauri_args = vec!["tauri".to_string(), "dev".to_string()];
     tauri_args.extend(args);
-    run_owned(&tauri_dir(root), "cargo", tauri_args)
+    run_tauri_cli(root, tauri_args)
 }
 
 fn tauri_build(root: &Path, args: Vec<String>) -> Result<(), String> {
@@ -416,7 +416,7 @@ fn tauri_build(root: &Path, args: Vec<String>) -> Result<(), String> {
 
     let mut tauri_args = vec!["tauri".to_string(), "build".to_string()];
     tauri_args.extend(args);
-    run_owned(&tauri_dir(root), "cargo", tauri_args)
+    run_tauri_cli(root, tauri_args)
 }
 
 fn tauri_check(root: &Path) -> Result<(), String> {
@@ -1309,9 +1309,7 @@ fn spawn_trunk_background(
         .stdout(Stdio::from(log_out))
         .stderr(Stdio::from(log));
 
-    if env::var("NO_COLOR").as_deref() == Ok("1") {
-        cmd.env("NO_COLOR", "true");
-    }
+    apply_no_color_override(&mut cmd);
 
     cmd.spawn()
         .map_err(|err| format!("failed to start `trunk` in background: {err}"))
@@ -1565,15 +1563,20 @@ fn run_owned_with_env(
     }
 }
 
+fn run_tauri_cli(root: &Path, args: Vec<String>) -> Result<(), String> {
+    if let Some(value) = normalized_no_color_value(env::var("NO_COLOR").ok().as_deref()) {
+        run_owned_with_env(&tauri_dir(root), "cargo", args, &[("NO_COLOR", value)])
+    } else {
+        run_owned(&tauri_dir(root), "cargo", args)
+    }
+}
+
 fn run_trunk(cwd: PathBuf, args: Vec<String>) -> Result<(), String> {
     print_command("trunk", &args);
     let mut cmd = Command::new("trunk");
     cmd.current_dir(cwd).args(&args);
 
-    // Some environments export NO_COLOR=1, but trunk expects "true"/"false".
-    if env::var("NO_COLOR").as_deref() == Ok("1") {
-        cmd.env("NO_COLOR", "true");
-    }
+    apply_no_color_override(&mut cmd);
 
     let status = cmd
         .status()
@@ -1588,6 +1591,20 @@ fn run_trunk(cwd: PathBuf, args: Vec<String>) -> Result<(), String> {
 
 fn site_dir(root: &Path) -> PathBuf {
     root.join("crates/site")
+}
+
+fn apply_no_color_override(cmd: &mut Command) {
+    if let Some(value) = normalized_no_color_value(env::var("NO_COLOR").ok().as_deref()) {
+        // Some environments export NO_COLOR=1, but trunk's CLI parser expects true/false.
+        cmd.env("NO_COLOR", value);
+    }
+}
+
+fn normalized_no_color_value(raw: Option<&str>) -> Option<&'static str> {
+    match raw {
+        Some("1") => Some("true"),
+        _ => None,
+    }
 }
 
 fn print_command(program: &str, args: &[String]) {
@@ -1671,5 +1688,17 @@ mod tests {
         let detected = detect_changed_packages(&changed, &workspace);
         assert!(detected.contains("site"));
         assert!(detected.contains("xtask"));
+    }
+
+    #[test]
+    fn no_color_normalization_maps_numeric_true() {
+        assert_eq!(normalized_no_color_value(Some("1")), Some("true"));
+    }
+
+    #[test]
+    fn no_color_normalization_keeps_other_values_untouched() {
+        assert_eq!(normalized_no_color_value(Some("true")), None);
+        assert_eq!(normalized_no_color_value(Some("false")), None);
+        assert_eq!(normalized_no_color_value(None), None);
     }
 }

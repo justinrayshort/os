@@ -87,6 +87,8 @@ cargo tauri-dev
 cargo tauri-build
 ```
 
+`cargo tauri-dev` / `cargo tauri-build` use Tauri hooks that delegate frontend serve/build work to `cargo dev` (`xtask`) and normalize `NO_COLOR=1` to `NO_COLOR=true` for Trunk compatibility in environments that export numeric `NO_COLOR`.
+
 Run prototype-specific compile checks (CSR native + WASM):
 
 ```bash

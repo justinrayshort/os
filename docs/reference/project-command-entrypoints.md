@@ -41,8 +41,8 @@ This page documents the supported top-level commands for local development, veri
 ### Desktop (Tauri) Workflow
 
 - `cargo xtask tauri check`: Compile-check the Tauri desktop crate wiring.
-- `cargo tauri-dev`: Run `cargo tauri dev` from `crates/desktop_tauri/` using `tauri.conf.json` build hooks.
-- `cargo tauri-build`: Run `cargo tauri build` from `crates/desktop_tauri/` using `tauri.conf.json` build hooks.
+- `cargo tauri-dev`: Run `cargo tauri dev` from `crates/desktop_tauri/` using `tauri.conf.json` build hooks, which delegate frontend serve/build work to `cargo dev` (`xtask`) for consistent path/env handling.
+- `cargo tauri-build`: Run `cargo tauri build` from `crates/desktop_tauri/` using `tauri.conf.json` build hooks, which delegate frontend serve/build work to `cargo dev` (`xtask`) for consistent path/env handling.
 
 ### Verification Workflow
 

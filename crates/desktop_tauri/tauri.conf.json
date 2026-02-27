@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.justinshort.os.desktop",
   "build": {
-    "beforeDevCommand": "trunk serve ../site/index.html --features desktop-tauri --dist ../site/target/trunk-tauri-dev --port 1420 --no-open",
-    "beforeBuildCommand": "trunk build ../site/index.html --features desktop-tauri --release --dist ../site/target/trunk-tauri-dist",
+    "beforeDevCommand": "cargo dev serve --features desktop-tauri --dist target/trunk-tauri-dev --port 1420 --no-open",
+    "beforeBuildCommand": "cargo dev build --features desktop-tauri --release --dist target/trunk-tauri-dist",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../site/target/trunk-tauri-dist"
   },
