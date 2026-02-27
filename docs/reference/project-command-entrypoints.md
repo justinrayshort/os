@@ -89,6 +89,46 @@ These targets exist for operator convenience and local muscle memory. They deleg
 - `make proto-status` -> `cargo dev status`
 - `make proto-restart` -> `cargo dev restart`
 
+## Local Browser Automation (Playwright CLI Wrapper)
+
+Use the Codex Playwright CLI wrapper for quick interactive browser automation and UI smoke checks from the terminal.
+
+### Entry Points
+
+- `pwc`: local shell wrapper function that delegates to `"$PWCLI"` (the Codex skill wrapper script).
+- `pwo <url>`: local shell helper that runs `pwc open --browser chrome --config /Users/justinshort/os/.playwright/cli.config.json <url>`.
+- `"$PWCLI" ...`: direct wrapper usage (useful in non-interactive shells or scripts).
+
+### Local Project Config (Machine-Local)
+
+The local Playwright CLI config file is `.playwright/cli.config.json` (ignored from version control on this repo). Current local defaults:
+
+- headed browser launch (`headless: false`)
+- fixed viewport (`1440x900`) for repeatable screenshots/layout checks
+- Chrome executable path pointing to the user-local install under `~/Applications/Google Chrome.app`
+
+If your Chrome install path differs, update `browser.launchOptions.executablePath` in the local config.
+
+### Quick Smoke Test Loop
+
+From the repo root:
+
+```bash
+export PLAYWRIGHT_CLI_SESSION=t1   # keep session names short
+pwc open https://example.com       # opens Chrome, headed, using .playwright/cli.config.json
+pwc snapshot                       # capture refs
+pwc eval "window.innerWidth + \"x\" + window.innerHeight"
+pwc close
+```
+
+Expected viewport result with the current local config: `"1440x900"`.
+
+### Notes
+
+- `pwc open` reads `.playwright/cli.config.json` automatically when run from the repo root.
+- `pwo` pins `--config` explicitly, so it works even when your current directory is not the repo root.
+- Prefer short `PLAYWRIGHT_CLI_SESSION` values (for example `t1`, `ui1`) to avoid macOS socket path length issues in `playwright-cli`.
+
 ## Guidance
 
 - Prefer Cargo aliases in automation and documentation because they are defined in-repo and map directly to `xtask`.
