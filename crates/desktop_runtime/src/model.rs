@@ -1,5 +1,7 @@
 //! Core runtime data model, window geometry, persistence snapshots, and deep-link types.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -60,6 +62,33 @@ impl AppId {
             Self::Terminal => "terminal",
             Self::Settings => "settings",
             Self::Dialup => "modem",
+        }
+    }
+
+    /// Canonical namespaced identifier used by manifest/catalog/deep-link integration.
+    pub const fn canonical_id(self) -> &'static str {
+        match self {
+            Self::Calculator => "system.calculator",
+            Self::Explorer => "system.explorer",
+            Self::Notepad => "system.notepad",
+            Self::Paint => "system.paint",
+            Self::Terminal => "system.terminal",
+            Self::Settings => "system.settings",
+            Self::Dialup => "system.dialup",
+        }
+    }
+
+    /// Resolves a canonical namespaced id into an [`AppId`].
+    pub fn from_canonical_id(raw: &str) -> Option<Self> {
+        match raw.trim() {
+            "system.calculator" => Some(Self::Calculator),
+            "system.explorer" => Some(Self::Explorer),
+            "system.notepad" => Some(Self::Notepad),
+            "system.paint" => Some(Self::Paint),
+            "system.terminal" => Some(Self::Terminal),
+            "system.settings" => Some(Self::Settings),
+            "system.dialup" => Some(Self::Dialup),
+            _ => None,
         }
     }
 }
@@ -283,6 +312,9 @@ pub struct DesktopState {
     pub last_notepad_slug: Option<String>,
     /// Recent terminal commands captured for history.
     pub terminal_history: Vec<String>,
+    /// App-shared state payloads keyed by `<app_id>:<key>`.
+    #[serde(default)]
+    pub app_shared_state: BTreeMap<String, Value>,
 }
 
 impl Default for DesktopState {
@@ -297,6 +329,7 @@ impl Default for DesktopState {
             last_explorer_path: None,
             last_notepad_slug: None,
             terminal_history: Vec::new(),
+            app_shared_state: BTreeMap::new(),
         }
     }
 }
@@ -317,6 +350,7 @@ impl DesktopState {
             last_explorer_path: self.last_explorer_path.clone(),
             last_notepad_slug: self.last_notepad_slug.clone(),
             terminal_history: self.terminal_history.clone(),
+            app_shared_state: self.app_shared_state.clone(),
         }
     }
 
@@ -331,6 +365,7 @@ impl DesktopState {
         state.last_explorer_path = snapshot.last_explorer_path;
         state.last_notepad_slug = snapshot.last_notepad_slug;
         state.terminal_history = snapshot.terminal_history;
+        state.app_shared_state = snapshot.app_shared_state;
         state.next_window_id = state
             .windows
             .iter()
@@ -359,6 +394,9 @@ pub struct DesktopSnapshot {
     pub last_notepad_slug: Option<String>,
     /// Persisted terminal history lines.
     pub terminal_history: Vec<String>,
+    /// Persisted app-shared state payloads.
+    #[serde(default)]
+    pub app_shared_state: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -633,6 +671,7 @@ mod tests {
             last_explorer_path: None,
             last_notepad_slug: None,
             terminal_history: Vec::new(),
+            app_shared_state: BTreeMap::new(),
         });
 
         assert_eq!(state.next_window_id, 12);

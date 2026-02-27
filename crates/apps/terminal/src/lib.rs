@@ -8,7 +8,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use desktop_app_contract::AppHost;
+use desktop_app_contract::AppServices;
 use leptos::ev::KeyboardEvent;
 use leptos::*;
 use platform_storage::{self, TERMINAL_STATE_NAMESPACE};
@@ -77,7 +77,7 @@ pub fn TerminalApp(
     /// Manager-restored app state payload for this window instance.
     restored_state: Option<Value>,
     /// Optional app-host bridge for manager-owned commands.
-    host: Option<AppHost>,
+    services: Option<AppServices>,
 ) -> impl IntoView {
     let input_id = format!(
         "retro-shell-input-{}",
@@ -93,7 +93,7 @@ pub fn TerminalApp(
     let lines = create_rw_signal(default_terminal_lines());
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
-    let host_for_persist = host;
+    let services_for_persist = services;
     let hydrate_alive = Rc::new(Cell::new(true));
     on_cleanup({
         let hydrate_alive = hydrate_alive.clone();
@@ -178,9 +178,9 @@ pub fn TerminalApp(
         }
         last_saved.set(Some(serialized));
 
-        if let Some(host) = host_for_persist {
+        if let Some(services) = services_for_persist {
             if let Ok(value) = serde_json::to_value(&snapshot) {
-                host.persist_state(value);
+                services.state.persist_window_state(value);
             }
         }
 

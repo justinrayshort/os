@@ -1,11 +1,21 @@
 //! Desktop runtime persistence adapters for boot hydration and lightweight local preferences.
 
 use crate::model::{DesktopSnapshot, DesktopState, DesktopTheme};
+use serde::{Deserialize, Serialize};
 
 #[cfg(target_arch = "wasm32")]
 const SNAPSHOT_KEY: &str = "retrodesk.layout.v1";
 const THEME_KEY: &str = "retrodesk.theme.v1";
 const TERMINAL_HISTORY_KEY: &str = "retrodesk.terminal_history.v1";
+/// Persisted runtime policy overlay key for app capability grants.
+pub const APP_POLICY_KEY: &str = "system.app_policy.v1";
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// Persisted capability policy overlay keyed by app id.
+pub struct AppPolicyOverlay {
+    /// App ids treated as privileged by shell policy.
+    pub privileged_app_ids: Vec<String>,
+}
 
 fn migrate_desktop_snapshot(
     schema_version: u32,
@@ -65,6 +75,7 @@ pub async fn load_boot_snapshot() -> Option<DesktopSnapshot> {
                 last_explorer_path: None,
                 last_notepad_slug: None,
                 terminal_history: history.unwrap_or_default(),
+                app_shared_state: Default::default(),
             }),
             (None, None, Some(history)) => Some(DesktopSnapshot {
                 schema_version: crate::model::DESKTOP_LAYOUT_SCHEMA_VERSION,
@@ -74,6 +85,7 @@ pub async fn load_boot_snapshot() -> Option<DesktopSnapshot> {
                 last_explorer_path: None,
                 last_notepad_slug: None,
                 terminal_history: history,
+                app_shared_state: Default::default(),
             }),
         }
     }
@@ -140,6 +152,22 @@ pub async fn persist_theme(theme: &DesktopTheme) -> Result<(), String> {
 /// Persists the terminal history list through typed host prefs storage.
 pub async fn persist_terminal_history(history: &[String]) -> Result<(), String> {
     platform_storage::save_pref_typed(TERMINAL_HISTORY_KEY, &history).await
+}
+
+/// Loads app capability policy overlay from typed host prefs storage.
+pub async fn load_app_policy_overlay() -> Option<AppPolicyOverlay> {
+    match platform_storage::load_pref_typed::<AppPolicyOverlay>(APP_POLICY_KEY).await {
+        Ok(value) => value,
+        Err(err) => {
+            leptos::logging::warn!("app policy overlay load failed: {err}");
+            None
+        }
+    }
+}
+
+/// Persists app capability policy overlay through typed host prefs storage.
+pub async fn persist_app_policy_overlay(policy: &AppPolicyOverlay) -> Result<(), String> {
+    platform_storage::save_pref_typed(APP_POLICY_KEY, policy).await
 }
 
 #[cfg(target_arch = "wasm32")]

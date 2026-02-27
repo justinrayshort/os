@@ -35,3 +35,8 @@ web-sys = { version = "0.3", features = ["Document", "Element", "HtmlElement", "
 
 [dev-dependencies]
 pretty_assertions = "1"
+
+[build-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"

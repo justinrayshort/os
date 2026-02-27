@@ -4,7 +4,7 @@
 
 use std::{cell::Cell, rc::Rc};
 
-use desktop_app_contract::{AppCommand, AppEvent, AppHost};
+use desktop_app_contract::{AppEvent, AppServices};
 use leptos::*;
 use platform_storage::{
     self, ExplorerBackend, ExplorerBackendStatus, ExplorerEntry, ExplorerEntryKind,
@@ -382,7 +382,7 @@ pub fn ExplorerApp(
     /// Manager-restored app state payload for this window instance.
     restored_state: Option<Value>,
     /// Optional app-host bridge for manager-owned commands.
-    host: Option<AppHost>,
+    services: Option<AppServices>,
     /// Optional runtime inbox for app-bus events.
     inbox: Option<RwSignal<Vec<AppEvent>>>,
 ) -> impl IntoView {
@@ -407,9 +407,9 @@ pub fn ExplorerApp(
     let busy = create_rw_signal(false);
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
-    let host_for_bus = host;
-    let host_for_persist = host;
-    let host_for_publish = host;
+    let services_for_bus = services;
+    let services_for_persist = services;
+    let services_for_publish = services;
 
     let session_store = platform_storage::session_store();
     let initial_draft_name = session_store
@@ -446,22 +446,20 @@ pub fn ExplorerApp(
         }
     }
 
-    if let Some(host) = host_for_bus {
+    if let Some(services) = services_for_bus {
         create_effect(move |_| {
-            host.send(AppCommand::Subscribe {
-                topic: "explorer.refresh".to_string(),
-            });
+            services.ipc.subscribe("explorer.refresh");
         });
         on_cleanup(move || {
-            host.send(AppCommand::Unsubscribe {
-                topic: "explorer.refresh".to_string(),
-            });
+            services.ipc.unsubscribe("explorer.refresh");
         });
     }
 
-    if let Some(host) = host_for_publish {
+    if let Some(services) = services_for_publish {
         create_effect(move |_| {
-            host.publish_event("explorer.cwd.changed", json!({ "cwd": cwd.get() }));
+            services
+                .ipc
+                .publish("explorer.cwd.changed", json!({ "cwd": cwd.get() }));
         });
     }
 
@@ -537,9 +535,9 @@ pub fn ExplorerApp(
         }
         last_saved.set(Some(serialized));
 
-        if let Some(host) = host_for_persist {
+        if let Some(services) = services_for_persist {
             if let Ok(value) = serde_json::to_value(&snapshot) {
-                host.persist_state(value);
+                services.state.persist_window_state(value);
             }
         }
 

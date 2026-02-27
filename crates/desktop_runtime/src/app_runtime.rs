@@ -6,6 +6,7 @@ use desktop_app_contract::{AppEvent, AppLifecycleEvent};
 use leptos::*;
 
 use crate::model::{WindowId, WindowRecord};
+const MAX_INBOX_EVENTS: usize = 256;
 
 #[derive(Clone, Copy)]
 /// Reactive per-window app session signals.
@@ -53,7 +54,13 @@ impl AppRuntimeState {
 
     fn deliver_event(&mut self, window_id: WindowId, event: AppEvent) {
         let session = self.ensure_session(window_id);
-        session.inbox.update(|inbox| inbox.push(event));
+        session.inbox.update(|inbox| {
+            inbox.push(event);
+            if inbox.len() > MAX_INBOX_EVENTS {
+                let overflow = inbox.len() - MAX_INBOX_EVENTS;
+                inbox.drain(0..overflow);
+            }
+        });
     }
 
     fn subscribe(&mut self, window_id: WindowId, topic: &str) {
@@ -73,7 +80,14 @@ impl AppRuntimeState {
         }
     }
 
-    fn publish(&mut self, source_window_id: WindowId, topic: &str, payload: serde_json::Value) {
+    fn publish(
+        &mut self,
+        source_window_id: WindowId,
+        topic: &str,
+        payload: serde_json::Value,
+        correlation_id: Option<String>,
+        reply_to: Option<String>,
+    ) {
         let Some(subscribers) = self.topic_subscribers.get(topic).cloned() else {
             return;
         };
@@ -81,7 +95,10 @@ impl AppRuntimeState {
 
         for target in subscribers {
             if self.sessions.contains_key(&target) {
-                let event = AppEvent::new(topic, payload.clone(), Some(source_window_id.0));
+                let mut event = AppEvent::new(topic, payload.clone(), Some(source_window_id.0));
+                event.correlation_id = correlation_id.clone();
+                event.reply_to = reply_to.clone();
+                event.timestamp_unix_ms = Some(platform_storage::unix_time_ms_now());
                 self.deliver_event(target, event);
             } else {
                 stale_subscribers.push(target);
@@ -185,6 +202,9 @@ pub fn publish_topic_event(
     source_window_id: WindowId,
     topic: &str,
     payload: serde_json::Value,
+    correlation_id: Option<String>,
+    reply_to: Option<String>,
 ) {
-    runtime_state.update(|state| state.publish(source_window_id, topic, payload));
+    runtime_state
+        .update(|state| state.publish(source_window_id, topic, payload, correlation_id, reply_to));
 }

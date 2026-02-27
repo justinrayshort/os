@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use desktop_app_contract::AppHost;
+use desktop_app_contract::AppServices;
 use leptos::*;
 use platform_storage::{self, NOTEPAD_STATE_NAMESPACE};
 use serde::{Deserialize, Serialize};
@@ -160,7 +160,7 @@ pub fn NotepadApp(
     /// Manager-restored app state payload for this window instance.
     restored_state: Option<Value>,
     /// Optional app-host bridge for manager-owned commands.
-    host: Option<AppHost>,
+    services: Option<AppServices>,
 ) -> impl IntoView {
     let requested_slug = launch_params
         .get("slug")
@@ -172,7 +172,7 @@ pub fn NotepadApp(
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
     let transient_notice = create_rw_signal::<Option<String>>(None);
-    let host_for_persist = host;
+    let services_for_persist = services;
 
     if let Some(restored_state) = restored_state.as_ref() {
         if let Ok(mut restored) =
@@ -233,9 +233,9 @@ pub fn NotepadApp(
         }
         last_saved.set(Some(serialized));
 
-        if let Some(host) = host_for_persist {
+        if let Some(services) = services_for_persist {
             if let Ok(value) = serde_json::to_value(&snapshot) {
-                host.persist_state(value);
+                services.state.persist_window_state(value);
             }
         }
 

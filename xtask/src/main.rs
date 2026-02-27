@@ -2741,10 +2741,9 @@ mod tests {
         )
         .expect("parse");
         let args = trunk_serve_args(&spec);
-        assert!(
-            args.windows(2)
-                .any(|w| w == ["--ignore", "target/trunk-tauri-dev"])
-        );
+        assert!(args
+            .windows(2)
+            .any(|w| w == ["--ignore", "target/trunk-tauri-dev"]));
         assert!(args.windows(2).any(|w| w == ["--ignore", "dist"]));
     }
 

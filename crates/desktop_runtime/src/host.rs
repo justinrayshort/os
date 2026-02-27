@@ -115,8 +115,36 @@ impl DesktopHostContext {
                 source_window_id,
                 topic,
                 payload,
+                correlation_id,
+                reply_to,
             } => {
-                publish_topic_event(runtime.app_runtime, source_window_id, &topic, payload);
+                publish_topic_event(
+                    runtime.app_runtime,
+                    source_window_id,
+                    &topic,
+                    payload,
+                    correlation_id,
+                    reply_to,
+                );
+            }
+            RuntimeEffect::SaveConfig {
+                namespace,
+                key,
+                value,
+            } => {
+                let pref_key = format!("{}.{}", namespace, key);
+                spawn_local(async move {
+                    if let Err(err) = platform_storage::save_pref_typed(&pref_key, &value).await {
+                        logging::warn!("persist config preference failed: {err}");
+                    }
+                });
+            }
+            RuntimeEffect::Notify { title, body } => {
+                spawn_local(async move {
+                    if let Err(err) = platform_storage::notify_send(&title, &body).await {
+                        logging::warn!("notification dispatch failed: {err}");
+                    }
+                });
             }
         }
     }

@@ -562,3 +562,32 @@ pub async fn explorer_stat(path: &str) -> Result<ExplorerMetadata, String> {
     let fs = host_adapters::explorer_fs_service();
     fs.stat(path).await
 }
+
+/// Sends a host notification.
+///
+/// Browser/WASM targets use the Web Notifications API when available.
+/// Non-WASM targets currently no-op successfully.
+///
+/// # Errors
+///
+/// Returns an error when notification permission is denied or dispatch fails.
+pub async fn notify_send(title: &str, body: &str) -> Result<(), String> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        use wasm_bindgen::JsValue;
+        let rendered = if body.trim().is_empty() {
+            title.to_string()
+        } else {
+            format!("{title}: {body}")
+        };
+        web_sys::Notification::new(&rendered)
+            .map(|_| ())
+            .map_err(|err: JsValue| format!("notification dispatch failed: {err:?}"))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = (title, body);
+        Ok(())
+    }
+}

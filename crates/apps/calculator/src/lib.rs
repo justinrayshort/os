@@ -7,7 +7,7 @@ mod engine;
 use crate::engine::{
     format_number, keyboard_action, BinaryOp, CalcAction, CalculatorState, UnaryOp,
 };
-use desktop_app_contract::AppHost;
+use desktop_app_contract::AppServices;
 use leptos::ev::KeyboardEvent;
 use leptos::*;
 use platform_storage::{self, CALCULATOR_STATE_NAMESPACE};
@@ -257,13 +257,13 @@ pub fn CalculatorApp(
     /// Manager-restored app state payload for this window instance.
     restored_state: Option<Value>,
     /// Optional app-host bridge for manager-owned commands.
-    host: Option<AppHost>,
+    services: Option<AppServices>,
 ) -> impl IntoView {
     let _ = launch_params;
     let calc = create_rw_signal(CalculatorState::default());
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
-    let host_for_persist = host;
+    let services_for_persist = services;
 
     if let Some(restored_state) = restored_state.as_ref() {
         if let Ok(restored) = serde_json::from_value::<CalculatorState>(restored_state.clone()) {
@@ -318,9 +318,9 @@ pub fn CalculatorApp(
         }
         last_saved.set(Some(serialized));
 
-        if let Some(host) = host_for_persist {
+        if let Some(services) = services_for_persist {
             if let Ok(value) = serde_json::to_value(&snapshot) {
-                host.persist_state(value);
+                services.state.persist_window_state(value);
             }
         }
 

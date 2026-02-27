@@ -1,6 +1,6 @@
 use super::*;
 use crate::app_runtime::ensure_window_session;
-use desktop_app_contract::{AppHost, AppMountContext};
+use desktop_app_contract::{AppMountContext, AppServices, ApplicationId};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
@@ -254,7 +254,7 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
             runtime.dispatch_action(DesktopAction::HandleAppCommand { window_id, command });
         });
     });
-    let host = AppHost::new(command_sender);
+    let services = AppServices::new(command_sender);
     let contents = state
         .get_untracked()
         .windows
@@ -263,12 +263,13 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
         .map(|w| {
             let module = apps::app_module(w.app_id);
             module.mount(AppMountContext {
+                app_id: ApplicationId::trusted(w.app_id.canonical_id()),
                 window_id: w.id.0,
                 launch_params: w.launch_params.clone(),
                 restored_state: w.app_state.clone(),
                 lifecycle,
                 inbox,
-                host,
+                services,
             })
         })
         .unwrap_or_else(|| view! { <p>"Closed"</p> }.into_view());

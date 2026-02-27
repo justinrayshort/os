@@ -8,6 +8,7 @@
 
 pub mod cache;
 pub mod fs;
+pub mod notifications;
 pub mod session;
 pub mod storage;
 pub mod time;
@@ -24,6 +25,7 @@ pub use fs::types::{
     ExplorerPermissionMode, ExplorerPermissionState, ExplorerPrefs, EXPLORER_CACHE_NAME,
     EXPLORER_PREFS_KEY,
 };
+pub use notifications::{NoopNotificationService, NotificationFuture, NotificationService};
 pub use session::{session_store, MemorySessionStore};
 pub use storage::app_state::{
     build_app_state_envelope, migrate_envelope_payload, AppStateEnvelope, AppStateStore,

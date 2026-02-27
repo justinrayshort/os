@@ -1,12 +1,12 @@
 //! Built-in System Settings desktop app for display/theme preferences.
 //!
 //! The app exposes desktop wallpaper, shell skin, and accessibility toggles through
-//! [`desktop_app_contract::AppCommand`] so settings can be changed from a standard
+//! [`desktop_app_contract::AppServices`] so settings can be changed from a standard
 //! managed app window instead of a shell modal.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
-use desktop_app_contract::{AppCommand, AppHost};
+use desktop_app_contract::AppServices;
 use leptos::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -130,7 +130,7 @@ pub fn SettingsApp(
     /// Manager-restored app state payload.
     restored_state: Option<Value>,
     /// Optional app-host bridge for manager-owned commands.
-    host: Option<AppHost>,
+    services: Option<AppServices>,
 ) -> impl IntoView {
     let settings_state = create_rw_signal(SettingsAppState::default());
     let wallpaper_id =
@@ -145,10 +145,10 @@ pub fn SettingsApp(
         }
     }
 
-    if let Some(host) = host {
+    if let Some(services) = services {
         create_effect(move |_| {
             if let Ok(serialized) = serde_json::to_value(settings_state.get()) {
-                host.persist_state(serialized);
+                services.state.persist_window_state(serialized);
             }
         });
     }
@@ -159,33 +159,29 @@ pub fn SettingsApp(
 
     let select_wallpaper = move |selected_wallpaper_id: &'static str| {
         wallpaper_id.set(selected_wallpaper_id.to_string());
-        if let Some(host) = host {
-            host.send(AppCommand::SetDesktopWallpaper {
-                wallpaper_id: selected_wallpaper_id.to_string(),
-            });
+        if let Some(services) = services {
+            services.theme.set_wallpaper(selected_wallpaper_id);
         }
     };
 
     let select_skin = move |selected_skin_id: &'static str| {
         skin_id.set(selected_skin_id.to_string());
-        if let Some(host) = host {
-            host.send(AppCommand::SetDesktopSkin {
-                skin_id: selected_skin_id.to_string(),
-            });
+        if let Some(services) = services {
+            services.theme.set_skin(selected_skin_id);
         }
     };
 
     let set_high_contrast = move |enabled: bool| {
         high_contrast.set(enabled);
-        if let Some(host) = host {
-            host.send(AppCommand::SetDesktopHighContrast { enabled });
+        if let Some(services) = services {
+            services.theme.set_high_contrast(enabled);
         }
     };
 
     let set_reduced_motion = move |enabled: bool| {
         reduced_motion.set(enabled);
-        if let Some(host) = host {
-            host.send(AppCommand::SetDesktopReducedMotion { enabled });
+        if let Some(services) = services {
+            services.theme.set_reduced_motion(enabled);
         }
     };
 

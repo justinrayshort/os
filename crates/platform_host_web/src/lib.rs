@@ -15,11 +15,13 @@
 mod bridge;
 pub mod cache;
 pub mod fs;
+pub mod notifications;
 pub mod storage;
 
 pub use cache::cache_api::WebContentCache;
 pub use cache::tauri_cache_api::TauriContentCache;
 pub use fs::explorer::{TauriExplorerFsService, WebExplorerFsService};
+pub use notifications::{TauriNotificationService, WebNotificationService};
 pub use storage::indexed_db::WebAppStateStore;
 pub use storage::local_prefs::WebPrefsStore;
 pub use storage::tauri_app_state::TauriAppStateStore;

@@ -10,11 +10,13 @@ mod app_state;
 mod cache;
 #[doc(hidden)]
 pub mod explorer;
+mod notifications;
 mod prefs;
 
 /// Starts the Tauri desktop host process.
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             app_state::app_state_load,
@@ -34,6 +36,7 @@ pub fn run() {
             explorer::explorer_create_file,
             explorer::explorer_delete,
             explorer::explorer_stat,
+            notifications::notify_send,
             prefs::prefs_load,
             prefs::prefs_save,
             prefs::prefs_delete

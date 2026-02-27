@@ -197,16 +197,7 @@ fn parse_open_target(raw: &str) -> Option<DeepLinkOpenTarget> {
 
 #[cfg(any(test, target_arch = "wasm32"))]
 fn parse_app_id(raw: &str) -> Option<AppId> {
-    match raw.trim() {
-        "calculator" | "calc" => Some(AppId::Calculator),
-        "explorer" | "projects" => Some(AppId::Explorer),
-        "notepad" | "notes" => Some(AppId::Notepad),
-        "paint" => Some(AppId::Paint),
-        "terminal" | "term" => Some(AppId::Terminal),
-        "settings" | "system-settings" | "prefs" | "preferences" => Some(AppId::Settings),
-        "dialup" | "dial-up" | "dial" | "connect" => Some(AppId::Dialup),
-        _ => None,
-    }
+    AppId::from_canonical_id(raw.trim())
 }
 
 #[cfg(test)]
@@ -215,7 +206,7 @@ mod tests {
 
     #[test]
     fn parses_query_open_targets() {
-        let parsed = parse_deep_link_from_parts("?open=notes:hello-world&open=terminal", "");
+        let parsed = parse_deep_link_from_parts("?open=notes:hello-world&open=system.terminal", "");
         assert_eq!(
             parsed.open,
             vec![
@@ -227,7 +218,7 @@ mod tests {
 
     #[test]
     fn parses_hash_query_style_open_targets() {
-        let parsed = parse_deep_link_from_parts("", "#open=projects:alpha&open=dial");
+        let parsed = parse_deep_link_from_parts("", "#open=projects:alpha&open=system.dialup");
         assert_eq!(
             parsed.open,
             vec![
@@ -248,7 +239,8 @@ mod tests {
 
     #[test]
     fn supports_comma_separated_query_targets() {
-        let parsed = parse_deep_link_from_parts("?open=explorer,terminal,projects:beta", "");
+        let parsed =
+            parse_deep_link_from_parts("?open=system.explorer,system.terminal,projects:beta", "");
         assert_eq!(
             parsed.open,
             vec![

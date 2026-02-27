@@ -4,7 +4,7 @@ use std::{cell::Cell, rc::Rc};
 
 use crate::model::{AppId, OpenWindowRequest};
 use desktop_app_calculator::CalculatorApp;
-use desktop_app_contract::{AppModule, AppMountContext, SuspendPolicy};
+use desktop_app_contract::{AppCapability, AppModule, AppMountContext, SuspendPolicy};
 use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
 use desktop_app_settings::SettingsApp;
@@ -14,6 +14,12 @@ use platform_storage::{self};
 use serde::{Deserialize, Serialize};
 
 const PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION: u32 = 1;
+include!(concat!(env!("OUT_DIR"), "/app_catalog_generated.rs"));
+
+/// Returns the generated manifest catalog payload used for build-time discovery validation.
+pub fn app_manifest_catalog_json() -> &'static str {
+    APP_MANIFEST_CATALOG_JSON
+}
 
 fn migrate_paint_placeholder_state(
     schema_version: u32,
@@ -44,6 +50,8 @@ pub struct AppDescriptor {
     pub module: AppModule,
     /// Suspend policy applied by the desktop window manager.
     pub suspend_policy: SuspendPolicy,
+    /// Declared capability scopes requested by the app.
+    pub requested_capabilities: &'static [AppCapability],
 }
 
 const APP_REGISTRY: [AppDescriptor; 7] = [
@@ -56,6 +64,7 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
         single_instance: true,
         module: AppModule::new(mount_calculator_app),
         suspend_policy: SuspendPolicy::OnMinimize,
+        requested_capabilities: &[AppCapability::Window, AppCapability::State],
     },
     AppDescriptor {
         app_id: AppId::Explorer,
@@ -66,6 +75,13 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
         single_instance: false,
         module: AppModule::new(mount_explorer_app),
         suspend_policy: SuspendPolicy::OnMinimize,
+        requested_capabilities: &[
+            AppCapability::Window,
+            AppCapability::State,
+            AppCapability::Config,
+            AppCapability::Ipc,
+            AppCapability::ExternalUrl,
+        ],
     },
     AppDescriptor {
         app_id: AppId::Notepad,
@@ -76,6 +92,7 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
         single_instance: false,
         module: AppModule::new(mount_notepad_app),
         suspend_policy: SuspendPolicy::OnMinimize,
+        requested_capabilities: &[AppCapability::Window, AppCapability::State],
     },
     AppDescriptor {
         app_id: AppId::Paint,
@@ -86,6 +103,7 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
         single_instance: false,
         module: AppModule::new(mount_paint_placeholder_app),
         suspend_policy: SuspendPolicy::OnMinimize,
+        requested_capabilities: &[AppCapability::Window, AppCapability::State],
     },
     AppDescriptor {
         app_id: AppId::Terminal,
@@ -96,6 +114,7 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
         single_instance: true,
         module: AppModule::new(mount_terminal_app),
         suspend_policy: SuspendPolicy::Never,
+        requested_capabilities: &[AppCapability::Window, AppCapability::State],
     },
     AppDescriptor {
         app_id: AppId::Settings,
@@ -106,6 +125,11 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
         single_instance: true,
         module: AppModule::new(mount_settings_app),
         suspend_policy: SuspendPolicy::OnMinimize,
+        requested_capabilities: &[
+            AppCapability::Window,
+            AppCapability::State,
+            AppCapability::Theme,
+        ],
     },
     AppDescriptor {
         app_id: AppId::Dialup,
@@ -116,8 +140,11 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
         single_instance: false,
         module: AppModule::new(mount_dialup_placeholder_app),
         suspend_policy: SuspendPolicy::OnMinimize,
+        requested_capabilities: &[AppCapability::Window],
     },
 ];
+
+const BUILTIN_PRIVILEGED_APP_IDS: &[&str] = &["system.settings"];
 
 /// Returns the static app registry used by the desktop shell.
 pub fn app_registry() -> &'static [AppDescriptor] {
@@ -162,6 +189,18 @@ pub fn app_module(app_id: AppId) -> AppModule {
 /// Returns the window-manager suspend policy for `app_id`.
 pub fn app_suspend_policy(app_id: AppId) -> SuspendPolicy {
     app_descriptor(app_id).suspend_policy
+}
+
+/// Returns declared capability scopes for `app_id`.
+pub fn app_requested_capabilities(app_id: AppId) -> &'static [AppCapability] {
+    app_descriptor(app_id).requested_capabilities
+}
+
+/// Returns whether `app_id` is privileged in shell policy.
+pub fn app_is_privileged(app_id: AppId) -> bool {
+    BUILTIN_PRIVILEGED_APP_IDS
+        .iter()
+        .any(|id| *id == app_id.canonical_id())
 }
 
 /// Builds the default [`OpenWindowRequest`] for a given app.
@@ -257,7 +296,7 @@ fn mount_calculator_app(context: AppMountContext) -> View {
         <CalculatorApp
             launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
-            host=Some(context.host)
+            services=Some(context.services)
         />
     }
     .into_view()
@@ -268,7 +307,7 @@ fn mount_explorer_app(context: AppMountContext) -> View {
         <ExplorerApp
             launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
-            host=Some(context.host)
+            services=Some(context.services)
             inbox=Some(context.inbox)
         />
     }
@@ -280,7 +319,7 @@ fn mount_notepad_app(context: AppMountContext) -> View {
         <NotepadApp
             launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
-            host=Some(context.host)
+            services=Some(context.services)
         />
     }
     .into_view()
@@ -291,7 +330,7 @@ fn mount_terminal_app(context: AppMountContext) -> View {
         <TerminalApp
             launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
-            host=Some(context.host)
+            services=Some(context.services)
         />
     }
     .into_view()
@@ -302,7 +341,7 @@ fn mount_settings_app(context: AppMountContext) -> View {
         <SettingsApp
             launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
-            host=Some(context.host)
+            services=Some(context.services)
         />
     }
     .into_view()
@@ -452,7 +491,7 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
 
         // Manager-owned app state path.
         if let Ok(value) = serde_json::to_value(&snapshot) {
-            context.host.persist_state(value);
+            context.services.state.persist_window_state(value);
         }
 
         // Legacy namespace persistence retained for migration compatibility.

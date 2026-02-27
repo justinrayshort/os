@@ -1,6 +1,6 @@
 //! Reducer actions, side-effect intents, and transition logic for the desktop runtime.
 
-use desktop_app_contract::{AppCommand, AppEvent, AppLifecycleEvent};
+use desktop_app_contract::{AppCapability, AppCommand, AppEvent, AppLifecycleEvent};
 use serde_json::{json, Value};
 use thiserror::Error;
 
@@ -152,6 +152,15 @@ pub enum DesktopAction {
         /// New app state payload.
         app_state: Value,
     },
+    /// Replace app-shared state payload for `<app_id>:<key>`.
+    SetSharedAppState {
+        /// Source app id.
+        app_id: AppId,
+        /// Shared state key.
+        key: String,
+        /// Shared state payload.
+        state: Value,
+    },
     /// Hydrate runtime state from a persisted snapshot.
     HydrateSnapshot {
         /// Snapshot payload to restore.
@@ -217,6 +226,26 @@ pub enum RuntimeEffect {
         topic: String,
         /// Event payload.
         payload: Value,
+        /// Optional correlation id.
+        correlation_id: Option<String>,
+        /// Optional reply topic.
+        reply_to: Option<String>,
+    },
+    /// Persist a namespaced config key/value through host prefs.
+    SaveConfig {
+        /// Config namespace.
+        namespace: String,
+        /// Config key.
+        key: String,
+        /// Config payload.
+        value: Value,
+    },
+    /// Emit a host notification request.
+    Notify {
+        /// Notification title.
+        title: String,
+        /// Notification body.
+        body: String,
     },
 }
 
@@ -643,81 +672,136 @@ pub fn reduce_desktop(
                 effects.push(RuntimeEffect::PersistLayout);
             }
         }
-        DesktopAction::HandleAppCommand { window_id, command } => match command {
-            AppCommand::SetWindowTitle { title } => {
-                let window = find_window_mut(state, window_id)?;
-                if window.title != title {
-                    window.title = title;
-                    effects.push(RuntimeEffect::PersistLayout);
+        DesktopAction::HandleAppCommand { window_id, command } => {
+            let source_app_id = state
+                .windows
+                .iter()
+                .find(|w| w.id == window_id)
+                .map(|w| w.app_id)
+                .ok_or(ReducerError::WindowNotFound)?;
+            if let Some(required) = command_required_capability(&command) {
+                if !command_allowed_for_app(source_app_id, required) {
+                    return Ok(effects);
                 }
             }
-            AppCommand::PersistState { state: app_state } => {
-                let nested = reduce_desktop(
-                    state,
-                    interaction,
-                    DesktopAction::SetAppState {
-                        window_id,
-                        app_state,
-                    },
-                )?;
-                effects.extend(nested);
-            }
-            AppCommand::OpenExternalUrl { url } => {
-                effects.push(RuntimeEffect::OpenExternalUrl(url));
-            }
-            AppCommand::Subscribe { topic } => {
-                if !topic.trim().is_empty() {
-                    effects.push(RuntimeEffect::SubscribeWindowTopic { window_id, topic });
+
+            match command {
+                AppCommand::SetWindowTitle { title } => {
+                    let window = find_window_mut(state, window_id)?;
+                    if window.title != title {
+                        window.title = title;
+                        effects.push(RuntimeEffect::PersistLayout);
+                    }
                 }
-            }
-            AppCommand::Unsubscribe { topic } => {
-                if !topic.trim().is_empty() {
-                    effects.push(RuntimeEffect::UnsubscribeWindowTopic { window_id, topic });
-                }
-            }
-            AppCommand::PublishEvent { topic, payload } => {
-                if !topic.trim().is_empty() {
-                    effects.push(RuntimeEffect::PublishTopicEvent {
-                        source_window_id: window_id,
-                        topic,
-                        payload,
-                    });
-                }
-            }
-            AppCommand::SetDesktopSkin { skin_id } => {
-                if let Some(skin) = desktop_skin_from_id(&skin_id) {
-                    let nested =
-                        reduce_desktop(state, interaction, DesktopAction::SetSkin { skin })?;
-                    effects.extend(nested);
-                }
-            }
-            AppCommand::SetDesktopWallpaper { wallpaper_id } => {
-                if !wallpaper_id.trim().is_empty() {
+                AppCommand::PersistState { state: app_state } => {
                     let nested = reduce_desktop(
                         state,
                         interaction,
-                        DesktopAction::SetWallpaper { wallpaper_id },
+                        DesktopAction::SetAppState {
+                            window_id,
+                            app_state,
+                        },
                     )?;
                     effects.extend(nested);
                 }
+                AppCommand::PersistSharedState { key, state: shared } => {
+                    let app_id = state
+                        .windows
+                        .iter()
+                        .find(|w| w.id == window_id)
+                        .map(|w| w.app_id)
+                        .ok_or(ReducerError::WindowNotFound)?;
+                    let nested = reduce_desktop(
+                        state,
+                        interaction,
+                        DesktopAction::SetSharedAppState {
+                            app_id,
+                            key,
+                            state: shared,
+                        },
+                    )?;
+                    effects.extend(nested);
+                }
+                AppCommand::SaveConfig {
+                    namespace,
+                    key,
+                    value,
+                } => {
+                    if !namespace.trim().is_empty() && !key.trim().is_empty() {
+                        effects.push(RuntimeEffect::SaveConfig {
+                            namespace,
+                            key,
+                            value,
+                        });
+                    }
+                }
+                AppCommand::OpenExternalUrl { url } => {
+                    effects.push(RuntimeEffect::OpenExternalUrl(url));
+                }
+                AppCommand::Subscribe { topic } => {
+                    if !topic.trim().is_empty() {
+                        effects.push(RuntimeEffect::SubscribeWindowTopic { window_id, topic });
+                    }
+                }
+                AppCommand::Unsubscribe { topic } => {
+                    if !topic.trim().is_empty() {
+                        effects.push(RuntimeEffect::UnsubscribeWindowTopic { window_id, topic });
+                    }
+                }
+                AppCommand::PublishEvent {
+                    topic,
+                    payload,
+                    correlation_id,
+                    reply_to,
+                } => {
+                    if !topic.trim().is_empty() {
+                        effects.push(RuntimeEffect::PublishTopicEvent {
+                            source_window_id: window_id,
+                            topic,
+                            payload,
+                            correlation_id,
+                            reply_to,
+                        });
+                    }
+                }
+                AppCommand::SetDesktopSkin { skin_id } => {
+                    if let Some(skin) = desktop_skin_from_id(&skin_id) {
+                        let nested =
+                            reduce_desktop(state, interaction, DesktopAction::SetSkin { skin })?;
+                        effects.extend(nested);
+                    }
+                }
+                AppCommand::SetDesktopWallpaper { wallpaper_id } => {
+                    if !wallpaper_id.trim().is_empty() {
+                        let nested = reduce_desktop(
+                            state,
+                            interaction,
+                            DesktopAction::SetWallpaper { wallpaper_id },
+                        )?;
+                        effects.extend(nested);
+                    }
+                }
+                AppCommand::SetDesktopHighContrast { enabled } => {
+                    let nested = reduce_desktop(
+                        state,
+                        interaction,
+                        DesktopAction::SetHighContrast { enabled },
+                    )?;
+                    effects.extend(nested);
+                }
+                AppCommand::SetDesktopReducedMotion { enabled } => {
+                    let nested = reduce_desktop(
+                        state,
+                        interaction,
+                        DesktopAction::SetReducedMotion { enabled },
+                    )?;
+                    effects.extend(nested);
+                }
+                AppCommand::Notify { title, body } => {
+                    effects.push(RuntimeEffect::Notify { title, body });
+                }
             }
-            AppCommand::SetDesktopHighContrast { enabled } => {
-                let nested = reduce_desktop(
-                    state,
-                    interaction,
-                    DesktopAction::SetHighContrast { enabled },
-                )?;
-                effects.extend(nested);
-            }
-            AppCommand::SetDesktopReducedMotion { enabled } => {
-                let nested = reduce_desktop(
-                    state,
-                    interaction,
-                    DesktopAction::SetReducedMotion { enabled },
-                )?;
-                effects.extend(nested);
-            }
-        },
+        }
         DesktopAction::SetSkin { skin } => {
             state.theme.skin = skin;
             effects.push(RuntimeEffect::PersistTheme);
@@ -750,6 +834,15 @@ pub fn reduce_desktop(
         } => {
             let window = find_window_mut(state, window_id)?;
             window.app_state = app_state;
+            effects.push(RuntimeEffect::PersistLayout);
+        }
+        DesktopAction::SetSharedAppState {
+            app_id,
+            key,
+            state: shared,
+        } => {
+            let storage_key = format!("{}:{}", app_id.canonical_id(), key.trim());
+            state.app_shared_state.insert(storage_key, shared);
             effects.push(RuntimeEffect::PersistLayout);
         }
         DesktopAction::HydrateSnapshot { snapshot } => {
@@ -880,6 +973,34 @@ fn emit_focus_transition(
             });
         }
     }
+}
+
+fn command_required_capability(command: &AppCommand) -> Option<AppCapability> {
+    match command {
+        AppCommand::SetWindowTitle { .. } => Some(AppCapability::Window),
+        AppCommand::PersistState { .. } | AppCommand::PersistSharedState { .. } => {
+            Some(AppCapability::State)
+        }
+        AppCommand::SaveConfig { .. } => Some(AppCapability::Config),
+        AppCommand::OpenExternalUrl { .. } => Some(AppCapability::ExternalUrl),
+        AppCommand::Subscribe { .. }
+        | AppCommand::Unsubscribe { .. }
+        | AppCommand::PublishEvent { .. } => Some(AppCapability::Ipc),
+        AppCommand::SetDesktopSkin { .. }
+        | AppCommand::SetDesktopWallpaper { .. }
+        | AppCommand::SetDesktopHighContrast { .. }
+        | AppCommand::SetDesktopReducedMotion { .. } => Some(AppCapability::Theme),
+        AppCommand::Notify { .. } => Some(AppCapability::Notifications),
+    }
+}
+
+fn command_allowed_for_app(app_id: AppId, required: AppCapability) -> bool {
+    if apps::app_is_privileged(app_id) {
+        return true;
+    }
+    apps::app_requested_capabilities(app_id)
+        .iter()
+        .any(|cap| *cap == required)
 }
 
 #[cfg(test)]
@@ -1381,6 +1502,8 @@ mod tests {
                 command: AppCommand::PublishEvent {
                     topic: "explorer.refresh".to_string(),
                     payload: payload.clone(),
+                    correlation_id: None,
+                    reply_to: None,
                 },
             },
         )
@@ -1391,6 +1514,8 @@ mod tests {
                 source_window_id: window_id,
                 topic: "explorer.refresh".to_string(),
                 payload,
+                correlation_id: None,
+                reply_to: None,
             }]
         );
     }

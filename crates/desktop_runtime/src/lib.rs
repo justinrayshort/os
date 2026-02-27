@@ -54,7 +54,8 @@ mod window_manager;
 pub use components::{use_desktop_runtime, DesktopProvider, DesktopRuntimeContext, DesktopShell};
 /// Re-exported app-runtime contract types for managed app integrations.
 pub use desktop_app_contract::{
-    AppCommand, AppEvent, AppHost, AppLifecycleEvent, AppModule, AppMountContext, SuspendPolicy,
+    AppCapability, AppCommand, AppEvent, AppLifecycleEvent, AppModule, AppMountContext,
+    AppRegistration, AppServices, ApplicationId, IpcEnvelope, SuspendPolicy,
 };
 /// Re-exported host-side effect execution context.
 pub use host::DesktopHostContext;
