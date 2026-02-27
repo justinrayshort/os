@@ -748,4 +748,330 @@
     background: var(--fluent-shell-menu-item-hover-surface);
     border-color: var(--fluent-shell-menu-item-hover-stroke);
   }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-shell {
+    gap: var(--fluent-app-grid-gap);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-menubar,
+  .desktop-shell[data-skin="modern-adaptive"] .app-toolbar,
+  .desktop-shell[data-skin="modern-adaptive"] .terminal-toolbar {
+    gap: var(--fluent-app-toolbar-gap);
+    padding: var(--fluent-app-toolbar-padding);
+    border: 1px solid var(--fluent-shell-stroke-2);
+    border-radius: var(--fluent-radius-md);
+    background: linear-gradient(
+        180deg,
+        var(--fluent-shell-taskbar-button-surface),
+        rgba(0, 0, 0, 0)
+      ),
+      var(--fluent-shell-control-neutral-surface);
+    box-shadow: none;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-toolbar label {
+    min-height: var(--fluent-app-control-min-height);
+    color: var(--fluent-shell-text-2);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-action {
+    min-height: var(--fluent-app-control-min-height);
+    padding:
+      var(--fluent-app-control-padding-block)
+      var(--fluent-app-control-padding-inline);
+    border: 1px solid var(--fluent-shell-control-neutral-stroke);
+    border-radius: var(--fluent-radius-sm);
+    color: var(--fluent-shell-text-1);
+    background: var(--fluent-shell-control-neutral-surface);
+    box-shadow: none;
+    transition:
+      background-color var(--fluent-app-interaction-transition) ease,
+      border-color var(--fluent-app-interaction-transition) ease,
+      transform var(--fluent-app-interaction-transition) ease;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-field {
+    min-height: var(--fluent-app-control-min-height);
+    padding:
+      var(--fluent-app-control-padding-block)
+      var(--fluent-app-control-padding-inline);
+    border: 1px solid var(--fluent-shell-control-neutral-stroke);
+    border-radius: var(--fluent-radius-sm);
+    background: var(--ui-terminal-bg);
+    color: var(--fluent-shell-text-1);
+    box-shadow: none;
+    caret-color: var(--fluent-shell-accent-hover);
+    transition:
+      background-color var(--fluent-app-interaction-transition) ease,
+      border-color var(--fluent-app-interaction-transition) ease;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-field[type="range"] {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-field[type="color"] {
+    min-height: var(--fluent-app-control-min-height);
+    padding: 0;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-editor {
+    min-height: calc(var(--fluent-space-4) * 8);
+    padding:
+      var(--fluent-app-control-padding-inline)
+      var(--fluent-shell-start-button-padding-inline);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-progress {
+    width: 100%;
+    min-height: var(--fluent-app-control-min-height);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-action:hover:not(:disabled),
+  .desktop-shell[data-skin="modern-adaptive"] .tree-node:hover:not(:disabled) {
+    background: var(--fluent-shell-menu-item-hover-surface);
+    border-color: var(--fluent-shell-menu-item-hover-stroke);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-action:active:not(:disabled) {
+    background: var(--fluent-shell-taskbar-button-hover-surface);
+    transform: translateY(var(--fluent-shell-taskbar-active-indicator-height));
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .tree-glyph {
+    color: var(--fluent-shell-text-2);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-statusbar {
+    gap: var(--fluent-app-grid-gap);
+    background: transparent;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-statusbar > span {
+    border: 1px solid var(--fluent-shell-stroke-2);
+    border-radius: var(--fluent-radius-sm);
+    box-shadow: none;
+    background: var(--fluent-shell-control-neutral-surface);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-tree,
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-pane,
+  .desktop-shell[data-skin="modern-adaptive"] .notepad-document,
+  .desktop-shell[data-skin="modern-adaptive"] .calculator-main,
+  .desktop-shell[data-skin="modern-adaptive"] .calc-tape {
+    border: 1px solid var(--fluent-shell-stroke-1);
+    border-radius: var(--fluent-radius-md);
+    background: var(--fluent-shell-control-neutral-surface);
+    box-shadow: none;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .tree-header,
+  .desktop-shell[data-skin="modern-adaptive"] .pane-header,
+  .desktop-shell[data-skin="modern-adaptive"] .notepad-document-header,
+  .desktop-shell[data-skin="modern-adaptive"] .calc-tape-header {
+    background: var(--fluent-shell-taskbar-button-surface);
+    border-bottom: 1px solid var(--fluent-shell-stroke-2);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-status-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--fluent-space-1) var(--fluent-space-2);
+    padding: var(--fluent-space-2);
+    border-top: 1px solid var(--fluent-shell-stroke-2);
+    font-size: var(--fluent-shell-font-size-body);
+    color: var(--fluent-shell-text-2);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .tree-node,
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-listwrap,
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-list thead th,
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-list tbody tr,
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-details {
+    background: transparent;
+    color: var(--fluent-shell-text-1);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .tree-node.selected,
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-list tbody tr.selected {
+    background: var(--fluent-shell-accent-subtle-strong);
+    color: var(--fluent-shell-text-1);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-listwrap,
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-list thead th,
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-list tbody td {
+    border-color: var(--fluent-shell-stroke-2);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-create-name,
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-file-editor,
+  .desktop-shell[data-skin="modern-adaptive"] .terminal-input {
+    background: var(--ui-terminal-bg);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-editor {
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    border-top: 1px solid var(--fluent-shell-stroke-2);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .explorer-file-editor {
+    margin: var(--fluent-app-grid-gap);
+    resize: vertical;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .notepad-ruler {
+    border: 1px solid var(--fluent-shell-stroke-2);
+    border-radius: var(--fluent-radius-sm);
+    box-shadow: none;
+    background: var(--fluent-shell-control-neutral-surface);
+    color: var(--fluent-shell-text-2);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .notepad-tabstrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--fluent-app-grid-gap);
+    padding: var(--fluent-app-grid-gap);
+    border-bottom: 1px solid var(--fluent-shell-stroke-2);
+    background: var(--fluent-shell-control-neutral-surface);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .notepad-tab {
+    border: 1px solid var(--fluent-shell-control-neutral-stroke);
+    border-radius: var(--fluent-radius-sm);
+    background: var(--fluent-shell-control-neutral-surface);
+    color: var(--fluent-shell-text-2);
+    box-shadow: none;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .notepad-tab.active {
+    border-color: var(--fluent-shell-accent);
+    color: var(--fluent-shell-text-1);
+    background: var(--fluent-shell-accent-subtle);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .notepad-page {
+    color: var(--fluent-shell-text-1);
+    background:
+      linear-gradient(var(--ui-terminal-bg), var(--ui-terminal-bg)) padding-box,
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 1.35em,
+        var(--fluent-shell-accent-subtle) 1.35em,
+        var(--fluent-shell-accent-subtle) 1.42em
+      );
+    caret-color: var(--fluent-shell-accent-hover);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .terminal-screen {
+    border: 1px solid var(--fluent-shell-stroke-1);
+    border-radius: var(--fluent-radius-md);
+    box-shadow: none;
+    background: linear-gradient(180deg, var(--ui-terminal-bg), var(--ui-panel-alt));
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .terminal-input-row {
+    border: 1px solid var(--fluent-shell-stroke-2);
+    border-radius: var(--fluent-radius-sm);
+    background: var(--fluent-shell-control-neutral-surface);
+    padding: var(--fluent-app-toolbar-padding);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-paint-intro {
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .app-dialup-card {
+    border: 1px solid var(--fluent-shell-stroke-1);
+    border-radius: var(--fluent-radius-md);
+    background: var(--fluent-shell-control-neutral-surface);
+    padding: var(--fluent-app-panel-padding);
+    color: var(--fluent-shell-text-1);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calculator-main {
+    background: linear-gradient(
+      180deg,
+      var(--fluent-shell-taskbar-button-surface),
+      var(--fluent-shell-control-neutral-surface)
+    );
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-display-panel {
+    border: 1px solid var(--fluent-shell-stroke-2);
+    border-radius: var(--fluent-radius-sm);
+    box-shadow: none;
+    background: linear-gradient(180deg, var(--ui-terminal-bg), var(--ui-panel-alt));
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-display-meta,
+  .desktop-shell[data-skin="modern-adaptive"] .calc-expression {
+    color: var(--fluent-shell-text-2);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-display {
+    color: var(--fluent-shell-text-1);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-key.digit {
+    background: var(--fluent-shell-control-neutral-surface);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-key.memory,
+  .desktop-shell[data-skin="modern-adaptive"] .calc-key.util {
+    background: var(--fluent-shell-taskbar-button-surface);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-key.operator {
+    background: var(--fluent-shell-accent-subtle);
+    border-color: var(--fluent-shell-accent-border-strong);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-key.equals {
+    background: linear-gradient(180deg, var(--fluent-shell-accent-hover), var(--fluent-shell-accent));
+    border-color: var(--fluent-shell-accent-border-strong);
+    color: var(--ui-bg);
+    text-shadow: none;
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-tape-item {
+    background: var(--fluent-shell-control-neutral-surface);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-tape-result {
+    color: var(--fluent-shell-accent-hover);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .calc-empty-tape {
+    border-color: var(--fluent-shell-stroke-2);
+    background: var(--fluent-shell-control-neutral-surface);
+    color: var(--fluent-shell-text-2);
+  }
+
+  @media (pointer: coarse), (hover: none) {
+    .desktop-shell[data-skin="modern-adaptive"] {
+      --fluent-app-control-min-height: var(--fluent-app-touch-target-min-height);
+      --fluent-app-grid-gap: var(--fluent-app-touch-gap);
+      --fluent-app-control-padding-inline: var(--fluent-app-touch-padding-inline);
+      --fluent-app-toolbar-gap: var(--fluent-app-touch-gap);
+      --fluent-app-toolbar-padding: var(--fluent-app-touch-gap);
+    }
+
+    .desktop-shell[data-skin="modern-adaptive"] .calculator-workspace,
+    .desktop-shell[data-skin="modern-adaptive"] .explorer-workspace,
+    .desktop-shell[data-skin="modern-adaptive"] .terminal-input-row,
+    .desktop-shell[data-skin="modern-adaptive"] .calc-keypad,
+    .desktop-shell[data-skin="modern-adaptive"] .notepad-tabstrip {
+      gap: var(--fluent-app-touch-gap);
+    }
+  }
 }

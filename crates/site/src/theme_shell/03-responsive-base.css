@@ -127,3 +127,39 @@
     width: 100%;
   }
 }
+
+@media (pointer: coarse), (hover: none) {
+  .app-menubar,
+  .app-toolbar,
+  .terminal-toolbar,
+  .terminal-input-row {
+    gap: 6px;
+    padding: 4px;
+    flex-wrap: wrap;
+  }
+
+  .app-action,
+  .app-field,
+  .tree-node,
+  .calc-key,
+  .calc-tape-item,
+  .notepad-tab,
+  .terminal-run {
+    min-height: 44px;
+  }
+
+  .app-toolbar label {
+    min-height: 44px;
+  }
+
+  .explorer-list tbody td {
+    padding-block: 6px;
+  }
+
+  .calculator-workspace,
+  .explorer-workspace,
+  .calc-keypad,
+  .notepad-tabstrip {
+    gap: 6px;
+  }
+}

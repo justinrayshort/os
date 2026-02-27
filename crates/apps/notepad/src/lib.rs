@@ -285,33 +285,33 @@ pub fn NotepadApp(
     view! {
         <div class="app-shell app-notepad-shell">
             <div class="app-menubar">
-                <button type="button">"File"</button>
-                <button type="button">"Edit"</button>
-                <button type="button">"Search"</button>
-                <button type="button">"Help"</button>
+                <button type="button" class="app-action">"File"</button>
+                <button type="button" class="app-action">"Edit"</button>
+                <button type="button" class="app-action">"Search"</button>
+                <button type="button" class="app-action">"Help"</button>
             </div>
 
             <div class="app-toolbar">
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     workspace.update(|w| w.wrap_lines = !w.wrap_lines);
                 }>
                     {move || if workspace.get().wrap_lines { "Wrap: On" } else { "Wrap: Off" }}
                 </button>
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     workspace.update(|w| w.add_scratch());
                     transient_notice.set(Some("Created scratch document".to_string()));
                 }>
                     "New Scratch"
                 </button>
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     transient_notice.set(Some("Auto-save is enabled (IndexedDB)".to_string()));
                 }>
                     "Save"
                 </button>
-                <button type="button" on:click=move |_| workspace.update(|w| w.move_active_by(-1))>
+                <button type="button" class="app-action" on:click=move |_| workspace.update(|w| w.move_active_by(-1))>
                     "Prev"
                 </button>
-                <button type="button" on:click=move |_| workspace.update(|w| w.move_active_by(1))>
+                <button type="button" class="app-action" on:click=move |_| workspace.update(|w| w.move_active_by(1))>
                     "Next"
                 </button>
             </div>
@@ -360,7 +360,7 @@ pub fn NotepadApp(
                                     role="tab"
                                     class=move || {
                                         let active = workspace.get().active_slug == class_slug;
-                                        if active { "notepad-tab active" } else { "notepad-tab" }
+                                        if active { "notepad-tab app-action active" } else { "notepad-tab app-action" }
                                     }
                                     aria-selected=move || workspace.get().active_slug == aria_slug
                                     aria-controls="notepad-tabpanel"
@@ -389,9 +389,9 @@ pub fn NotepadApp(
                     <textarea
                         class=move || {
                             if workspace.get().wrap_lines {
-                                "notepad-page wrap"
+                                "notepad-page app-field app-editor wrap"
                             } else {
-                                "notepad-page nowrap"
+                                "notepad-page app-field app-editor nowrap"
                             }
                         }
                         prop:value=move || current_text.get()

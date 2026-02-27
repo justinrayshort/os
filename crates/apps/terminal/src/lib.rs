@@ -208,15 +208,15 @@ pub fn TerminalApp(
     view! {
         <div class="app-shell app-terminal-shell">
             <div class="terminal-toolbar">
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     lines.update(|out| out.push("help".to_string()));
                     lines.update(|out| out.extend(simulate_command("help")));
                 }>"Help"</button>
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     lines.update(|out| out.push("open projects".to_string()));
                     lines.update(|out| out.extend(simulate_command("open projects")));
                 }>"Open Projects"</button>
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     lines.set(vec!["RetroShell 0.1".to_string(), "Screen cleared.".to_string()]);
                     input.set(String::new());
                 }>"Clear"</button>
@@ -238,7 +238,7 @@ pub fn TerminalApp(
                 </label>
                 <input
                     id=input_id.clone()
-                    class="terminal-input"
+                    class="terminal-input app-field"
                     type="text"
                     value=move || input.get()
                     on:input=move |ev| input.set(event_target_value(&ev))
@@ -253,7 +253,7 @@ pub fn TerminalApp(
                 />
                 <button
                     type="button"
-                    class="terminal-run"
+                    class="terminal-run app-action"
                     on:click=move |_| submit_input_command(input, lines, cwd)
                 >
                     "Run"

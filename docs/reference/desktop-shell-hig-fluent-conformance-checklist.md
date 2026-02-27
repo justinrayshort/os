@@ -3,7 +3,7 @@ title: "Desktop Shell HIG + Fluent Conformance Checklist"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-26"
+last_reviewed: "2026-02-27"
 audience: ["engineering", "design"]
 invariants:
   - "Conformance status is assigned from explicit evidence and acceptance criteria, not visual preference alone."
@@ -25,7 +25,7 @@ It evaluates the current implementation against:
 
 ## Scope and Assessment Basis
 
-Current scope (assessed): desktop shell chrome and shared shell controls rendered by `desktop_runtime` and themed by `crates/site/src/theme_shell/*`.
+Current scope (assessed): desktop shell chrome plus inbuilt app UI surfaces rendered by `desktop_runtime` app mounts and themed by `crates/site/src/theme_shell/*`.
 
 Included surfaces:
 
@@ -34,8 +34,9 @@ Included surfaces:
 - taskbar, tray widgets, overflow, clock menu
 - start menu and taskbar/context menus
 - display properties dialog shell controls
+- inbuilt app surfaces (Explorer, Notepad, Terminal, Calculator)
 
-Evidence snapshot used for this assessment (code inspection, 2026-02-26):
+Evidence snapshot used for this assessment (code inspection, 2026-02-27):
 
 - `crates/desktop_runtime/src/components.rs`
 - `crates/desktop_runtime/src/components/{a11y.rs,taskbar.rs,window.rs,menus.rs,display_properties.rs}`
@@ -80,9 +81,9 @@ This project is not attempting a literal macOS clone. Conformance means:
 | ID | Status | Acceptance criteria (objective) | Current evidence / gap |
 | --- | --- | --- | --- |
 | `CMP-01` | Complete | A single reusable icon primitive renders Fluent icons for shell components. | `FluentIcon` component in `crates/desktop_runtime/src/icons.rs`; used across window/taskbar/menu/dialog components. |
-| `CMP-02` | Complete | Shell chrome surfaces (windows, taskbar, menus, dialogs) share consistent visual rules for radius, borders, and elevation within the Fluent theme scope. | Fluent overrides apply common surface/radius/shadow treatment to `.desktop-window`, `.taskbar`, `.taskbar-menu`, `.start-menu`, `.desktop-context-menu`, `.display-properties-dialog`. |
+| `CMP-02` | Complete | Shell chrome surfaces (windows, taskbar, menus, dialogs) share consistent visual rules for radius, borders, and elevation within the Fluent theme scope. | Fluent overrides apply common surface/radius/shadow treatment to `.desktop-window`, `.taskbar`, `.taskbar-menu`, `.start-menu`, `.desktop-context-menu`, `.display-properties-dialog`, and inbuilt app shells/panes (`.app-*`, explorer/notepad/terminal/calculator surfaces). |
 | `CMP-03` | Complete | Component states (hover, active, focused, minimized, pressed, selected) are represented via semantic classes/attributes and styled consistently. | Examples: `.taskbar-app.focused`, `.taskbar-app.minimized`, `.tray-widget.pressed`, `.wallpaper-picker-item.selected`, `.desktop-window.focused`. |
-| `CMP-04` | Partial | Shared primitives/components are documented with explicit contracts (purpose, invariants, usage boundaries) in reference docs and code comments. | `icons.rs` and design-system reference are documented; shell CSS primitives and state-class conventions are partially documented but not yet enumerated as a formal primitive catalog. |
+| `CMP-04` | Complete | Shared primitives/components are documented with explicit contracts (purpose, invariants, usage boundaries) in reference docs and code comments. | The design-system reference now includes an explicit app primitive catalog (`app-shell`, `app-menubar`, `app-toolbar`, `app-statusbar`, `app-action`, `app-field`, `app-editor`, `app-progress`) plus usage invariants; shell icon primitives remain documented in `icons.rs`. |
 | `CMP-05` | Complete | Fluent icon integration preserves text labels for discoverability/accessibility on controls where labels are meaningful. | Start menu/taskbar labels remain text; icons are decorative (`aria-hidden`) while labels/`aria-label` provide meaning. |
 
 ### C. State Management Patterns and Theming Strategy
@@ -117,7 +118,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 | `INT-02` | Complete | Motion is purposeful, brief, and limited to reinforcing state changes (not ornamental animation). | Fluent overrides primarily use short transitions on hover/focus/window emphasis; no heavy animated sequences in shell chrome. |
 | `INT-03` | Complete | Backdrop and blur effects are capability-gated and degrade gracefully. | `@supports (backdrop-filter: blur(8px))` guard for taskbar/menus/dialog surfaces in `33-theme-fluent-modern-overrides.css`. |
 | `INT-04` | Complete | Interaction behavior is state-driven in reducer/runtime, not encoded only in CSS/DOM event side effects. | Window/taskbar/start-menu behavior dispatches `DesktopAction` values; reducer remains authoritative for shell state changes. |
-| `INT-05` | Partial | HIG-aligned pointer target sizing and coarse-pointer/touch ergonomics are explicitly validated (target size thresholds + test matrix). | Mobile breakpoints exist, but no documented target-size conformance matrix or coarse-pointer-specific validation was found. |
+| `INT-05` | Partial | HIG-aligned pointer target sizing and coarse-pointer/touch ergonomics are explicitly validated (target size thresholds + test matrix). | Coarse-pointer ergonomics are now tokenized and implemented across app surfaces (`--fluent-app-touch-*` plus coarse-pointer responsive rules in `03-responsive-base.css` and Fluent overrides), but a documented target-size test matrix and evidence pack are still outstanding. |
 
 ### F. Iconography and Fluent UI Asset Integration
 
@@ -149,7 +150,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 | `DOC-05` | Complete | Wiki artifact/SOP registries index the conformance checklist and review SOP as part of canonical navigation. | Wiki reference registry pages updated in this change. |
 | `DOC-06` | Complete | CI/local tooling includes machine-checkable UI conformance gates beyond documentation validation. | `cargo xtask docs ui-conformance` (and `cargo xtask docs all`) now enforces Fluent shell token/literal hygiene rules for `33-theme-fluent-modern-overrides.css` (with documented exception boundaries such as transparent gradient stops/effect geometry) and static icon-standardization regressions in shell component files. |
 
-## Current Assessment Summary (2026-02-26)
+## Current Assessment Summary (2026-02-27)
 
 The desktop shell implementation demonstrates a principled and technically coherent foundation for HIG-quality behavior with Fluent-style assets:
 

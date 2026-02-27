@@ -220,10 +220,22 @@ fn mount_paint_placeholder_app(context: AppMountContext) -> View {
 
 fn mount_dialup_placeholder_app(_: AppMountContext) -> View {
     view! {
-        <div class="app app-dialup">
-            <p>"Dial-up placeholder"</p>
-            <p>"Negotiating connection..."</p>
-            <progress max="100" value="45"></progress>
+        <div class="app-shell app-dialup-shell">
+            <div class="app-toolbar" role="group" aria-label="Dial-up placeholder controls">
+                <button type="button" class="app-action">"Connect"</button>
+                <button type="button" class="app-action">"Disconnect"</button>
+                <button type="button" class="app-action">"Retry"</button>
+            </div>
+            <div class="app-dialup-card">
+                <p><strong>"Dial-up (Placeholder)"</strong></p>
+                <p>"Negotiating connection..."</p>
+                <progress class="app-progress" max="100" value="45"></progress>
+            </div>
+            <div class="app-statusbar">
+                <span>"Status: connecting"</span>
+                <span>"Carrier: simulated 56k"</span>
+                <span>"Progress: 45%"</span>
+            </div>
         </div>
     }
     .into_view()
@@ -364,14 +376,17 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
     });
 
     view! {
-        <div class="app app-paint">
-            <p><strong>"Paint (Placeholder)"</strong></p>
-            <p>"Future canvas state will persist under the same namespaced IndexedDB schema path."</p>
+        <div class="app-shell app-paint-shell">
+            <div class="app-toolbar app-paint-intro" role="note">
+                <strong>"Paint (Placeholder)"</strong>
+                <span>"Future canvas state persists under the same namespaced IndexedDB path."</span>
+            </div>
 
             <div class="app-toolbar" role="group" aria-label="Paint placeholder controls">
                 <label>
                     "Tool "
                     <select
+                        class="app-field"
                         prop:value=move || state.get().tool
                         on:change=move |ev| {
                             let value = event_target_value(&ev);
@@ -388,6 +403,7 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                 <label>
                     "Brush "
                     <input
+                        class="app-field"
                         type="range"
                         min="1"
                         max="64"
@@ -405,6 +421,7 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                 <label>
                     "Color "
                     <input
+                        class="app-field"
                         type="color"
                         prop:value=move || state.get().color_hex
                         on:input=move |ev| {
@@ -417,6 +434,7 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                 <label>
                     "Canvas "
                     <select
+                        class="app-field"
                         prop:value=move || state.get().canvas_preset
                         on:change=move |ev| {
                             let value = event_target_value(&ev);
@@ -429,12 +447,12 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                     </select>
                 </label>
 
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     state.update(|s| s.status = "Placeholder save slot synced to IndexedDB".to_string());
                 }>
                     "Save Slot"
                 </button>
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     state.update(|s| s.status = "Placeholder canvas cleared (state preserved)".to_string());
                 }>
                     "Clear"
@@ -450,9 +468,8 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                         snapshot.tool, snapshot.brush_size, snapshot.color_hex, snapshot.canvas_preset
                     )
                 }}</span>
+                <span>{move || state.get().status.clone()}</span>
             </div>
-
-            <p>{move || state.get().status}</p>
         </div>
     }
 }

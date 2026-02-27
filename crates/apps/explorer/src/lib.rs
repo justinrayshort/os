@@ -632,36 +632,36 @@ pub fn ExplorerApp(
     view! {
         <div class="app-shell app-explorer-shell">
             <div class="app-menubar">
-                <button type="button">"File"</button>
-                <button type="button">"Edit"</button>
-                <button type="button">"View"</button>
-                <button type="button">"Tools"</button>
-                <button type="button">"Help"</button>
+                <button type="button" class="app-action">"File"</button>
+                <button type="button" class="app-action">"Edit"</button>
+                <button type="button" class="app-action">"View"</button>
+                <button type="button" class="app-action">"Tools"</button>
+                <button type="button" class="app-action">"Help"</button>
             </div>
 
             <div class="app-toolbar">
-                <button type="button" on:click=move |_| connect_native_folder(signals)>
+                <button type="button" class="app-action" on:click=move |_| connect_native_folder(signals)>
                     "Connect Folder"
                 </button>
-                <button type="button" on:click=move |_| refresh_directory(signals, None)>
+                <button type="button" class="app-action" on:click=move |_| refresh_directory(signals, None)>
                     "Refresh"
                 </button>
-                <button type="button" on:click=move |_| refresh_directory(signals, Some(parent_path(&cwd.get_untracked())))>
+                <button type="button" class="app-action" on:click=move |_| refresh_directory(signals, Some(parent_path(&cwd.get_untracked())))>
                     "Up"
                 </button>
-                <button type="button" on:click=move |_| request_rw_permission(signals)>
+                <button type="button" class="app-action" on:click=move |_| request_rw_permission(signals)>
                     "Request RW"
                 </button>
-                <button type="button" on:click=move |_| save_editor(signals) disabled=move || !editor_dirty.get()>
+                <button type="button" class="app-action" on:click=move |_| save_editor(signals) disabled=move || !editor_dirty.get()>
                     "Save"
                 </button>
-                <button type="button" on:click=move |_| delete_selected(signals)>
+                <button type="button" class="app-action" on:click=move |_| delete_selected(signals)>
                     "Delete"
                 </button>
-                <button type="button" on:click=move |_| prefs.update(|p| p.details_visible = !p.details_visible)>
+                <button type="button" class="app-action" on:click=move |_| prefs.update(|p| p.details_visible = !p.details_visible)>
                     {move || if prefs.get().details_visible { "Details On" } else { "Details Off" }}
                 </button>
-                <button type="button" on:click=move |_| prefs.update(|p| p.show_hidden = !p.show_hidden)>
+                <button type="button" class="app-action" on:click=move |_| prefs.update(|p| p.show_hidden = !p.show_hidden)>
                     {move || if prefs.get().show_hidden { "Hidden On" } else { "Hidden Off" }}
                 </button>
             </div>
@@ -669,13 +669,13 @@ pub fn ExplorerApp(
             <div class="app-toolbar">
                 <input
                     type="text"
-                    class="explorer-create-name"
+                    class="explorer-create-name app-field"
                     placeholder="new-file.txt or folder"
                     value=move || new_entry_name.get()
                     on:input=move |ev| new_entry_name.set(event_target_value(&ev))
                     aria-label="New item name"
                 />
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     let name = new_entry_name.get_untracked();
                     if name.trim().is_empty() {
                         set_error(signals, "Enter a name first");
@@ -685,7 +685,7 @@ pub fn ExplorerApp(
                 }>
                     "New File"
                 </button>
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     let name = new_entry_name.get_untracked();
                     if name.trim().is_empty() {
                         set_error(signals, "Enter a name first");
@@ -695,7 +695,7 @@ pub fn ExplorerApp(
                 }>
                     "New Folder"
                 </button>
-                <button type="button" on:click=move |_| {
+                <button type="button" class="app-action" on:click=move |_| {
                     signals.editor_path.set(None);
                     signals.editor_text.set(String::new());
                     signals.editor_dirty.set(false);
@@ -734,7 +734,7 @@ pub fn ExplorerApp(
                     <div class="tree-header">"Path Segments"</div>
                     <ul class="tree-list">
                         <li>
-                            <button type="button" class="tree-node" on:click=move |_| refresh_directory(signals, Some("/".to_string()))>
+                            <button type="button" class="tree-node app-action" on:click=move |_| refresh_directory(signals, Some("/".to_string()))>
                                 <span class="tree-glyph">"[]"</span>
                                 <span>"/"</span>
                             </button>
@@ -757,7 +757,7 @@ pub fn ExplorerApp(
                             let:item
                         >
                             <li>
-                                <button type="button" class="tree-node" on:click=move |_| refresh_directory(signals, Some(item.1.clone()))>
+                                <button type="button" class="tree-node app-action" on:click=move |_| refresh_directory(signals, Some(item.1.clone()))>
                                     <span class="tree-glyph">">"</span>
                                     <span>{item.0.clone()}</span>
                                 </button>
@@ -844,7 +844,7 @@ pub fn ExplorerApp(
                                 }}</div>
                             </div>
                             <textarea
-                                class="explorer-file-editor"
+                                class="explorer-file-editor app-field app-editor"
                                 prop:value=move || editor_text.get()
                                 on:input=move |ev| {
                                     editor_text.set(event_target_value(&ev));

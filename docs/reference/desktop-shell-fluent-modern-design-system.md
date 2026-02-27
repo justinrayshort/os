@@ -3,7 +3,7 @@ title: "Desktop Shell Fluent Modern Design System"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-26"
+last_reviewed: "2026-02-27"
 audience: ["engineering", "design"]
 invariants:
   - "Shell icon usage flows through the centralized `desktop_runtime::icons` abstraction instead of ad-hoc text glyphs or inline per-component SVG markup."
@@ -30,7 +30,7 @@ The Fluent Modern redesign currently covers the desktop shell chrome and shared 
 - desktop context menu wallpaper selection affordances
 - display properties dialog shell controls
 
-App content areas (Calculator, Explorer, Notepad, Terminal) share the same tokenized spacing/typography/surface system with no domain behavior changes.
+App content areas (Calculator, Explorer, Notepad, Terminal) now receive explicit modern-adaptive overrides for shared app chrome, control surfaces, and dark-mode parity while preserving existing app behavior.
 
 ## Iconography Standard (Fluent UI System Icons)
 
@@ -82,6 +82,7 @@ Token categories introduced:
 - icon sizing (`--fluent-icon-*`)
 - motion timing (`--fluent-motion-*`)
 - shell surfaces, strokes, text, accent, focus, elevation, and component state/metrics tokens (including taskbar/start/menu/tray interactive states) (`--fluent-shell-*`)
+- app-surface layout/control/touch ergonomics tokens (`--fluent-app-*`) used by all built-in app shells
 
 Compatibility strategy:
 
@@ -100,12 +101,28 @@ The redesign standardizes these shell primitives:
 - shared corner radii and elevation tokens
 - focus-visible styles using a single theme focus token
 
+Shared app-surface primitives (built-in apps + placeholder apps):
+
+- `app-shell`: canonical app layout container and status surface spacing
+- `app-menubar`, `app-toolbar`, `app-statusbar`: shared app chrome rows
+- `app-action`: canonical button/interactive target primitive
+- `app-field`: canonical text/select/range/color input primitive
+- `app-editor`: canonical multiline editor primitive
+- `app-progress`: canonical progress indicator primitive
+
+Built-in app conformance rule:
+
+- Explorer, Notepad, Terminal, Calculator, Paint placeholder, and Dial-up placeholder must compose from the primitives above and avoid one-off control styling when an equivalent primitive exists.
+- App-specific classes may extend surface semantics (for example `explorer-*`, `calc-*`) but must inherit interaction metrics (target size, padding, state transitions) from `app-action` and `app-field`.
+
 Conventions:
 
 - Icons are decorative unless otherwise specified (`aria-hidden="true"` by default).
 - Labels remain text-based for discoverability and assistive tech compatibility.
 - Icon color is inherited from component foreground color (`currentColor`) to preserve state styling.
 - Layout and component metrics should use spacing/radius/component metric tokens; remaining raw `px` values in Fluent overrides are limited to effect geometry (for example hairline borders, shadows, outline widths/offsets, transform nudges, and decorative gradient dimensions) unless explicitly documented otherwise.
+- App interaction states are standardized through primitive classes (`app-action` hover/active/focus and `app-field` focus/selection behavior) instead of per-app ad hoc state rules.
+- Touch/hybrid ergonomics are tokenized via `--fluent-app-touch-*`; coarse-pointer contexts elevate controls to touch target minimums and increase control spacing/gaps.
 
 ## Accessibility and Usability Requirements
 

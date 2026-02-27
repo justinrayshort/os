@@ -351,17 +351,17 @@ pub fn CalculatorApp(
     view! {
         <div class="app-shell app-calculator-shell">
             <div class="app-menubar calc-toolbar" aria-label="Calculator menu and shortcuts">
-                <button type="button">"Edit"</button>
-                <button type="button">"View"</button>
-                <button type="button">"Help"</button>
+                <button type="button" class="app-action">"Edit"</button>
+                <button type="button" class="app-action">"View"</button>
+                <button type="button" class="app-action">"Help"</button>
                 <span class="calc-toolbar-divider" aria-hidden="true"></span>
-                <button type="button" on:click=move |_| calc.update(|s| s.apply(CalcAction::UseLast))>
+                <button type="button" class="app-action" on:click=move |_| calc.update(|s| s.apply(CalcAction::UseLast))>
                     "Reuse Last"
                 </button>
-                <button type="button" on:click=move |_| calc.update(|s| s.clear_history())>
+                <button type="button" class="app-action" on:click=move |_| calc.update(|s| s.clear_history())>
                     "Clear Tape"
                 </button>
-                <button type="button" on:click=move |_| calc.update(|s| s.apply(CalcAction::ClearAll))>
+                <button type="button" class="app-action" on:click=move |_| calc.update(|s| s.apply(CalcAction::ClearAll))>
                     "Reset"
                 </button>
             </div>
@@ -389,7 +389,7 @@ pub fn CalculatorApp(
                         >
                             <button
                                 type="button"
-                                class=format!("calc-key {}", spec.class_name)
+                                class=format!("calc-key app-action {}", spec.class_name)
                                 title=spec.title
                                 on:click=move |_| calc.update(|state| state.apply(spec.action))
                             >
@@ -405,7 +405,7 @@ pub fn CalculatorApp(
                             <strong>"Tape"</strong>
                             <span>{move || format!("{} item(s)", calc.get().history_count())}</span>
                         </div>
-                        <button type="button" on:click=move |_| calc.update(|s| s.clear_history())>
+                        <button type="button" class="app-action" on:click=move |_| calc.update(|s| s.clear_history())>
                             "Clear"
                         </button>
                     </div>
@@ -432,7 +432,7 @@ pub fn CalculatorApp(
                             >
                                 <button
                                     type="button"
-                                    class="calc-tape-item"
+                                    class="calc-tape-item app-action"
                                     on:click=move |_| {
                                         let value = item.result_value;
                                         calc.update(|state| state.use_value(value));

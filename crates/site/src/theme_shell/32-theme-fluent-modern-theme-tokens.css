@@ -127,6 +127,17 @@
   --fluent-shell-menu-item-hover-surface: rgba(255, 255, 255, 0.56);
   --fluent-shell-menu-item-hover-stroke: rgba(15, 108, 189, 0.12);
   --fluent-shell-menu-item-active-surface: var(--fluent-shell-accent-subtle);
+  --fluent-app-grid-gap: var(--fluent-shell-taskbar-cluster-gap);
+  --fluent-app-control-min-height: var(--fluent-shell-menu-item-min-height);
+  --fluent-app-control-padding-block: var(--fluent-space-1);
+  --fluent-app-control-padding-inline: var(--fluent-space-2);
+  --fluent-app-toolbar-gap: var(--fluent-space-1);
+  --fluent-app-toolbar-padding: var(--fluent-space-1);
+  --fluent-app-panel-padding: var(--fluent-space-2);
+  --fluent-app-touch-target-min-height: calc(var(--fluent-space-4) * 3);
+  --fluent-app-touch-gap: var(--fluent-space-2);
+  --fluent-app-touch-padding-inline: var(--fluent-space-3);
+  --fluent-app-interaction-transition: var(--fluent-motion-fast);
   --fluent-shell-start-menu-max-width: 320px;
   --fluent-shell-start-menu-viewport-inset: var(--fluent-space-4);
   --fluent-shell-start-menu-padding: var(--fluent-space-2);
