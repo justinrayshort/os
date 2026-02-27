@@ -616,7 +616,7 @@ pub fn TerminalApp(
                         id=input_id.clone()
                         class="terminal-input terminal-command-input"
                         type="text"
-                        value=move || input.get()
+                        prop:value=move || input.get()
                         on:input=move |ev| input.set(event_target_value(&ev))
                         on:keydown=move |ev: KeyboardEvent| {
                             match ev.key().as_str() {
