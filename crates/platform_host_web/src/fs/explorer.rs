@@ -76,3 +76,57 @@ impl ExplorerFsService for WebExplorerFsService {
         Box::pin(async move { crate::bridge::explorer_stat(path).await })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use futures::executor::block_on;
+
+    use super::*;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn non_wasm_explorer_adapter_matches_bridge_fallback_behavior() {
+        let fs = WebExplorerFsService;
+        let fs_obj: &dyn ExplorerFsService = &fs;
+        let expected = "Browser storage APIs are only available when compiled for wasm32";
+
+        assert_eq!(block_on(fs_obj.status()).expect_err("status"), expected);
+        assert_eq!(
+            block_on(fs_obj.pick_native_directory()).expect_err("pick native dir"),
+            expected
+        );
+        assert_eq!(
+            block_on(fs_obj.request_permission(ExplorerPermissionMode::Read))
+                .expect_err("request permission"),
+            expected
+        );
+        assert_eq!(
+            block_on(fs_obj.list_dir("/")).expect_err("list dir"),
+            expected
+        );
+        assert_eq!(
+            block_on(fs_obj.read_text_file("/demo.txt")).expect_err("read file"),
+            expected
+        );
+        assert_eq!(
+            block_on(fs_obj.write_text_file("/demo.txt", "text")).expect_err("write file"),
+            expected
+        );
+        assert_eq!(
+            block_on(fs_obj.create_dir("/Demo")).expect_err("create dir"),
+            expected
+        );
+        assert_eq!(
+            block_on(fs_obj.create_file("/Demo/new.txt", "text")).expect_err("create file"),
+            expected
+        );
+        assert_eq!(
+            block_on(fs_obj.delete("/Demo/new.txt", false)).expect_err("delete"),
+            expected
+        );
+        assert_eq!(
+            block_on(fs_obj.stat("/Demo/new.txt")).expect_err("stat"),
+            expected
+        );
+    }
+}

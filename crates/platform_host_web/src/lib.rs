@@ -2,6 +2,12 @@
 //!
 //! This phase exports app-state, cache, prefs, and explorer/filesystem implementations while
 //! `platform_storage` remains the temporary compatibility facade.
+//!
+//! Bridge bindings are split by domain under `bridge/`:
+//! - `bridge::app_state`
+//! - `bridge::cache`
+//! - `bridge::fs`
+//! - `bridge::interop` (shared wasm/non-wasm transport glue)
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

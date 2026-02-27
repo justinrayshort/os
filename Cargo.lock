@@ -1140,6 +1140,7 @@ dependencies = [
 name = "platform_host_web"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "js-sys",
  "platform_host",
  "serde",

@@ -34,3 +34,37 @@ impl AppStateStore for WebAppStateStore {
         Box::pin(async move { crate::bridge::list_app_state_namespaces().await })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use futures::executor::block_on;
+    use serde_json::json;
+
+    use super::*;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn non_wasm_app_state_adapter_matches_bridge_fallback_behavior() {
+        let store = WebAppStateStore;
+        let store_obj: &dyn AppStateStore = &store;
+
+        let envelope = AppStateEnvelope {
+            envelope_version: 1,
+            namespace: "app.example".to_string(),
+            schema_version: 1,
+            updated_at_unix_ms: 1,
+            payload: json!({"ok": true}),
+        };
+
+        assert_eq!(
+            block_on(store_obj.load_app_state_envelope("app.example")).expect("load"),
+            None
+        );
+        block_on(store_obj.save_app_state_envelope(&envelope)).expect("save");
+        block_on(store_obj.delete_app_state("app.example")).expect("delete");
+        assert_eq!(
+            block_on(store_obj.list_app_state_namespaces()).expect("list"),
+            Vec::<String>::new()
+        );
+    }
+}

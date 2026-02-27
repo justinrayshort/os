@@ -4,6 +4,9 @@
 //! wraps browser capabilities (IndexedDB, Cache API, localStorage, and File System Access API)
 //! behind Rust-friendly types and async functions.
 //!
+//! Adapter selection is explicit through `host_adapters`: browser-backed services are the default,
+//! and a desktop stub strategy is available for early desktop-target wiring.
+//!
 //! # Example
 //!
 //! ```rust
