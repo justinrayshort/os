@@ -1,10 +1,16 @@
 /target
-/.DS_Store
+.DS_Store
 /.artifacts
 *.log
 
 # Playwright CLI transient captures
 /.playwright-cli/
+
+# Local Playwright configuration (machine-specific pathing)
+/.playwright/cli.config.json
+
+# Playwright smoke outputs/artifacts
+/output/playwright/
 
 # Trunk/Tauri local build artifacts
 /crates/site/target/
