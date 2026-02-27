@@ -129,6 +129,7 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
             AppCapability::Window,
             AppCapability::State,
             AppCapability::Theme,
+            AppCapability::Wallpaper,
         ],
     },
     AppDescriptor {
@@ -339,7 +340,7 @@ fn mount_terminal_app(context: AppMountContext) -> View {
 fn mount_settings_app(context: AppMountContext) -> View {
     view! {
         <SettingsApp
-            launch_params=context.launch_params.clone()
+            _launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
             services=Some(context.services)
         />

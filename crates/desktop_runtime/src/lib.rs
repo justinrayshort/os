@@ -48,6 +48,8 @@ pub mod model;
 pub mod persistence;
 /// Reducer actions and effect generation for desktop state transitions.
 pub mod reducer;
+/// Wallpaper catalog, resolution, and library helpers.
+pub mod wallpaper;
 mod window_manager;
 
 /// Re-exported runtime provider and shell UI entrypoints.
@@ -55,7 +57,10 @@ pub use components::{use_desktop_runtime, DesktopProvider, DesktopRuntimeContext
 /// Re-exported app-runtime contract types for managed app integrations.
 pub use desktop_app_contract::{
     AppCapability, AppCommand, AppEvent, AppLifecycleEvent, AppModule, AppMountContext,
-    AppRegistration, AppServices, ApplicationId, IpcEnvelope, SuspendPolicy,
+    AppRegistration, AppServices, ApplicationId, IpcEnvelope, ResolvedWallpaperSource,
+    SuspendPolicy, WallpaperAssetRecord, WallpaperCollection, WallpaperConfig,
+    WallpaperDisplayMode, WallpaperImportRequest, WallpaperLibrarySnapshot, WallpaperMediaKind,
+    WallpaperPosition, WallpaperSelection,
 };
 /// Re-exported host-side effect execution context.
 pub use host::DesktopHostContext;
@@ -65,7 +70,8 @@ pub use icons::{app_icon_name, FluentIcon, IconName, IconSize};
 pub use model::*;
 /// Re-exported persistence entrypoints used by the shell runtime.
 pub use persistence::{
-    load_boot_snapshot, persist_layout_snapshot, persist_terminal_history, persist_theme,
+    load_boot_snapshot, load_theme, load_wallpaper, persist_layout_snapshot,
+    persist_terminal_history, persist_theme, persist_wallpaper,
 };
 /// Re-exported reducer entrypoint and core action/effect enums.
 pub use reducer::{reduce_desktop, DesktopAction, RuntimeEffect};

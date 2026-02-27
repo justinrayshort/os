@@ -31,6 +31,10 @@ mod host_adapters;
 
 use serde::{de::DeserializeOwned, Serialize};
 
+pub use desktop_app_contract::{
+    ResolvedWallpaperSource, WallpaperAssetRecord, WallpaperCollection, WallpaperConfig,
+    WallpaperImportRequest, WallpaperLibrarySnapshot, WallpaperSelection,
+};
 pub use platform_host::{
     build_app_state_envelope, cache_get_json_with, cache_put_json_with, explorer_preview_cache_key,
     load_pref_with, migrate_envelope_payload, next_monotonic_timestamp_ms, normalize_virtual_path,
@@ -39,10 +43,12 @@ pub use platform_host::{
     ExplorerEntry, ExplorerEntryKind, ExplorerFileReadResult, ExplorerFsFuture, ExplorerFsService,
     ExplorerListResult, ExplorerMetadata, ExplorerPermissionMode, ExplorerPermissionState,
     ExplorerPrefs, MemoryAppStateStore, MemoryContentCache, MemoryPrefsStore, MemorySessionStore,
-    NoopAppStateStore, NoopContentCache, NoopExplorerFsService, NoopPrefsStore, PrefsStore,
-    PrefsStoreFuture, APP_STATE_ENVELOPE_VERSION, CALCULATOR_STATE_NAMESPACE,
-    DESKTOP_STATE_NAMESPACE, EXPLORER_CACHE_NAME, EXPLORER_PREFS_KEY, EXPLORER_STATE_NAMESPACE,
-    NOTEPAD_STATE_NAMESPACE, PAINT_STATE_NAMESPACE, TERMINAL_STATE_NAMESPACE,
+    NoopAppStateStore, NoopContentCache, NoopExplorerFsService, NoopPrefsStore,
+    NoopWallpaperAssetService, PrefsStore, PrefsStoreFuture, WallpaperAssetFuture,
+    WallpaperAssetMetadataPatch, WallpaperAssetService, APP_STATE_ENVELOPE_VERSION,
+    CALCULATOR_STATE_NAMESPACE, DESKTOP_STATE_NAMESPACE, EXPLORER_CACHE_NAME, EXPLORER_PREFS_KEY,
+    EXPLORER_STATE_NAMESPACE, NOTEPAD_STATE_NAMESPACE, PAINT_STATE_NAMESPACE,
+    TERMINAL_STATE_NAMESPACE,
 };
 
 /// Loads a typed preference value from localStorage on WASM targets.
@@ -89,6 +95,110 @@ pub async fn save_pref_typed<T: Serialize>(key: &str, value: &T) -> Result<(), S
 pub async fn delete_pref_typed(key: &str) -> Result<(), String> {
     let store = host_adapters::prefs_store();
     store.delete_pref(key).await
+}
+
+/// Loads the managed wallpaper library snapshot through the selected host adapter.
+///
+/// # Errors
+///
+/// Returns an error when the host asset service fails.
+pub async fn wallpaper_list_library() -> Result<WallpaperLibrarySnapshot, String> {
+    host_adapters::wallpaper_asset_service()
+        .list_library()
+        .await
+}
+
+/// Imports a wallpaper asset through the selected host adapter.
+///
+/// # Errors
+///
+/// Returns an error when the picker flow fails or the selected asset is rejected.
+pub async fn wallpaper_import_from_picker(
+    request: WallpaperImportRequest,
+) -> Result<WallpaperAssetRecord, String> {
+    host_adapters::wallpaper_asset_service()
+        .import_from_picker(request)
+        .await
+}
+
+/// Updates managed wallpaper asset metadata.
+///
+/// # Errors
+///
+/// Returns an error when the asset cannot be updated.
+pub async fn wallpaper_update_asset_metadata(
+    asset_id: &str,
+    patch: WallpaperAssetMetadataPatch,
+) -> Result<WallpaperAssetRecord, String> {
+    host_adapters::wallpaper_asset_service()
+        .update_asset_metadata(asset_id, patch)
+        .await
+}
+
+/// Creates a wallpaper collection.
+///
+/// # Errors
+///
+/// Returns an error when the collection cannot be created.
+pub async fn wallpaper_create_collection(
+    display_name: &str,
+) -> Result<WallpaperCollection, String> {
+    host_adapters::wallpaper_asset_service()
+        .create_collection(display_name)
+        .await
+}
+
+/// Renames a wallpaper collection.
+///
+/// # Errors
+///
+/// Returns an error when the collection cannot be renamed.
+pub async fn wallpaper_rename_collection(
+    collection_id: &str,
+    display_name: &str,
+) -> Result<WallpaperCollection, String> {
+    host_adapters::wallpaper_asset_service()
+        .rename_collection(collection_id, display_name)
+        .await
+}
+
+/// Deletes a wallpaper collection and removes memberships.
+///
+/// # Errors
+///
+/// Returns an error when the collection cannot be deleted.
+pub async fn wallpaper_delete_collection(
+    collection_id: &str,
+) -> Result<WallpaperLibrarySnapshot, String> {
+    host_adapters::wallpaper_asset_service()
+        .delete_collection(collection_id)
+        .await
+}
+
+/// Deletes a managed wallpaper asset.
+///
+/// # Errors
+///
+/// Returns an error when the asset cannot be deleted.
+pub async fn wallpaper_delete_asset(asset_id: &str) -> Result<WallpaperLibrarySnapshot, String> {
+    host_adapters::wallpaper_asset_service()
+        .delete_asset(asset_id)
+        .await
+}
+
+/// Resolves an imported wallpaper selection through the selected host adapter.
+///
+/// Built-in wallpapers resolve in the runtime catalog and therefore return `Ok(None)` here.
+///
+/// # Errors
+///
+/// Returns an error when the host asset service fails.
+pub async fn wallpaper_resolve_source(
+    selection: WallpaperSelection,
+) -> Result<Option<ResolvedWallpaperSource>, String> {
+    host_adapters::wallpaper_asset_service()
+        .resolve_source(selection)
+        .await
 }
 
 async fn load_app_state_envelope_raw(namespace: &str) -> Result<Option<AppStateEnvelope>, String> {

@@ -8,8 +8,10 @@ mod window;
 
 use std::time::Duration;
 
+use desktop_app_contract::{
+    WallpaperAnimationPolicy, WallpaperDisplayMode, WallpaperMediaKind, WallpaperPosition,
+};
 use leptos::*;
-use serde_json::json;
 
 use self::{
     a11y::{focus_element_by_id, focus_first_menu_item, handle_menu_roving_keydown},
@@ -28,6 +30,7 @@ use crate::{
         AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
     },
     reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
+    wallpaper,
 };
 
 const TASKBAR_HEIGHT_PX: i32 = 38;
@@ -38,85 +41,36 @@ struct DesktopContextMenuState {
     y: i32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum WallpaperPresetKind {
-    Pattern,
-    Picture,
+fn taskbar_window_button_dom_id(window_id: WindowId) -> String {
+    format!("taskbar-window-button-{}", window_id.0)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct WallpaperPreset {
-    id: &'static str,
-    label: &'static str,
-    kind: WallpaperPresetKind,
-    note: &'static str,
-}
-
-fn desktop_wallpaper_presets() -> &'static [WallpaperPreset] {
-    const PRESETS: &[WallpaperPreset] = &[
-        WallpaperPreset {
-            id: "teal-solid",
-            label: "Solid Teal",
-            kind: WallpaperPresetKind::Pattern,
-            note: "Classic single-color desktop fill",
-        },
-        WallpaperPreset {
-            id: "teal-grid",
-            label: "Teal Grid",
-            kind: WallpaperPresetKind::Pattern,
-            note: "Subtle tiled grid on teal",
-        },
-        WallpaperPreset {
-            id: "woven-steel",
-            label: "Woven Steel",
-            kind: WallpaperPresetKind::Pattern,
-            note: "Crosshatch weave pattern",
-        },
-        WallpaperPreset {
-            id: "cloud-bands",
-            label: "Cloud Bands",
-            kind: WallpaperPresetKind::Picture,
-            note: "Soft sky bands and clouds",
-        },
-        WallpaperPreset {
-            id: "green-hills",
-            label: "Green Hills",
-            kind: WallpaperPresetKind::Picture,
-            note: "Rolling hills and blue sky",
-        },
-        WallpaperPreset {
-            id: "sunset-lake",
-            label: "Sunset Lake",
-            kind: WallpaperPresetKind::Picture,
-            note: "Warm dusk landscape scene",
-        },
-    ];
-    PRESETS
-}
-
-fn wallpaper_preset_kind_label(kind: WallpaperPresetKind) -> &'static str {
-    match kind {
-        WallpaperPresetKind::Pattern => "Pattern",
-        WallpaperPresetKind::Picture => "Picture",
+fn wallpaper_object_position(position: WallpaperPosition) -> &'static str {
+    match position {
+        WallpaperPosition::TopLeft => "left top",
+        WallpaperPosition::Top => "center top",
+        WallpaperPosition::TopRight => "right top",
+        WallpaperPosition::Left => "left center",
+        WallpaperPosition::Center => "center center",
+        WallpaperPosition::Right => "right center",
+        WallpaperPosition::BottomLeft => "left bottom",
+        WallpaperPosition::Bottom => "center bottom",
+        WallpaperPosition::BottomRight => "right bottom",
     }
 }
 
-fn wallpaper_preset_by_id(id: &str) -> WallpaperPreset {
-    let normalized = match id {
-        // Backward-compatible alias for older snapshots.
-        "slate-grid" => "teal-grid",
-        _ => id,
-    };
-
-    desktop_wallpaper_presets()
-        .iter()
-        .copied()
-        .find(|preset| preset.id == normalized)
-        .unwrap_or_else(|| desktop_wallpaper_presets()[0])
+fn wallpaper_background_position(position: WallpaperPosition) -> &'static str {
+    wallpaper_object_position(position)
 }
 
-fn taskbar_window_button_dom_id(window_id: WindowId) -> String {
-    format!("taskbar-window-button-{}", window_id.0)
+fn wallpaper_object_fit(display_mode: WallpaperDisplayMode) -> &'static str {
+    match display_mode {
+        WallpaperDisplayMode::Fill => "cover",
+        WallpaperDisplayMode::Fit => "contain",
+        WallpaperDisplayMode::Stretch => "fill",
+        WallpaperDisplayMode::Center => "none",
+        WallpaperDisplayMode::Tile => "none",
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -192,6 +146,92 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
     host.install_boot_hydration(dispatch);
 
     children().into_view()
+}
+
+#[component]
+fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
+    let active_config = Signal::derive(move || {
+        let desktop = state.get();
+        desktop.wallpaper_preview.unwrap_or(desktop.wallpaper)
+    });
+    let resolved_source = Signal::derive(move || {
+        let desktop = state.get();
+        wallpaper::resolve_wallpaper_source(&active_config.get(), &desktop.wallpaper_library)
+    });
+    let reduced_motion = Signal::derive(move || state.get().theme.reduced_motion);
+
+    view! {
+        <Show when=move || resolved_source.get().is_some() fallback=|| ()>
+            {move || {
+                let config = active_config.get();
+                let source = resolved_source.get().expect("wallpaper source");
+                let fit = wallpaper_object_fit(config.display_mode);
+                let position = wallpaper_object_position(config.position);
+                let background_position = wallpaper_background_position(config.position);
+                let allow_animation = !reduced_motion.get()
+                    && config.animation == WallpaperAnimationPolicy::LoopMuted;
+
+                match (source.media_kind, config.display_mode) {
+                    (WallpaperMediaKind::StaticImage | WallpaperMediaKind::Svg, WallpaperDisplayMode::Tile) => {
+                        view! {
+                            <div
+                                class="desktop-wallpaper-layer desktop-wallpaper-layer--tile"
+                                style=format!(
+                                    "background-image:url('{}');background-position:{};",
+                                    source.primary_url,
+                                    background_position
+                                )
+                            />
+                        }
+                            .into_view()
+                    }
+                    (WallpaperMediaKind::Video, _) | (WallpaperMediaKind::AnimatedImage, _)
+                        if !allow_animation =>
+                    {
+                        let fallback_url = source
+                            .poster_url
+                            .clone()
+                            .unwrap_or_else(|| source.primary_url.clone());
+                        view! {
+                            <img
+                                class="desktop-wallpaper-layer desktop-wallpaper-image"
+                                src=fallback_url
+                                alt=""
+                                style=format!("object-fit:{};object-position:{};", fit, position)
+                            />
+                        }
+                            .into_view()
+                    }
+                    (WallpaperMediaKind::Video, _) => {
+                        view! {
+                            <video
+                                class="desktop-wallpaper-layer desktop-wallpaper-video"
+                                src=source.primary_url
+                                poster=source.poster_url.unwrap_or_default()
+                                autoplay=true
+                                muted=true
+                                loop=true
+                                playsinline=true
+                                style=format!("object-fit:{};object-position:{};", fit, position)
+                            />
+                        }
+                            .into_view()
+                    }
+                    _ => {
+                        view! {
+                            <img
+                                class="desktop-wallpaper-layer desktop-wallpaper-image"
+                                src=source.primary_url
+                                alt=""
+                                style=format!("object-fit:{};object-position:{};", fit, position)
+                            />
+                        }
+                            .into_view()
+                    }
+                }
+            }}
+        </Show>
+    }
 }
 
 /// Returns the current [`DesktopRuntimeContext`].
@@ -273,14 +313,10 @@ pub fn DesktopShell() -> impl IntoView {
         }
 
         let viewport = runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX);
-        let mut request = apps::default_open_request(AppId::Settings, Some(viewport));
-        request.launch_params = json!({
-            "wallpaper_id": desktop.theme.wallpaper_id,
-            "skin_id": desktop.theme.skin.css_id(),
-            "high_contrast": desktop.theme.high_contrast,
-            "reduced_motion": desktop.theme.reduced_motion,
-        });
-        runtime.dispatch_action(DesktopAction::OpenWindow(request));
+        runtime.dispatch_action(DesktopAction::OpenWindow(apps::default_open_request(
+            AppId::Settings,
+            Some(viewport),
+        )));
     });
 
     view! {
@@ -302,8 +338,9 @@ pub fn DesktopShell() -> impl IntoView {
         >
             <div
                 class="desktop-wallpaper"
-                data-wallpaper=move || wallpaper_preset_by_id(&state.get().theme.wallpaper_id).id
             >
+                <DesktopWallpaperRenderer state=state />
+                <div class="desktop-wallpaper-atmosphere" aria-hidden="true"></div>
                 <div
                     class="desktop-surface-dismiss"
                     on:mousedown=move |_| {

@@ -17,6 +17,7 @@ pub mod cache;
 pub mod fs;
 pub mod notifications;
 pub mod storage;
+pub mod wallpaper;
 
 pub use cache::cache_api::WebContentCache;
 pub use cache::tauri_cache_api::TauriContentCache;
@@ -26,3 +27,4 @@ pub use storage::indexed_db::WebAppStateStore;
 pub use storage::local_prefs::WebPrefsStore;
 pub use storage::tauri_app_state::TauriAppStateStore;
 pub use storage::tauri_prefs::TauriPrefsStore;
+pub use wallpaper::WebWallpaperAssetService;

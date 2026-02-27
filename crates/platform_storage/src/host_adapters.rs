@@ -1,13 +1,19 @@
+use desktop_app_contract::{
+    ResolvedWallpaperSource, WallpaperAssetRecord, WallpaperCollection, WallpaperImportRequest,
+    WallpaperLibrarySnapshot, WallpaperSelection,
+};
 use platform_host::{
     AppStateEnvelope, AppStateStore, AppStateStoreFuture, ContentCache, ContentCacheFuture,
     ExplorerBackendStatus, ExplorerFileReadResult, ExplorerFsFuture, ExplorerFsService,
     ExplorerListResult, ExplorerMetadata, ExplorerPermissionMode, ExplorerPermissionState,
-    NoopAppStateStore, NoopContentCache, NoopExplorerFsService, NoopPrefsStore, PrefsStore,
-    PrefsStoreFuture,
+    NoopAppStateStore, NoopContentCache, NoopExplorerFsService, NoopPrefsStore,
+    NoopWallpaperAssetService, PrefsStore, PrefsStoreFuture, WallpaperAssetFuture,
+    WallpaperAssetMetadataPatch, WallpaperAssetService,
 };
 use platform_host_web::{
     TauriAppStateStore, TauriContentCache, TauriExplorerFsService, TauriPrefsStore,
     WebAppStateStore, WebContentCache, WebExplorerFsService, WebPrefsStore,
+    WebWallpaperAssetService,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -322,6 +328,108 @@ impl PrefsStore for PrefsStoreAdapter {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum WallpaperAssetServiceAdapter {
+    Browser(WebWallpaperAssetService),
+    DesktopTauri(WebWallpaperAssetService),
+    DesktopStub(NoopWallpaperAssetService),
+}
+
+impl WallpaperAssetService for WallpaperAssetServiceAdapter {
+    fn import_from_picker<'a>(
+        &'a self,
+        request: WallpaperImportRequest,
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetRecord, String>> {
+        match self {
+            Self::Browser(service) | Self::DesktopTauri(service) => {
+                service.import_from_picker(request)
+            }
+            Self::DesktopStub(service) => service.import_from_picker(request),
+        }
+    }
+
+    fn list_library<'a>(
+        &'a self,
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>> {
+        match self {
+            Self::Browser(service) | Self::DesktopTauri(service) => service.list_library(),
+            Self::DesktopStub(service) => service.list_library(),
+        }
+    }
+
+    fn update_asset_metadata<'a>(
+        &'a self,
+        asset_id: &'a str,
+        patch: WallpaperAssetMetadataPatch,
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetRecord, String>> {
+        match self {
+            Self::Browser(service) | Self::DesktopTauri(service) => {
+                service.update_asset_metadata(asset_id, patch)
+            }
+            Self::DesktopStub(service) => service.update_asset_metadata(asset_id, patch),
+        }
+    }
+
+    fn create_collection<'a>(
+        &'a self,
+        display_name: &'a str,
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperCollection, String>> {
+        match self {
+            Self::Browser(service) | Self::DesktopTauri(service) => {
+                service.create_collection(display_name)
+            }
+            Self::DesktopStub(service) => service.create_collection(display_name),
+        }
+    }
+
+    fn rename_collection<'a>(
+        &'a self,
+        collection_id: &'a str,
+        display_name: &'a str,
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperCollection, String>> {
+        match self {
+            Self::Browser(service) | Self::DesktopTauri(service) => {
+                service.rename_collection(collection_id, display_name)
+            }
+            Self::DesktopStub(service) => service.rename_collection(collection_id, display_name),
+        }
+    }
+
+    fn delete_collection<'a>(
+        &'a self,
+        collection_id: &'a str,
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>> {
+        match self {
+            Self::Browser(service) | Self::DesktopTauri(service) => {
+                service.delete_collection(collection_id)
+            }
+            Self::DesktopStub(service) => service.delete_collection(collection_id),
+        }
+    }
+
+    fn delete_asset<'a>(
+        &'a self,
+        asset_id: &'a str,
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>> {
+        match self {
+            Self::Browser(service) | Self::DesktopTauri(service) => service.delete_asset(asset_id),
+            Self::DesktopStub(service) => service.delete_asset(asset_id),
+        }
+    }
+
+    fn resolve_source<'a>(
+        &'a self,
+        selection: WallpaperSelection,
+    ) -> WallpaperAssetFuture<'a, Result<Option<ResolvedWallpaperSource>, String>> {
+        match self {
+            Self::Browser(service) | Self::DesktopTauri(service) => {
+                service.resolve_source(selection)
+            }
+            Self::DesktopStub(service) => service.resolve_source(selection),
+        }
+    }
+}
+
 fn app_state_store_for(strategy: HostStrategy) -> AppStateStoreAdapter {
     match strategy {
         HostStrategy::Browser => AppStateStoreAdapter::Browser(WebAppStateStore),
@@ -370,6 +478,22 @@ fn prefs_store_for(strategy: HostStrategy) -> PrefsStoreAdapter {
 
 pub(crate) fn prefs_store() -> PrefsStoreAdapter {
     prefs_store_for(selected_host_strategy())
+}
+
+fn wallpaper_asset_service_for(strategy: HostStrategy) -> WallpaperAssetServiceAdapter {
+    match strategy {
+        HostStrategy::Browser => WallpaperAssetServiceAdapter::Browser(WebWallpaperAssetService),
+        HostStrategy::DesktopTauri => {
+            WallpaperAssetServiceAdapter::DesktopTauri(WebWallpaperAssetService)
+        }
+        HostStrategy::DesktopStub => {
+            WallpaperAssetServiceAdapter::DesktopStub(NoopWallpaperAssetService)
+        }
+    }
+}
+
+pub(crate) fn wallpaper_asset_service() -> WallpaperAssetServiceAdapter {
+    wallpaper_asset_service_for(selected_host_strategy())
 }
 
 #[cfg(test)]

@@ -1,19 +1,22 @@
 //! Reducer actions, side-effect intents, and transition logic for the desktop runtime.
 
-use desktop_app_contract::{AppCapability, AppCommand, AppEvent, AppLifecycleEvent};
+use desktop_app_contract::{
+    AppCapability, AppCommand, AppEvent, AppLifecycleEvent, WallpaperConfig, WallpaperDisplayMode,
+    WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperSelection,
+};
 use serde_json::{json, Value};
 use thiserror::Error;
 
-use crate::apps;
 use crate::model::{
     AppId, DeepLinkOpenTarget, DeepLinkState, DesktopSkin, DesktopSnapshot, DesktopState,
-    InteractionState, OpenWindowRequest, PointerPosition, ResizeEdge, ResizeSession, WindowId,
-    WindowRecord, WindowRect, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
+    DesktopTheme, InteractionState, OpenWindowRequest, PointerPosition, ResizeEdge, ResizeSession,
+    WindowId, WindowRecord, WindowRect, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
 };
 use crate::window_manager::{
     focus_window_internal, normalize_window_stack, resize_rect, snap_window_to_viewport_edge,
     MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH,
 };
+use crate::{apps, wallpaper};
 
 #[derive(Debug, Clone, PartialEq)]
 /// Actions accepted by [`reduce_desktop`] to mutate [`DesktopState`].
@@ -125,10 +128,34 @@ pub enum DesktopAction {
         /// New typed skin id.
         skin: DesktopSkin,
     },
-    /// Set the active wallpaper preset id.
-    SetWallpaper {
-        /// Wallpaper preset id.
-        wallpaper_id: String,
+    /// Replace the committed desktop wallpaper configuration.
+    SetCurrentWallpaper {
+        /// Wallpaper configuration to commit.
+        config: WallpaperConfig,
+    },
+    /// Start previewing a wallpaper configuration.
+    PreviewWallpaper {
+        /// Wallpaper configuration to preview.
+        config: WallpaperConfig,
+    },
+    /// Commit the active wallpaper preview.
+    ApplyWallpaperPreview,
+    /// Clear the active wallpaper preview.
+    ClearWallpaperPreview,
+    /// Hydrate theme state independently from layout restore.
+    HydrateTheme {
+        /// Persisted theme payload.
+        theme: DesktopTheme,
+    },
+    /// Hydrate wallpaper state independently from layout restore.
+    HydrateWallpaper {
+        /// Persisted wallpaper payload.
+        wallpaper: WallpaperConfig,
+    },
+    /// Replace the wallpaper library snapshot.
+    WallpaperLibraryLoaded {
+        /// Imported wallpaper library snapshot loaded from the host.
+        snapshot: WallpaperLibrarySnapshot,
     },
     /// Toggle high-contrast rendering.
     SetHighContrast {
@@ -180,6 +207,8 @@ pub enum RuntimeEffect {
     PersistLayout,
     /// Persist theme changes.
     PersistTheme,
+    /// Persist wallpaper changes.
+    PersistWallpaper,
     /// Persist terminal history changes.
     PersistTerminalHistory,
     /// Move focus into the newly focused window's primary input.
@@ -240,6 +269,42 @@ pub enum RuntimeEffect {
         /// Config payload.
         value: Value,
     },
+    /// Load the wallpaper library snapshot from the host.
+    LoadWallpaperLibrary,
+    /// Import a wallpaper through the host picker flow.
+    ImportWallpaperFromPicker {
+        /// Import request payload.
+        request: desktop_app_contract::WallpaperImportRequest,
+    },
+    /// Update managed wallpaper metadata through the host service.
+    UpdateWallpaperAssetMetadata {
+        /// Managed asset identifier.
+        asset_id: String,
+        /// Metadata patch payload.
+        patch: platform_storage::WallpaperAssetMetadataPatch,
+    },
+    /// Create a wallpaper collection.
+    CreateWallpaperCollection {
+        /// New collection label.
+        display_name: String,
+    },
+    /// Rename a wallpaper collection.
+    RenameWallpaperCollection {
+        /// Collection identifier.
+        collection_id: String,
+        /// Updated collection label.
+        display_name: String,
+    },
+    /// Delete a wallpaper collection.
+    DeleteWallpaperCollection {
+        /// Collection identifier.
+        collection_id: String,
+    },
+    /// Delete a wallpaper asset.
+    DeleteWallpaperAsset {
+        /// Managed asset identifier.
+        asset_id: String,
+    },
     /// Emit a host notification request.
     Notify {
         /// Notification title.
@@ -255,6 +320,9 @@ pub enum ReducerError {
     /// The target window id was not found in the current state.
     #[error("window not found")]
     WindowNotFound,
+    /// A wallpaper configuration violated runtime constraints.
+    #[error("invalid wallpaper configuration: {0}")]
+    InvalidWallpaperConfig(String),
 }
 
 fn clamp_window_rect_to_viewport(rect: WindowRect, viewport: WindowRect) -> WindowRect {
@@ -277,6 +345,74 @@ fn desktop_skin_from_id(skin_id: &str) -> Option<DesktopSkin> {
         "classic-xp" => Some(DesktopSkin::ClassicXp),
         "classic-95" => Some(DesktopSkin::Classic95),
         _ => None,
+    }
+}
+
+fn default_builtin_wallpaper() -> WallpaperConfig {
+    WallpaperConfig {
+        selection: WallpaperSelection::BuiltIn {
+            wallpaper_id: "cloud-bands".to_string(),
+        },
+        display_mode: WallpaperDisplayMode::Fill,
+        ..WallpaperConfig::default()
+    }
+}
+
+fn canonicalize_wallpaper_config(mut config: WallpaperConfig) -> WallpaperConfig {
+    if let WallpaperSelection::BuiltIn { wallpaper_id } = &mut config.selection {
+        *wallpaper_id = wallpaper::canonical_wallpaper_id(wallpaper_id).to_string();
+    }
+    config
+}
+
+fn wallpaper_media_kind_for_config(
+    state: &DesktopState,
+    config: &WallpaperConfig,
+) -> Option<WallpaperMediaKind> {
+    wallpaper::resolve_wallpaper_source(config, &state.wallpaper_library)
+        .map(|source| source.media_kind)
+}
+
+fn validate_wallpaper_config(
+    state: &DesktopState,
+    config: &WallpaperConfig,
+) -> Result<WallpaperConfig, ReducerError> {
+    let config = canonicalize_wallpaper_config(config.clone());
+    let media_kind = wallpaper_media_kind_for_config(state, &config)
+        .or_else(|| match &config.selection {
+            WallpaperSelection::BuiltIn { wallpaper_id } => {
+                wallpaper::builtin_wallpaper_by_id(wallpaper_id).map(|asset| asset.media_kind)
+            }
+            WallpaperSelection::Imported { .. } => None,
+        })
+        .ok_or_else(|| {
+            ReducerError::InvalidWallpaperConfig("wallpaper asset not found".to_string())
+        })?;
+
+    if config.display_mode == WallpaperDisplayMode::Tile
+        && matches!(
+            media_kind,
+            WallpaperMediaKind::AnimatedImage | WallpaperMediaKind::Video
+        )
+    {
+        return Err(ReducerError::InvalidWallpaperConfig(
+            "tile mode is unsupported for animated wallpapers".to_string(),
+        ));
+    }
+
+    Ok(config)
+}
+
+fn normalize_wallpaper_state(state: &mut DesktopState) {
+    let current_missing =
+        wallpaper::resolve_wallpaper_source(&state.wallpaper, &state.wallpaper_library).is_none();
+    if current_missing {
+        state.wallpaper = default_builtin_wallpaper();
+    }
+    if let Some(preview) = state.wallpaper_preview.clone() {
+        if wallpaper::resolve_wallpaper_source(&preview, &state.wallpaper_library).is_none() {
+            state.wallpaper_preview = None;
+        }
     }
 }
 
@@ -771,15 +907,94 @@ pub fn reduce_desktop(
                         effects.extend(nested);
                     }
                 }
-                AppCommand::SetDesktopWallpaper { wallpaper_id } => {
-                    if !wallpaper_id.trim().is_empty() {
-                        let nested = reduce_desktop(
-                            state,
-                            interaction,
-                            DesktopAction::SetWallpaper { wallpaper_id },
-                        )?;
-                        effects.extend(nested);
-                    }
+                AppCommand::PreviewWallpaper { config } => {
+                    let nested = reduce_desktop(
+                        state,
+                        interaction,
+                        DesktopAction::PreviewWallpaper { config },
+                    )?;
+                    effects.extend(nested);
+                }
+                AppCommand::ApplyWallpaperPreview => {
+                    let nested =
+                        reduce_desktop(state, interaction, DesktopAction::ApplyWallpaperPreview)?;
+                    effects.extend(nested);
+                }
+                AppCommand::SetCurrentWallpaper { config } => {
+                    let nested = reduce_desktop(
+                        state,
+                        interaction,
+                        DesktopAction::SetCurrentWallpaper { config },
+                    )?;
+                    effects.extend(nested);
+                }
+                AppCommand::ClearWallpaperPreview => {
+                    let nested =
+                        reduce_desktop(state, interaction, DesktopAction::ClearWallpaperPreview)?;
+                    effects.extend(nested);
+                }
+                AppCommand::ImportWallpaperFromPicker { request } => {
+                    effects.push(RuntimeEffect::ImportWallpaperFromPicker { request });
+                }
+                AppCommand::RenameWallpaperAsset {
+                    asset_id,
+                    display_name,
+                } => {
+                    effects.push(RuntimeEffect::UpdateWallpaperAssetMetadata {
+                        asset_id,
+                        patch: platform_storage::WallpaperAssetMetadataPatch {
+                            display_name: Some(display_name),
+                            ..Default::default()
+                        },
+                    });
+                }
+                AppCommand::SetWallpaperFavorite { asset_id, favorite } => {
+                    effects.push(RuntimeEffect::UpdateWallpaperAssetMetadata {
+                        asset_id,
+                        patch: platform_storage::WallpaperAssetMetadataPatch {
+                            favorite: Some(favorite),
+                            ..Default::default()
+                        },
+                    });
+                }
+                AppCommand::SetWallpaperTags { asset_id, tags } => {
+                    effects.push(RuntimeEffect::UpdateWallpaperAssetMetadata {
+                        asset_id,
+                        patch: platform_storage::WallpaperAssetMetadataPatch {
+                            tags: Some(tags),
+                            ..Default::default()
+                        },
+                    });
+                }
+                AppCommand::SetWallpaperCollections {
+                    asset_id,
+                    collection_ids,
+                } => {
+                    effects.push(RuntimeEffect::UpdateWallpaperAssetMetadata {
+                        asset_id,
+                        patch: platform_storage::WallpaperAssetMetadataPatch {
+                            collection_ids: Some(collection_ids),
+                            ..Default::default()
+                        },
+                    });
+                }
+                AppCommand::CreateWallpaperCollection { display_name } => {
+                    effects.push(RuntimeEffect::CreateWallpaperCollection { display_name });
+                }
+                AppCommand::RenameWallpaperCollection {
+                    collection_id,
+                    display_name,
+                } => {
+                    effects.push(RuntimeEffect::RenameWallpaperCollection {
+                        collection_id,
+                        display_name,
+                    });
+                }
+                AppCommand::DeleteWallpaperCollection { collection_id } => {
+                    effects.push(RuntimeEffect::DeleteWallpaperCollection { collection_id });
+                }
+                AppCommand::DeleteWallpaperAsset { asset_id } => {
+                    effects.push(RuntimeEffect::DeleteWallpaperAsset { asset_id });
                 }
                 AppCommand::SetDesktopHighContrast { enabled } => {
                     let nested = reduce_desktop(
@@ -806,9 +1021,34 @@ pub fn reduce_desktop(
             state.theme.skin = skin;
             effects.push(RuntimeEffect::PersistTheme);
         }
-        DesktopAction::SetWallpaper { wallpaper_id } => {
-            state.theme.wallpaper_id = wallpaper_id;
-            effects.push(RuntimeEffect::PersistTheme);
+        DesktopAction::SetCurrentWallpaper { config } => {
+            state.wallpaper = validate_wallpaper_config(state, &config)?;
+            state.wallpaper_preview = None;
+            effects.push(RuntimeEffect::PersistWallpaper);
+        }
+        DesktopAction::PreviewWallpaper { config } => {
+            state.wallpaper_preview = Some(validate_wallpaper_config(state, &config)?);
+        }
+        DesktopAction::ApplyWallpaperPreview => {
+            if let Some(config) = state.wallpaper_preview.clone() {
+                state.wallpaper = validate_wallpaper_config(state, &config)?;
+                state.wallpaper_preview = None;
+                effects.push(RuntimeEffect::PersistWallpaper);
+            }
+        }
+        DesktopAction::ClearWallpaperPreview => {
+            state.wallpaper_preview = None;
+        }
+        DesktopAction::HydrateTheme { theme } => {
+            state.theme = theme;
+        }
+        DesktopAction::HydrateWallpaper { wallpaper } => {
+            state.wallpaper = canonicalize_wallpaper_config(wallpaper);
+            state.wallpaper_preview = None;
+        }
+        DesktopAction::WallpaperLibraryLoaded { snapshot } => {
+            state.wallpaper_library = wallpaper::merged_wallpaper_library(&snapshot);
+            normalize_wallpaper_state(state);
         }
         DesktopAction::SetHighContrast { enabled } => {
             state.theme.high_contrast = enabled;
@@ -847,7 +1087,15 @@ pub fn reduce_desktop(
         }
         DesktopAction::HydrateSnapshot { snapshot } => {
             let max_restore = state.preferences.max_restore_windows;
+            let theme = state.theme.clone();
+            let wallpaper_config = state.wallpaper.clone();
+            let wallpaper_preview = state.wallpaper_preview.clone();
+            let wallpaper_library = state.wallpaper_library.clone();
             *state = DesktopState::from_snapshot(snapshot);
+            state.theme = theme;
+            state.wallpaper = wallpaper_config;
+            state.wallpaper_preview = wallpaper_preview;
+            state.wallpaper_library = wallpaper_library;
             if state.windows.len() > max_restore {
                 state.windows.truncate(max_restore);
             }
@@ -987,9 +1235,21 @@ fn command_required_capability(command: &AppCommand) -> Option<AppCapability> {
         | AppCommand::Unsubscribe { .. }
         | AppCommand::PublishEvent { .. } => Some(AppCapability::Ipc),
         AppCommand::SetDesktopSkin { .. }
-        | AppCommand::SetDesktopWallpaper { .. }
         | AppCommand::SetDesktopHighContrast { .. }
         | AppCommand::SetDesktopReducedMotion { .. } => Some(AppCapability::Theme),
+        AppCommand::PreviewWallpaper { .. }
+        | AppCommand::ApplyWallpaperPreview
+        | AppCommand::SetCurrentWallpaper { .. }
+        | AppCommand::ClearWallpaperPreview
+        | AppCommand::ImportWallpaperFromPicker { .. }
+        | AppCommand::RenameWallpaperAsset { .. }
+        | AppCommand::SetWallpaperFavorite { .. }
+        | AppCommand::SetWallpaperTags { .. }
+        | AppCommand::SetWallpaperCollections { .. }
+        | AppCommand::CreateWallpaperCollection { .. }
+        | AppCommand::RenameWallpaperCollection { .. }
+        | AppCommand::DeleteWallpaperCollection { .. }
+        | AppCommand::DeleteWallpaperAsset { .. } => Some(AppCapability::Wallpaper),
         AppCommand::Notify { .. } => Some(AppCapability::Notifications),
     }
 }
@@ -1156,6 +1416,27 @@ mod tests {
 
         assert_eq!(state.windows.len(), 2);
         assert!(state.windows.iter().all(|w| w.app_id == AppId::Explorer));
+    }
+
+    #[test]
+    fn activate_settings_uses_default_open_request_without_theme_launch_params() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+        state.theme.skin = DesktopSkin::ClassicXp;
+        state.theme.high_contrast = true;
+        state.theme.reduced_motion = true;
+
+        reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::ActivateApp {
+                app_id: AppId::Settings,
+                viewport: None,
+            },
+        )
+        .expect("activate settings");
+
+        assert_eq!(state.windows[0].launch_params, Value::Null);
     }
 
     #[test]
@@ -1333,6 +1614,65 @@ mod tests {
 
         assert_eq!(state.theme.skin, DesktopSkin::Classic95);
         assert_eq!(effects, vec![RuntimeEffect::PersistTheme]);
+    }
+
+    #[test]
+    fn preview_and_apply_wallpaper_are_independent_of_theme() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+        let next = WallpaperConfig {
+            selection: WallpaperSelection::BuiltIn {
+                wallpaper_id: "sunset-lake".to_string(),
+            },
+            display_mode: WallpaperDisplayMode::Fit,
+            ..WallpaperConfig::default()
+        };
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::PreviewWallpaper {
+                config: next.clone(),
+            },
+        )
+        .expect("preview wallpaper");
+        assert!(effects.is_empty());
+        assert_eq!(state.wallpaper_preview, Some(next.clone()));
+        assert_eq!(state.theme.skin, DesktopSkin::ModernAdaptive);
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::ApplyWallpaperPreview,
+        )
+        .expect("apply wallpaper preview");
+        assert_eq!(state.wallpaper, next);
+        assert!(state.wallpaper_preview.is_none());
+        assert_eq!(effects, vec![RuntimeEffect::PersistWallpaper]);
+        assert_eq!(state.theme.skin, DesktopSkin::ModernAdaptive);
+    }
+
+    #[test]
+    fn tile_mode_rejects_animated_wallpapers() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+
+        let err = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::SetCurrentWallpaper {
+                config: WallpaperConfig {
+                    selection: WallpaperSelection::BuiltIn {
+                        wallpaper_id: "aurora-flow".to_string(),
+                    },
+                    display_mode: WallpaperDisplayMode::Tile,
+                    ..WallpaperConfig::default()
+                },
+            },
+        )
+        .expect_err("animated wallpaper tile mode should fail");
+
+        assert!(matches!(err, ReducerError::InvalidWallpaperConfig(_)));
     }
 
     #[test]

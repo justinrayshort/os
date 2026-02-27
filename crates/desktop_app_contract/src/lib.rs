@@ -87,8 +87,10 @@ pub enum AppCapability {
     State,
     /// Config key/value access.
     Config,
-    /// Theme/wallpaper/accessibility shell controls.
+    /// Theme/accessibility shell controls.
     Theme,
+    /// Wallpaper selection, preview, and library-management controls.
+    Wallpaper,
     /// Host notification APIs.
     Notifications,
     /// Inter-application pub/sub and request/reply channels.
@@ -248,10 +250,74 @@ pub enum AppCommand {
         /// Stable desktop skin id (for example `modern-adaptive`).
         skin_id: String,
     },
-    /// Set the active desktop wallpaper preset id.
-    SetDesktopWallpaper {
-        /// Stable wallpaper preset id.
-        wallpaper_id: String,
+    /// Preview a wallpaper configuration without committing it.
+    PreviewWallpaper {
+        /// Wallpaper preview configuration.
+        config: WallpaperConfig,
+    },
+    /// Commit the active wallpaper preview as the current wallpaper.
+    ApplyWallpaperPreview,
+    /// Set the active wallpaper configuration immediately.
+    SetCurrentWallpaper {
+        /// Wallpaper configuration to apply.
+        config: WallpaperConfig,
+    },
+    /// Clear the active wallpaper preview.
+    ClearWallpaperPreview,
+    /// Import a wallpaper asset through the host picker flow.
+    ImportWallpaperFromPicker {
+        /// Import policy and defaults for the new asset.
+        request: WallpaperImportRequest,
+    },
+    /// Rename a managed wallpaper asset.
+    RenameWallpaperAsset {
+        /// Managed asset identifier.
+        asset_id: String,
+        /// New human-readable label.
+        display_name: String,
+    },
+    /// Toggle the favorite flag for a managed wallpaper asset.
+    SetWallpaperFavorite {
+        /// Managed asset identifier.
+        asset_id: String,
+        /// Updated favorite state.
+        favorite: bool,
+    },
+    /// Replace tags for a managed wallpaper asset.
+    SetWallpaperTags {
+        /// Managed asset identifier.
+        asset_id: String,
+        /// Tags associated with the asset.
+        tags: Vec<String>,
+    },
+    /// Replace collection memberships for a managed wallpaper asset.
+    SetWallpaperCollections {
+        /// Managed asset identifier.
+        asset_id: String,
+        /// Collection identifiers.
+        collection_ids: Vec<String>,
+    },
+    /// Create a new wallpaper collection.
+    CreateWallpaperCollection {
+        /// New collection label.
+        display_name: String,
+    },
+    /// Rename an existing wallpaper collection.
+    RenameWallpaperCollection {
+        /// Collection identifier.
+        collection_id: String,
+        /// Updated collection label.
+        display_name: String,
+    },
+    /// Delete a wallpaper collection and remove memberships.
+    DeleteWallpaperCollection {
+        /// Collection identifier.
+        collection_id: String,
+    },
+    /// Delete a managed wallpaper asset.
+    DeleteWallpaperAsset {
+        /// Managed asset identifier.
+        asset_id: String,
     },
     /// Toggle desktop high-contrast rendering.
     SetDesktopHighContrast {
@@ -280,6 +346,226 @@ pub enum SuspendPolicy {
     OnMinimize,
     /// Windows are never manager-suspended.
     Never,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+/// Identifies either a built-in wallpaper or an imported managed asset.
+pub enum WallpaperSelection {
+    /// Built-in wallpaper from the generated runtime catalog.
+    BuiltIn {
+        /// Stable built-in wallpaper identifier.
+        wallpaper_id: String,
+    },
+    /// Imported managed wallpaper asset.
+    Imported {
+        /// Stable managed asset identifier.
+        asset_id: String,
+    },
+}
+
+impl Default for WallpaperSelection {
+    fn default() -> Self {
+        Self::BuiltIn {
+            wallpaper_id: "cloud-bands".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+/// Traditional desktop wallpaper display modes.
+pub enum WallpaperDisplayMode {
+    /// Preserve aspect ratio while covering the viewport.
+    #[default]
+    Fill,
+    /// Preserve aspect ratio while containing the image inside the viewport.
+    Fit,
+    /// Stretch the wallpaper to match the viewport exactly.
+    Stretch,
+    /// Repeat the wallpaper at intrinsic size from the top-left origin.
+    Tile,
+    /// Render the wallpaper once at intrinsic size.
+    Center,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+/// Anchor position used for non-tiled wallpaper placement.
+pub enum WallpaperPosition {
+    /// Center the wallpaper.
+    #[default]
+    Center,
+    /// Place the wallpaper in the top-left corner.
+    TopLeft,
+    /// Align the wallpaper to the top edge.
+    Top,
+    /// Place the wallpaper in the top-right corner.
+    TopRight,
+    /// Align the wallpaper to the left edge.
+    Left,
+    /// Align the wallpaper to the right edge.
+    Right,
+    /// Place the wallpaper in the bottom-left corner.
+    BottomLeft,
+    /// Align the wallpaper to the bottom edge.
+    Bottom,
+    /// Place the wallpaper in the bottom-right corner.
+    BottomRight,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+/// Persisted animation intent for wallpapers that can move.
+pub enum WallpaperAnimationPolicy {
+    /// Render the wallpaper in a static form.
+    #[default]
+    None,
+    /// Loop animated media with muted playback.
+    LoopMuted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+/// Media kind used by the shell renderer.
+pub enum WallpaperMediaKind {
+    /// Static bitmap image.
+    #[default]
+    StaticImage,
+    /// Animated image such as GIF or animated SVG.
+    AnimatedImage,
+    /// Video wallpaper.
+    Video,
+    /// Static or animated SVG wallpaper.
+    Svg,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+/// Source origin for wallpaper assets in the user library.
+pub enum WallpaperSourceKind {
+    /// Shell-provided built-in wallpaper.
+    BuiltIn,
+    /// User-imported managed asset.
+    #[default]
+    Imported,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// Current or previewed wallpaper configuration.
+pub struct WallpaperConfig {
+    /// Wallpaper asset selection.
+    pub selection: WallpaperSelection,
+    /// Viewport rendering mode.
+    #[serde(default)]
+    pub display_mode: WallpaperDisplayMode,
+    /// Anchor position used by placement modes.
+    #[serde(default)]
+    pub position: WallpaperPosition,
+    /// Animation intent for moving wallpaper media.
+    #[serde(default)]
+    pub animation: WallpaperAnimationPolicy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// Managed wallpaper asset metadata known to the runtime library.
+pub struct WallpaperAssetRecord {
+    /// Stable asset identifier.
+    pub asset_id: String,
+    /// User-facing label.
+    pub display_name: String,
+    /// Built-in vs imported source classification.
+    pub source_kind: WallpaperSourceKind,
+    /// Media kind used by the shell renderer.
+    pub media_kind: WallpaperMediaKind,
+    /// MIME type for the primary asset payload.
+    pub mime_type: String,
+    /// Asset size in bytes.
+    pub byte_len: u64,
+    /// Natural width in pixels when known.
+    pub natural_width: Option<u32>,
+    /// Natural height in pixels when known.
+    pub natural_height: Option<u32>,
+    /// Duration in milliseconds for animated media when known.
+    pub duration_ms: Option<u64>,
+    /// Favorite flag shown in the library UI.
+    #[serde(default)]
+    pub favorite: bool,
+    /// User-defined tags.
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// User-defined collection memberships.
+    #[serde(default)]
+    pub collection_ids: Vec<String>,
+    /// Managed primary URL or data URL.
+    pub primary_url: String,
+    /// Optional poster URL or data URL.
+    pub poster_url: Option<String>,
+    /// Creation timestamp when known.
+    pub created_at_unix_ms: Option<u64>,
+    /// Last-used timestamp when known.
+    pub last_used_at_unix_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// User-defined grouping for wallpaper library browsing.
+pub struct WallpaperCollection {
+    /// Stable collection identifier.
+    pub collection_id: String,
+    /// User-facing label.
+    pub display_name: String,
+    /// Stable ordering key.
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Full wallpaper library snapshot exposed to apps and persisted by the runtime.
+pub struct WallpaperLibrarySnapshot {
+    /// Known built-in and imported assets.
+    pub assets: Vec<WallpaperAssetRecord>,
+    /// User-defined collections.
+    pub collections: Vec<WallpaperCollection>,
+    /// Soft storage limit enforced by the host/runtime policy.
+    pub soft_limit_bytes: u64,
+    /// Current managed library usage in bytes.
+    pub used_bytes: u64,
+}
+
+impl Default for WallpaperLibrarySnapshot {
+    fn default() -> Self {
+        Self {
+            assets: Vec::new(),
+            collections: Vec::new(),
+            soft_limit_bytes: 512 * 1024 * 1024,
+            used_bytes: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// Import request describing how a newly selected wallpaper should enter the library.
+pub struct WallpaperImportRequest {
+    /// Default display name to use when host metadata is missing.
+    pub display_name: Option<String>,
+    /// Wallpaper configuration to apply after import when provided.
+    pub default_config: Option<WallpaperConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// Resolved wallpaper source information used by the renderer.
+pub struct ResolvedWallpaperSource {
+    /// Resolved URL for the primary asset.
+    pub primary_url: String,
+    /// Optional poster URL for animated media.
+    pub poster_url: Option<String>,
+    /// Media kind used by the renderer.
+    pub media_kind: WallpaperMediaKind,
+    /// Natural width in pixels when known.
+    pub natural_width: Option<u32>,
+    /// Natural height in pixels when known.
+    pub natural_height: Option<u32>,
+    /// Duration in milliseconds when known.
+    pub duration_ms: Option<u64>,
 }
 
 #[derive(Clone, Copy)]
@@ -339,6 +625,12 @@ impl ConfigService {
 /// Theme service for shell appearance/accessibility actions.
 pub struct ThemeService {
     sender: Callback<AppCommand>,
+    /// Current shell skin id.
+    pub skin_id: ReadSignal<String>,
+    /// Current high-contrast flag.
+    pub high_contrast: ReadSignal<bool>,
+    /// Current reduced-motion flag.
+    pub reduced_motion: ReadSignal<bool>,
 }
 
 impl ThemeService {
@@ -346,13 +638,6 @@ impl ThemeService {
     pub fn set_skin(&self, skin_id: impl Into<String>) {
         self.sender.call(AppCommand::SetDesktopSkin {
             skin_id: skin_id.into(),
-        });
-    }
-
-    /// Requests wallpaper change by id.
-    pub fn set_wallpaper(&self, wallpaper_id: impl Into<String>) {
-        self.sender.call(AppCommand::SetDesktopWallpaper {
-            wallpaper_id: wallpaper_id.into(),
         });
     }
 
@@ -366,6 +651,111 @@ impl ThemeService {
     pub fn set_reduced_motion(&self, enabled: bool) {
         self.sender
             .call(AppCommand::SetDesktopReducedMotion { enabled });
+    }
+}
+
+#[derive(Clone, Copy)]
+/// Wallpaper service for desktop background query, preview, and library operations.
+pub struct WallpaperService {
+    sender: Callback<AppCommand>,
+    /// Current committed wallpaper configuration.
+    pub current: ReadSignal<WallpaperConfig>,
+    /// Current wallpaper preview when one exists.
+    pub preview: ReadSignal<Option<WallpaperConfig>>,
+    /// Current wallpaper library snapshot.
+    pub library: ReadSignal<WallpaperLibrarySnapshot>,
+}
+
+impl WallpaperService {
+    /// Starts a wallpaper preview.
+    pub fn preview(&self, config: WallpaperConfig) {
+        self.sender.call(AppCommand::PreviewWallpaper { config });
+    }
+
+    /// Commits the active wallpaper preview.
+    pub fn apply_preview(&self) {
+        self.sender.call(AppCommand::ApplyWallpaperPreview);
+    }
+
+    /// Replaces the current wallpaper immediately.
+    pub fn set_current(&self, config: WallpaperConfig) {
+        self.sender.call(AppCommand::SetCurrentWallpaper { config });
+    }
+
+    /// Clears the active wallpaper preview.
+    pub fn clear_preview(&self) {
+        self.sender.call(AppCommand::ClearWallpaperPreview);
+    }
+
+    /// Starts host import flow for a new wallpaper asset.
+    pub fn import_from_picker(&self, request: WallpaperImportRequest) {
+        self.sender
+            .call(AppCommand::ImportWallpaperFromPicker { request });
+    }
+
+    /// Renames a managed wallpaper asset.
+    pub fn rename_asset(&self, asset_id: impl Into<String>, display_name: impl Into<String>) {
+        self.sender.call(AppCommand::RenameWallpaperAsset {
+            asset_id: asset_id.into(),
+            display_name: display_name.into(),
+        });
+    }
+
+    /// Updates the favorite flag for a managed wallpaper asset.
+    pub fn set_favorite(&self, asset_id: impl Into<String>, favorite: bool) {
+        self.sender.call(AppCommand::SetWallpaperFavorite {
+            asset_id: asset_id.into(),
+            favorite,
+        });
+    }
+
+    /// Replaces tags for a managed wallpaper asset.
+    pub fn set_tags(&self, asset_id: impl Into<String>, tags: Vec<String>) {
+        self.sender.call(AppCommand::SetWallpaperTags {
+            asset_id: asset_id.into(),
+            tags,
+        });
+    }
+
+    /// Replaces collection memberships for a managed wallpaper asset.
+    pub fn set_collections(&self, asset_id: impl Into<String>, collection_ids: Vec<String>) {
+        self.sender.call(AppCommand::SetWallpaperCollections {
+            asset_id: asset_id.into(),
+            collection_ids,
+        });
+    }
+
+    /// Creates a new wallpaper collection.
+    pub fn create_collection(&self, display_name: impl Into<String>) {
+        self.sender.call(AppCommand::CreateWallpaperCollection {
+            display_name: display_name.into(),
+        });
+    }
+
+    /// Renames an existing wallpaper collection.
+    pub fn rename_collection(
+        &self,
+        collection_id: impl Into<String>,
+        display_name: impl Into<String>,
+    ) {
+        self.sender.call(AppCommand::RenameWallpaperCollection {
+            collection_id: collection_id.into(),
+            display_name: display_name.into(),
+        });
+    }
+
+    /// Deletes a wallpaper collection.
+    pub fn delete_collection(&self, collection_id: impl Into<String>) {
+        self.sender.call(AppCommand::DeleteWallpaperCollection {
+            collection_id: collection_id.into(),
+        });
+    }
+
+    /// Deletes a managed wallpaper asset.
+    pub fn delete_asset(&self, asset_id: impl Into<String>) {
+        self.sender.call(AppCommand::DeleteWallpaperAsset {
+            asset_id: asset_id.into(),
+        });
     }
 }
 
@@ -444,6 +834,8 @@ pub struct AppServices {
     pub config: ConfigService,
     /// Theme/accessibility service.
     pub theme: ThemeService,
+    /// Wallpaper query/preview/library service.
+    pub wallpaper: WallpaperService,
     /// Notification service.
     pub notifications: NotificationService,
     /// IPC service.
@@ -453,12 +845,31 @@ pub struct AppServices {
 
 impl AppServices {
     /// Creates service handles from the runtime command callback.
-    pub fn new(sender: Callback<AppCommand>) -> Self {
+    pub fn new(
+        sender: Callback<AppCommand>,
+        theme_skin_id: ReadSignal<String>,
+        theme_high_contrast: ReadSignal<bool>,
+        theme_reduced_motion: ReadSignal<bool>,
+        wallpaper_current: ReadSignal<WallpaperConfig>,
+        wallpaper_preview: ReadSignal<Option<WallpaperConfig>>,
+        wallpaper_library: ReadSignal<WallpaperLibrarySnapshot>,
+    ) -> Self {
         Self {
             window: WindowService { sender },
             state: StateService { sender },
             config: ConfigService { sender },
-            theme: ThemeService { sender },
+            theme: ThemeService {
+                sender,
+                skin_id: theme_skin_id,
+                high_contrast: theme_high_contrast,
+                reduced_motion: theme_reduced_motion,
+            },
+            wallpaper: WallpaperService {
+                sender,
+                current: wallpaper_current,
+                preview: wallpaper_preview,
+                library: wallpaper_library,
+            },
             notifications: NotificationService { sender },
             ipc: IpcService { sender },
             sender,

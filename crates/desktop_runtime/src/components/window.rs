@@ -249,12 +249,43 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
     let session = ensure_window_session(runtime.app_runtime, window_id);
     let lifecycle = session.lifecycle.read_only();
     let inbox = session.inbox;
+    let theme_skin_id = create_rw_signal(
+        runtime
+            .state
+            .get_untracked()
+            .theme
+            .skin
+            .css_id()
+            .to_string(),
+    );
+    let theme_high_contrast = create_rw_signal(runtime.state.get_untracked().theme.high_contrast);
+    let theme_reduced_motion = create_rw_signal(runtime.state.get_untracked().theme.reduced_motion);
+    let wallpaper_current = create_rw_signal(runtime.state.get_untracked().wallpaper);
+    let wallpaper_preview = create_rw_signal(runtime.state.get_untracked().wallpaper_preview);
+    let wallpaper_library = create_rw_signal(runtime.state.get_untracked().wallpaper_library);
+    create_effect(move |_| {
+        let desktop = runtime.state.get();
+        theme_skin_id.set(desktop.theme.skin.css_id().to_string());
+        theme_high_contrast.set(desktop.theme.high_contrast);
+        theme_reduced_motion.set(desktop.theme.reduced_motion);
+        wallpaper_current.set(desktop.wallpaper);
+        wallpaper_preview.set(desktop.wallpaper_preview);
+        wallpaper_library.set(desktop.wallpaper_library);
+    });
     let command_sender = Callback::new(move |command| {
         spawn_local(async move {
             runtime.dispatch_action(DesktopAction::HandleAppCommand { window_id, command });
         });
     });
-    let services = AppServices::new(command_sender);
+    let services = AppServices::new(
+        command_sender,
+        theme_skin_id.read_only(),
+        theme_high_contrast.read_only(),
+        theme_reduced_motion.read_only(),
+        wallpaper_current.read_only(),
+        wallpaper_preview.read_only(),
+        wallpaper_library.read_only(),
+    );
     let contents = state
         .get_untracked()
         .windows

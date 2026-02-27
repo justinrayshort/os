@@ -1,4 +1,6 @@
 use super::*;
+use crate::wallpaper;
+use desktop_app_contract::{WallpaperConfig, WallpaperSelection};
 
 #[component]
 pub(super) fn DesktopContextMenu(
@@ -13,7 +15,10 @@ pub(super) fn DesktopContextMenu(
                 let Some(menu) = desktop_context_menu.get() else {
                     return ().into_view();
                 };
-                let active = wallpaper_preset_by_id(&state.get().theme.wallpaper_id);
+                let active_id = match &state.get().wallpaper.selection {
+                    WallpaperSelection::BuiltIn { wallpaper_id } => wallpaper_id.clone(),
+                    WallpaperSelection::Imported { asset_id } => asset_id.clone(),
+                };
                 let menu_style = format!("left:{}px;top:{}px;", menu.x, menu.y);
 
                 view! {
@@ -67,43 +72,61 @@ pub(super) fn DesktopContextMenu(
                         </div>
 
                         <For
-                            each=move || desktop_wallpaper_presets().to_vec()
-                            key=|preset| preset.id
-                            let:preset
+                            each=move || wallpaper::featured_builtin_wallpapers()
+                            key=|asset| asset.asset_id.clone()
+                            let:asset
                         >
-                            <button
-                                id=format!("desktop-context-menu-wallpaper-{}", preset.id)
-                                role="menuitemradio"
-                                aria-checked=move || active.id == preset.id
-                                class=move || {
-                                    if active.id == preset.id {
-                                        "taskbar-menu-item desktop-context-wallpaper-item active"
-                                    } else {
-                                        "taskbar-menu-item desktop-context-wallpaper-item"
-                                    }
+                            {{
+                                let active_id = active_id.clone();
+                                move || {
+                                let item_id = asset.asset_id.clone();
+                                let is_active = active_id == item_id;
+                                let display_name = asset.display_name.clone();
+                                let media_label = match asset.media_kind {
+                                    desktop_app_contract::WallpaperMediaKind::Video => "Video",
+                                    desktop_app_contract::WallpaperMediaKind::AnimatedImage => "Animated",
+                                    desktop_app_contract::WallpaperMediaKind::Svg => "Vector",
+                                    desktop_app_contract::WallpaperMediaKind::StaticImage => "Image",
+                                };
+
+                                view! {
+                                    <button
+                                        id=format!("desktop-context-menu-wallpaper-{}", item_id)
+                                        role="menuitemradio"
+                                        aria-checked=is_active
+                                        class=if is_active {
+                                            "taskbar-menu-item desktop-context-wallpaper-item active"
+                                        } else {
+                                            "taskbar-menu-item desktop-context-wallpaper-item"
+                                        }
+                                        on:click:undelegated=move |ev| {
+                                            stop_mouse_event(&ev);
+                                            desktop_context_menu.set(None);
+                                            runtime.dispatch_action(DesktopAction::SetCurrentWallpaper {
+                                                config: WallpaperConfig {
+                                                    selection: WallpaperSelection::BuiltIn {
+                                                        wallpaper_id: item_id.clone(),
+                                                    },
+                                                    ..WallpaperConfig::default()
+                                                },
+                                            });
+                                        }
+                                    >
+                                        <span class="desktop-context-wallpaper-check" aria-hidden="true">
+                                            {if is_active {
+                                                view! { <FluentIcon icon=IconName::Checkmark size=IconSize::Xs /> }.into_view()
+                                            } else {
+                                                ().into_view()
+                                            }}
+                                        </span>
+                                        <span class="desktop-context-wallpaper-text">
+                                            <span class="desktop-context-wallpaper-label">{display_name}</span>
+                                            <span class="desktop-context-wallpaper-meta">{media_label}</span>
+                                        </span>
+                                    </button>
                                 }
-                                on:click:undelegated=move |ev| {
-                                    stop_mouse_event(&ev);
-                                    desktop_context_menu.set(None);
-                                    runtime.dispatch_action(DesktopAction::SetWallpaper {
-                                        wallpaper_id: preset.id.to_string(),
-                                    });
                                 }
-                            >
-                                <span class="desktop-context-wallpaper-check" aria-hidden="true">
-                                    {if active.id == preset.id {
-                                        view! { <FluentIcon icon=IconName::Checkmark size=IconSize::Xs /> }.into_view()
-                                    } else {
-                                        ().into_view()
-                                    }}
-                                </span>
-                                <span class="desktop-context-wallpaper-text">
-                                    <span class="desktop-context-wallpaper-label">{preset.label}</span>
-                                    <span class="desktop-context-wallpaper-meta">
-                                        {wallpaper_preset_kind_label(preset.kind)}
-                                    </span>
-                                </span>
-                            </button>
+                            }}
                         </For>
                     </div>
                 }

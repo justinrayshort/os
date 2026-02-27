@@ -10,6 +10,7 @@ desktop-host-stub = []
 desktop-host-tauri = []
 
 [dependencies]
+desktop_app_contract = { path = "../desktop_app_contract", default-features = false }
 leptos = { version = "0.6", default-features = false }
 platform_host = { path = "../platform_host" }
 platform_host_web = { path = "../platform_host_web" }

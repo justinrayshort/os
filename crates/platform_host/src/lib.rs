@@ -12,6 +12,7 @@ pub mod notifications;
 pub mod session;
 pub mod storage;
 pub mod time;
+pub mod wallpaper;
 
 pub use cache::{
     cache_get_json_with, cache_put_json_with, ContentCache, ContentCacheFuture, MemoryContentCache,
@@ -37,3 +38,7 @@ pub use storage::prefs::{
     load_pref_with, save_pref_with, MemoryPrefsStore, NoopPrefsStore, PrefsStore, PrefsStoreFuture,
 };
 pub use time::{next_monotonic_timestamp_ms, unix_time_ms_now};
+pub use wallpaper::{
+    NoopWallpaperAssetService, WallpaperAssetFuture, WallpaperAssetMetadataPatch,
+    WallpaperAssetService,
+};

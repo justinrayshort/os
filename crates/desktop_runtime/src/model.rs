@@ -2,11 +2,14 @@
 
 use std::collections::BTreeMap;
 
+use desktop_app_contract::{WallpaperConfig, WallpaperLibrarySnapshot};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::wallpaper;
+
 /// Schema version for serialized [`DesktopSnapshot`] layout payloads.
-pub const DESKTOP_LAYOUT_SCHEMA_VERSION: u32 = 1;
+pub const DESKTOP_LAYOUT_SCHEMA_VERSION: u32 = 2;
 /// Default window width used when no explicit geometry is provided.
 pub const DEFAULT_WINDOW_WIDTH: i32 = 720;
 /// Default window height used when no explicit geometry is provided.
@@ -248,8 +251,6 @@ pub struct DesktopTheme {
     /// This defaults to [`DesktopSkin::ModernAdaptive`] for legacy persisted payloads.
     #[serde(default)]
     pub skin: DesktopSkin,
-    /// Wallpaper preset id.
-    pub wallpaper_id: String,
     /// Whether high contrast rendering is enabled.
     pub high_contrast: bool,
     /// Whether reduced motion rendering is enabled.
@@ -262,13 +263,15 @@ impl Default for DesktopTheme {
     fn default() -> Self {
         Self {
             skin: DesktopSkin::default(),
-            wallpaper_id: "cloud-bands".to_string(),
             high_contrast: false,
             reduced_motion: false,
             audio_enabled: false,
         }
     }
 }
+
+/// Current committed desktop wallpaper configuration.
+pub type DesktopWallpaperConfig = WallpaperConfig;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// Desktop runtime preferences that affect restore behavior and feature toggles.
@@ -304,6 +307,12 @@ pub struct DesktopState {
     pub active_modal: Option<WindowId>,
     /// Current desktop theme.
     pub theme: DesktopTheme,
+    /// Current committed desktop wallpaper configuration.
+    pub wallpaper: DesktopWallpaperConfig,
+    /// Active wallpaper preview, if any.
+    pub wallpaper_preview: Option<DesktopWallpaperConfig>,
+    /// Wallpaper library snapshot for built-in and imported assets.
+    pub wallpaper_library: WallpaperLibrarySnapshot,
     /// Runtime/user preferences.
     pub preferences: DesktopPreferences,
     /// Last explorer path used by shell shortcuts/workflows.
@@ -325,6 +334,11 @@ impl Default for DesktopState {
             start_menu_open: false,
             active_modal: None,
             theme: DesktopTheme::default(),
+            wallpaper: DesktopWallpaperConfig::default(),
+            wallpaper_preview: None,
+            wallpaper_library: wallpaper::merged_wallpaper_library(
+                &WallpaperLibrarySnapshot::default(),
+            ),
             preferences: DesktopPreferences::default(),
             last_explorer_path: None,
             last_notepad_slug: None,
@@ -344,7 +358,6 @@ impl DesktopState {
     pub fn snapshot(&self) -> DesktopSnapshot {
         DesktopSnapshot {
             schema_version: DESKTOP_LAYOUT_SCHEMA_VERSION,
-            theme: self.theme.clone(),
             preferences: self.preferences.clone(),
             windows: self.windows.clone(),
             last_explorer_path: self.last_explorer_path.clone(),
@@ -359,7 +372,6 @@ impl DesktopState {
     /// The next window id is recomputed from the restored window list.
     pub fn from_snapshot(snapshot: DesktopSnapshot) -> Self {
         let mut state = Self::default();
-        state.theme = snapshot.theme;
         state.preferences = snapshot.preferences;
         state.windows = snapshot.windows;
         state.last_explorer_path = snapshot.last_explorer_path;
@@ -382,8 +394,6 @@ impl DesktopState {
 pub struct DesktopSnapshot {
     /// Layout schema version for migration logic.
     pub schema_version: u32,
-    /// Persisted theme state.
-    pub theme: DesktopTheme,
     /// Persisted desktop preferences.
     pub preferences: DesktopPreferences,
     /// Persisted open window records.
@@ -544,13 +554,6 @@ mod tests {
     fn snapshot_v1_window_defaults_new_lifecycle_fields() {
         let payload = serde_json::json!({
             "schema_version": 1,
-            "theme": {
-                "skin": "modern-adaptive",
-                "wallpaper_id": "cloud-bands",
-                "high_contrast": false,
-                "reduced_motion": false,
-                "audio_enabled": false
-            },
             "preferences": {
                 "restore_on_boot": true,
                 "max_restore_windows": 5,
@@ -592,7 +595,6 @@ mod tests {
     #[test]
     fn legacy_theme_name_defaults_skin_to_modern_adaptive() {
         let payload = serde_json::json!({
-            "wallpaper_id": "teal-grid",
             "high_contrast": true,
             "reduced_motion": true,
             "audio_enabled": false,
@@ -602,7 +604,6 @@ mod tests {
         let theme: DesktopTheme =
             serde_json::from_value(payload).expect("legacy theme payload should deserialize");
         assert_eq!(theme.skin, DesktopSkin::ModernAdaptive);
-        assert_eq!(theme.wallpaper_id, "teal-grid");
         assert!(theme.high_contrast);
         assert!(theme.reduced_motion);
     }
@@ -611,7 +612,6 @@ mod tests {
     fn desktop_theme_roundtrip_preserves_skin() {
         let theme = DesktopTheme {
             skin: DesktopSkin::ClassicXp,
-            wallpaper_id: "green-hills".to_string(),
             high_contrast: false,
             reduced_motion: true,
             audio_enabled: true,
@@ -619,7 +619,6 @@ mod tests {
         let encoded = serde_json::to_value(&theme).expect("serialize theme");
         let decoded: DesktopTheme = serde_json::from_value(encoded).expect("deserialize theme");
         assert_eq!(decoded.skin, DesktopSkin::ClassicXp);
-        assert_eq!(decoded.wallpaper_id, "green-hills");
         assert!(decoded.reduced_motion);
         assert!(decoded.audio_enabled);
     }
@@ -628,7 +627,6 @@ mod tests {
     fn from_snapshot_recomputes_next_window_id_from_restored_windows() {
         let state = DesktopState::from_snapshot(DesktopSnapshot {
             schema_version: DESKTOP_LAYOUT_SCHEMA_VERSION,
-            theme: DesktopTheme::default(),
             preferences: DesktopPreferences::default(),
             windows: vec![
                 WindowRecord {

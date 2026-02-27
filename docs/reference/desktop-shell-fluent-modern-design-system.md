@@ -30,6 +30,8 @@ The Fluent Modern redesign currently covers the desktop shell chrome and shared 
 - desktop context menu wallpaper selection affordances
 - System Settings app (display and accessibility surfaces)
 
+Wallpaper rendering is a separate shell subsystem, not a skin extension. Skin/theme layers own tokens and component styling; wallpaper rendering and wallpaper asset selection are supplied by the independent wallpaper renderer layer in `crates/site/src/theme_shell/05-wallpaper-renderer.css`.
+
 App content areas (Calculator, Explorer, Notepad, Terminal, System Settings) now receive explicit modern-adaptive overrides for shared app chrome, control surfaces, and dark-mode parity while preserving existing app behavior.
 
 Window manager and taskbar layout now use adaptive sizing heuristics tied to viewport constraints, with priority-based taskbar visibility (running windows, pinned strip, tray density, clock date) to reduce crowding across narrow and wide displays.
@@ -66,6 +68,7 @@ Primary theme and component tokens are defined/overridden in:
 - [`crates/site/src/theme_shell/02-interactions-hover.css`](../../crates/site/src/theme_shell/02-interactions-hover.css)
 - [`crates/site/src/theme_shell/03-responsive-base.css`](../../crates/site/src/theme_shell/03-responsive-base.css)
 - [`crates/site/src/theme_shell/04-motion-base.css`](../../crates/site/src/theme_shell/04-motion-base.css)
+- [`crates/site/src/theme_shell/05-wallpaper-renderer.css`](../../crates/site/src/theme_shell/05-wallpaper-renderer.css)
 - [`crates/site/src/theme_shell/10-theme-xp-tokens.css`](../../crates/site/src/theme_shell/10-theme-xp-tokens.css)
 - [`crates/site/src/theme_shell/11-theme-xp-overrides.css`](../../crates/site/src/theme_shell/11-theme-xp-overrides.css)
 - [`crates/site/src/theme_shell/20-theme-legacy95-tokens.css`](../../crates/site/src/theme_shell/20-theme-legacy95-tokens.css)
@@ -91,6 +94,12 @@ Compatibility strategy:
 - Existing `--ui-*` tokens remain available for legacy components and app surfaces.
 - Fluent Modern maps/overrides selected `--ui-*` values while adding higher-level shell tokens.
 - Most redesign rules are appended as theme-scoped CSS overrides rather than replacing legacy rules.
+
+Wallpaper boundary rules:
+
+- skin files may provide atmosphere overlays, but they do not choose wallpaper assets
+- wallpaper selection, display mode, and animation policy are driven by runtime wallpaper state
+- theme changes must not implicitly change wallpaper selection
 
 ## Component Primitives and Styling Conventions
 

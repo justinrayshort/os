@@ -15,6 +15,7 @@ const DESKTOP_THEME_CSS: &str = concat!(
     include_str!("theme_shell/02-interactions-hover.css"),
     include_str!("theme_shell/03-responsive-base.css"),
     include_str!("theme_shell/04-motion-base.css"),
+    include_str!("theme_shell/05-wallpaper-renderer.css"),
     include_str!("theme_shell/10-theme-xp-tokens.css"),
     include_str!("theme_shell/11-theme-xp-overrides.css"),
     include_str!("theme_shell/20-theme-legacy95-tokens.css"),

@@ -33,7 +33,7 @@ Included surfaces:
 - window chrome and controls
 - taskbar, tray widgets, overflow, clock menu
 - start menu and taskbar/context menus
-- System Settings app shell controls (display + accessibility)
+- System Settings app shell controls (wallpaper + theme + accessibility)
 - inbuilt app surfaces (Explorer, Notepad, Terminal, Calculator, System Settings)
 
 Evidence snapshot used for this assessment (code inspection, 2026-02-27):
@@ -90,7 +90,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 
 | ID | Status | Acceptance criteria (objective) | Current evidence / gap |
 | --- | --- | --- | --- |
-| `STA-01` | Complete | Theme-affecting shell preferences are modeled in runtime state and serialized for persistence. | `DesktopTheme` (`skin`, `wallpaper_id`, `high_contrast`, `reduced_motion`, `audio_enabled`) in `crates/desktop_runtime/src/model.rs`; persisted via `persist_theme()` in `persistence.rs`. |
+| `STA-01` | Complete | Theme-affecting shell preferences and wallpaper preferences are modeled as separate runtime domains with independent persistence. | `DesktopTheme` now owns `skin`, `high_contrast`, `reduced_motion`, and `audio_enabled`, while `WallpaperConfig` is stored separately on `DesktopState.wallpaper`; persistence is split between `persist_theme()` and `persist_wallpaper()` in `crates/desktop_runtime/src/persistence.rs`. |
 | `STA-02` | Complete | Shell root exposes theme state to CSS through stable `data-*` attributes. | `DesktopShell` sets `data-skin`, `data-high-contrast`, `data-reduced-motion` in `crates/desktop_runtime/src/components.rs`. |
 | `STA-03` | Complete | Every user-visible theme accessibility toggle (at minimum reduced motion + high contrast) has a reducer action, UI trigger, persistence, and CSS effect. | Reduced motion and high contrast now both have reducer actions (`SetReducedMotion`, `SetHighContrast`), taskbar tray toggle triggers, persisted theme writes, and CSS/data-attribute effects. |
 | `STA-04` | Complete | Theme changes persist without bypassing reducer/runtime effect flow. | Reducer emits `RuntimeEffect::PersistTheme`; host persists theme via `DesktopHostContext` effect handler. |
