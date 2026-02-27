@@ -233,7 +233,7 @@ pub fn NotepadApp(
         }
         last_saved.set(Some(serialized));
 
-        if let Some(services) = services_for_persist {
+        if let Some(services) = services_for_persist.clone() {
             if let Ok(value) = serde_json::to_value(&snapshot) {
                 services.state.persist_window_state(value);
             }

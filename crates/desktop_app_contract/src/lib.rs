@@ -6,9 +6,16 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
+use std::{cell::Cell, rc::Rc};
+
+use futures::future::LocalBoxFuture;
 use leptos::{Callable, Callback, ReadSignal, RwSignal, View};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use system_shell_contract::{
+    CommandDescriptor, CompletionItem, CompletionRequest, ExecutionId, ShellError, ShellExit,
+    ShellRequest, ShellStreamEvent,
+};
 
 /// Stable identifier for a runtime-managed window.
 pub type WindowRuntimeId = u64;
@@ -97,6 +104,8 @@ pub enum AppCapability {
     Ipc,
     /// Requests for opening external URLs.
     ExternalUrl,
+    /// Dynamic system terminal command registration.
+    Commands,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -823,7 +832,272 @@ impl IpcService {
     }
 }
 
-#[derive(Clone, Copy)]
+/// Async completion provider used by command registrations.
+pub type AppCommandCompletion = Rc<
+    dyn Fn(CompletionRequest) -> LocalBoxFuture<'static, Result<Vec<CompletionItem>, ShellError>>,
+>;
+
+/// Async command handler used by app command registrations.
+pub type AppCommandHandler =
+    Rc<dyn Fn(AppCommandContext) -> LocalBoxFuture<'static, Result<ShellExit, ShellError>>>;
+
+/// Execution context supplied to app-registered command handlers.
+#[derive(Clone)]
+pub struct AppCommandContext {
+    /// Execution identifier for the current command.
+    pub execution_id: ExecutionId,
+    /// Full parsed argv payload.
+    pub argv: Vec<String>,
+    /// Current logical cwd.
+    pub cwd: String,
+    /// Optional source window identifier.
+    pub source_window_id: Option<WindowRuntimeId>,
+    emit: Rc<dyn Fn(ShellStreamEvent)>,
+    set_cwd: Rc<dyn Fn(String)>,
+    is_cancelled: Rc<dyn Fn() -> bool>,
+}
+
+impl AppCommandContext {
+    /// Emits a stdout chunk for the current execution.
+    pub fn stdout(&self, text: impl Into<String>) {
+        self.emit(ShellStreamEvent::StdoutChunk {
+            execution_id: self.execution_id,
+            text: text.into(),
+        });
+    }
+
+    /// Emits a stderr chunk for the current execution.
+    pub fn stderr(&self, text: impl Into<String>) {
+        self.emit(ShellStreamEvent::StderrChunk {
+            execution_id: self.execution_id,
+            text: text.into(),
+        });
+    }
+
+    /// Emits a status update for the current execution.
+    pub fn status(&self, text: impl Into<String>) {
+        self.emit(ShellStreamEvent::Status {
+            execution_id: self.execution_id,
+            text: text.into(),
+        });
+    }
+
+    /// Emits a structured JSON payload for the current execution.
+    pub fn json(&self, value: Value) {
+        self.emit(ShellStreamEvent::Json {
+            execution_id: self.execution_id,
+            value,
+        });
+    }
+
+    /// Emits an incremental shell stream event.
+    pub fn emit(&self, event: ShellStreamEvent) {
+        (self.emit)(event);
+    }
+
+    /// Updates the logical cwd for the current session.
+    pub fn set_cwd(&self, cwd: impl Into<String>) {
+        (self.set_cwd)(cwd.into());
+    }
+
+    /// Returns whether the active execution has been cancelled.
+    pub fn is_cancelled(&self) -> bool {
+        (self.is_cancelled)()
+    }
+
+    /// Creates a new command context from runtime-provided callbacks.
+    pub fn new(
+        execution_id: ExecutionId,
+        argv: Vec<String>,
+        cwd: String,
+        source_window_id: Option<WindowRuntimeId>,
+        emit: Rc<dyn Fn(ShellStreamEvent)>,
+        set_cwd: Rc<dyn Fn(String)>,
+        is_cancelled: Rc<dyn Fn() -> bool>,
+    ) -> Self {
+        Self {
+            execution_id,
+            argv,
+            cwd,
+            source_window_id,
+            emit,
+            set_cwd,
+            is_cancelled,
+        }
+    }
+}
+
+/// One command registration payload exposed by an app/provider.
+#[derive(Clone)]
+pub struct AppCommandRegistration {
+    /// Static command metadata.
+    pub descriptor: CommandDescriptor,
+    /// Optional completion provider.
+    pub completion: Option<AppCommandCompletion>,
+    /// Async command handler.
+    pub handler: AppCommandHandler,
+}
+
+/// Dynamic command provider implemented by apps that expose multiple commands.
+pub trait AppCommandProvider {
+    /// Returns all command registrations owned by this provider.
+    fn commands(&self) -> Vec<AppCommandRegistration>;
+}
+
+/// Drop-based registration handle for dynamically registered commands.
+#[derive(Clone)]
+pub struct CommandRegistrationHandle {
+    unregister: Rc<dyn Fn()>,
+    active: Rc<Cell<bool>>,
+}
+
+impl CommandRegistrationHandle {
+    /// Creates a new registration handle from an unregister callback.
+    pub fn new(unregister: Rc<dyn Fn()>) -> Self {
+        Self {
+            unregister,
+            active: Rc::new(Cell::new(true)),
+        }
+    }
+
+    /// Creates a no-op registration handle.
+    pub fn noop() -> Self {
+        Self::new(Rc::new(|| {}))
+    }
+
+    /// Unregisters the command(s) if still active.
+    pub fn unregister(&self) {
+        if self.active.replace(false) {
+            (self.unregister)();
+        }
+    }
+}
+
+impl Drop for CommandRegistrationHandle {
+    fn drop(&mut self) {
+        self.unregister();
+    }
+}
+
+/// Live shell session bridge exposed to the terminal UI.
+#[derive(Clone)]
+pub struct ShellSessionHandle {
+    /// Reactive shell event stream for this session.
+    pub events: ReadSignal<Vec<ShellStreamEvent>>,
+    /// Reactive active execution id when one exists.
+    pub active_execution: ReadSignal<Option<ExecutionId>>,
+    /// Reactive current cwd value.
+    pub cwd: ReadSignal<String>,
+    submit: Rc<dyn Fn(ShellRequest)>,
+    cancel: Rc<dyn Fn()>,
+    complete: AppCommandCompletion,
+}
+
+impl ShellSessionHandle {
+    /// Creates a new shell session handle.
+    pub fn new(
+        events: ReadSignal<Vec<ShellStreamEvent>>,
+        active_execution: ReadSignal<Option<ExecutionId>>,
+        cwd: ReadSignal<String>,
+        submit: Rc<dyn Fn(ShellRequest)>,
+        cancel: Rc<dyn Fn()>,
+        complete: AppCommandCompletion,
+    ) -> Self {
+        Self {
+            events,
+            active_execution,
+            cwd,
+            submit,
+            cancel,
+            complete,
+        }
+    }
+
+    /// Submits a shell request to the active session.
+    pub fn submit(&self, request: ShellRequest) {
+        (self.submit)(request);
+    }
+
+    /// Cancels the active foreground execution.
+    pub fn cancel(&self) {
+        (self.cancel)();
+    }
+
+    /// Resolves completion candidates for the current request.
+    pub async fn complete(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<Vec<CompletionItem>, ShellError> {
+        (self.complete)(request).await
+    }
+}
+
+/// Command service bridging shell sessions and dynamic registration.
+#[derive(Clone)]
+pub struct CommandService {
+    /// Reactive global terminal history maintained by the desktop runtime.
+    pub history: ReadSignal<Vec<String>>,
+    create_session: Rc<dyn Fn(String) -> Result<ShellSessionHandle, String>>,
+    register_command: Rc<
+        dyn Fn(AppCommandRegistration) -> Result<CommandRegistrationHandle, String>,
+    >,
+    register_provider:
+        Rc<dyn Fn(Rc<dyn AppCommandProvider>) -> Result<CommandRegistrationHandle, String>>,
+}
+
+impl CommandService {
+    /// Creates a command service from runtime-provided callbacks.
+    pub fn new(
+        history: ReadSignal<Vec<String>>,
+        create_session: Rc<dyn Fn(String) -> Result<ShellSessionHandle, String>>,
+        register_command: Rc<
+            dyn Fn(AppCommandRegistration) -> Result<CommandRegistrationHandle, String>,
+        >,
+        register_provider: Rc<
+            dyn Fn(Rc<dyn AppCommandProvider>) -> Result<CommandRegistrationHandle, String>,
+        >,
+    ) -> Self {
+        Self {
+            history,
+            create_session,
+            register_command,
+            register_provider,
+        }
+    }
+
+    /// Creates a disabled command service that rejects all requests deterministically.
+    pub fn disabled() -> Self {
+        Self::new(
+            leptos::create_rw_signal(Vec::new()).read_only(),
+            Rc::new(|_| Err("command sessions are unavailable".to_string())),
+            Rc::new(|_| Err("command registration is unavailable".to_string())),
+            Rc::new(|_| Err("command registration is unavailable".to_string())),
+        )
+    }
+
+    /// Creates a new shell session for the current app window.
+    pub fn create_session(&self, cwd: impl Into<String>) -> Result<ShellSessionHandle, String> {
+        (self.create_session)(cwd.into())
+    }
+
+    /// Registers one command dynamically.
+    pub fn register_command(
+        &self,
+        registration: AppCommandRegistration,
+    ) -> Result<CommandRegistrationHandle, String> {
+        (self.register_command)(registration)
+    }
+
+    /// Registers a multi-command provider dynamically.
+    pub fn register_provider(
+        &self,
+        provider: Rc<dyn AppCommandProvider>,
+    ) -> Result<CommandRegistrationHandle, String> {
+        (self.register_provider)(provider)
+    }
+}
+
+#[derive(Clone)]
 /// Injected app services bundle.
 pub struct AppServices {
     /// Window integration service.
@@ -840,6 +1114,8 @@ pub struct AppServices {
     pub notifications: NotificationService,
     /// IPC service.
     pub ipc: IpcService,
+    /// Shell command registration and session service.
+    pub commands: CommandService,
     sender: Callback<AppCommand>,
 }
 
@@ -853,6 +1129,7 @@ impl AppServices {
         wallpaper_current: ReadSignal<WallpaperConfig>,
         wallpaper_preview: ReadSignal<Option<WallpaperConfig>>,
         wallpaper_library: ReadSignal<WallpaperLibrarySnapshot>,
+        commands: CommandService,
     ) -> Self {
         Self {
             window: WindowService { sender },
@@ -872,6 +1149,7 @@ impl AppServices {
             },
             notifications: NotificationService { sender },
             ipc: IpcService { sender },
+            commands,
             sender,
         }
     }

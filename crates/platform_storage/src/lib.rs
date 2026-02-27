@@ -51,6 +51,15 @@ pub use platform_host::{
     TERMINAL_STATE_NAMESPACE,
 };
 
+/// Returns the compile-time selected host strategy name for the active build.
+pub fn host_strategy_name() -> &'static str {
+    match host_adapters::selected_host_strategy() {
+        host_adapters::HostStrategy::Browser => "browser",
+        host_adapters::HostStrategy::DesktopTauri => "desktop-tauri",
+        host_adapters::HostStrategy::DesktopStub => "desktop-stub",
+    }
+}
+
 /// Loads a typed preference value from localStorage on WASM targets.
 ///
 /// Returns `None` when the key is absent, localStorage is unavailable, or deserialization fails.

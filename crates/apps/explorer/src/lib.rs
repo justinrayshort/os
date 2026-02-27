@@ -407,9 +407,9 @@ pub fn ExplorerApp(
     let busy = create_rw_signal(false);
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
-    let services_for_bus = services;
-    let services_for_persist = services;
-    let services_for_publish = services;
+    let services_for_bus = services.clone();
+    let services_for_persist = services.clone();
+    let services_for_publish = services.clone();
 
     let session_store = platform_storage::session_store();
     let initial_draft_name = session_store
@@ -535,7 +535,7 @@ pub fn ExplorerApp(
         }
         last_saved.set(Some(serialized));
 
-        if let Some(services) = services_for_persist {
+        if let Some(services) = services_for_persist.clone() {
             if let Ok(value) = serde_json::to_value(&snapshot) {
                 services.state.persist_window_state(value);
             }

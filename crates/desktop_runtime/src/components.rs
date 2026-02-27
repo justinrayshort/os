@@ -30,6 +30,7 @@ use crate::{
         AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
     },
     reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
+    shell,
     wallpaper,
 };
 
@@ -88,6 +89,8 @@ pub struct DesktopRuntimeContext {
     pub app_runtime: RwSignal<AppRuntimeState>,
     /// Reducer dispatch callback.
     pub dispatch: Callback<DesktopAction>,
+    /// Shared shell engine and command registry.
+    pub shell_engine: StoredValue<system_shell::ShellEngine>,
 }
 
 impl DesktopRuntimeContext {
@@ -105,6 +108,7 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
     let interaction = create_rw_signal(InteractionState::default());
     let effects = create_rw_signal(Vec::<RuntimeEffect>::new());
     let app_runtime = create_rw_signal(AppRuntimeState::default());
+    let shell_engine = store_value(system_shell::ShellEngine::new());
 
     let dispatch = Callback::new(move |action: DesktopAction| {
         let mut desktop = state.get_untracked();
@@ -134,16 +138,20 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
         }
     });
 
-    provide_context(DesktopRuntimeContext {
+    let runtime = DesktopRuntimeContext {
         host,
         state,
         interaction,
         effects,
         app_runtime,
         dispatch,
-    });
+        shell_engine,
+    };
+
+    provide_context(runtime.clone());
 
     host.install_boot_hydration(dispatch);
+    std::mem::forget(shell::register_builtin_commands(runtime));
 
     children().into_view()
 }

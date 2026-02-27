@@ -106,6 +106,21 @@ pub fn SettingsApp(
             .unwrap_or_else(|| services.wallpaper.current.get())
     });
     let wallpaper_library = Signal::derive(move || services.wallpaper.library.get());
+    let theme_skin_id = Signal::derive({
+        let services = services.clone();
+        move || services.theme.skin_id.get()
+    });
+    let theme_high_contrast = Signal::derive({
+        let services = services.clone();
+        move || services.theme.high_contrast.get()
+    });
+    let theme_reduced_motion = Signal::derive({
+        let services = services.clone();
+        move || services.theme.reduced_motion.get()
+    });
+    let services_for_skin_click = services.clone();
+    let services_for_high_contrast = services.clone();
+    let services_for_reduced_motion = services.clone();
 
     create_effect(move |_| {
         let library = wallpaper_library.get();
@@ -397,12 +412,12 @@ pub fn SettingsApp(
                             <For each=move || SKIN_PRESETS.into_iter() key=|preset| preset.id let:preset>
                                 <button
                                     type="button"
-                                    class=move || if current_skin_id(&services) == preset.id {
+                                    class=move || if theme_skin_id.get() == preset.id {
                                         "settings-option selected"
                                     } else {
                                         "settings-option"
                                     }
-                                    on:click=move |_| services.theme.set_skin(preset.id)
+                                    on:click=move |_| services_for_skin_click.theme.set_skin(preset.id)
                                 >
                                     <span class="settings-option-title">{preset.label}</span>
                                     <span class="settings-option-note">{preset.note}</span>
@@ -418,8 +433,8 @@ pub fn SettingsApp(
                         <label class="settings-toggle">
                             <input
                                 type="checkbox"
-                                checked=move || current_high_contrast(&services)
-                                on:change=move |ev| services.theme.set_high_contrast(event_target_checked(&ev))
+                                checked=move || theme_high_contrast.get()
+                                on:change=move |ev| services_for_high_contrast.theme.set_high_contrast(event_target_checked(&ev))
                             />
                             <span>
                                 <strong>"High contrast"</strong>
@@ -429,8 +444,8 @@ pub fn SettingsApp(
                         <label class="settings-toggle">
                             <input
                                 type="checkbox"
-                                checked=move || current_reduced_motion(&services)
-                                on:change=move |ev| services.theme.set_reduced_motion(event_target_checked(&ev))
+                                checked=move || theme_reduced_motion.get()
+                                on:change=move |ev| services_for_reduced_motion.theme.set_reduced_motion(event_target_checked(&ev))
                             />
                             <span>
                                 <strong>"Reduced motion"</strong>
@@ -442,7 +457,7 @@ pub fn SettingsApp(
             </div>
 
             <footer class="app-statusbar">
-                <span>{move || format!("Skin: {}", current_skin_id(&services))}</span>
+                <span>{move || format!("Skin: {}", theme_skin_id.get())}</span>
                 <span>
                     {move || {
                         let config = active_wallpaper.get();
@@ -458,17 +473,6 @@ pub fn SettingsApp(
     }
 }
 
-fn current_skin_id(services: &AppServices) -> String {
-    services.theme.skin_id.get()
-}
-
-fn current_high_contrast(services: &AppServices) -> bool {
-    services.theme.high_contrast.get()
-}
-
-fn current_reduced_motion(services: &AppServices) -> bool {
-    services.theme.reduced_motion.get()
-}
 
 fn asset_to_config(asset: &WallpaperAssetRecord, current: &WallpaperConfig) -> WallpaperConfig {
     let animation = match asset.media_kind {

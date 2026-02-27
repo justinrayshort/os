@@ -1,6 +1,9 @@
 [workspace]
 members = [
   "crates/desktop_app_contract",
+  "crates/system_shell_contract",
+  "crates/shrs_core_headless",
+  "crates/system_shell",
   "crates/apps/calculator",
   "crates/desktop_runtime",
   "crates/desktop_tauri",
@@ -16,6 +19,9 @@ members = [
 ]
 default-members = [
   "crates/desktop_app_contract",
+  "crates/system_shell_contract",
+  "crates/shrs_core_headless",
+  "crates/system_shell",
   "crates/apps/calculator",
   "crates/desktop_runtime",
   "crates/platform_host",

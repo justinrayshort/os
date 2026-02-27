@@ -25,7 +25,7 @@ compile_error!(
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Compile-time selected host strategy for [`platform_storage`] adapters.
-pub(crate) enum HostStrategy {
+pub enum HostStrategy {
     /// Browser-backed adapters from `platform_host_web`.
     Browser,
     /// Tauri desktop transport adapters for app-state, prefs, cache, and explorer domains.
@@ -34,7 +34,7 @@ pub(crate) enum HostStrategy {
     DesktopStub,
 }
 
-pub(crate) const fn selected_host_strategy() -> HostStrategy {
+pub const fn selected_host_strategy() -> HostStrategy {
     #[cfg(feature = "desktop-host-tauri")]
     {
         HostStrategy::DesktopTauri

@@ -48,6 +48,7 @@ pub mod model;
 pub mod persistence;
 /// Reducer actions and effect generation for desktop state transitions.
 pub mod reducer;
+mod shell;
 /// Wallpaper catalog, resolution, and library helpers.
 pub mod wallpaper;
 mod window_manager;

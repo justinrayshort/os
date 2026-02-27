@@ -816,9 +816,11 @@ dependencies = [
 name = "desktop_app_contract"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "leptos",
  "serde",
  "serde_json",
+ "system_shell_contract",
 ]
 
 [[package]]
@@ -862,6 +864,7 @@ dependencies = [
  "platform_storage",
  "serde",
  "serde_json",
+ "system_shell_contract",
 ]
 
 [[package]]
@@ -880,6 +883,8 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "serde_json",
+ "system_shell",
+ "system_shell_contract",
  "thiserror 1.0.69",
  "toml 0.8.2",
  "wasm-bindgen",
@@ -4210,6 +4215,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
+name = "shrs_core_headless"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4442,6 +4454,25 @@ dependencies = [
  "pkg-config",
  "toml 0.8.2",
  "version-compare",
+]
+
+[[package]]
+name = "system_shell"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "leptos",
+ "serde_json",
+ "shrs_core_headless",
+ "system_shell_contract",
+]
+
+[[package]]
+name = "system_shell_contract"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

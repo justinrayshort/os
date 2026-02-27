@@ -1,5 +1,6 @@
 use super::*;
 use crate::app_runtime::ensure_window_session;
+use crate::shell;
 use desktop_app_contract::{AppMountContext, AppServices, ApplicationId};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
@@ -263,6 +264,7 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
     let wallpaper_current = create_rw_signal(runtime.state.get_untracked().wallpaper);
     let wallpaper_preview = create_rw_signal(runtime.state.get_untracked().wallpaper_preview);
     let wallpaper_library = create_rw_signal(runtime.state.get_untracked().wallpaper_library);
+    let terminal_history = create_rw_signal(runtime.state.get_untracked().terminal_history);
     create_effect(move |_| {
         let desktop = runtime.state.get();
         theme_skin_id.set(desktop.theme.skin.css_id().to_string());
@@ -271,6 +273,7 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
         wallpaper_current.set(desktop.wallpaper);
         wallpaper_preview.set(desktop.wallpaper_preview);
         wallpaper_library.set(desktop.wallpaper_library);
+        terminal_history.set(desktop.terminal_history);
     });
     let command_sender = Callback::new(move |command| {
         spawn_local(async move {
@@ -285,6 +288,18 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
         wallpaper_current.read_only(),
         wallpaper_preview.read_only(),
         wallpaper_library.read_only(),
+        shell::build_command_service(
+            runtime.clone(),
+            state
+                .get_untracked()
+                .windows
+                .into_iter()
+                .find(|w| w.id == window_id)
+                .map(|w| w.app_id)
+                .expect("window app id"),
+            window_id,
+            terminal_history.read_only(),
+        ),
     );
     let contents = state
         .get_untracked()
