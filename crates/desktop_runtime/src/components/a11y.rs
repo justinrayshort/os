@@ -30,38 +30,6 @@ pub(super) fn focus_element_by_id(id: &str) -> bool {
     true
 }
 
-/// Traps `Tab`/`Shift+Tab` within a fixed focus order list.
-pub(super) fn trap_tab_focus(ev: &web_sys::KeyboardEvent, focus_order: &[&str]) {
-    if ev.key() != "Tab" || ev.alt_key() || ev.ctrl_key() || ev.meta_key() {
-        return;
-    }
-    if focus_order.is_empty() {
-        return;
-    }
-
-    let active_id = active_html_element().map(|el| el.id()).unwrap_or_default();
-    let current_index = focus_order
-        .iter()
-        .position(|id| *id == active_id)
-        .unwrap_or(if ev.shift_key() {
-            0
-        } else {
-            focus_order.len().saturating_sub(1)
-        });
-    let next_index = if ev.shift_key() {
-        if current_index == 0 {
-            focus_order.len().saturating_sub(1)
-        } else {
-            current_index.saturating_sub(1)
-        }
-    } else {
-        (current_index + 1) % focus_order.len()
-    };
-
-    ev.prevent_default();
-    let _ = focus_element_by_id(focus_order[next_index]);
-}
-
 fn menu_focusable_items(menu_id: &str) -> Vec<web_sys::HtmlElement> {
     let Some(document) = web_sys::window().and_then(|window| window.document()) else {
         return Vec::new();

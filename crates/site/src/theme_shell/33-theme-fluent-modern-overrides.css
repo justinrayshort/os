@@ -279,6 +279,8 @@
 
 .desktop-shell[data-skin="modern-adaptive"] .taskbar-app,
 .desktop-shell[data-skin="modern-adaptive"] .taskbar-overflow-button {
+  min-width: var(--fluent-shell-taskbar-app-min-width);
+  max-width: var(--fluent-shell-taskbar-app-max-width);
   min-height: var(--fluent-shell-taskbar-button-min-height);
   border-radius: var(--fluent-shell-taskbar-button-radius);
   border: 1px solid transparent;
@@ -293,6 +295,7 @@
 }
 
 .desktop-shell[data-skin="modern-adaptive"] .taskbar-overflow-button {
+  max-width: none;
   min-width: var(--fluent-shell-overflow-button-min-width);
   display: inline-flex;
   align-items: center;
@@ -390,6 +393,7 @@
   border-radius: var(--fluent-radius-md);
   background: var(--fluent-shell-tray-surface);
   box-shadow: inset 0 1px 0 var(--fluent-shell-tray-inset-stroke);
+  overflow: hidden;
 }
 
 .desktop-shell[data-skin="modern-adaptive"] .tray-widget,
@@ -860,6 +864,7 @@
   .desktop-shell[data-skin="modern-adaptive"] .explorer-tree,
   .desktop-shell[data-skin="modern-adaptive"] .explorer-pane,
   .desktop-shell[data-skin="modern-adaptive"] .notepad-document,
+  .desktop-shell[data-skin="modern-adaptive"] .settings-content,
   .desktop-shell[data-skin="modern-adaptive"] .calculator-main,
   .desktop-shell[data-skin="modern-adaptive"] .calc-tape {
     border: 1px solid var(--fluent-shell-stroke-1);
@@ -887,6 +892,8 @@
   }
 
   .desktop-shell[data-skin="modern-adaptive"] .tree-node,
+  .desktop-shell[data-skin="modern-adaptive"] .settings-option,
+  .desktop-shell[data-skin="modern-adaptive"] .settings-toggle,
   .desktop-shell[data-skin="modern-adaptive"] .explorer-listwrap,
   .desktop-shell[data-skin="modern-adaptive"] .explorer-list thead th,
   .desktop-shell[data-skin="modern-adaptive"] .explorer-list tbody tr,
@@ -1020,6 +1027,18 @@
 
   .desktop-shell[data-skin="modern-adaptive"] .calc-display {
     color: var(--fluent-shell-text-1);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .settings-heading,
+  .desktop-shell[data-skin="modern-adaptive"] .settings-option-note,
+  .desktop-shell[data-skin="modern-adaptive"] .settings-toggle small {
+    color: var(--fluent-shell-text-2);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .settings-tab.active,
+  .desktop-shell[data-skin="modern-adaptive"] .settings-option.selected {
+    border-color: var(--fluent-shell-accent);
+    background: var(--fluent-shell-accent-subtle);
   }
 
   .desktop-shell[data-skin="modern-adaptive"] .calc-key.digit {

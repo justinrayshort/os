@@ -4,12 +4,6 @@ use super::*;
 pub(super) fn Taskbar() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
-    let shell_ui = use_context::<DesktopShellUiContext>();
-    let modal_open = move || {
-        shell_ui
-            .map(|ctx| ctx.display_properties_open.get_untracked())
-            .unwrap_or(false)
-    };
 
     let viewport_width = create_rw_signal(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX).w);
     let clock_config = create_rw_signal(TaskbarClockConfig::default());
@@ -22,6 +16,17 @@ pub(super) fn Taskbar() -> impl IntoView {
     let overflow_menu_was_open = create_rw_signal(false);
     let clock_menu_was_open = create_rw_signal(false);
     let window_menu_was_open = create_rw_signal(false);
+    let taskbar_layout = create_memo(move |_| {
+        let desktop = state.get();
+        let tray_count = build_taskbar_tray_widgets(&desktop).len();
+        compute_taskbar_layout(
+            viewport_width.get(),
+            pinned_taskbar_apps().len(),
+            ordered_taskbar_windows(&desktop).len(),
+            tray_count,
+            false,
+        )
+    });
 
     let resize_listener = window_event_listener(ev::resize, move |_| {
         viewport_width.set(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX).w);
@@ -36,9 +41,6 @@ pub(super) fn Taskbar() -> impl IntoView {
     }
 
     let outside_click_listener = window_event_listener(ev::mousedown, move |_| {
-        if modal_open() {
-            return;
-        }
         let had_window_menu = window_context_menu.get_untracked().is_some();
         let had_overflow_menu = overflow_menu_open.get_untracked();
         let had_clock_menu = clock_menu_open.get_untracked();
@@ -61,9 +63,6 @@ pub(super) fn Taskbar() -> impl IntoView {
     on_cleanup(move || outside_click_listener.remove());
 
     let global_shortcut_listener = window_event_listener(ev::keydown, move |ev| {
-        if modal_open() {
-            return;
-        }
         if ev.default_prevented() {
             return;
         }
@@ -151,11 +150,6 @@ pub(super) fn Taskbar() -> impl IntoView {
     });
 
     let on_taskbar_keydown = move |ev: web_sys::KeyboardEvent| {
-        if modal_open() {
-            ev.prevent_default();
-            ev.stop_propagation();
-            return;
-        }
         if try_handle_taskbar_shortcuts(
             runtime,
             window_context_menu,
@@ -246,30 +240,7 @@ pub(super) fn Taskbar() -> impl IntoView {
             class="taskbar"
             role="toolbar"
             aria-label="Desktop taskbar"
-            aria-hidden=move || if shell_ui.map(|ctx| ctx.display_properties_open.get()).unwrap_or(false) {
-                "true"
-            } else {
-                "false"
-            }
             aria-keyshortcuts="Ctrl+Escape Alt+1 Alt+2 Alt+3 Alt+4 Alt+5 Alt+6 Alt+7 Alt+8 Alt+9"
-            on:mousedown:capture=move |ev: web_sys::MouseEvent| {
-                if modal_open() {
-                    ev.prevent_default();
-                    ev.stop_propagation();
-                }
-            }
-            on:click:capture=move |ev: web_sys::MouseEvent| {
-                if modal_open() {
-                    ev.prevent_default();
-                    ev.stop_propagation();
-                }
-            }
-            on:contextmenu:capture=move |ev: web_sys::MouseEvent| {
-                if modal_open() {
-                    ev.prevent_default();
-                    ev.stop_propagation();
-                }
-            }
             on:mousedown=move |ev| ev.stop_propagation()
             on:keydown=on_taskbar_keydown
         >
@@ -295,43 +266,45 @@ pub(super) fn Taskbar() -> impl IntoView {
                     <span>"Start"</span>
                 </button>
 
-                <div class="taskbar-pins" role="group" aria-label="Pinned apps">
-                    <For
-                        each=move || pinned_taskbar_apps().to_vec()
-                        key=|app_id| *app_id as u8
-                        let:app_id
-                    >
-                        <button
-                            class=move || {
-                                let desktop = state.get();
-                                taskbar_pinned_button_class(pinned_taskbar_app_state(&desktop, app_id))
-                            }
-                            data-app=app_id.icon_id()
-                            title=move || {
-                                let desktop = state.get();
-                                let status = pinned_taskbar_app_state(&desktop, app_id);
-                                taskbar_pinned_aria_label(app_id, status)
-                            }
-                            aria-label=move || {
-                                let desktop = state.get();
-                                let status = pinned_taskbar_app_state(&desktop, app_id);
-                                taskbar_pinned_aria_label(app_id, status)
-                            }
-                            on:click=move |_| {
-                                window_context_menu.set(None);
-                                overflow_menu_open.set(false);
-                                clock_menu_open.set(false);
-                                runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                                activate_pinned_taskbar_app(runtime, app_id);
-                            }
+                <Show when=move || taskbar_layout.get().show_pins fallback=|| ()>
+                    <div class="taskbar-pins" role="group" aria-label="Pinned apps">
+                        <For
+                            each=move || pinned_taskbar_apps().to_vec()
+                            key=|app_id| *app_id as u8
+                            let:app_id
                         >
-                            <span class="taskbar-app-icon" aria-hidden="true">
-                                <FluentIcon icon=app_icon_name(app_id) size=IconSize::Sm />
-                            </span>
-                            <span class="visually-hidden">{app_id.title()}</span>
-                        </button>
-                    </For>
-                </div>
+                            <button
+                                class=move || {
+                                    let desktop = state.get();
+                                    taskbar_pinned_button_class(pinned_taskbar_app_state(&desktop, app_id))
+                                }
+                                data-app=app_id.icon_id()
+                                title=move || {
+                                    let desktop = state.get();
+                                    let status = pinned_taskbar_app_state(&desktop, app_id);
+                                    taskbar_pinned_aria_label(app_id, status)
+                                }
+                                aria-label=move || {
+                                    let desktop = state.get();
+                                    let status = pinned_taskbar_app_state(&desktop, app_id);
+                                    taskbar_pinned_aria_label(app_id, status)
+                                }
+                                on:click=move |_| {
+                                    window_context_menu.set(None);
+                                    overflow_menu_open.set(false);
+                                    clock_menu_open.set(false);
+                                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                                    activate_pinned_taskbar_app(runtime, app_id);
+                                }
+                            >
+                                <span class="taskbar-app-icon" aria-hidden="true">
+                                    <FluentIcon icon=app_icon_name(app_id) size=IconSize::Sm />
+                                </span>
+                                <span class="visually-hidden">{app_id.title()}</span>
+                            </button>
+                        </For>
+                    </div>
+                </Show>
             </div>
 
             <div class="taskbar-running-region" role="group" aria-label="Running windows">
@@ -339,14 +312,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                     <For
                         each=move || {
                             let desktop = state.get();
-                            let tray_count = build_taskbar_tray_widgets(&desktop).len();
-                            let layout = compute_taskbar_layout(
-                                viewport_width.get(),
-                                pinned_taskbar_apps().len(),
-                                desktop.windows.len(),
-                                tray_count,
-                                clock_config.get().show_date,
-                            );
+                            let layout = taskbar_layout.get();
                             ordered_taskbar_windows(&desktop)
                                 .into_iter()
                                 .take(layout.visible_running_count)
@@ -358,15 +324,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                         <button
                             id=taskbar_window_button_dom_id(win.id)
                             class=move || {
-                                let desktop = state.get();
-                                let tray_count = build_taskbar_tray_widgets(&desktop).len();
-                                let layout = compute_taskbar_layout(
-                                    viewport_width.get(),
-                                    pinned_taskbar_apps().len(),
-                                    desktop.windows.len(),
-                                    tray_count,
-                                    clock_config.get().show_date,
-                                );
+                                let layout = taskbar_layout.get();
                                 taskbar_window_button_class(
                                     win.is_focused && !win.minimized,
                                     win.minimized,
@@ -414,15 +372,8 @@ pub(super) fn Taskbar() -> impl IntoView {
                     <Show
                         when=move || {
                             let desktop = state.get();
-                            let tray_count = build_taskbar_tray_widgets(&desktop).len();
-                            let layout = compute_taskbar_layout(
-                                viewport_width.get(),
-                                pinned_taskbar_apps().len(),
-                                desktop.windows.len(),
-                                tray_count,
-                                clock_config.get().show_date,
-                            );
-                            desktop.windows.len() > layout.visible_running_count
+                            let running = ordered_taskbar_windows(&desktop);
+                            running.len() > taskbar_layout.get().visible_running_count
                         }
                         fallback=|| ()
                     >
@@ -445,15 +396,9 @@ pub(super) fn Taskbar() -> impl IntoView {
                                 </span>
                                 {move || {
                                     let desktop = state.get();
-                                    let tray_count = build_taskbar_tray_widgets(&desktop).len();
-                                    let layout = compute_taskbar_layout(
-                                        viewport_width.get(),
-                                        pinned_taskbar_apps().len(),
-                                        desktop.windows.len(),
-                                        tray_count,
-                                        clock_config.get().show_date,
-                                    );
-                                    let hidden = desktop.windows.len().saturating_sub(layout.visible_running_count);
+                                    let hidden = ordered_taskbar_windows(&desktop)
+                                        .len()
+                                        .saturating_sub(taskbar_layout.get().visible_running_count);
                                     format!("+{hidden}")
                                 }}
                             </button>
@@ -476,7 +421,12 @@ pub(super) fn Taskbar() -> impl IntoView {
             <div class="taskbar-right">
                 <div class="taskbar-tray" role="group" aria-label="System tray">
                     <For
-                        each=move || build_taskbar_tray_widgets(&state.get())
+                        each=move || {
+                            build_taskbar_tray_widgets(&state.get())
+                                .into_iter()
+                                .take(taskbar_layout.get().visible_tray_widget_count)
+                                .collect::<Vec<_>>()
+                        }
                         key=|widget| widget.id
                         let:widget
                     >
@@ -512,7 +462,11 @@ pub(super) fn Taskbar() -> impl IntoView {
                     <button
                         id="taskbar-clock-button"
                         class="taskbar-clock"
-                        aria-label=move || format_taskbar_clock_aria(clock_now.get(), clock_config.get())
+                        aria-label=move || {
+                            let mut config = clock_config.get();
+                            config.show_date = config.show_date && taskbar_layout.get().show_clock_date;
+                            format_taskbar_clock_aria(clock_now.get(), config)
+                        }
                         aria-haspopup="menu"
                         aria-controls="taskbar-clock-menu"
                         aria-expanded=move || clock_menu_open.get()
@@ -524,9 +478,16 @@ pub(super) fn Taskbar() -> impl IntoView {
                         }
                     >
                         <span class="taskbar-clock-time">
-                            {move || format_taskbar_clock_time(clock_now.get(), clock_config.get())}
+                            {move || {
+                                let mut config = clock_config.get();
+                                config.show_date = config.show_date && taskbar_layout.get().show_clock_date;
+                                format_taskbar_clock_time(clock_now.get(), config)
+                            }}
                         </span>
-                        <Show when=move || clock_config.get().show_date fallback=|| ()>
+                        <Show
+                            when=move || clock_config.get().show_date && taskbar_layout.get().show_clock_date
+                            fallback=|| ()
+                        >
                             <span class="taskbar-clock-date">
                                 {move || format_taskbar_clock_date(clock_now.get())}
                             </span>

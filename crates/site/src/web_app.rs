@@ -203,6 +203,7 @@ fn parse_app_id(raw: &str) -> Option<AppId> {
         "notepad" | "notes" => Some(AppId::Notepad),
         "paint" => Some(AppId::Paint),
         "terminal" | "term" => Some(AppId::Terminal),
+        "settings" | "system-settings" | "prefs" | "preferences" => Some(AppId::Settings),
         "dialup" | "dial-up" | "dial" | "connect" => Some(AppId::Dialup),
         _ => None,
     }

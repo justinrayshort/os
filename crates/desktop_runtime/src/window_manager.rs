@@ -3,9 +3,9 @@
 use crate::model::{DesktopState, ResizeEdge, WindowId, WindowRect};
 
 /// Minimum allowed managed window width.
-pub const MIN_WINDOW_WIDTH: i32 = 220;
+pub const MIN_WINDOW_WIDTH: i32 = 320;
 /// Minimum allowed managed window height.
-pub const MIN_WINDOW_HEIGHT: i32 = 140;
+pub const MIN_WINDOW_HEIGHT: i32 = 220;
 /// Pointer threshold (in px) for snap-edge behavior.
 pub const SNAP_EDGE_THRESHOLD: i32 = 24;
 

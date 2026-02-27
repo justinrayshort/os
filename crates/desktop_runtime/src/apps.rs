@@ -7,6 +7,7 @@ use desktop_app_calculator::CalculatorApp;
 use desktop_app_contract::{AppModule, AppMountContext, SuspendPolicy};
 use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
+use desktop_app_settings::SettingsApp;
 use desktop_app_terminal::TerminalApp;
 use leptos::*;
 use platform_storage::{self};
@@ -45,7 +46,7 @@ pub struct AppDescriptor {
     pub suspend_policy: SuspendPolicy,
 }
 
-const APP_REGISTRY: [AppDescriptor; 6] = [
+const APP_REGISTRY: [AppDescriptor; 7] = [
     AppDescriptor {
         app_id: AppId::Calculator,
         launcher_label: "Calculator",
@@ -95,6 +96,16 @@ const APP_REGISTRY: [AppDescriptor; 6] = [
         single_instance: true,
         module: AppModule::new(mount_terminal_app),
         suspend_policy: SuspendPolicy::Never,
+    },
+    AppDescriptor {
+        app_id: AppId::Settings,
+        launcher_label: "System Settings",
+        desktop_icon_label: "Settings",
+        show_in_launcher: true,
+        show_on_desktop: false,
+        single_instance: true,
+        module: AppModule::new(mount_settings_app),
+        suspend_policy: SuspendPolicy::OnMinimize,
     },
     AppDescriptor {
         app_id: AppId::Dialup,
@@ -156,17 +167,89 @@ pub fn app_suspend_policy(app_id: AppId) -> SuspendPolicy {
 /// Builds the default [`OpenWindowRequest`] for a given app.
 ///
 /// Some apps override the default geometry to better fit their UI.
-pub fn default_open_request(app_id: AppId) -> OpenWindowRequest {
+///
+/// When `viewport` is provided, the returned request uses adaptive default sizing and placement
+/// heuristics so app windows open with readable dimensions while respecting available space.
+pub fn default_open_request(
+    app_id: AppId,
+    viewport: Option<crate::model::WindowRect>,
+) -> OpenWindowRequest {
     let mut req = OpenWindowRequest::new(app_id);
-    if matches!(app_id, AppId::Calculator) {
-        req.rect = Some(crate::model::WindowRect {
-            x: 72,
-            y: 64,
-            w: 560,
-            h: 420,
-        });
-    }
+    req.rect = Some(default_window_rect_for_app(app_id, viewport));
+    req.viewport = viewport;
     req
+}
+
+fn default_window_rect_for_app(
+    app_id: AppId,
+    viewport: Option<crate::model::WindowRect>,
+) -> crate::model::WindowRect {
+    let vp = viewport.unwrap_or(crate::model::WindowRect {
+        x: 0,
+        y: 0,
+        w: 1280,
+        h: 760,
+    });
+
+    let (min_w, min_h, max_w_ratio, max_h_ratio, default_w_ratio, default_h_ratio) = match app_id {
+        AppId::Explorer => (620, 420, 0.92, 0.92, 0.80, 0.78),
+        AppId::Notepad => (560, 380, 0.88, 0.88, 0.74, 0.74),
+        AppId::Terminal => (560, 360, 0.88, 0.86, 0.74, 0.70),
+        AppId::Settings => (680, 480, 0.92, 0.92, 0.82, 0.82),
+        AppId::Calculator => (460, 360, 0.78, 0.86, 0.56, 0.74),
+        AppId::Paint => (620, 420, 0.92, 0.92, 0.78, 0.78),
+        AppId::Dialup => (420, 300, 0.66, 0.68, 0.48, 0.50),
+    };
+
+    let max_w = ((vp.w as f32) * max_w_ratio) as i32;
+    let max_h = ((vp.h as f32) * max_h_ratio) as i32;
+    let w = (((vp.w as f32) * default_w_ratio) as i32).clamp(min_w, max_w.max(min_w));
+    let h = (((vp.h as f32) * default_h_ratio) as i32).clamp(min_h, max_h.max(min_h));
+    let x = vp.x + ((vp.w - w) / 2).max(10);
+    let y = vp.y + ((vp.h - h) / 2).max(10);
+
+    crate::model::WindowRect { x, y, w, h }
+}
+
+#[cfg(test)]
+mod default_open_request_tests {
+    use super::*;
+
+    #[test]
+    fn default_open_request_scales_to_viewport() {
+        let viewport = crate::model::WindowRect {
+            x: 0,
+            y: 0,
+            w: 900,
+            h: 620,
+        };
+        let req = default_open_request(AppId::Explorer, Some(viewport));
+        let rect = req.rect.expect("default rect");
+
+        assert!(rect.w <= ((viewport.w as f32) * 0.92) as i32);
+        assert!(rect.h <= ((viewport.h as f32) * 0.92) as i32);
+        assert!(rect.w >= 620);
+        assert!(rect.h >= 420);
+    }
+
+    #[test]
+    fn calculator_defaults_are_more_compact_than_explorer() {
+        let viewport = crate::model::WindowRect {
+            x: 0,
+            y: 0,
+            w: 1280,
+            h: 760,
+        };
+        let calc = default_open_request(AppId::Calculator, Some(viewport))
+            .rect
+            .expect("calculator rect");
+        let explorer = default_open_request(AppId::Explorer, Some(viewport))
+            .rect
+            .expect("explorer rect");
+
+        assert!(calc.w < explorer.w);
+        assert!(calc.h <= explorer.h);
+    }
 }
 
 fn mount_calculator_app(context: AppMountContext) -> View {
@@ -206,6 +289,17 @@ fn mount_notepad_app(context: AppMountContext) -> View {
 fn mount_terminal_app(context: AppMountContext) -> View {
     view! {
         <TerminalApp
+            launch_params=context.launch_params.clone()
+            restored_state=Some(context.restored_state.clone())
+            host=Some(context.host)
+        />
+    }
+    .into_view()
+}
+
+fn mount_settings_app(context: AppMountContext) -> View {
+    view! {
+        <SettingsApp
             launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
             host=Some(context.host)

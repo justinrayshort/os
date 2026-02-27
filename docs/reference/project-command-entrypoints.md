@@ -81,7 +81,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages (useful for staged/isolated wiki diagnostics).
 - `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries (disallow direct `platform_storage::load_app_state_envelope(...)` usage in `crates/apps`, `crates/desktop_runtime`, and `crates/site`).
 - `scripts/ui/capture-skin-matrix.sh [base_url] [output_dir]`: Capture screenshot evidence matrix across skins (`modern-adaptive`, `classic-xp`, `classic-95`) and breakpoints (`desktop`, `tablet`, `mobile`) into `.artifacts/ui-conformance/screenshots/`.
-- `scripts/ui/keyboard-flow-smoke.sh [base_url] [output_dir]`: Run keyboard traversal smoke checks for context menu and Display Properties listbox/tab flows across all skins, writing `.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json`.
+- `scripts/ui/keyboard-flow-smoke.sh [base_url] [output_dir]`: Run keyboard traversal smoke checks for context menu and system-surface settings flows across all skins, writing `.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json`.
 - `cargo doc --workspace --no-deps`: Generate authoritative Rust API reference (`target/doc/`).
 - `cargo test --workspace --doc`: Run rustdoc examples (doctests).
 - `cargo xtask docs all`: Run docs contract validation (includes `wiki` validation).

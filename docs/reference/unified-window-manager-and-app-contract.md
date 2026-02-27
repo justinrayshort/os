@@ -61,7 +61,7 @@ Lifecycle events dispatched by the manager:
 - `AppModule`: module mount primitive used by runtime registry.
 - `AppMountContext`: per-window context (window id, launch params, restored state, lifecycle signal, inbox signal, host bridge).
 - `AppHost`: command channel from app to runtime.
-- `AppCommand`: manager commands (`SetWindowTitle`, `PersistState`, `OpenExternalUrl`, `Subscribe`, `Unsubscribe`, `PublishEvent`).
+- `AppCommand`: manager commands (`SetWindowTitle`, `PersistState`, `OpenExternalUrl`, `Subscribe`, `Unsubscribe`, `PublishEvent`, `SetDesktopSkin`, `SetDesktopWallpaper`, `SetDesktopHighContrast`, `SetDesktopReducedMotion`).
 - `AppEvent`: topic payload delivered through runtime inbox.
 - `SuspendPolicy`: manager suspend behavior (`OnMinimize`, `Never`).
 

@@ -229,6 +229,7 @@ fn WindowResizeHandle(window_id: WindowId, edge: ResizeEdge) -> impl IntoView {
             window_id,
             edge,
             pointer: pointer_from_pointer_event(&ev),
+            viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
         });
     };
 

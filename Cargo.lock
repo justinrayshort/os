@@ -844,6 +844,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "desktop_app_settings"
+version = "0.1.0"
+dependencies = [
+ "desktop_app_contract",
+ "leptos",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "desktop_app_terminal"
 version = "0.1.0"
 dependencies = [
@@ -862,6 +872,7 @@ dependencies = [
  "desktop_app_contract",
  "desktop_app_explorer",
  "desktop_app_notepad",
+ "desktop_app_settings",
  "desktop_app_terminal",
  "js-sys",
  "leptos",

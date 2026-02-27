@@ -25,6 +25,8 @@ pub enum DesktopAction {
     ActivateApp {
         /// Application to activate.
         app_id: AppId,
+        /// Optional desktop viewport hint for adaptive default window sizing.
+        viewport: Option<WindowRect>,
     },
     /// Open a new window using the supplied request.
     OpenWindow(OpenWindowRequest),
@@ -91,6 +93,8 @@ pub enum DesktopAction {
         edge: ResizeEdge,
         /// Pointer position at resize start.
         pointer: PointerPosition,
+        /// Current desktop viewport rectangle used for resize bounds.
+        viewport: WindowRect,
     },
     /// Update an in-progress window resize.
     UpdateResize {
@@ -224,6 +228,29 @@ pub enum ReducerError {
     WindowNotFound,
 }
 
+fn clamp_window_rect_to_viewport(rect: WindowRect, viewport: WindowRect) -> WindowRect {
+    let min_w = MIN_WINDOW_WIDTH.min(viewport.w.max(MIN_WINDOW_WIDTH));
+    let min_h = MIN_WINDOW_HEIGHT.min(viewport.h.max(MIN_WINDOW_HEIGHT));
+    let max_w = (viewport.w - 20).max(min_w);
+    let max_h = (viewport.h - 20).max(min_h);
+    let w = rect.w.clamp(min_w, max_w);
+    let h = rect.h.clamp(min_h, max_h);
+    let max_x = (viewport.x + viewport.w - w - 10).max(viewport.x + 10);
+    let max_y = (viewport.y + viewport.h - h - 10).max(viewport.y + 10);
+    let x = rect.x.clamp(viewport.x + 10, max_x);
+    let y = rect.y.clamp(viewport.y + 10, max_y);
+    WindowRect { x, y, w, h }
+}
+
+fn desktop_skin_from_id(skin_id: &str) -> Option<DesktopSkin> {
+    match skin_id.trim() {
+        "modern-adaptive" => Some(DesktopSkin::ModernAdaptive),
+        "classic-xp" => Some(DesktopSkin::ClassicXp),
+        "classic-95" => Some(DesktopSkin::Classic95),
+        _ => None,
+    }
+}
+
 /// Applies a [`DesktopAction`] to the desktop runtime state and collects resulting side effects.
 ///
 /// This function is the authoritative state transition engine for desktop window management and
@@ -239,7 +266,7 @@ pub fn reduce_desktop(
 ) -> Result<Vec<RuntimeEffect>, ReducerError> {
     let mut effects = Vec::new();
     match action {
-        DesktopAction::ActivateApp { app_id } => {
+        DesktopAction::ActivateApp { app_id, viewport } => {
             let descriptor = apps::app_descriptor(app_id);
 
             if descriptor.single_instance {
@@ -273,7 +300,7 @@ pub fn reduce_desktop(
             let nested = reduce_desktop(
                 state,
                 interaction,
-                DesktopAction::OpenWindow(apps::default_open_request(app_id)),
+                DesktopAction::OpenWindow(apps::default_open_request(app_id, viewport)),
             )?;
             effects.extend(nested);
             return Ok(effects);
@@ -282,6 +309,12 @@ pub fn reduce_desktop(
             let previously_focused = state.focused_window_id();
             let window_id = next_window_id(state);
             let default_offset = ((window_id.0 as i32) - 1) % 8 * 20;
+            let viewport = req.viewport.unwrap_or(WindowRect {
+                x: 0,
+                y: 0,
+                w: 1280,
+                h: 760,
+            });
             let rect = req
                 .rect
                 .unwrap_or(WindowRect {
@@ -290,7 +323,9 @@ pub fn reduce_desktop(
                     w: DEFAULT_WINDOW_WIDTH,
                     h: DEFAULT_WINDOW_HEIGHT,
                 })
+                .offset(default_offset / 2, default_offset / 2)
                 .clamped_min(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
+            let rect = clamp_window_rect_to_viewport(rect, viewport);
             let record = WindowRecord {
                 id: window_id,
                 app_id: req.app_id,
@@ -538,6 +573,7 @@ pub fn reduce_desktop(
             window_id,
             edge,
             pointer,
+            viewport,
         } => {
             let previous_focus = state.focused_window_id();
             let rect_start = find_window_mut(state, window_id)?.rect;
@@ -550,6 +586,7 @@ pub fn reduce_desktop(
                 edge,
                 pointer_start: pointer,
                 rect_start,
+                viewport,
             });
         }
         DesktopAction::UpdateResize { pointer } => {
@@ -558,8 +595,9 @@ pub fn reduce_desktop(
                 let dy = pointer.y - session.pointer_start.y;
                 let window = find_window_mut(state, session.window_id)?;
                 if !window.maximized && window.flags.resizable {
-                    window.rect = resize_rect(session.rect_start, session.edge, dx, dy)
+                    let resized = resize_rect(session.rect_start, session.edge, dx, dy)
                         .clamped_min(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
+                    window.rect = clamp_window_rect_to_viewport(resized, session.viewport);
                 }
             }
         }
@@ -645,6 +683,39 @@ pub fn reduce_desktop(
                         payload,
                     });
                 }
+            }
+            AppCommand::SetDesktopSkin { skin_id } => {
+                if let Some(skin) = desktop_skin_from_id(&skin_id) {
+                    let nested =
+                        reduce_desktop(state, interaction, DesktopAction::SetSkin { skin })?;
+                    effects.extend(nested);
+                }
+            }
+            AppCommand::SetDesktopWallpaper { wallpaper_id } => {
+                if !wallpaper_id.trim().is_empty() {
+                    let nested = reduce_desktop(
+                        state,
+                        interaction,
+                        DesktopAction::SetWallpaper { wallpaper_id },
+                    )?;
+                    effects.extend(nested);
+                }
+            }
+            AppCommand::SetDesktopHighContrast { enabled } => {
+                let nested = reduce_desktop(
+                    state,
+                    interaction,
+                    DesktopAction::SetHighContrast { enabled },
+                )?;
+                effects.extend(nested);
+            }
+            AppCommand::SetDesktopReducedMotion { enabled } => {
+                let nested = reduce_desktop(
+                    state,
+                    interaction,
+                    DesktopAction::SetReducedMotion { enabled },
+                )?;
+                effects.extend(nested);
             }
         },
         DesktopAction::SetSkin { skin } => {
@@ -915,6 +986,7 @@ mod tests {
             &mut interaction,
             DesktopAction::ActivateApp {
                 app_id: AppId::Terminal,
+                viewport: None,
             },
         )
         .expect("activate terminal");
@@ -927,6 +999,7 @@ mod tests {
             &mut interaction,
             DesktopAction::ActivateApp {
                 app_id: AppId::Terminal,
+                viewport: None,
             },
         )
         .expect("reactivate terminal");
@@ -946,6 +1019,7 @@ mod tests {
             &mut interaction,
             DesktopAction::ActivateApp {
                 app_id: AppId::Explorer,
+                viewport: None,
             },
         )
         .expect("activate explorer first");
@@ -954,6 +1028,7 @@ mod tests {
             &mut interaction,
             DesktopAction::ActivateApp {
                 app_id: AppId::Explorer,
+                viewport: None,
             },
         )
         .expect("activate explorer second");

@@ -113,6 +113,26 @@ pub enum AppCommand {
         /// Event payload.
         payload: Value,
     },
+    /// Set the active desktop skin preset.
+    SetDesktopSkin {
+        /// Stable desktop skin id (for example `modern-adaptive`).
+        skin_id: String,
+    },
+    /// Set the active desktop wallpaper preset id.
+    SetDesktopWallpaper {
+        /// Stable wallpaper preset id.
+        wallpaper_id: String,
+    },
+    /// Toggle desktop high-contrast rendering.
+    SetDesktopHighContrast {
+        /// Whether high contrast should be enabled.
+        enabled: bool,
+    },
+    /// Toggle desktop reduced-motion rendering.
+    SetDesktopReducedMotion {
+        /// Whether reduced motion should be enabled.
+        enabled: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -159,6 +179,20 @@ impl AppHost {
         self.send(AppCommand::PublishEvent {
             topic: topic.into(),
             payload,
+        });
+    }
+
+    /// Convenience helper to set the desktop skin by stable id.
+    pub fn set_desktop_skin(&self, skin_id: impl Into<String>) {
+        self.send(AppCommand::SetDesktopSkin {
+            skin_id: skin_id.into(),
+        });
+    }
+
+    /// Convenience helper to set the desktop wallpaper by stable id.
+    pub fn set_desktop_wallpaper(&self, wallpaper_id: impl Into<String>) {
+        self.send(AppCommand::SetDesktopWallpaper {
+            wallpaper_id: wallpaper_id.into(),
         });
     }
 }

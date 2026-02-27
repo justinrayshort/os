@@ -6,9 +6,9 @@ use serde_json::Value;
 /// Schema version for serialized [`DesktopSnapshot`] layout payloads.
 pub const DESKTOP_LAYOUT_SCHEMA_VERSION: u32 = 1;
 /// Default window width used when no explicit geometry is provided.
-pub const DEFAULT_WINDOW_WIDTH: i32 = 420;
+pub const DEFAULT_WINDOW_WIDTH: i32 = 720;
 /// Default window height used when no explicit geometry is provided.
-pub const DEFAULT_WINDOW_HEIGHT: i32 = 300;
+pub const DEFAULT_WINDOW_HEIGHT: i32 = 500;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 /// Stable runtime identifier for an open desktop window.
@@ -30,6 +30,8 @@ pub enum AppId {
     Paint,
     /// Terminal app.
     Terminal,
+    /// System Settings app.
+    Settings,
     /// Dial-up placeholder app.
     Dialup,
 }
@@ -43,6 +45,7 @@ impl AppId {
             Self::Notepad => "Notepad",
             Self::Paint => "Paint",
             Self::Terminal => "Terminal",
+            Self::Settings => "System Settings",
             Self::Dialup => "Dial-up",
         }
     }
@@ -55,6 +58,7 @@ impl AppId {
             Self::Notepad => "notepad",
             Self::Paint => "paint",
             Self::Terminal => "terminal",
+            Self::Settings => "settings",
             Self::Dialup => "modem",
         }
     }
@@ -368,6 +372,8 @@ pub struct OpenWindowRequest {
     pub icon_id: Option<String>,
     /// Optional initial geometry override.
     pub rect: Option<WindowRect>,
+    /// Optional viewport hint used for adaptive sizing/clamping when opening.
+    pub viewport: Option<WindowRect>,
     /// Optional persistence key for app instance reuse.
     pub persist_key: Option<String>,
     /// App-specific launch parameters.
@@ -398,6 +404,7 @@ impl OpenWindowRequest {
             title: None,
             icon_id: None,
             rect: None,
+            viewport: None,
             persist_key: None,
             launch_params: Value::Null,
             app_state: Value::Null,
@@ -458,6 +465,8 @@ pub struct ResizeSession {
     pub pointer_start: PointerPosition,
     /// Window rectangle when resizing began.
     pub rect_start: WindowRect,
+    /// Desktop viewport available for resize boundary clamping.
+    pub viewport: WindowRect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

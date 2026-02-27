@@ -58,7 +58,10 @@ impl DesktopHostContext {
                 for target in deep_link.open {
                     match target {
                         crate::model::DeepLinkOpenTarget::App(app_id) => {
-                            runtime.dispatch_action(DesktopAction::ActivateApp { app_id });
+                            runtime.dispatch_action(DesktopAction::ActivateApp {
+                                app_id,
+                                viewport: Some(runtime.host.desktop_viewport_rect(38)),
+                            });
                         }
                         target => {
                             runtime.dispatch_action(DesktopAction::OpenWindow(
@@ -162,8 +165,8 @@ impl DesktopHostContext {
                 return WindowRect {
                     x: 0,
                     y: 0,
-                    w: width.max(220),
-                    h: (height - taskbar_height_px).max(140),
+                    w: width.max(320),
+                    h: (height - taskbar_height_px).max(220),
                 };
             }
         }

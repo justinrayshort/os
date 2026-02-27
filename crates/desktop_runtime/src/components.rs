@@ -1,7 +1,6 @@
 //! Leptos provider, context, and desktop shell UI composition.
 
 mod a11y;
-mod display_properties;
 mod menus;
 mod taskbar;
 mod taskbar_input;
@@ -10,13 +9,10 @@ mod window;
 use std::time::Duration;
 
 use leptos::*;
+use serde_json::json;
 
 use self::{
-    a11y::{
-        active_html_element, focus_element_by_id, focus_first_menu_item, focus_html_element,
-        handle_menu_roving_keydown, trap_tab_focus,
-    },
-    display_properties::DisplayPropertiesDialog,
+    a11y::{focus_element_by_id, focus_first_menu_item, handle_menu_roving_keydown},
     menus::DesktopContextMenu,
     taskbar::Taskbar,
     taskbar_input::{is_activation_key, is_context_menu_shortcut, try_handle_taskbar_shortcuts},
@@ -29,8 +25,7 @@ use crate::{
     host::DesktopHostContext,
     icons::{app_icon_name, FluentIcon, IconName, IconSize},
     model::{
-        AppId, DesktopSkin, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId,
-        WindowRecord,
+        AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
     },
     reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
 };
@@ -54,12 +49,6 @@ struct WallpaperPreset {
     id: &'static str,
     label: &'static str,
     kind: WallpaperPresetKind,
-    note: &'static str,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct SkinPreset {
-    skin: DesktopSkin,
     note: &'static str,
 }
 
@@ -105,33 +94,11 @@ fn desktop_wallpaper_presets() -> &'static [WallpaperPreset] {
     PRESETS
 }
 
-fn desktop_skin_presets() -> &'static [SkinPreset] {
-    const PRESETS: &[SkinPreset] = &[
-        SkinPreset {
-            skin: DesktopSkin::ModernAdaptive,
-            note: "Dark-first modern skin with adaptive light/dark mapping",
-        },
-        SkinPreset {
-            skin: DesktopSkin::ClassicXp,
-            note: "Nostalgic XP-inspired shell palette and controls",
-        },
-        SkinPreset {
-            skin: DesktopSkin::Classic95,
-            note: "Nostalgic Windows 95-inspired shell palette and controls",
-        },
-    ];
-    PRESETS
-}
-
 fn wallpaper_preset_kind_label(kind: WallpaperPresetKind) -> &'static str {
     match kind {
         WallpaperPresetKind::Pattern => "Pattern",
         WallpaperPresetKind::Picture => "Picture",
     }
-}
-
-fn skin_option_dom_id(skin: DesktopSkin) -> String {
-    format!("skin-option-{}", skin.css_id())
 }
 
 fn wallpaper_preset_by_id(id: &str) -> WallpaperPreset {
@@ -146,10 +113,6 @@ fn wallpaper_preset_by_id(id: &str) -> WallpaperPreset {
         .copied()
         .find(|preset| preset.id == normalized)
         .unwrap_or_else(|| desktop_wallpaper_presets()[0])
-}
-
-fn wallpaper_option_dom_id(id: &str) -> String {
-    format!("wallpaper-option-{id}")
 }
 
 fn taskbar_window_button_dom_id(window_id: WindowId) -> String {
@@ -171,11 +134,6 @@ pub struct DesktopRuntimeContext {
     pub app_runtime: RwSignal<AppRuntimeState>,
     /// Reducer dispatch callback.
     pub dispatch: Callback<DesktopAction>,
-}
-
-#[derive(Clone, Copy)]
-struct DesktopShellUiContext {
-    display_properties_open: RwSignal<bool>,
 }
 
 impl DesktopRuntimeContext {
@@ -252,34 +210,6 @@ pub fn DesktopShell() -> impl IntoView {
     let state = runtime.state;
     let desktop_context_menu = create_rw_signal(None::<DesktopContextMenuState>);
     let desktop_context_menu_was_open = create_rw_signal(false);
-    let display_properties_open = create_rw_signal(false);
-    let wallpaper_selection = create_rw_signal(
-        wallpaper_preset_by_id(&state.get_untracked().theme.wallpaper_id)
-            .id
-            .to_string(),
-    );
-    let skin_selection = create_rw_signal(state.get_untracked().theme.skin);
-    let display_properties_original_wallpaper = create_rw_signal(None::<String>);
-    let display_properties_original_skin = create_rw_signal(None::<DesktopSkin>);
-    let display_properties_last_focused = create_rw_signal(None::<web_sys::HtmlElement>);
-    let display_properties_was_open = create_rw_signal(false);
-    provide_context(DesktopShellUiContext {
-        display_properties_open,
-    });
-
-    create_effect(move |_| {
-        let active_wallpaper = wallpaper_preset_by_id(&state.get().theme.wallpaper_id);
-        if !display_properties_open.get() {
-            wallpaper_selection.set(active_wallpaper.id.to_string());
-        }
-    });
-
-    create_effect(move |_| {
-        let active_skin = state.get().theme.skin;
-        if !display_properties_open.get() {
-            skin_selection.set(active_skin);
-        }
-    });
 
     create_effect(move |_| {
         let is_open = desktop_context_menu.get().is_some();
@@ -292,54 +222,6 @@ pub fn DesktopShell() -> impl IntoView {
         }
     });
 
-    create_effect(move |_| {
-        let is_open = display_properties_open.get();
-        let was_open = display_properties_was_open.get_untracked();
-        if is_open && !was_open {
-            display_properties_last_focused.set(active_html_element());
-            display_properties_was_open.set(true);
-            if !focus_element_by_id("wallpaper-listbox") {
-                let _ = focus_element_by_id("display-properties-close-button");
-            }
-            return;
-        }
-
-        if !is_open && was_open {
-            display_properties_was_open.set(false);
-            if let Some(element) = display_properties_last_focused.get_untracked() {
-                focus_html_element(&element);
-            } else {
-                let _ = focus_element_by_id("desktop-shell-root");
-            }
-            display_properties_last_focused.set(None);
-        }
-    });
-
-    let close_display_properties_cancel = Callback::new(move |_| {
-        if let Some(original) = display_properties_original_wallpaper.get_untracked() {
-            let current = wallpaper_preset_by_id(&runtime.state.get_untracked().theme.wallpaper_id);
-            if current.id != original {
-                runtime.dispatch_action(DesktopAction::SetWallpaper {
-                    wallpaper_id: original.clone(),
-                });
-            }
-            wallpaper_selection.set(original);
-        }
-        if let Some(original_skin) = display_properties_original_skin.get_untracked() {
-            let current_skin = runtime.state.get_untracked().theme.skin;
-            if current_skin != original_skin {
-                runtime.dispatch_action(DesktopAction::SetSkin {
-                    skin: original_skin,
-                });
-            }
-            skin_selection.set(original_skin);
-        }
-
-        display_properties_original_wallpaper.set(None);
-        display_properties_original_skin.set(None);
-        display_properties_open.set(false);
-    });
-
     let escape_listener = window_event_listener(ev::keydown, move |ev| {
         if ev.default_prevented() || ev.key() != "Escape" {
             return;
@@ -350,13 +232,6 @@ pub fn DesktopShell() -> impl IntoView {
             ev.stop_propagation();
             desktop_context_menu.set(None);
             let _ = focus_element_by_id("desktop-shell-root");
-            return;
-        }
-
-        if display_properties_open.get_untracked() {
-            ev.prevent_default();
-            ev.stop_propagation();
-            close_display_properties_cancel.call(());
         }
     });
     on_cleanup(move || escape_listener.remove());
@@ -388,114 +263,24 @@ pub fn DesktopShell() -> impl IntoView {
         }
     });
 
-    let open_display_properties = Callback::new(move |_| {
-        let theme = runtime.state.get_untracked().theme;
-        let active = wallpaper_preset_by_id(&theme.wallpaper_id);
+    let open_system_settings = Callback::new(move |_| {
         desktop_context_menu.set(None);
         runtime.dispatch_action(DesktopAction::CloseStartMenu);
-        wallpaper_selection.set(active.id.to_string());
-        skin_selection.set(theme.skin);
-        display_properties_original_wallpaper.set(Some(active.id.to_string()));
-        display_properties_original_skin.set(Some(theme.skin));
-        display_properties_open.set(true);
-    });
-
-    let preview_selected_wallpaper = Callback::new(move |_| {
-        let selected = wallpaper_preset_by_id(&wallpaper_selection.get_untracked());
-        runtime.dispatch_action(DesktopAction::SetWallpaper {
-            wallpaper_id: selected.id.to_string(),
-        });
-    });
-
-    let apply_selected_wallpaper = Callback::new(move |_| {
-        let selected = wallpaper_preset_by_id(&wallpaper_selection.get_untracked());
-        runtime.dispatch_action(DesktopAction::SetWallpaper {
-            wallpaper_id: selected.id.to_string(),
-        });
-        display_properties_original_wallpaper.set(Some(selected.id.to_string()));
-    });
-    let preview_selected_skin = Callback::new(move |_| {
-        let selected = skin_selection.get_untracked();
-        runtime.dispatch_action(DesktopAction::SetSkin { skin: selected });
-    });
-
-    let apply_selected_skin = Callback::new(move |_| {
-        let selected = skin_selection.get_untracked();
-        runtime.dispatch_action(DesktopAction::SetSkin { skin: selected });
-        display_properties_original_skin.set(Some(selected));
-    });
-    let on_wallpaper_listbox_keydown = Callback::new(move |ev: web_sys::KeyboardEvent| {
-        let presets = desktop_wallpaper_presets();
-        if presets.is_empty() {
+        let desktop = runtime.state.get_untracked();
+        if let Some(window_id) = preferred_window_for_app(&desktop, AppId::Settings) {
+            focus_or_unminimize_window(runtime, &desktop, window_id);
             return;
         }
 
-        let selected_id = wallpaper_selection.get_untracked();
-        let current_index = presets
-            .iter()
-            .position(|preset| preset.id == selected_id)
-            .unwrap_or(0);
-        let last_index = presets.len().saturating_sub(1);
-        let next_index = match ev.key().as_str() {
-            "ArrowUp" => Some(current_index.saturating_sub(1)),
-            "ArrowDown" => Some((current_index + 1).min(last_index)),
-            "Home" => Some(0),
-            "End" => Some(last_index),
-            "Enter" | " " | "Spacebar" => {
-                ev.prevent_default();
-                preview_selected_wallpaper.call(());
-                None
-            }
-            _ => None,
-        };
-
-        if let Some(index) = next_index {
-            ev.prevent_default();
-            wallpaper_selection.set(presets[index].id.to_string());
-        }
-    });
-    let on_skin_listbox_keydown = Callback::new(move |ev: web_sys::KeyboardEvent| {
-        let presets = desktop_skin_presets();
-        if presets.is_empty() {
-            return;
-        }
-
-        let selected_skin = skin_selection.get_untracked();
-        let current_index = presets
-            .iter()
-            .position(|preset| preset.skin == selected_skin)
-            .unwrap_or(0);
-        let last_index = presets.len().saturating_sub(1);
-        let next_index = match ev.key().as_str() {
-            "ArrowUp" => Some(current_index.saturating_sub(1)),
-            "ArrowDown" => Some((current_index + 1).min(last_index)),
-            "Home" => Some(0),
-            "End" => Some(last_index),
-            "Enter" | " " | "Spacebar" => {
-                ev.prevent_default();
-                preview_selected_skin.call(());
-                None
-            }
-            _ => None,
-        };
-
-        if let Some(index) = next_index {
-            ev.prevent_default();
-            skin_selection.set(presets[index].skin);
-        }
-    });
-
-    let close_display_properties_ok = Callback::new(move |_| {
-        let selected = wallpaper_preset_by_id(&wallpaper_selection.get_untracked());
-        runtime.dispatch_action(DesktopAction::SetWallpaper {
-            wallpaper_id: selected.id.to_string(),
+        let viewport = runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX);
+        let mut request = apps::default_open_request(AppId::Settings, Some(viewport));
+        request.launch_params = json!({
+            "wallpaper_id": desktop.theme.wallpaper_id,
+            "skin_id": desktop.theme.skin.css_id(),
+            "high_contrast": desktop.theme.high_contrast,
+            "reduced_motion": desktop.theme.reduced_motion,
         });
-        runtime.dispatch_action(DesktopAction::SetSkin {
-            skin: skin_selection.get_untracked(),
-        });
-        display_properties_original_wallpaper.set(None);
-        display_properties_original_skin.set(None);
-        display_properties_open.set(false);
+        runtime.dispatch_action(DesktopAction::OpenWindow(request));
     });
 
     view! {
@@ -529,7 +314,6 @@ pub fn DesktopShell() -> impl IntoView {
                         ev.prevent_default();
                         ev.stop_propagation();
                         runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                        display_properties_open.set(false);
                         open_desktop_context_menu(
                             runtime.host,
                             desktop_context_menu,
@@ -546,6 +330,7 @@ pub fn DesktopShell() -> impl IntoView {
                             on:click=move |_| {
                                 runtime.dispatch_action(DesktopAction::ActivateApp {
                                     app_id: app.app_id,
+                                    viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
                                 });
                             }
                         >
@@ -571,23 +356,7 @@ pub fn DesktopShell() -> impl IntoView {
                     state
                     runtime
                     desktop_context_menu
-                    wallpaper_selection
-                    open_display_properties
-                />
-
-                <DisplayPropertiesDialog
-                    state
-                    display_properties_open
-                    wallpaper_selection
-                    skin_selection
-                    on_wallpaper_listbox_keydown
-                    on_skin_listbox_keydown
-                    preview_selected_wallpaper
-                    apply_selected_wallpaper
-                    preview_selected_skin
-                    apply_selected_skin
-                    close_display_properties_ok
-                    close_display_properties_cancel
+                    open_system_settings
                 />
             </div>
 
@@ -606,7 +375,7 @@ impl Default for TaskbarClockConfig {
     fn default() -> Self {
         Self {
             use_24_hour: false,
-            show_date: true,
+            show_date: false,
         }
     }
 }
@@ -652,6 +421,9 @@ impl TaskbarClockSnapshot {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TaskbarLayoutPlan {
+    show_pins: bool,
+    visible_tray_widget_count: usize,
+    show_clock_date: bool,
     compact_running_items: bool,
     visible_running_count: usize,
 }
@@ -748,38 +520,102 @@ fn compute_taskbar_layout(
     pinned_count: usize,
     running_count: usize,
     tray_widget_count: usize,
-    clock_show_date: bool,
+    desired_clock_show_date: bool,
 ) -> TaskbarLayoutPlan {
+    let viewport_width = viewport_width.max(320);
+    let mut show_pins = pinned_count > 0 && viewport_width >= 560;
+    let mut visible_tray_widget_count = if viewport_width >= 1320 {
+        tray_widget_count.min(4)
+    } else if viewport_width >= 1040 {
+        tray_widget_count.min(3)
+    } else if viewport_width >= 760 {
+        tray_widget_count.min(2)
+    } else {
+        tray_widget_count.min(1)
+    };
+    let mut show_clock_date = desired_clock_show_date && viewport_width >= 920;
+
+    // Priority order under pressure: hide date, reduce tray widgets, then collapse pinned strip.
+    loop {
+        let start_width = if viewport_width < 640 { 72 } else { 108 };
+        let pins_width = if show_pins {
+            (pinned_count as i32) * 42 + 8
+        } else {
+            0
+        };
+        let tray_width = 22 + ((visible_tray_widget_count as i32) * 56);
+        let clock_width = if show_clock_date { 132 } else { 88 };
+        let reserved = start_width + pins_width + tray_width + clock_width + 40;
+        let available = viewport_width - reserved;
+
+        if available >= 120 || (!show_clock_date && visible_tray_widget_count <= 1 && !show_pins) {
+            break;
+        }
+
+        if show_clock_date {
+            show_clock_date = false;
+            continue;
+        }
+        if visible_tray_widget_count > 1 {
+            visible_tray_widget_count -= 1;
+            continue;
+        }
+        if show_pins {
+            show_pins = false;
+            continue;
+        }
+        break;
+    }
+
+    let start_width = if viewport_width < 640 { 72 } else { 108 };
+    let pins_width = if show_pins {
+        (pinned_count as i32) * 42 + 8
+    } else {
+        0
+    };
+    let tray_width = 22 + ((visible_tray_widget_count as i32) * 56);
+    let clock_width = if show_clock_date { 132 } else { 88 };
+    let reserved = start_width + pins_width + tray_width + clock_width + 40;
+    let available = (viewport_width - reserved).max(0);
+
     if running_count == 0 {
         return TaskbarLayoutPlan {
+            show_pins,
+            visible_tray_widget_count,
+            show_clock_date,
             compact_running_items: false,
             visible_running_count: 0,
         };
     }
 
-    let viewport_width = viewport_width.max(320);
-    let pinned_width = (pinned_count as i32) * 42;
-    let tray_width = 28 + ((tray_widget_count.min(4)) as i32 * 56);
-    let clock_width = if clock_show_date { 136 } else { 88 };
-    let reserved = 96 + pinned_width + tray_width + clock_width + 48;
-    let available = (viewport_width - reserved).max(0);
-
-    let full_item_width = 148;
-    let compact_item_width = 44;
+    let full_item_width = if viewport_width >= 1200 {
+        176
+    } else if viewport_width >= 900 {
+        156
+    } else {
+        138
+    };
+    let compact_item_width = if viewport_width >= 900 { 52 } else { 46 };
     let full_visible = (available / full_item_width).max(0) as usize;
     if full_visible >= running_count {
         return TaskbarLayoutPlan {
+            show_pins,
+            visible_tray_widget_count,
+            show_clock_date,
             compact_running_items: false,
             visible_running_count: running_count,
         };
     }
 
     let mut compact_visible = (available / compact_item_width).max(0) as usize;
-    if compact_visible == 0 && available >= 32 {
+    if compact_visible == 0 && available >= 36 {
         compact_visible = 1;
     }
 
     TaskbarLayoutPlan {
+        show_pins,
+        visible_tray_widget_count,
+        show_clock_date,
         compact_running_items: true,
         visible_running_count: compact_visible.min(running_count),
     }
@@ -872,7 +708,10 @@ fn activate_pinned_taskbar_app(runtime: DesktopRuntimeContext, app_id: AppId) {
         }
     }
 
-    runtime.dispatch_action(DesktopAction::ActivateApp { app_id });
+    runtime.dispatch_action(DesktopAction::ActivateApp {
+        app_id,
+        viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
+    });
 }
 
 fn activate_taskbar_shortcut_target(runtime: DesktopRuntimeContext, target: TaskbarShortcutTarget) {

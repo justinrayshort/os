@@ -24,7 +24,8 @@
   }
 
   .taskbar-app {
-    min-width: 104px;
+    min-width: 96px;
+    max-width: 170px;
   }
 
   .tray-widget {
@@ -37,7 +38,7 @@
   }
 
   .taskbar-clock {
-    min-width: 84px;
+    min-width: 74px;
     padding-inline: 6px;
   }
 
@@ -66,6 +67,10 @@
   .display-action-button {
     flex: 1;
   }
+
+  .settings-option-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -85,7 +90,8 @@
   }
 
   .taskbar-app {
-    min-width: 96px;
+    min-width: 78px;
+    max-width: 128px;
   }
 
   .taskbar-pins {
@@ -102,7 +108,7 @@
   }
 
   .taskbar-clock {
-    min-width: 76px;
+    min-width: 68px;
   }
 
   .start-menu {
@@ -126,9 +132,33 @@
     margin-left: 0;
     width: 100%;
   }
+
+  .settings-content {
+    padding: 6px;
+  }
 }
 
 @media (pointer: coarse), (hover: none) {
+  .taskbar {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .taskbar-left,
+  .taskbar-right,
+  .taskbar-running-strip,
+  .taskbar-tray {
+    gap: 6px;
+  }
+
+  .start-button,
+  .taskbar-app,
+  .taskbar-overflow-button,
+  .tray-widget,
+  .taskbar-clock {
+    min-height: 44px;
+  }
+
   .app-menubar,
   .app-toolbar,
   .terminal-toolbar,
@@ -144,7 +174,9 @@
   .calc-key,
   .calc-tape-item,
   .notepad-tab,
-  .terminal-run {
+  .terminal-run,
+  .settings-option,
+  .settings-toggle {
     min-height: 44px;
   }
 

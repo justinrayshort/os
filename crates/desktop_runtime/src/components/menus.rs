@@ -5,8 +5,7 @@ pub(super) fn DesktopContextMenu(
     state: RwSignal<DesktopState>,
     runtime: DesktopRuntimeContext,
     desktop_context_menu: RwSignal<Option<DesktopContextMenuState>>,
-    wallpaper_selection: RwSignal<String>,
-    open_display_properties: Callback<()>,
+    open_system_settings: Callback<()>,
 ) -> impl IntoView {
     view! {
         <Show when=move || desktop_context_menu.get().is_some() fallback=|| ()>
@@ -55,7 +54,8 @@ pub(super) fn DesktopContextMenu(
                             class="taskbar-menu-item"
                             on:click:undelegated=move |ev| {
                                 stop_mouse_event(&ev);
-                                open_display_properties.call(());
+                                desktop_context_menu.set(None);
+                                open_system_settings.call(());
                             }
                         >
                             "Properties..."
@@ -85,7 +85,6 @@ pub(super) fn DesktopContextMenu(
                                 on:click:undelegated=move |ev| {
                                     stop_mouse_event(&ev);
                                     desktop_context_menu.set(None);
-                                    wallpaper_selection.set(preset.id.to_string());
                                     runtime.dispatch_action(DesktopAction::SetWallpaper {
                                         wallpaper_id: preset.id.to_string(),
                                     });
@@ -152,6 +151,7 @@ pub(super) fn StartMenu(
                             clock_menu_open.set(false);
                             runtime.dispatch_action(DesktopAction::ActivateApp {
                                 app_id: app.app_id,
+                                viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
                             });
                         }
                     >
@@ -211,7 +211,7 @@ pub(super) fn OverflowMenu(
                         let layout = compute_taskbar_layout(
                             viewport_width.get(),
                             pinned_taskbar_apps().len(),
-                            desktop.windows.len(),
+                            ordered_taskbar_windows(&desktop).len(),
                             tray_count,
                             clock_config.get().show_date,
                         );
@@ -304,17 +304,6 @@ pub(super) fn ClockMenu(
                     }
                 >
                     "24-hour time"
-                </button>
-                <button
-                    id="taskbar-clock-menu-item-date"
-                    role="menuitemcheckbox"
-                    aria-checked=move || clock_config.get().show_date
-                    class="taskbar-menu-item"
-                    on:click=move |_| {
-                        clock_config.update(|cfg| cfg.show_date = !cfg.show_date);
-                    }
-                >
-                    "Show date"
                 </button>
                 <button
                     id="taskbar-clock-menu-item-close"

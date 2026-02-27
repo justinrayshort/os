@@ -28,9 +28,11 @@ The Fluent Modern redesign currently covers the desktop shell chrome and shared 
 - tray widgets and clock
 - launcher/start menu and taskbar menus
 - desktop context menu wallpaper selection affordances
-- display properties dialog shell controls
+- System Settings app (display and accessibility surfaces)
 
-App content areas (Calculator, Explorer, Notepad, Terminal) now receive explicit modern-adaptive overrides for shared app chrome, control surfaces, and dark-mode parity while preserving existing app behavior.
+App content areas (Calculator, Explorer, Notepad, Terminal, System Settings) now receive explicit modern-adaptive overrides for shared app chrome, control surfaces, and dark-mode parity while preserving existing app behavior.
+
+Window manager and taskbar layout now use adaptive sizing heuristics tied to viewport constraints, with priority-based taskbar visibility (running windows, pinned strip, tray density, clock date) to reduce crowding across narrow and wide displays.
 
 ## Iconography Standard (Fluent UI System Icons)
 
@@ -110,9 +112,15 @@ Shared app-surface primitives (built-in apps + placeholder apps):
 - `app-editor`: canonical multiline editor primitive
 - `app-progress`: canonical progress indicator primitive
 
+Adaptive shell layout primitives:
+
+- viewport-aware default window geometry generation (`default_open_request(..., viewport)`) with per-app min/max ratios
+- reducer-side window open clamping to viewport bounds (readability-preserving min dimensions plus max-size caps)
+- taskbar runtime layout planning (`compute_taskbar_layout`) with priority-based visibility and overflow budgeting
+
 Built-in app conformance rule:
 
-- Explorer, Notepad, Terminal, Calculator, Paint placeholder, and Dial-up placeholder must compose from the primitives above and avoid one-off control styling when an equivalent primitive exists.
+- Explorer, Notepad, Terminal, Calculator, System Settings, Paint placeholder, and Dial-up placeholder must compose from the primitives above and avoid one-off control styling when an equivalent primitive exists.
 - App-specific classes may extend surface semantics (for example `explorer-*`, `calc-*`) but must inherit interaction metrics (target size, padding, state transitions) from `app-action` and `app-field`.
 
 Conventions:

@@ -112,6 +112,8 @@
   --fluent-shell-taskbar-glyph-size: 20px;
   --fluent-shell-taskbar-glyph-chip-surface: rgba(255, 255, 255, 0.15);
   --fluent-shell-taskbar-app-icon-size: 20px;
+  --fluent-shell-taskbar-app-min-width: 120px;
+  --fluent-shell-taskbar-app-max-width: 260px;
   --fluent-shell-taskbar-pinned-width: 40px;
   --fluent-shell-taskbar-pinned-icon-size: 18px;
   --fluent-shell-taskbar-compact-width: 42px;
