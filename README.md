@@ -1,6 +1,8 @@
-# Retro Desktop Prototype (Leptos + Rust/WASM)
+# OS Desktop Runtime Workspace (Rust/WASM + Tauri)
 
-This repository contains a debranded retro desktop website prototype with a desktop shell runtime, window manager reducer, and mounted mini-apps (`Explorer`, `Notepad`, `Terminal`).
+This project is a Rust workspace implementing a desktop-style runtime and app shell that can run in browser (`wasm32`) or Tauri-hosted environments. It is organized into contract, runtime, host, storage-adapter, and app crates, with state managed through a reducer/effect model and persistence routed through typed host/storage abstractions.
+
+It includes strong local tooling (`xtask`) for verification, documentation contract enforcement, and operational workflows, with moderate unit/integration test coverage concentrated in runtime and adapter logic.
 
 Documentation is split by intent:
 
@@ -11,6 +13,8 @@ Documentation is split by intent:
 ## Prototype Status
 
 - Desktop shell with taskbar, launcher menu, windows, and persistence hooks
+- Runtime behavior centered on reducer state transitions and `RuntimeEffect` execution
+- Cross-environment shell execution path (browser/WASM and Tauri-hosted desktop workflows)
 - Offline-first browser storage architecture:
   - IndexedDB for versioned namespaced app/system state and virtual filesystem
   - Cache API for cached file previews/responses
@@ -247,10 +251,11 @@ cargo xtask docs all
 
 - `crates/site` - Leptos app shell, routes, runtime mounting, theme CSS
 - `crates/desktop_runtime` - desktop state, reducer, effects, shell components, registry
+- `crates/desktop_app_contract` - typed app/runtime contracts for module mount context, host commands, and lifecycle/events
 - `crates/desktop_tauri` - Tauri desktop shell host crate/configuration (`tauri.conf.json`, capabilities, CLI hooks)
 - `crates/platform_host` - API-first host contracts/types crate (Phase 1 migration foundation)
 - `crates/platform_host_web` - browser (`wasm32`) implementations of `platform_host` services (app-state/cache/prefs/explorer)
-- `crates/platform_storage` - temporary compatibility facade exposing legacy wrappers during host-boundary migration
+- `crates/platform_storage` - storage-adapter and compatibility facade around host implementations during migration
 - `crates/apps/explorer` - Explorer app UI crate
 - `crates/apps/notepad` - Notepad app UI crate
 - `crates/apps/calculator` - Calculator app UI crate

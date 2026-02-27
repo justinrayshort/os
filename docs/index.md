@@ -17,6 +17,8 @@ lifecycle: "ga"
 
 This repository treats documentation as production infrastructure: versioned, review-gated, machine-validated, and classified by intent using Diataxis.
 
+The project itself is a Rust workspace implementing a desktop-style runtime and app shell that runs in browser (`wasm32`) and Tauri-hosted environments. Architecture is organized around contract, runtime, host, storage-adapter, and app crates, with reducer/effect state flow and typed host/storage persistence boundaries.
+
 The project now uses a split documentation surface:
 
 - The GitHub Wiki (`wiki/` submodule) is the canonical documentation hub and primary navigation surface for project documentation (Diataxis pages plus project reference/index pages).
