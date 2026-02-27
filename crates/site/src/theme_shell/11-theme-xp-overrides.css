@@ -298,17 +298,14 @@
   background: linear-gradient(180deg, #fffde8, #ffd870);
 }
 
-.desktop-shell[data-skin="classic-xp"] .app-toolbar,
-.desktop-shell[data-skin="classic-xp"] .terminal-toolbar {
+.desktop-shell[data-skin="classic-xp"] .app-toolbar {
   border: 1px solid #b6c7e6;
   border-radius: 3px;
   background: linear-gradient(180deg, #f8fbff, #dde9fb);
   box-shadow: inset 0 1px 0 #fff;
 }
 
-.desktop-shell[data-skin="classic-xp"] .app-toolbar button,
-.desktop-shell[data-skin="classic-xp"] .terminal-toolbar button,
-.desktop-shell[data-skin="classic-xp"] .terminal-run {
+.desktop-shell[data-skin="classic-xp"] .app-toolbar button {
   border: 1px solid #8da9d6;
   border-radius: 3px;
   background: linear-gradient(180deg, #ffffff, #e7eefb 55%, #d7e4fb 100%);
@@ -411,21 +408,29 @@
 }
 
 .desktop-shell[data-skin="classic-xp"] .terminal-screen {
-  border-color: #6a88bc;
+  border-color: #8ea4c8;
   border-radius: 3px;
-  box-shadow:
-    inset 0 0 0 1px rgba(152, 180, 234, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  background: linear-gradient(180deg, #05070c, #0c1220);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: #11161d;
 }
 
-.desktop-shell[data-skin="classic-xp"] .terminal-input {
-  border: 1px solid #7f9db9;
-  border-radius: 2px;
-  background: #fff;
-  box-shadow:
-    inset 1px 1px 0 rgba(0, 0, 0, 0.05),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.8);
+.desktop-shell[data-skin="classic-xp"] .terminal-composer-shell {
+  border-color: #8ea4c8;
+  border-radius: 3px;
+  background: #161d27;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.desktop-shell[data-skin="classic-xp"] .terminal-completions {
+  border-color: #8ea4c8;
+  border-radius: 3px;
+  background: #1a2230;
+}
+
+.desktop-shell[data-skin="classic-xp"] .terminal-completion:hover:not(:disabled),
+.desktop-shell[data-skin="classic-xp"] .terminal-completion:focus-visible {
+  border-color: #9db7e4;
+  background: rgba(237, 244, 255, 0.12);
 }
 
 .desktop-shell[data-skin="classic-xp"] .calculator-workspace {

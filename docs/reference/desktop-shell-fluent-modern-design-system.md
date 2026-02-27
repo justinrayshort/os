@@ -82,6 +82,7 @@ Token categories introduced:
 
 - typography (`--fluent-font-family`, `--fluent-font-family-mono`)
 - shell typography hierarchy tokens (`--fluent-shell-font-size-*`, `--fluent-shell-font-weight-*`, `--fluent-shell-line-height-*`) for body/chrome/title/caption text roles
+- terminal content tokens (`--terminal-*`) for terminal surfaces, prompt hierarchy, semantic transcript states, overlay surfaces, selection/caret treatment, and monospace rhythm
 - spacing scale (`--fluent-space-*`)
 - radius scale (`--fluent-radius-*`)
 - icon sizing (`--fluent-icon-*`)
@@ -121,6 +122,15 @@ Shared app-surface primitives (built-in apps + placeholder apps):
 - `app-editor`: canonical multiline editor primitive
 - `app-progress`: canonical progress indicator primitive
 
+Terminal-specific primitives:
+
+- `terminal-screen`: scrollable transcript viewport with terminal typography tokens
+- `terminal-transcript`: transcript stack wrapper for semantic line grouping
+- `terminal-line-*`: semantic transcript classes for prompt/stdout/stderr/status/json/system rendering
+- `terminal-composer-shell`: minimal prompt/input surface with anchored completion overlay
+- `terminal-composer`, `terminal-prompt`, `terminal-prompt-cwd`, `terminal-prompt-separator`: structured prompt hierarchy
+- `terminal-completions`, `terminal-completion`: compact completion overlay contract
+
 Adaptive shell layout primitives:
 
 - viewport-aware default window geometry generation (`default_open_request(..., viewport)`) with per-app min/max ratios
@@ -131,6 +141,7 @@ Built-in app conformance rule:
 
 - Explorer, Notepad, Terminal, Calculator, System Settings, Paint placeholder, and Dial-up placeholder must compose from the primitives above and avoid one-off control styling when an equivalent primitive exists.
 - App-specific classes may extend surface semantics (for example `explorer-*`, `calc-*`) but must inherit interaction metrics (target size, padding, state transitions) from `app-action` and `app-field`.
+- Terminal remains transcript-first: no persistent toolbar, run button, or status chrome; one minimal startup hint; command-driven utility actions; and auto-follow output that disengages while the user reviews older transcript lines.
 
 Conventions:
 

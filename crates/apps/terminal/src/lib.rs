@@ -10,14 +10,18 @@ use std::{
 
 use desktop_app_contract::AppServices;
 use leptos::ev::KeyboardEvent;
+use leptos::html;
 use leptos::*;
 use platform_storage::{self, TERMINAL_STATE_NAMESPACE};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use system_shell_contract::{CompletionRequest, CompletionItem, ExecutionId, ShellRequest, ShellStreamEvent};
+use system_shell_contract::{
+    CompletionItem, CompletionRequest, ExecutionId, ShellRequest, ShellStreamEvent,
+};
 
 const TERMINAL_STATE_SCHEMA_VERSION: u32 = 2;
 const MAX_TERMINAL_ENTRIES: usize = 200;
+const AUTO_FOLLOW_THRESHOLD_PX: i32 = 32;
 static NEXT_TERMINAL_INSTANCE_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -70,6 +74,13 @@ struct TerminalPersistedState {
     active_execution: Option<PersistedExecutionState>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RenderedTranscriptEntry {
+    text: String,
+    class_name: &'static str,
+    is_prompt: bool,
+}
+
 fn migrate_terminal_state(
     schema_version: u32,
     envelope: &platform_storage::AppStateEnvelope,
@@ -95,14 +106,9 @@ fn migrate_terminal_state(
 }
 
 fn default_terminal_transcript() -> Vec<TerminalTranscriptEntry> {
-    vec![
-        TerminalTranscriptEntry::System {
-            text: "RetroShell 0.2".to_string(),
-        },
-        TerminalTranscriptEntry::System {
-            text: "Type `help` for commands.".to_string(),
-        },
-    ]
+    vec![TerminalTranscriptEntry::System {
+        text: "Type help for commands.".to_string(),
+    }]
 }
 
 fn normalize_terminal_transcript(transcript: &mut Vec<TerminalTranscriptEntry>) {
@@ -134,16 +140,57 @@ fn restore_terminal_state(
     restored
 }
 
-fn render_transcript_entry(entry: &TerminalTranscriptEntry) -> String {
+/// Returns `true` when the user is already following the newest transcript output.
+///
+/// A small bottom threshold avoids disabling auto-follow because of subpixel or padding jitter.
+fn should_auto_follow(
+    scroll_height: i32,
+    scroll_top: i32,
+    client_height: i32,
+    threshold: i32,
+) -> bool {
+    scroll_height - (scroll_top + client_height) <= threshold
+}
+
+/// Maps persisted transcript entries into render-time semantic classes without changing storage.
+fn render_transcript_entry(entry: &TerminalTranscriptEntry) -> RenderedTranscriptEntry {
     match entry {
-        TerminalTranscriptEntry::Prompt { cwd, command, .. } => format!("{cwd}> {command}"),
-        TerminalTranscriptEntry::Stdout { text, .. } => text.clone(),
-        TerminalTranscriptEntry::Stderr { text, .. } => text.clone(),
-        TerminalTranscriptEntry::Status { text, .. } => text.clone(),
-        TerminalTranscriptEntry::Json { value, .. } => {
-            serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string())
-        }
-        TerminalTranscriptEntry::System { text } => text.clone(),
+        TerminalTranscriptEntry::Prompt { cwd, command, .. } => RenderedTranscriptEntry {
+            text: format!("{cwd} \u{203a} {command}"),
+            class_name: "terminal-line terminal-line-prompt",
+            is_prompt: true,
+        },
+        TerminalTranscriptEntry::Stdout { text, .. } => RenderedTranscriptEntry {
+            text: text.clone(),
+            class_name: "terminal-line terminal-line-stdout",
+            is_prompt: false,
+        },
+        TerminalTranscriptEntry::Stderr { text, .. } => RenderedTranscriptEntry {
+            text: text.clone(),
+            class_name: "terminal-line terminal-line-stderr",
+            is_prompt: false,
+        },
+        TerminalTranscriptEntry::Status { text, .. } => RenderedTranscriptEntry {
+            text: text.clone(),
+            class_name: "terminal-line terminal-line-status",
+            is_prompt: false,
+        },
+        TerminalTranscriptEntry::Json { value, .. } => RenderedTranscriptEntry {
+            text: serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string()),
+            class_name: "terminal-line terminal-line-json",
+            is_prompt: false,
+        },
+        TerminalTranscriptEntry::System { text } => RenderedTranscriptEntry {
+            text: text.clone(),
+            class_name: "terminal-line terminal-line-system",
+            is_prompt: false,
+        },
+    }
+}
+
+fn scroll_terminal_to_bottom(terminal_screen: &NodeRef<html::Div>) {
+    if let Some(screen) = terminal_screen.get() {
+        screen.set_scroll_top(screen.scroll_height());
     }
 }
 
@@ -195,6 +242,8 @@ pub fn TerminalApp(
     let pending_command = create_rw_signal::<Option<String>>(None);
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
+    let should_follow_output = create_rw_signal(true);
+    let terminal_screen = create_node_ref::<html::Div>();
     let services_for_persist = services.clone();
     let hydrate_alive = Rc::new(Cell::new(true));
     on_cleanup({
@@ -203,7 +252,8 @@ pub fn TerminalApp(
     });
 
     if let Some(restored_state) = restored_state.as_ref() {
-        if let Ok(restored) = serde_json::from_value::<TerminalPersistedState>(restored_state.clone())
+        if let Ok(restored) =
+            serde_json::from_value::<TerminalPersistedState>(restored_state.clone())
         {
             let restored = restore_terminal_state(restored, &launch_cwd);
             let serialized = serde_json::to_string(&restored).ok();
@@ -280,28 +330,37 @@ pub fn TerminalApp(
                             pending_command.set(None);
                         }
                     }
-                    ShellStreamEvent::StdoutChunk { execution_id, text } => transcript.update(|entries| {
-                        entries.push(TerminalTranscriptEntry::Stdout {
-                            text: text.clone(),
-                            execution_id: *execution_id,
-                        });
-                        normalize_terminal_transcript(entries);
-                    }),
-                    ShellStreamEvent::StderrChunk { execution_id, text } => transcript.update(|entries| {
-                        entries.push(TerminalTranscriptEntry::Stderr {
-                            text: text.clone(),
-                            execution_id: *execution_id,
-                        });
-                        normalize_terminal_transcript(entries);
-                    }),
-                    ShellStreamEvent::Status { execution_id, text } => transcript.update(|entries| {
-                        entries.push(TerminalTranscriptEntry::Status {
-                            text: text.clone(),
-                            execution_id: *execution_id,
-                        });
-                        normalize_terminal_transcript(entries);
-                    }),
-                    ShellStreamEvent::Json { execution_id, value } => transcript.update(|entries| {
+                    ShellStreamEvent::StdoutChunk { execution_id, text } => {
+                        transcript.update(|entries| {
+                            entries.push(TerminalTranscriptEntry::Stdout {
+                                text: text.clone(),
+                                execution_id: *execution_id,
+                            });
+                            normalize_terminal_transcript(entries);
+                        })
+                    }
+                    ShellStreamEvent::StderrChunk { execution_id, text } => {
+                        transcript.update(|entries| {
+                            entries.push(TerminalTranscriptEntry::Stderr {
+                                text: text.clone(),
+                                execution_id: *execution_id,
+                            });
+                            normalize_terminal_transcript(entries);
+                        })
+                    }
+                    ShellStreamEvent::Status { execution_id, text } => {
+                        transcript.update(|entries| {
+                            entries.push(TerminalTranscriptEntry::Status {
+                                text: text.clone(),
+                                execution_id: *execution_id,
+                            });
+                            normalize_terminal_transcript(entries);
+                        })
+                    }
+                    ShellStreamEvent::Json {
+                        execution_id,
+                        value,
+                    } => transcript.update(|entries| {
                         entries.push(TerminalTranscriptEntry::Json {
                             value: value.clone(),
                             execution_id: *execution_id,
@@ -370,6 +429,20 @@ pub fn TerminalApp(
                 logging::warn!("terminal persist failed: {err}");
             }
         });
+    });
+
+    create_effect({
+        let terminal_screen = terminal_screen.clone();
+        move |_| {
+            let _transcript_len = transcript.get().len();
+            let hydrated = hydrated.get();
+            let should_follow_output = should_follow_output.get();
+            if !hydrated || !should_follow_output {
+                return;
+            }
+
+            scroll_terminal_to_bottom(&terminal_screen);
+        }
     });
 
     let submit_command: Rc<dyn Fn(String)> = Rc::new({
@@ -469,9 +542,7 @@ pub fn TerminalApp(
                     }
                     Err(err) => {
                         transcript.update(|entries| {
-                            entries.push(TerminalTranscriptEntry::System {
-                                text: err.message,
-                            });
+                            entries.push(TerminalTranscriptEntry::System { text: err.message });
                             normalize_terminal_transcript(entries);
                         });
                     }
@@ -488,112 +559,99 @@ pub fn TerminalApp(
             .map(|(idx, entry)| (idx, render_transcript_entry(&entry)))
             .collect::<Vec<_>>()
     };
-    let shell_session_for_status = shell_session.clone();
-    let submit_help = submit_command.clone();
-    let submit_open = submit_command.clone();
     let submit_on_enter = submit_command.clone();
-    let submit_on_click = submit_command.clone();
 
     view! {
         <div class="app-shell app-terminal-shell">
-            <div class="terminal-toolbar">
-                <button type="button" class="app-action" on:click=move |_| submit_help("help".to_string())>"Help"</button>
-                <button type="button" class="app-action" on:click=move |_| submit_open("open system.explorer".to_string())>"Open Explorer"</button>
-                <button type="button" class="app-action" on:click=move |_| {
-                    transcript.set(default_terminal_transcript());
-                    input.set(String::new());
-                    active_execution.set(None);
-                }>"Clear"</button>
-            </div>
-
-            <div class="terminal-screen" role="log" aria-live="polite">
-                <For each=indexed_entries key=|(idx, _)| *idx let:entry>
-                    <div class="terminal-line">{entry.1}</div>
-                </For>
-            </div>
-
-            <Show when=move || !suggestions.get().is_empty() fallback=|| ()>
-                <div class="terminal-completions" role="listbox" aria-label="Completions">
-                    <For each=move || suggestions.get() key=|item| item.value.clone() let:item>
-                        <button
-                            type="button"
-                            class="terminal-completion"
-                            on:click=move |_| {
-                                input.set(format!("{} ", item.value));
-                                suggestions.set(Vec::new());
-                            }
-                        >
-                            {item.label}
-                        </button>
+            <div
+                class="terminal-screen"
+                role="log"
+                aria-live="polite"
+                node_ref=terminal_screen
+                on:scroll=move |_| {
+                    if let Some(screen) = terminal_screen.get() {
+                        should_follow_output.set(should_auto_follow(
+                            screen.scroll_height(),
+                            screen.scroll_top(),
+                            screen.client_height(),
+                            AUTO_FOLLOW_THRESHOLD_PX,
+                        ));
+                    }
+                }
+            >
+                <div class="terminal-transcript">
+                    <For each=indexed_entries key=|(idx, _)| *idx let:entry>
+                        <div class=entry.1.class_name data-prompt=entry.1.is_prompt.to_string()>{entry.1.text}</div>
                     </For>
                 </div>
-            </Show>
-
-            <div class="terminal-input-row">
-                <label class="terminal-prompt" for=input_id.clone()>
-                    {move || format!("{}>", cwd.get())}
-                </label>
-                <input
-                    id=input_id.clone()
-                    class="terminal-input app-field"
-                    type="text"
-                    value=move || input.get()
-                    on:input=move |ev| input.set(event_target_value(&ev))
-                    on:keydown=move |ev: KeyboardEvent| {
-                        match ev.key().as_str() {
-                            "Enter" => submit_on_enter(input.get_untracked()),
-                            "ArrowUp" => {
-                                ev.prevent_default();
-                                try_history_navigation(-1);
-                            }
-                            "ArrowDown" => {
-                                ev.prevent_default();
-                                try_history_navigation(1);
-                            }
-                            "Tab" => {
-                                ev.prevent_default();
-                                trigger_completion();
-                            }
-                            "Escape" => suggestions.set(Vec::new()),
-                            "c" | "C" if ev.ctrl_key() => {
-                                if let Some(shell_session) = shell_session.clone() {
-                                    ev.prevent_default();
-                                    shell_session.cancel();
-                                }
-                            }
-                            "l" | "L" if ev.ctrl_key() => {
-                                ev.prevent_default();
-                                transcript.set(default_terminal_transcript());
-                            }
-                            _ => {}
-                        }
-                    }
-                    placeholder="Try: apps.list"
-                    autocomplete="off"
-                    spellcheck="false"
-                />
-                <button
-                    type="button"
-                    class="terminal-run app-action"
-                    on:click=move |_| submit_on_click(input.get_untracked())
-                >
-                    "Run"
-                </button>
             </div>
 
-            <div class="app-statusbar">
-                <span>
-                    {move || if !hydrated.get() {
-                        "Hydrating shell session"
-                    } else if shell_session_for_status.is_none() {
-                        "Shell unavailable"
-                    } else if active_execution.get().is_some() {
-                        "Running command"
-                    } else {
-                        "Shell ready"
-                    }}
-                </span>
-                <span>{move || format!("{} entrie(s)", transcript.get().len())}</span>
+            <div class="terminal-composer-shell">
+                <Show when=move || !suggestions.get().is_empty() fallback=|| ()>
+                    <div class="terminal-completions" role="listbox" aria-label="Completions">
+                        <For each=move || suggestions.get() key=|item| item.value.clone() let:item>
+                            <button
+                                type="button"
+                                class="terminal-completion"
+                                on:click=move |_| {
+                                    input.set(format!("{} ", item.value));
+                                    suggestions.set(Vec::new());
+                                }
+                            >
+                                {item.label}
+                            </button>
+                        </For>
+                    </div>
+                </Show>
+
+                <div class="terminal-composer">
+                    <label class="visually-hidden" for=input_id.clone()>
+                        {move || format!("Command input for {}", cwd.get())}
+                    </label>
+                    <div class="terminal-prompt" aria-hidden="true">
+                        <span class="terminal-prompt-cwd">{move || cwd.get()}</span>
+                        <span class="terminal-prompt-separator">"\u{203a}"</span>
+                    </div>
+                    <input
+                        id=input_id.clone()
+                        class="terminal-input terminal-command-input"
+                        type="text"
+                        value=move || input.get()
+                        on:input=move |ev| input.set(event_target_value(&ev))
+                        on:keydown=move |ev: KeyboardEvent| {
+                            match ev.key().as_str() {
+                                "Enter" => submit_on_enter(input.get_untracked()),
+                                "ArrowUp" => {
+                                    ev.prevent_default();
+                                    try_history_navigation(-1);
+                                }
+                                "ArrowDown" => {
+                                    ev.prevent_default();
+                                    try_history_navigation(1);
+                                }
+                                "Tab" => {
+                                    ev.prevent_default();
+                                    trigger_completion();
+                                }
+                                "Escape" => suggestions.set(Vec::new()),
+                                "c" | "C" if ev.ctrl_key() => {
+                                    if let Some(shell_session) = shell_session.clone() {
+                                        ev.prevent_default();
+                                        shell_session.cancel();
+                                    }
+                                }
+                                "l" | "L" if ev.ctrl_key() => {
+                                    ev.prevent_default();
+                                    transcript.set(default_terminal_transcript());
+                                }
+                                _ => {}
+                            }
+                        }
+                        placeholder="apps.list"
+                        autocomplete="off"
+                        spellcheck="false"
+                    />
+                </div>
             </div>
         </div>
     }
@@ -627,6 +685,16 @@ mod tests {
     }
 
     #[test]
+    fn default_transcript_contains_single_minimal_hint() {
+        let transcript = default_terminal_transcript();
+        assert_eq!(transcript.len(), 1);
+        assert!(matches!(
+            transcript.first(),
+            Some(TerminalTranscriptEntry::System { text }) if text == "Type help for commands."
+        ));
+    }
+
+    #[test]
     fn restore_marks_interrupted_execution() {
         let restored = restore_terminal_state(
             TerminalPersistedState {
@@ -647,5 +715,72 @@ mod tests {
             .transcript
             .iter()
             .any(|entry| matches!(entry, TerminalTranscriptEntry::System { text } if text.contains("interrupted"))));
+    }
+
+    #[test]
+    fn transcript_entries_map_to_expected_render_classes() {
+        let cases = [
+            (
+                TerminalTranscriptEntry::Prompt {
+                    cwd: "/tmp".to_string(),
+                    command: "help".to_string(),
+                    execution_id: None,
+                },
+                "terminal-line terminal-line-prompt",
+                true,
+            ),
+            (
+                TerminalTranscriptEntry::Stdout {
+                    text: "stdout".to_string(),
+                    execution_id: ExecutionId(1),
+                },
+                "terminal-line terminal-line-stdout",
+                false,
+            ),
+            (
+                TerminalTranscriptEntry::Stderr {
+                    text: "stderr".to_string(),
+                    execution_id: ExecutionId(1),
+                },
+                "terminal-line terminal-line-stderr",
+                false,
+            ),
+            (
+                TerminalTranscriptEntry::Status {
+                    text: "status".to_string(),
+                    execution_id: ExecutionId(1),
+                },
+                "terminal-line terminal-line-status",
+                false,
+            ),
+            (
+                TerminalTranscriptEntry::Json {
+                    value: serde_json::json!({"ok": true}),
+                    execution_id: ExecutionId(1),
+                },
+                "terminal-line terminal-line-json",
+                false,
+            ),
+            (
+                TerminalTranscriptEntry::System {
+                    text: "system".to_string(),
+                },
+                "terminal-line terminal-line-system",
+                false,
+            ),
+        ];
+
+        for (entry, expected_class, expected_prompt) in cases {
+            let rendered = render_transcript_entry(&entry);
+            assert_eq!(rendered.class_name, expected_class);
+            assert_eq!(rendered.is_prompt, expected_prompt);
+        }
+    }
+
+    #[test]
+    fn auto_follow_detection_allows_bottom_and_near_bottom() {
+        assert!(should_auto_follow(400, 200, 200, AUTO_FOLLOW_THRESHOLD_PX));
+        assert!(should_auto_follow(400, 170, 200, AUTO_FOLLOW_THRESHOLD_PX));
+        assert!(!should_auto_follow(400, 120, 200, AUTO_FOLLOW_THRESHOLD_PX));
     }
 }

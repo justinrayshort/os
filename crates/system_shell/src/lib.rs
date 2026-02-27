@@ -9,9 +9,7 @@ use std::{
 };
 
 use futures::future::LocalBoxFuture;
-use leptos::{
-    create_rw_signal, ReadSignal, RwSignal, SignalGetUntracked, SignalSet, SignalUpdate,
-};
+use leptos::{create_rw_signal, ReadSignal, RwSignal, SignalGetUntracked, SignalSet, SignalUpdate};
 use serde_json::Value;
 use shrs_core_headless::{eval_line, HeadlessEvalInput, HeadlessShellState};
 use system_shell_contract::{
@@ -21,8 +19,9 @@ use system_shell_contract::{
 };
 
 /// Async completion provider.
-pub type CompletionHandler =
-    Rc<dyn Fn(CompletionRequest) -> LocalBoxFuture<'static, Result<Vec<CompletionItem>, ShellError>>>;
+pub type CompletionHandler = Rc<
+    dyn Fn(CompletionRequest) -> LocalBoxFuture<'static, Result<Vec<CompletionItem>, ShellError>>,
+>;
 
 /// Async command handler.
 pub type CommandHandler =
@@ -101,7 +100,10 @@ impl EventEmitter {
     }
 
     fn json(&self, execution_id: ExecutionId, value: Value) {
-        self.push(ShellStreamEvent::Json { execution_id, value });
+        self.push(ShellStreamEvent::Json {
+            execution_id,
+            value,
+        });
     }
 }
 
@@ -334,10 +336,7 @@ impl ShellSessionHandle {
                 Ok(registered) => {
                     let command_path = registered.descriptor.path.clone();
                     if output.wants_help && output.argv[0] != "help" {
-                        emitter.stdout(
-                            execution_id,
-                            render_help(&registered.descriptor),
-                        );
+                        emitter.stdout(execution_id, render_help(&registered.descriptor));
                         emitter.push(ShellStreamEvent::Completed {
                             summary: ShellExecutionSummary {
                                 execution_id,
@@ -425,7 +424,11 @@ impl ShellSessionHandle {
 
         for registered in commands {
             let matches_token = registered.descriptor.path.as_str() == token
-                || registered.descriptor.aliases.iter().any(|alias| alias == token);
+                || registered
+                    .descriptor
+                    .aliases
+                    .iter()
+                    .any(|alias| alias == token);
             if !matches_token {
                 continue;
             }

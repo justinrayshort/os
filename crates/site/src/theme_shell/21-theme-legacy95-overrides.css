@@ -79,9 +79,7 @@
 .desktop-shell[data-skin="classic-95"] .taskbar-menu-item,
 .desktop-shell[data-skin="classic-95"] .start-menu button,
 .desktop-shell[data-skin="classic-95"] .app-menubar button,
-.desktop-shell[data-skin="classic-95"] .app-toolbar button,
-.desktop-shell[data-skin="classic-95"] .terminal-toolbar button,
-.desktop-shell[data-skin="classic-95"] .terminal-run {
+.desktop-shell[data-skin="classic-95"] .app-toolbar button {
   border-radius: 0;
   border: 1px solid #000;
   background: var(--ui-panel);
@@ -193,12 +191,26 @@
   background: var(--ui-panel);
 }
 
-.desktop-shell[data-skin="classic-95"] .app-toolbar,
-.desktop-shell[data-skin="classic-95"] .terminal-toolbar {
+.desktop-shell[data-skin="classic-95"] .app-toolbar {
   border: 1px solid #000;
   border-radius: 0;
   background: var(--ui-panel-alt);
   box-shadow: var(--bevel-in);
+}
+
+.desktop-shell[data-skin="classic-95"] .terminal-screen,
+.desktop-shell[data-skin="classic-95"] .terminal-composer-shell,
+.desktop-shell[data-skin="classic-95"] .terminal-completions {
+  border-radius: 0;
+}
+
+.desktop-shell[data-skin="classic-95"] .terminal-screen {
+  background: #121212;
+}
+
+.desktop-shell[data-skin="classic-95"] .terminal-composer-shell,
+.desktop-shell[data-skin="classic-95"] .terminal-completions {
+  background: #1a1a1a;
 }
 
 .desktop-shell[data-skin="classic-95"] .app-statusbar > span {
@@ -664,12 +676,16 @@
 .desktop-shell[data-skin="classic-95"] .display-footer-button:hover:not(:disabled),
 .desktop-shell[data-skin="classic-95"] .display-properties-tab:hover:not(:disabled),
 .desktop-shell[data-skin="classic-95"] .app-toolbar button:hover:not(:disabled),
-.desktop-shell[data-skin="classic-95"] .terminal-toolbar button:hover:not(:disabled),
-.desktop-shell[data-skin="classic-95"] .terminal-run:hover:not(:disabled),
 .desktop-shell[data-skin="classic-95"] .calc-key:hover:not(:disabled),
 .desktop-shell[data-skin="classic-95"] .calc-tape-header button:hover:not(:disabled),
 .desktop-shell[data-skin="classic-95"] .calc-tape-item:hover:not(:disabled) {
   filter: brightness(0.97);
+}
+
+.desktop-shell[data-skin="classic-95"] .terminal-completion:hover:not(:disabled),
+.desktop-shell[data-skin="classic-95"] .terminal-completion:focus-visible {
+  filter: brightness(0.97);
+  background: #242424;
 }
 
 .desktop-shell[data-skin="classic-95"] .taskbar {

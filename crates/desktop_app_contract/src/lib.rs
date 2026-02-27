@@ -1038,9 +1038,8 @@ pub struct CommandService {
     /// Reactive global terminal history maintained by the desktop runtime.
     pub history: ReadSignal<Vec<String>>,
     create_session: Rc<dyn Fn(String) -> Result<ShellSessionHandle, String>>,
-    register_command: Rc<
-        dyn Fn(AppCommandRegistration) -> Result<CommandRegistrationHandle, String>,
-    >,
+    register_command:
+        Rc<dyn Fn(AppCommandRegistration) -> Result<CommandRegistrationHandle, String>>,
     register_provider:
         Rc<dyn Fn(Rc<dyn AppCommandProvider>) -> Result<CommandRegistrationHandle, String>>,
 }

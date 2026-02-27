@@ -733,8 +733,7 @@
   }
 
   .desktop-shell[data-skin="modern-adaptive"] .app-menubar,
-  .desktop-shell[data-skin="modern-adaptive"] .app-toolbar,
-  .desktop-shell[data-skin="modern-adaptive"] .terminal-toolbar {
+  .desktop-shell[data-skin="modern-adaptive"] .app-toolbar {
     gap: var(--fluent-app-toolbar-gap);
     padding: var(--fluent-app-toolbar-padding);
     border: 1px solid var(--fluent-shell-stroke-2);
@@ -892,7 +891,7 @@
   .desktop-shell[data-skin="modern-adaptive"] .explorer-create-name,
   .desktop-shell[data-skin="modern-adaptive"] .explorer-file-editor,
   .desktop-shell[data-skin="modern-adaptive"] .terminal-input {
-    background: var(--ui-terminal-bg);
+    background: transparent;
   }
 
   .desktop-shell[data-skin="modern-adaptive"] .explorer-editor {
@@ -956,14 +955,30 @@
     border: 1px solid var(--fluent-shell-stroke-1);
     border-radius: var(--fluent-radius-md);
     box-shadow: none;
-    background: linear-gradient(180deg, var(--ui-terminal-bg), var(--ui-panel-alt));
+    background: var(--terminal-surface);
   }
 
-  .desktop-shell[data-skin="modern-adaptive"] .terminal-input-row {
-    border: 1px solid var(--fluent-shell-stroke-2);
+  .desktop-shell[data-skin="modern-adaptive"] .terminal-composer-shell {
+    border: 1px solid var(--fluent-shell-stroke-1);
     border-radius: var(--fluent-radius-sm);
-    background: var(--fluent-shell-control-neutral-surface);
-    padding: var(--fluent-app-toolbar-padding);
+    background: var(--terminal-surface-muted);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .terminal-composer {
+    gap: var(--terminal-gap);
+    padding: var(--terminal-padding);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .terminal-completions {
+    border-color: var(--terminal-overlay-border);
+    border-radius: var(--fluent-radius-sm);
+    background: var(--terminal-overlay-surface);
+  }
+
+  .desktop-shell[data-skin="modern-adaptive"] .terminal-completion:hover:not(:disabled),
+  .desktop-shell[data-skin="modern-adaptive"] .terminal-completion:focus-visible {
+    border-color: var(--fluent-shell-accent-border-soft);
+    background: var(--fluent-shell-accent-subtle-soft);
   }
 
   .desktop-shell[data-skin="modern-adaptive"] .app-paint-intro {
@@ -1062,7 +1077,7 @@
 
     .desktop-shell[data-skin="modern-adaptive"] .calculator-workspace,
     .desktop-shell[data-skin="modern-adaptive"] .explorer-workspace,
-    .desktop-shell[data-skin="modern-adaptive"] .terminal-input-row,
+    .desktop-shell[data-skin="modern-adaptive"] .terminal-composer,
     .desktop-shell[data-skin="modern-adaptive"] .calc-keypad,
     .desktop-shell[data-skin="modern-adaptive"] .notepad-tabstrip {
       gap: var(--fluent-app-touch-gap);

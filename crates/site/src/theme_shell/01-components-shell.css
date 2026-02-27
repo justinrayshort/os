@@ -434,9 +434,7 @@
 .taskbar-clock,
 .start-menu button,
 .app-menubar button,
-.app-toolbar button,
-.terminal-toolbar button,
-.terminal-run {
+.app-toolbar button {
   border: 1px solid #000;
   background: var(--ui-panel);
   color: #000;
@@ -452,9 +450,7 @@
 .taskbar-clock:active,
 .start-menu button:active,
 .app-menubar button:active,
-.app-toolbar button:active,
-.terminal-toolbar button:active,
-.terminal-run:active {
+.app-toolbar button:active {
   box-shadow: var(--bevel-in);
 }
 
@@ -1077,8 +1073,7 @@
 }
 
 .app-menubar,
-.app-toolbar,
-.terminal-toolbar {
+.app-toolbar {
   display: flex;
   gap: 4px;
   align-items: center;
@@ -1090,8 +1085,7 @@
 }
 
 .app-menubar button,
-.app-toolbar button,
-.terminal-toolbar button {
+.app-toolbar button {
   padding: 2px 8px;
   min-height: 32px;
 }
@@ -1137,8 +1131,7 @@
   padding: 0;
 }
 
-.app-toolbar,
-.terminal-toolbar {
+.app-toolbar {
   background: var(--ui-panel-alt);
   border: 1px solid #000;
   box-shadow: var(--bevel-in);
@@ -1378,59 +1371,160 @@
 }
 
 .app-terminal-shell {
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--terminal-gap);
+  color: var(--terminal-text);
+}
+
+.terminal-screen,
+.terminal-composer-shell {
+  border: 1px solid var(--terminal-border);
+  background: var(--terminal-surface);
+  box-shadow: none;
 }
 
 .terminal-screen {
   min-height: 0;
   overflow: auto;
-  border: 1px solid #000;
-  box-shadow: var(--bevel-in);
-  background: linear-gradient(180deg, #000, #101010);
-  color: var(--ui-terminal-fg);
-  padding: 8px;
-  font-family: "Courier New", monospace;
-  line-height: 1.35;
+  border-radius: 0;
+  padding: var(--terminal-padding);
+  font-family: var(--terminal-font-family);
+  font-size: var(--terminal-font-size);
+  line-height: var(--terminal-line-height);
+  color: var(--terminal-text);
+  scrollbar-gutter: stable;
+}
+
+.terminal-transcript {
+  display: grid;
+  gap: 0.35rem;
 }
 
 .terminal-line {
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--ui-terminal-fg);
+  color: var(--terminal-text);
 }
 
-.terminal-line:nth-child(1),
-.terminal-line:nth-child(2) {
-  color: var(--ui-terminal-dim);
+.terminal-line-system {
+  color: var(--terminal-text-muted);
 }
 
-.terminal-input-row {
+.terminal-line-prompt {
+  color: var(--terminal-prompt-text);
+}
+
+.terminal-line-status {
+  color: var(--terminal-text-status);
+}
+
+.terminal-line-stderr {
+  color: var(--terminal-text-error);
+}
+
+.terminal-line-json {
+  color: var(--terminal-text);
+}
+
+.terminal-composer-shell {
+  position: relative;
+  min-width: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+.terminal-composer {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 4px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
   align-items: center;
-  padding: 2px;
+  min-width: 0;
+  padding: 12px var(--terminal-padding);
+  font-family: var(--terminal-font-family);
+  font-size: var(--terminal-font-size);
+  line-height: var(--terminal-line-height);
+  color: var(--terminal-text);
 }
 
 .terminal-prompt {
-  font-family: "Courier New", monospace;
-  font-weight: 700;
-  min-width: 72px;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 1.5em;
+}
+
+.terminal-prompt-cwd {
+  color: var(--terminal-prompt-text);
+  white-space: nowrap;
+}
+
+.terminal-prompt-separator {
+  color: var(--terminal-prompt-separator);
 }
 
 .terminal-input {
   width: 100%;
   min-width: 0;
-  min-height: 32px;
-  padding: 2px 6px;
-  border: 1px solid #000;
-  background: #fff;
-  box-shadow: var(--bevel-in);
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--terminal-text);
+  font: inherit;
+  caret-color: var(--terminal-caret);
 }
 
-.terminal-run {
-  min-height: 32px;
-  padding: 2px 8px;
+.terminal-input::placeholder {
+  color: var(--terminal-text-muted);
+}
+
+.terminal-input:focus-visible {
+  outline: none;
+}
+
+.terminal-screen::selection,
+.terminal-line::selection,
+.terminal-input::selection {
+  background: var(--terminal-selection);
+}
+
+.terminal-completions {
+  position: absolute;
+  left: var(--terminal-padding);
+  right: var(--terminal-padding);
+  bottom: calc(100% + 8px);
+  display: grid;
+  gap: 4px;
+  max-height: min(220px, 45vh);
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--terminal-overlay-border);
+  background: var(--terminal-overlay-surface);
+  box-shadow: none;
+  z-index: 2;
+}
+
+.terminal-completion {
+  width: 100%;
+  min-height: auto;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--terminal-text);
+  font-family: var(--terminal-font-family);
+  font-size: var(--terminal-font-size);
+  line-height: var(--terminal-line-height);
+  text-align: left;
+  box-shadow: none;
+}
+
+.terminal-completion:hover:not(:disabled),
+.terminal-completion:focus-visible {
+  border-color: var(--terminal-overlay-border);
+  background: var(--terminal-surface-muted);
+  outline: none;
 }
 
 .app-calculator-shell {

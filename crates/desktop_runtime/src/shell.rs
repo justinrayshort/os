@@ -6,6 +6,7 @@ use desktop_app_contract::{
     AppCapability, AppCommandContext, AppCommandProvider, AppCommandRegistration,
     CommandRegistrationHandle as AppCommandRegistrationHandle, CommandService, ShellSessionHandle,
 };
+use leptos::SignalGetUntracked;
 use serde::Serialize;
 use serde_json::{json, Value};
 use system_shell::{CommandExecutionContext, CommandRegistryHandle};
@@ -14,7 +15,6 @@ use system_shell_contract::{
     CommandVisibility, CompletionItem, CompletionRequest, HelpDoc, ShellError, ShellErrorCode,
     ShellExit, ShellRequest, ShellStreamEvent,
 };
-use leptos::SignalGetUntracked;
 
 use crate::{
     apps,
@@ -64,7 +64,9 @@ pub fn build_command_service(
         }),
         Rc::new({
             let runtime = runtime.clone();
-            move |registration| register_app_command(runtime.clone(), app_id, window_id, registration)
+            move |registration| {
+                register_app_command(runtime.clone(), app_id, window_id, registration)
+            }
         }),
         Rc::new({
             let runtime = runtime.clone();
@@ -126,8 +128,7 @@ fn register_app_command(
     let system_handle = runtime.shell_engine.get_value().register_command(
         registration.descriptor,
         completion.map(|completion| {
-            Rc::new(move |request| completion(request))
-                as system_shell::CompletionHandler
+            Rc::new(move |request| completion(request)) as system_shell::CompletionHandler
         }),
         Rc::new(move |context: CommandExecutionContext| {
             let app_context = adapt_context(context, descriptor.clone());
@@ -177,7 +178,9 @@ fn app_can_register_commands(app_id: AppId) -> bool {
 fn validate_scope(scope: &CommandScope, app_id: AppId, window_id: WindowId) -> Result<(), String> {
     match scope {
         CommandScope::Global if apps::app_is_privileged(app_id) => Ok(()),
-        CommandScope::Global => Err("only privileged apps may register global commands".to_string()),
+        CommandScope::Global => {
+            Err("only privileged apps may register global commands".to_string())
+        }
         CommandScope::App { app_id: owner } if owner == app_id.canonical_id() => Ok(()),
         CommandScope::App { .. } => Err("app-scoped command owner mismatch".to_string()),
         CommandScope::Window { window_id: owner } if *owner == window_id.0 => Ok(()),
@@ -260,11 +263,7 @@ fn normalize_session_path(cwd: &str, input: &str) -> String {
     if input.trim().starts_with('/') {
         return platform_storage::normalize_virtual_path(input);
     }
-    platform_storage::normalize_virtual_path(&format!(
-        "{}/{}",
-        cwd.trim_end_matches('/'),
-        input
-    ))
+    platform_storage::normalize_virtual_path(&format!("{}/{}", cwd.trim_end_matches('/'), input))
 }
 
 fn parse_bool_flag(raw: &str) -> Result<bool, ShellError> {
@@ -450,14 +449,20 @@ fn open_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
         handler: Rc::new(move |context| {
             let runtime = runtime.clone();
             Box::pin(async move {
-                let target = context.argv.get(1).ok_or_else(|| usage_error("usage: open <target>"))?;
+                let target = context
+                    .argv
+                    .get(1)
+                    .ok_or_else(|| usage_error("usage: open <target>"))?;
                 let Some(mut action) = resolve_open_target(target) else {
                     return Err(ShellError::new(
                         ShellErrorCode::NotFound,
                         format!("unknown open target `{target}`"),
                     ));
                 };
-                if let DesktopAction::ActivateApp { ref mut viewport, .. } = action {
+                if let DesktopAction::ActivateApp {
+                    ref mut viewport, ..
+                } = action
+                {
                     *viewport = Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX));
                 }
                 runtime.dispatch_action(action);
@@ -470,7 +475,15 @@ fn open_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
 
 fn apps_list_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
     AppCommandRegistration {
-        descriptor: descriptor("apps.list", &[], "List registered apps.", "apps.list", vec![], vec![], vec![]),
+        descriptor: descriptor(
+            "apps.list",
+            &[],
+            "List registered apps.",
+            "apps.list",
+            vec![],
+            vec![],
+            vec![],
+        ),
         completion: None,
         handler: Rc::new(move |context| {
             let _runtime = runtime.clone();
@@ -488,7 +501,9 @@ fn apps_list_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistrat
                 context.stdout(
                     apps::app_registry()
                         .iter()
-                        .map(|entry| format!("{}  {}", entry.app_id.canonical_id(), entry.launcher_label))
+                        .map(|entry| {
+                            format!("{}  {}", entry.app_id.canonical_id(), entry.launcher_label)
+                        })
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
@@ -509,7 +524,15 @@ fn apps_open_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistrat
 
 fn windows_list_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
     AppCommandRegistration {
-        descriptor: descriptor("windows.list", &[], "List open windows.", "windows.list", vec![], vec![], vec![]),
+        descriptor: descriptor(
+            "windows.list",
+            &[],
+            "List open windows.",
+            "windows.list",
+            vec![],
+            vec![],
+            vec![],
+        ),
         completion: None,
         handler: Rc::new(move |context| {
             let runtime = runtime.clone();
@@ -522,7 +545,14 @@ fn windows_list_registration(runtime: DesktopRuntimeContext) -> AppCommandRegist
                 context.stdout(
                     windows
                         .iter()
-                        .map(|window| format!("{}  {}  {}", window.id.0, window.app_id.canonical_id(), window.title))
+                        .map(|window| {
+                            format!(
+                                "{}  {}  {}",
+                                window.id.0,
+                                window.app_id.canonical_id(),
+                                window.title
+                            )
+                        })
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
@@ -555,9 +585,12 @@ fn windows_minimize_registration(runtime: DesktopRuntimeContext) -> AppCommandRe
 }
 
 fn windows_restore_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
-    simple_window_registration(runtime, "windows.restore", "Restore a window.", |window_id| {
-        DesktopAction::RestoreWindow { window_id }
-    })
+    simple_window_registration(
+        runtime,
+        "windows.restore",
+        "Restore a window.",
+        |window_id| DesktopAction::RestoreWindow { window_id },
+    )
 }
 
 fn simple_window_registration(
@@ -600,7 +633,15 @@ fn simple_window_registration(
 
 fn theme_show_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
     AppCommandRegistration {
-        descriptor: descriptor("theme.show", &[], "Show current theme state.", "theme.show", vec![], vec![], vec![]),
+        descriptor: descriptor(
+            "theme.show",
+            &[],
+            "Show current theme state.",
+            "theme.show",
+            vec![],
+            vec![],
+            vec![],
+        ),
         completion: None,
         handler: Rc::new(move |context| {
             let runtime = runtime.clone();
@@ -731,8 +772,14 @@ fn config_get_registration() -> AppCommandRegistration {
         completion: None,
         handler: Rc::new(|context| {
             Box::pin(async move {
-                let namespace = context.argv.get(1).ok_or_else(|| usage_error("usage: config.get <namespace> <key>"))?;
-                let key = context.argv.get(2).ok_or_else(|| usage_error("usage: config.get <namespace> <key>"))?;
+                let namespace = context
+                    .argv
+                    .get(1)
+                    .ok_or_else(|| usage_error("usage: config.get <namespace> <key>"))?;
+                let key = context
+                    .argv
+                    .get(2)
+                    .ok_or_else(|| usage_error("usage: config.get <namespace> <key>"))?;
                 let pref_key = format!("{namespace}.{key}");
                 let value = platform_storage::load_pref_typed::<Value>(&pref_key)
                     .await
@@ -740,7 +787,10 @@ fn config_get_registration() -> AppCommandRegistration {
                 match value {
                     Some(value) => {
                         context.json(value.clone());
-                        context.stdout(serde_json::to_string_pretty(&value).unwrap_or_else(|_| value.to_string()));
+                        context.stdout(
+                            serde_json::to_string_pretty(&value)
+                                .unwrap_or_else(|_| value.to_string()),
+                        );
                     }
                     None => context.status(format!("no value stored for `{pref_key}`")),
                 }
@@ -804,7 +854,15 @@ fn config_set_registration() -> AppCommandRegistration {
 
 fn inspect_runtime_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
     AppCommandRegistration {
-        descriptor: descriptor("inspect.runtime", &[], "Inspect desktop runtime state.", "inspect.runtime", vec![], vec![], vec![]),
+        descriptor: descriptor(
+            "inspect.runtime",
+            &[],
+            "Inspect desktop runtime state.",
+            "inspect.runtime",
+            vec![],
+            vec![],
+            vec![],
+        ),
         completion: None,
         handler: Rc::new(move |context| {
             let runtime = runtime.clone();
@@ -836,7 +894,15 @@ fn inspect_windows_registration(runtime: DesktopRuntimeContext) -> AppCommandReg
 
 fn inspect_storage_registration() -> AppCommandRegistration {
     AppCommandRegistration {
-        descriptor: descriptor("inspect.storage", &[], "Inspect storage namespaces and host strategy.", "inspect.storage", vec![], vec![], vec![]),
+        descriptor: descriptor(
+            "inspect.storage",
+            &[],
+            "Inspect storage namespaces and host strategy.",
+            "inspect.storage",
+            vec![],
+            vec![],
+            vec![],
+        ),
         completion: None,
         handler: Rc::new(|context| {
             Box::pin(async move {
@@ -857,7 +923,15 @@ fn inspect_storage_registration() -> AppCommandRegistration {
 
 fn fs_pwd_registration() -> AppCommandRegistration {
     AppCommandRegistration {
-        descriptor: descriptor("fs.pwd", &["pwd"], "Print the logical filesystem cwd.", "fs.pwd", vec![], vec![], vec![]),
+        descriptor: descriptor(
+            "fs.pwd",
+            &["pwd"],
+            "Print the logical filesystem cwd.",
+            "fs.pwd",
+            vec![],
+            vec![],
+            vec![],
+        ),
         completion: None,
         handler: Rc::new(|context| {
             Box::pin(async move {
@@ -887,7 +961,10 @@ fn fs_cd_registration() -> AppCommandRegistration {
         completion: None,
         handler: Rc::new(|context| {
             Box::pin(async move {
-                let target = context.argv.get(1).ok_or_else(|| usage_error("usage: fs.cd <path>"))?;
+                let target = context
+                    .argv
+                    .get(1)
+                    .ok_or_else(|| usage_error("usage: fs.cd <path>"))?;
                 let resolved = normalize_session_path(&context.cwd, target);
                 platform_storage::explorer_stat(&resolved)
                     .await

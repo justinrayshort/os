@@ -15,6 +15,25 @@
   --ui-terminal-bg: #040404;
   --ui-terminal-fg: #c7f9b8;
   --ui-terminal-dim: #8fba84;
+  --terminal-surface: #101317;
+  --terminal-surface-muted: #171c22;
+  --terminal-border: rgba(255, 255, 255, 0.14);
+  --terminal-text: #eef2f7;
+  --terminal-text-muted: #a4afbd;
+  --terminal-text-error: #ff9f8f;
+  --terminal-text-status: #8ec8ff;
+  --terminal-prompt-text: #c8d1dc;
+  --terminal-prompt-separator: #748091;
+  --terminal-selection: rgba(143, 186, 132, 0.28);
+  --terminal-caret: #eef2f7;
+  --terminal-overlay-surface: #161b22;
+  --terminal-overlay-border: rgba(255, 255, 255, 0.12);
+  --terminal-font-family: "SFMono-Regular", "SF Mono", "Cascadia Mono", "Cascadia Code",
+    "Consolas", "Liberation Mono", "Menlo", monospace;
+  --terminal-font-size: 13px;
+  --terminal-line-height: 1.5;
+  --terminal-padding: 14px;
+  --terminal-gap: 10px;
   --taskbar-h: 38px;
   --win-border: 2px;
   --bevel-out: inset -1px -1px 0 var(--ui-shadow-dark), inset 1px 1px 0 var(--ui-highlight),

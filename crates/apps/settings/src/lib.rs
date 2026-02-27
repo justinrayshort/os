@@ -473,7 +473,6 @@ pub fn SettingsApp(
     }
 }
 
-
 fn asset_to_config(asset: &WallpaperAssetRecord, current: &WallpaperConfig) -> WallpaperConfig {
     let animation = match asset.media_kind {
         desktop_app_contract::WallpaperMediaKind::AnimatedImage

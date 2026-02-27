@@ -161,8 +161,7 @@
 
   .app-menubar,
   .app-toolbar,
-  .terminal-toolbar,
-  .terminal-input-row {
+  .terminal-composer {
     gap: 6px;
     padding: 4px;
     flex-wrap: wrap;
@@ -174,7 +173,6 @@
   .calc-key,
   .calc-tape-item,
   .notepad-tab,
-  .terminal-run,
   .settings-option,
   .settings-toggle {
     min-height: 44px;

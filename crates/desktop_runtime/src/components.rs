@@ -30,8 +30,7 @@ use crate::{
         AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
     },
     reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
-    shell,
-    wallpaper,
+    shell, wallpaper,
 };
 
 const TASKBAR_HEIGHT_PX: i32 = 38;

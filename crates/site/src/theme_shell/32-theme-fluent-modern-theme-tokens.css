@@ -9,6 +9,25 @@
   --ui-terminal-bg: #0f1117;
   --ui-terminal-fg: #d7f7d2;
   --ui-terminal-dim: #8db596;
+  --terminal-surface: #0f141c;
+  --terminal-surface-muted: #151b24;
+  --terminal-border: rgba(189, 204, 223, 0.12);
+  --terminal-text: #e8edf5;
+  --terminal-text-muted: #95a2b3;
+  --terminal-text-error: #ffb3a7;
+  --terminal-text-status: #8ec5ff;
+  --terminal-prompt-text: #cfd8e4;
+  --terminal-prompt-separator: #718097;
+  --terminal-selection: rgba(15, 108, 189, 0.26);
+  --terminal-caret: #e8edf5;
+  --terminal-overlay-surface: rgba(18, 24, 33, 0.96);
+  --terminal-overlay-border: rgba(189, 204, 223, 0.14);
+  --terminal-font-family: "SFMono-Regular", "SF Mono", "Cascadia Mono", "Cascadia Code",
+    "Consolas", "Menlo", monospace;
+  --terminal-font-size: 13px;
+  --terminal-line-height: 1.55;
+  --terminal-padding: 16px;
+  --terminal-gap: 12px;
   --fluent-shell-surface-1: rgba(255, 255, 255, 0.78);
   --fluent-shell-surface-2: rgba(255, 255, 255, 0.92);
   --fluent-shell-stroke-1: rgba(14, 23, 38, 0.12);

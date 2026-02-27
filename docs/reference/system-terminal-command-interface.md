@@ -87,6 +87,34 @@ Command output is streamed into the terminal UI using `system_shell_contract::Sh
 
 The terminal app converts those events into persisted transcript entries rather than rendering directly from command handlers.
 
+## UI Structure
+
+The terminal UI uses a minimal two-zone layout:
+
+- transcript viewport (`.terminal-screen` -> `.terminal-transcript`)
+- prompt composer (`.terminal-composer-shell` -> `.terminal-composer`)
+
+Persistent toolbar buttons, run buttons, and status chrome are intentionally absent. Command discovery and utility actions remain command- and shortcut-driven (`help`, `clear`, `Ctrl+L`, `Ctrl+C`).
+
+Transcript rendering is semantic rather than decorative:
+
+- `Prompt` -> `.terminal-line-prompt`
+- `Stdout` -> `.terminal-line-stdout`
+- `Stderr` -> `.terminal-line-stderr`
+- `Status` -> `.terminal-line-status`
+- `Json` -> `.terminal-line-json`
+- `System` -> `.terminal-line-system`
+
+The prompt is rendered as a structured current-working-directory segment plus a separator glyph and a native text input, preserving browser caret/input behavior.
+
+## Completion and Scroll Behavior
+
+- `Tab` requests completions from the existing shell session contract.
+- Single matches fill the input immediately.
+- Multiple matches render in a compact overlay (`.terminal-completions`) anchored above the composer.
+- `Escape` dismisses the completion overlay.
+- Transcript scrolling auto-follows new output only while the viewport is already at or near the bottom; manual review scroll position is preserved when the user scrolls upward.
+
 ## Persistence
 
 Terminal state is persisted under `app.terminal` (`TERMINAL_STATE_NAMESPACE`) with schema version `2`.
