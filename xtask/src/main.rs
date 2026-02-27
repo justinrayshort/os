@@ -2093,6 +2093,7 @@ fn parse_port(value: &str, flag: &str) -> Result<u16, String> {
 
 fn trunk_serve_args(spec: &TrunkServeSpec) -> Vec<String> {
     let mut trunk_args = vec!["serve".to_string(), "index.html".to_string()];
+    let dist = trunk_dist_path(&spec.passthrough);
     if spec.open {
         trunk_args.push("--open".to_string());
     }
@@ -2102,6 +2103,8 @@ fn trunk_serve_args(spec: &TrunkServeSpec) -> Vec<String> {
     if !args_specify_no_sri(&spec.passthrough) {
         trunk_args.push("--no-sri=true".to_string());
     }
+    maybe_add_ignore(&mut trunk_args, &spec.passthrough, &dist);
+    maybe_add_ignore(&mut trunk_args, &spec.passthrough, "dist");
     trunk_args.extend(spec.passthrough.clone());
     trunk_args
 }
@@ -2119,6 +2122,65 @@ fn args_specify_filehash(args: &[String]) -> bool {
 fn args_specify_no_sri(args: &[String]) -> bool {
     args.iter()
         .any(|arg| arg == "--no-sri" || arg.starts_with("--no-sri="))
+}
+
+fn trunk_dist_path(args: &[String]) -> String {
+    let mut i = 0usize;
+    while i < args.len() {
+        let arg = &args[i];
+        if arg == "--dist" {
+            if let Some(value) = args.get(i + 1) {
+                return value.clone();
+            }
+        } else if let Some(value) = arg.strip_prefix("--dist=") {
+            return value.to_string();
+        }
+        i += 1;
+    }
+
+    "dist".to_string()
+}
+
+fn args_specify_ignore_path(args: &[String], path: &str) -> bool {
+    let mut i = 0usize;
+    while i < args.len() {
+        let arg = &args[i];
+        if arg == "--ignore" {
+            if let Some(value) = args.get(i + 1) {
+                if value == path {
+                    return true;
+                }
+                i += 2;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+
+        if let Some(value) = arg.strip_prefix("--ignore=") {
+            if value == path {
+                return true;
+            }
+        }
+
+        i += 1;
+    }
+
+    false
+}
+
+fn maybe_add_ignore(trunk_args: &mut Vec<String>, passthrough: &[String], path: &str) {
+    if path.is_empty() || args_specify_ignore_path(passthrough, path) {
+        return;
+    }
+    if trunk_args
+        .windows(2)
+        .any(|w| w[0] == "--ignore" && w[1] == path)
+    {
+        return;
+    }
+    trunk_args.push("--ignore".to_string());
+    trunk_args.push(path.to_string());
 }
 
 fn dev_server_state_path(root: &Path) -> PathBuf {
@@ -2654,6 +2716,7 @@ mod tests {
         let args = trunk_serve_args(&spec);
         assert!(args.contains(&"--filehash=false".to_string()));
         assert!(args.contains(&"--no-sri=true".to_string()));
+        assert!(args.windows(2).any(|w| w == ["--ignore", "dist"]));
     }
 
     #[test]
@@ -2668,6 +2731,40 @@ mod tests {
         assert!(!args.contains(&"--no-sri=true".to_string()));
         assert!(args.contains(&"--filehash=true".to_string()));
         assert!(args.contains(&"--no-sri=false".to_string()));
+    }
+
+    #[test]
+    fn trunk_serve_args_ignore_active_dist_directory() {
+        let spec = parse_trunk_serve_args(
+            vec!["--dist".into(), "target/trunk-tauri-dev".into()],
+            false,
+        )
+        .expect("parse");
+        let args = trunk_serve_args(&spec);
+        assert!(
+            args.windows(2)
+                .any(|w| w == ["--ignore", "target/trunk-tauri-dev"])
+        );
+        assert!(args.windows(2).any(|w| w == ["--ignore", "dist"]));
+    }
+
+    #[test]
+    fn trunk_serve_args_do_not_duplicate_explicit_ignore_for_dist() {
+        let spec = parse_trunk_serve_args(
+            vec![
+                "--dist=target/trunk-tauri-dev".into(),
+                "--ignore=target/trunk-tauri-dev".into(),
+            ],
+            false,
+        )
+        .expect("parse");
+        let args = trunk_serve_args(&spec);
+        let ignore_count = args
+            .iter()
+            .filter(|arg| arg.as_str() == "--ignore=target/trunk-tauri-dev")
+            .count();
+        assert_eq!(ignore_count, 1);
+        assert!(args.windows(2).any(|w| w == ["--ignore", "dist"]));
     }
 
     #[test]

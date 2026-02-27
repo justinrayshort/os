@@ -37,6 +37,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo dev restart`: Restart the managed background dev server.
 - `cargo dev build`: Build a development static bundle via `trunk` (non-release).
 - `cargo dev` serve/build defaults include `--filehash=false` and `--no-sri=true` unless explicitly provided, improving local rebuild reliability.
+- `cargo dev serve` also auto-adds `--ignore <active-dist-path>` when not explicitly provided so Trunk does not watch-and-rebuild on its own output directory.
 - `cargo web-check`: Run prototype compile checks (CSR native and WASM when target is installed).
 - `cargo web-build`: Build the production-style static bundle via `trunk`.
 
