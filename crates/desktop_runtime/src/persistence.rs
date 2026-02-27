@@ -9,6 +9,16 @@ const THEME_KEY: &str = "retrodesk.theme.v1";
 #[cfg(target_arch = "wasm32")]
 const TERMINAL_HISTORY_KEY: &str = "retrodesk.terminal_history.v1";
 
+fn migrate_desktop_snapshot(
+    schema_version: u32,
+    envelope: &platform_storage::AppStateEnvelope,
+) -> Result<Option<DesktopSnapshot>, String> {
+    match schema_version {
+        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        _ => Ok(None),
+    }
+}
+
 /// Loads the legacy local-storage boot snapshot, theme override, and terminal history if present.
 ///
 /// On non-WASM targets this returns `None`.
@@ -74,9 +84,10 @@ pub fn load_boot_snapshot() -> Option<DesktopSnapshot> {
 
 /// Loads the durable boot snapshot from [`platform_storage`] (IndexedDB-backed).
 pub async fn load_durable_boot_snapshot() -> Option<DesktopSnapshot> {
-    match platform_storage::load_app_state_typed::<DesktopSnapshot>(
+    match platform_storage::load_app_state_with_migration::<DesktopSnapshot, _>(
         platform_storage::DESKTOP_STATE_NAMESPACE,
-        platform_storage::AppStateSchemaPolicy::UpTo(crate::model::DESKTOP_LAYOUT_SCHEMA_VERSION),
+        crate::model::DESKTOP_LAYOUT_SCHEMA_VERSION,
+        migrate_desktop_snapshot,
     )
     .await
     {
@@ -160,4 +171,24 @@ pub fn persist_terminal_history(history: &[String]) -> Result<(), String> {
 #[cfg(target_arch = "wasm32")]
 fn local_storage() -> Option<web_sys::Storage> {
     web_sys::window()?.local_storage().ok().flatten()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn desktop_namespace_migration_supports_schema_zero() {
+        let snapshot = DesktopState::default().snapshot();
+        let envelope = platform_storage::build_app_state_envelope(
+            platform_storage::DESKTOP_STATE_NAMESPACE,
+            0,
+            &snapshot,
+        )
+        .expect("build envelope");
+
+        let migrated =
+            migrate_desktop_snapshot(0, &envelope).expect("schema-zero migration should succeed");
+        assert!(migrated.is_some(), "expected migrated desktop snapshot");
+    }
 }

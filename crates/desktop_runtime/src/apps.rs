@@ -8,10 +8,20 @@ use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
 use desktop_app_terminal::TerminalApp;
 use leptos::*;
-use platform_storage::{self, AppStateSchemaPolicy};
+use platform_storage::{self};
 use serde::{Deserialize, Serialize};
 
 const PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION: u32 = 1;
+
+fn migrate_paint_placeholder_state(
+    schema_version: u32,
+    envelope: &platform_storage::AppStateEnvelope,
+) -> Result<Option<PaintPlaceholderState>, String> {
+    match schema_version {
+        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        _ => Ok(None),
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Metadata describing how an app appears in the launcher/desktop and how it is instantiated.
@@ -222,9 +232,10 @@ fn PaintPlaceholderApp() -> impl IntoView {
         let last_saved = last_saved;
         let hydrate_alive = hydrate_alive.clone();
         spawn_local(async move {
-            match platform_storage::load_app_state_typed::<PaintPlaceholderState>(
+            match platform_storage::load_app_state_with_migration::<PaintPlaceholderState, _>(
                 platform_storage::PAINT_STATE_NAMESPACE,
-                AppStateSchemaPolicy::UpTo(PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION),
+                PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION,
+                migrate_paint_placeholder_state,
             )
             .await
             {
@@ -370,5 +381,24 @@ fn PaintPlaceholderApp() -> impl IntoView {
 
             <p>{move || state.get().status}</p>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn paint_namespace_migration_supports_schema_zero() {
+        let envelope = platform_storage::build_app_state_envelope(
+            platform_storage::PAINT_STATE_NAMESPACE,
+            0,
+            &PaintPlaceholderState::default(),
+        )
+        .expect("build envelope");
+
+        let migrated = migrate_paint_placeholder_state(0, &envelope)
+            .expect("schema-zero migration should succeed");
+        assert!(migrated.is_some(), "expected migrated paint state");
     }
 }

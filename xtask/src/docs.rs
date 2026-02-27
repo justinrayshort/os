@@ -99,6 +99,7 @@ enum DocsCommand {
     Mermaid,
     OpenApi,
     UiConformance,
+    StorageBoundary,
     All,
     AuditReport,
 }
@@ -116,6 +117,7 @@ pub(crate) fn print_docs_usage() {
            mermaid [--require-renderer]      Validate Mermaid blocks/files (structural checks)\n\
            openapi [--require-validator]     Validate OpenAPI specs (Rust-native parse/sanity)\n\
            ui-conformance                    Validate machine-checkable UI conformance token/literal rules\n\
+           storage-boundary                  Enforce typed app-state load boundary in app/runtime crates\n\
            all [flags]                       Run all docs checks\n\
              Flags: --require-renderer --require-openapi-validator\n\
            audit-report --output <path>      Write docs audit report JSON and fail on validation issues\n"
@@ -159,6 +161,7 @@ pub(crate) fn run_docs_command(root: &Path, args: Vec<String>) -> Result<(), Str
             fail_if_problems(problems)
         }
         DocsCommand::UiConformance => fail_if_problems(validate_ui_conformance(root)),
+        DocsCommand::StorageBoundary => fail_if_problems(validate_typed_persistence_boundary(root)),
         DocsCommand::All => {
             let problems = run_all(root, &records, parse_problems, &contracts, &flags);
             fail_if_problems(problems)
@@ -185,6 +188,7 @@ fn parse_docs_command(
         "mermaid" => DocsCommand::Mermaid,
         "openapi" => DocsCommand::OpenApi,
         "ui-conformance" => DocsCommand::UiConformance,
+        "storage-boundary" => DocsCommand::StorageBoundary,
         "all" => DocsCommand::All,
         "audit-report" => DocsCommand::AuditReport,
         other => return Err(format!("unsupported docs command: {other}")),
@@ -221,7 +225,8 @@ fn parse_docs_command(
         | DocsCommand::Wiki
         | DocsCommand::Frontmatter
         | DocsCommand::Sop
-        | DocsCommand::Links => {
+        | DocsCommand::Links
+        | DocsCommand::StorageBoundary => {
             if flags.require_renderer || flags.require_openapi_validator || output.is_some() {
                 return Err(format!(
                     "extra arguments are not supported for `{}`",
@@ -1800,9 +1805,11 @@ fn run_all(
     let (mermaid_problems, _) = validate_mermaid(root, records, flags.require_renderer);
     let (openapi_problems, _) = validate_openapi(root, flags.require_openapi_validator);
     let ui_conformance_problems = validate_ui_conformance(root);
+    let storage_boundary_problems = validate_typed_persistence_boundary(root);
     problems.extend(mermaid_problems);
     problems.extend(openapi_problems);
     problems.extend(ui_conformance_problems);
+    problems.extend(storage_boundary_problems);
     problems
 }
 
@@ -1821,6 +1828,7 @@ fn write_audit_report(
     let (mermaid_problems, mermaid_count) = validate_mermaid(root, records, false);
     let (openapi_problems, openapi_count) = validate_openapi(root, false);
     let ui_conformance_problems = validate_ui_conformance(root);
+    let storage_boundary_problems = validate_typed_persistence_boundary(root);
 
     let (fresh, total_reviewed, stale_docs) = frontmatter_freshness_metrics(records, contracts);
     let fresh_percent = if total_reviewed == 0 {
@@ -1849,6 +1857,7 @@ fn write_audit_report(
             "mermaid": mermaid_problems.len(),
             "openapi": openapi_problems.len(),
             "ui_conformance": ui_conformance_problems.len(),
+            "storage_boundary": storage_boundary_problems.len(),
         }
     });
 
@@ -1872,11 +1881,13 @@ fn write_audit_report(
     all_problems.extend(mermaid_problems);
     all_problems.extend(openapi_problems);
     all_problems.extend(ui_conformance_problems);
+    all_problems.extend(storage_boundary_problems);
     fail_if_problems(all_problems)
 }
 
 const FLUENT_OVERRIDES_PATH: &str =
     "crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css";
+const TYPED_PERSISTENCE_BOUNDARY_DIRS: &[&str] = &["crates/apps", "crates/desktop_runtime"];
 const SHELL_ICON_COMPONENT_FILES: &[&str] = &[
     "crates/desktop_runtime/src/components.rs",
     "crates/desktop_runtime/src/components/display_properties.rs",
@@ -1930,6 +1941,68 @@ fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
     problems.extend(validate_shell_icon_standardization(root));
 
     problems
+}
+
+fn validate_typed_persistence_boundary(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+
+    for rel_dir in TYPED_PERSISTENCE_BOUNDARY_DIRS {
+        let dir = root.join(rel_dir);
+        if !dir.exists() {
+            continue;
+        }
+
+        let mut files = match collect_files_with_suffix(&dir, ".rs") {
+            Ok(files) => files,
+            Err(err) => {
+                problems.push(Problem::new(
+                    "storage-boundary",
+                    *rel_dir,
+                    format!("failed to scan Rust files: {err}"),
+                    None,
+                ));
+                continue;
+            }
+        };
+        files.sort();
+
+        for path in files {
+            let rel_path = rel_posix(root, &path);
+            let text = match fs::read_to_string(&path) {
+                Ok(text) => text,
+                Err(err) => {
+                    problems.push(Problem::new(
+                        "storage-boundary",
+                        rel_path,
+                        format!("failed to read file: {err}"),
+                        None,
+                    ));
+                    continue;
+                }
+            };
+
+            for (idx, line) in text.lines().enumerate() {
+                if uses_forbidden_envelope_load_call(line) {
+                    problems.push(Problem::new(
+                        "storage-boundary",
+                        rel_path.clone(),
+                        "direct `load_app_state_envelope(...)` usage is not allowed in app/runtime crates; use typed load helpers",
+                        Some(idx + 1),
+                    ));
+                }
+            }
+        }
+    }
+
+    problems
+}
+
+fn uses_forbidden_envelope_load_call(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with("//") {
+        return false;
+    }
+    trimmed.contains("load_app_state_envelope(")
 }
 
 fn validate_shell_icon_standardization(root: &Path) -> Vec<Problem> {
@@ -2307,5 +2380,15 @@ Continue.
         assert!(problems[0]
             .message
             .contains("`## Entry Criteria` must contain exact level-3 subsection sequence"));
+    }
+
+    #[test]
+    fn storage_boundary_allows_comments_and_flags_calls() {
+        assert!(!uses_forbidden_envelope_load_call(
+            "// load_app_state_envelope(\"app.example\")"
+        ));
+        assert!(uses_forbidden_envelope_load_call(
+            "let _ = platform_storage::load_app_state_envelope(\"app.example\").await;"
+        ));
     }
 }

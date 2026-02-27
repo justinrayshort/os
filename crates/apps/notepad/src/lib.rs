@@ -5,11 +5,21 @@
 use std::collections::BTreeMap;
 
 use leptos::*;
-use platform_storage::{self, AppStateSchemaPolicy, NOTEPAD_STATE_NAMESPACE};
+use platform_storage::{self, NOTEPAD_STATE_NAMESPACE};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 const NOTEPAD_STATE_SCHEMA_VERSION: u32 = 1;
+
+fn migrate_notepad_state(
+    schema_version: u32,
+    envelope: &platform_storage::AppStateEnvelope,
+) -> Result<Option<NotepadWorkspaceState>, String> {
+    match schema_version {
+        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        _ => Ok(None),
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct NotepadWorkspaceState {
@@ -164,9 +174,10 @@ pub fn NotepadApp(
         let last_saved = last_saved;
         let requested_slug = requested_slug.clone();
         spawn_local(async move {
-            match platform_storage::load_app_state_typed::<NotepadWorkspaceState>(
+            match platform_storage::load_app_state_with_migration::<NotepadWorkspaceState, _>(
                 NOTEPAD_STATE_NAMESPACE,
-                AppStateSchemaPolicy::UpTo(NOTEPAD_STATE_SCHEMA_VERSION),
+                NOTEPAD_STATE_SCHEMA_VERSION,
+                migrate_notepad_state,
             )
             .await
             {
@@ -380,6 +391,25 @@ pub fn NotepadApp(
                 }}</span>
             </div>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn notepad_namespace_migration_supports_schema_zero() {
+        let envelope = platform_storage::build_app_state_envelope(
+            NOTEPAD_STATE_NAMESPACE,
+            0,
+            &NotepadWorkspaceState::new("welcome"),
+        )
+        .expect("build envelope");
+
+        let migrated =
+            migrate_notepad_state(0, &envelope).expect("schema-zero migration should succeed");
+        assert!(migrated.is_some(), "expected migrated notepad workspace");
     }
 }
 

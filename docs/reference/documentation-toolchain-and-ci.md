@@ -3,7 +3,7 @@ title: "Documentation Toolchain and Local Verification Pipeline"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-26"
+last_reviewed: "2026-02-27"
 audience: ["platform", "engineering"]
 invariants:
   - "Local docs validation fails on broken links, invalid contracts, or invalid diagrams."
@@ -37,9 +37,10 @@ lifecycle: "ga"
 3. OpenAPI parse/sanity validation
 4. Mermaid structural validation
 5. Broken internal reference detection
-6. Rustdoc build (`cargo doc --workspace --no-deps`, `RUSTDOCFLAGS=-D warnings`)
-7. Rustdoc doctests (`cargo test --workspace --doc`)
-8. Audit report generation (`cargo xtask docs audit-report --output ...`) when needed
+6. Typed app-state boundary enforcement (`cargo xtask docs storage-boundary`)
+7. Rustdoc build (`cargo doc --workspace --no-deps`, `RUSTDOCFLAGS=-D warnings`)
+8. Rustdoc doctests (`cargo test --workspace --doc`)
+9. Audit report generation (`cargo xtask docs audit-report --output ...`) when needed
 
 ## Entry Points
 
@@ -47,6 +48,7 @@ lifecycle: "ga"
 
 ```bash
 cargo xtask docs all
+cargo xtask docs storage-boundary
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
 ```

@@ -10,7 +10,7 @@ use std::{
 
 use leptos::ev::KeyboardEvent;
 use leptos::*;
-use platform_storage::{self, AppStateSchemaPolicy, TERMINAL_STATE_NAMESPACE};
+use platform_storage::{self, TERMINAL_STATE_NAMESPACE};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -23,6 +23,16 @@ struct TerminalPersistedState {
     cwd: String,
     input: String,
     lines: Vec<String>,
+}
+
+fn migrate_terminal_state(
+    schema_version: u32,
+    envelope: &platform_storage::AppStateEnvelope,
+) -> Result<Option<TerminalPersistedState>, String> {
+    match schema_version {
+        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        _ => Ok(None),
+    }
 }
 
 fn default_terminal_lines() -> Vec<String> {
@@ -93,9 +103,10 @@ pub fn TerminalApp(
         let hydrate_alive = hydrate_alive.clone();
         let launch_cwd = launch_cwd.clone();
         spawn_local(async move {
-            match platform_storage::load_app_state_typed::<TerminalPersistedState>(
+            match platform_storage::load_app_state_with_migration::<TerminalPersistedState, _>(
                 TERMINAL_STATE_NAMESPACE,
-                AppStateSchemaPolicy::UpTo(TERMINAL_STATE_SCHEMA_VERSION),
+                TERMINAL_STATE_SCHEMA_VERSION,
+                migrate_terminal_state,
             )
             .await
             {
@@ -232,6 +243,29 @@ pub fn TerminalApp(
                 <span>{move || format!("{} line(s)", lines.get().len())}</span>
             </div>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn terminal_namespace_migration_supports_schema_zero() {
+        let envelope = platform_storage::build_app_state_envelope(
+            TERMINAL_STATE_NAMESPACE,
+            0,
+            &TerminalPersistedState {
+                cwd: "/".to_string(),
+                input: "help".to_string(),
+                lines: vec!["RetroShell 0.1".to_string()],
+            },
+        )
+        .expect("build envelope");
+
+        let migrated =
+            migrate_terminal_state(0, &envelope).expect("schema-zero migration should succeed");
+        assert!(migrated.is_some(), "expected migrated terminal state");
     }
 }
 

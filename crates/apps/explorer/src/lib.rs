@@ -4,14 +4,24 @@
 
 use leptos::*;
 use platform_storage::{
-    self, AppStateSchemaPolicy, ExplorerBackend, ExplorerBackendStatus, ExplorerEntry,
-    ExplorerEntryKind, ExplorerMetadata, ExplorerPermissionMode, ExplorerPrefs,
-    EXPLORER_CACHE_NAME, EXPLORER_PREFS_KEY, EXPLORER_STATE_NAMESPACE,
+    self, ExplorerBackend, ExplorerBackendStatus, ExplorerEntry, ExplorerEntryKind,
+    ExplorerMetadata, ExplorerPermissionMode, ExplorerPrefs, EXPLORER_CACHE_NAME,
+    EXPLORER_PREFS_KEY, EXPLORER_STATE_NAMESPACE,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 const EXPLORER_STATE_SCHEMA_VERSION: u32 = 1;
+
+fn migrate_explorer_state(
+    schema_version: u32,
+    envelope: &platform_storage::AppStateEnvelope,
+) -> Result<Option<ExplorerPersistedState>, String> {
+    match schema_version {
+        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        _ => Ok(None),
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ExplorerPersistedState {
@@ -433,9 +443,10 @@ pub fn ExplorerApp(
         let requested_path = cwd.get_untracked();
         let last_saved = last_saved;
         spawn_local(async move {
-            match platform_storage::load_app_state_typed::<ExplorerPersistedState>(
+            match platform_storage::load_app_state_with_migration::<ExplorerPersistedState, _>(
                 EXPLORER_STATE_NAMESPACE,
-                AppStateSchemaPolicy::UpTo(EXPLORER_STATE_SCHEMA_VERSION),
+                EXPLORER_STATE_SCHEMA_VERSION,
+                migrate_explorer_state,
             )
             .await
             {
@@ -855,6 +866,25 @@ pub fn ExplorerApp(
                 }}</span>
             </div>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explorer_namespace_migration_supports_schema_zero() {
+        let envelope = platform_storage::build_app_state_envelope(
+            EXPLORER_STATE_NAMESPACE,
+            0,
+            &ExplorerPersistedState::default(),
+        )
+        .expect("build envelope");
+
+        let migrated =
+            migrate_explorer_state(0, &envelope).expect("schema-zero migration should succeed");
+        assert!(migrated.is_some(), "expected migrated explorer state");
     }
 }
 

@@ -131,10 +131,11 @@ Stages (local verification order):
 3. OpenAPI validation (`cargo xtask docs openapi`)
 4. Mermaid validation (`cargo xtask docs mermaid`)
 5. Broken internal reference detection (`cargo xtask docs links`)
-6. UI conformance token/literal + icon-standardization audit (`cargo xtask docs ui-conformance`) for Fluent shell design-system hygiene
-7. Rustdoc build (`cargo doc --workspace --no-deps`, `RUSTDOCFLAGS=-D warnings` when tightening docs quality)
-8. Rustdoc doctests (`cargo test --workspace --doc`)
-9. Audit artifact generation (`cargo xtask docs audit-report --output ...`) when needed
+6. Typed app-state boundary enforcement (`cargo xtask docs storage-boundary`) to prevent direct envelope-load usage in app/runtime crates
+7. UI conformance token/literal + icon-standardization audit (`cargo xtask docs ui-conformance`) for Fluent shell design-system hygiene
+8. Rustdoc build (`cargo doc --workspace --no-deps`, `RUSTDOCFLAGS=-D warnings` when tightening docs quality)
+9. Rustdoc doctests (`cargo test --workspace --doc`)
+10. Audit artifact generation (`cargo xtask docs audit-report --output ...`) when needed
 
 ### 4.2 Quarterly Documentation Audit (Manual / Local)
 
@@ -204,6 +205,7 @@ cargo xtask docs sop
 cargo xtask docs openapi
 cargo xtask docs mermaid
 cargo xtask docs links
+cargo xtask docs storage-boundary
 cargo xtask docs ui-conformance
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
@@ -306,7 +308,7 @@ cargo xtask docs all
 3. Keep docs frontmatter complete and valid for `docs/*.md` changes.
 4. If editing `wiki/Tutorial-*.md` or `wiki/How-to-*.md`, preserve the shared instructional template (`Outcome`, `Entry Criteria`, `Procedure`, `Validation`, `Next Steps` + required `Entry Criteria` subsections).
 5. If ADRs, SOPs, diagrams, or other formal artifacts changed in `docs/`, update the relevant Wiki reference/index pages in the same change.
-6. Run `cargo xtask docs wiki`, `cargo xtask docs ui-conformance` (when Fluent shell UI/token conformance surfaces changed), and `cargo xtask docs all`.
+6. Run `cargo xtask docs wiki`, `cargo xtask docs storage-boundary`, `cargo xtask docs ui-conformance` (when Fluent shell UI/token conformance surfaces changed), and `cargo xtask docs all`.
 7. Run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc` when rustdoc changed (recommended for all docs changes that mention APIs).
 8. If Mermaid or OpenAPI changed, run targeted checks (`cargo xtask docs mermaid`, `cargo xtask docs openapi`) in addition to `all`.
 9. Generate an audit artifact (`cargo xtask docs audit-report --output .artifacts/docs-audit.json`) when the change affects governance/reporting flows.

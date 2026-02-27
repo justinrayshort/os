@@ -3,7 +3,7 @@ title: "Project Command Entry Points"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-26"
+last_reviewed: "2026-02-27"
 audience: ["engineering", "platform"]
 invariants:
   - "Cargo aliases in .cargo/config.toml remain the preferred stable entry points for common project workflows."
@@ -59,6 +59,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo docs-check`: Run `cargo xtask docs all` (Cargo alias convenience wrapper).
 - `cargo docs-audit`: Generate `.artifacts/docs-audit.json` via `cargo xtask docs audit-report`.
 - `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages.
+- `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries (disallow direct `load_app_state_envelope(...)` usage in app/runtime crates).
 - `cargo doc --workspace --no-deps`: Generate authoritative Rust API reference (`target/doc/`).
 - `cargo test --workspace --doc`: Run rustdoc examples (doctests).
 - `cargo xtask docs all`: Run docs contract validation (also includes `wiki` validation).

@@ -9,7 +9,7 @@ use crate::engine::{
 };
 use leptos::ev::KeyboardEvent;
 use leptos::*;
-use platform_storage::{self, AppStateSchemaPolicy, CALCULATOR_STATE_NAMESPACE};
+use platform_storage::{self, CALCULATOR_STATE_NAMESPACE};
 use serde_json::Value;
 
 #[derive(Clone, Copy)]
@@ -236,6 +236,16 @@ const CALC_KEYS: [CalcKeySpec; 30] = [
 
 const CALCULATOR_STATE_SCHEMA_VERSION: u32 = 1;
 
+fn migrate_calculator_state(
+    schema_version: u32,
+    envelope: &platform_storage::AppStateEnvelope,
+) -> Result<Option<CalculatorState>, String> {
+    match schema_version {
+        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        _ => Ok(None),
+    }
+}
+
 #[component]
 /// Calculator app window contents.
 ///
@@ -254,9 +264,10 @@ pub fn CalculatorApp(
         let hydrated = hydrated;
         let last_saved = last_saved;
         spawn_local(async move {
-            match platform_storage::load_app_state_typed::<CalculatorState>(
+            match platform_storage::load_app_state_with_migration::<CalculatorState, _>(
                 CALCULATOR_STATE_NAMESPACE,
-                AppStateSchemaPolicy::UpTo(CALCULATOR_STATE_SCHEMA_VERSION),
+                CALCULATOR_STATE_SCHEMA_VERSION,
+                migrate_calculator_state,
             )
             .await
             {
@@ -432,5 +443,24 @@ pub fn CalculatorApp(
                 <span>{move || if hydrated.get() { "State: synced" } else { "State: hydrating..." }}</span>
             </div>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calculator_namespace_migration_supports_schema_zero() {
+        let envelope = platform_storage::build_app_state_envelope(
+            CALCULATOR_STATE_NAMESPACE,
+            0,
+            &CalculatorState::default(),
+        )
+        .expect("build envelope");
+
+        let migrated =
+            migrate_calculator_state(0, &envelope).expect("schema-zero migration should succeed");
+        assert!(migrated.is_some(), "expected migrated calculator state");
     }
 }

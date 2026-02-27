@@ -60,24 +60,47 @@ pub fn save_local_pref<T: Serialize>(key: &str, value: &T) -> Result<(), String>
     host_adapters::prefs_store().save_typed(key, value)
 }
 
-/// Loads a persisted app-state envelope by namespace.
-///
-/// # Errors
-///
-/// Returns an error when the browser storage bridge fails.
-pub async fn load_app_state_envelope(namespace: &str) -> Result<Option<AppStateEnvelope>, String> {
+async fn load_app_state_envelope_raw(namespace: &str) -> Result<Option<AppStateEnvelope>, String> {
     let store = host_adapters::app_state_store();
     store.load_app_state_envelope(namespace).await
 }
 
-/// Saves a full app-state envelope.
+async fn save_app_state_envelope_raw(envelope: &AppStateEnvelope) -> Result<(), String> {
+    let store = host_adapters::app_state_store();
+    store.save_app_state_envelope(envelope).await
+}
+
+/// Loads a persisted app-state envelope by namespace.
+///
+/// This is a low-level compatibility API intended for boundary adapters and migration internals.
+/// App/runtime callers should prefer [`load_app_state_typed`] or
+/// [`load_app_state_with_migration`].
 ///
 /// # Errors
 ///
 /// Returns an error when the browser storage bridge fails.
+#[deprecated(
+    since = "0.1.0",
+    note = "Low-level envelope API. Prefer load_app_state_typed or load_app_state_with_migration."
+)]
+pub async fn load_app_state_envelope(namespace: &str) -> Result<Option<AppStateEnvelope>, String> {
+    load_app_state_envelope_raw(namespace).await
+}
+
+/// Saves a full app-state envelope.
+///
+/// This is a low-level compatibility API intended for boundary adapters and migration internals.
+/// App/runtime callers should prefer [`save_app_state`].
+///
+/// # Errors
+///
+/// Returns an error when the browser storage bridge fails.
+#[deprecated(
+    since = "0.1.0",
+    note = "Low-level envelope API. Prefer save_app_state."
+)]
 pub async fn save_app_state_envelope(envelope: &AppStateEnvelope) -> Result<(), String> {
-    let store = host_adapters::app_state_store();
-    store.save_app_state_envelope(envelope).await
+    save_app_state_envelope_raw(envelope).await
 }
 
 /// Serializes and saves an app-state payload under `namespace`.
@@ -91,7 +114,7 @@ pub async fn save_app_state<T: Serialize>(
     payload: &T,
 ) -> Result<(), String> {
     let envelope = build_app_state_envelope(namespace, schema_version, payload)?;
-    save_app_state_envelope(&envelope).await
+    save_app_state_envelope_raw(&envelope).await
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,10 +155,40 @@ pub async fn load_app_state_typed<T: DeserializeOwned>(
     namespace: &str,
     schema_policy: AppStateSchemaPolicy,
 ) -> Result<Option<T>, String> {
-    let Some(envelope) = load_app_state_envelope(namespace).await? else {
+    let Some(envelope) = load_app_state_envelope_raw(namespace).await? else {
         return Ok(None);
     };
     decode_typed_app_state_envelope(&envelope, schema_policy)
+}
+
+/// Loads typed app-state data while applying explicit legacy-schema migration hooks.
+///
+/// This is the preferred API for app/runtime hydration. It enforces envelope compatibility and
+/// requires callers to handle legacy schemas intentionally instead of relying on broad
+/// schema-policy acceptance.
+///
+/// Behavior:
+/// - `schema == current_schema_version`: deserialize as current type
+/// - `schema < current_schema_version`: call `migrate_legacy`
+/// - `schema > current_schema_version`: return `Ok(None)`
+///
+/// # Errors
+///
+/// Returns an error when storage access fails, current-schema deserialization fails, or a caller
+/// migration hook returns an error.
+pub async fn load_app_state_with_migration<T, F>(
+    namespace: &str,
+    current_schema_version: u32,
+    migrate_legacy: F,
+) -> Result<Option<T>, String>
+where
+    T: DeserializeOwned,
+    F: Fn(u32, &AppStateEnvelope) -> Result<Option<T>, String>,
+{
+    let Some(envelope) = load_app_state_envelope_raw(namespace).await? else {
+        return Ok(None);
+    };
+    decode_typed_app_state_with_migration(&envelope, current_schema_version, migrate_legacy)
 }
 
 fn decode_typed_app_state_envelope<T: DeserializeOwned>(
@@ -149,6 +202,28 @@ fn decode_typed_app_state_envelope<T: DeserializeOwned>(
         return Ok(None);
     }
     migrate_envelope_payload(envelope).map(Some)
+}
+
+fn decode_typed_app_state_with_migration<T, F>(
+    envelope: &AppStateEnvelope,
+    current_schema_version: u32,
+    migrate_legacy: F,
+) -> Result<Option<T>, String>
+where
+    T: DeserializeOwned,
+    F: Fn(u32, &AppStateEnvelope) -> Result<Option<T>, String>,
+{
+    if envelope.envelope_version != APP_STATE_ENVELOPE_VERSION {
+        return Ok(None);
+    }
+
+    if envelope.schema_version == current_schema_version {
+        return migrate_envelope_payload(envelope).map(Some);
+    }
+    if envelope.schema_version > current_schema_version {
+        return Ok(None);
+    }
+    migrate_legacy(envelope.schema_version, envelope)
 }
 
 /// Deletes persisted app state for a namespace.
@@ -173,7 +248,10 @@ pub async fn list_app_state_namespaces() -> Result<Vec<String>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_app_state_envelope, decode_typed_app_state_envelope, AppStateSchemaPolicy};
+    use super::{
+        build_app_state_envelope, decode_typed_app_state_envelope,
+        decode_typed_app_state_with_migration, AppStateSchemaPolicy,
+    };
 
     #[test]
     fn app_state_schema_policy_matching_is_consistent() {
@@ -231,6 +309,41 @@ mod tests {
             err.contains("invalid type"),
             "error should include type-mismatch context: {err}"
         );
+    }
+
+    #[test]
+    fn migration_decode_uses_hook_for_legacy_schema() {
+        let envelope = build_app_state_envelope("app.example", 0, &42_u32).expect("build envelope");
+
+        let migrated =
+            decode_typed_app_state_with_migration::<u32, _>(&envelope, 1, |legacy_schema, env| {
+                assert_eq!(legacy_schema, 0);
+                super::migrate_envelope_payload(env).map(Some)
+            })
+            .expect("migration decode should succeed");
+        assert_eq!(migrated, Some(42));
+    }
+
+    #[test]
+    fn migration_decode_rejects_future_schema() {
+        let envelope = build_app_state_envelope("app.example", 2, &42_u32).expect("build envelope");
+
+        let migrated =
+            decode_typed_app_state_with_migration::<u32, _>(&envelope, 1, |_legacy, _| Ok(Some(0)))
+                .expect("decode should not fail");
+        assert_eq!(migrated, None);
+    }
+
+    #[test]
+    fn migration_decode_uses_current_schema_deserialize() {
+        let envelope = build_app_state_envelope("app.example", 1, &42_u32).expect("build envelope");
+
+        let migrated =
+            decode_typed_app_state_with_migration::<u32, _>(&envelope, 1, |_legacy, _| {
+                panic!("legacy migration should not be called when schema is current");
+            })
+            .expect("decode should succeed");
+        assert_eq!(migrated, Some(42));
     }
 }
 
