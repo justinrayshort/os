@@ -40,6 +40,7 @@ fn main() -> ExitCode {
         "dev" => dev_command(&root, rest),
         "build-web" => build_web(&root, rest),
         "check-web" => check_web(&root),
+        "tauri" => tauri_command(&root, rest),
         "docs" => docs::run_docs_command(&root, rest),
         "perf" => perf::run_perf_command(&root, rest),
         "verify" => verify(&root, rest),
@@ -75,6 +76,7 @@ fn print_usage() {
            dev [...]           Prototype dev workflow (serve/start/stop/status/restart/build)\n\
            build-web [args]    Build static web bundle with trunk\n\
            check-web           Run site compile checks (CSR native + wasm)\n\
+           tauri [...]         Tauri desktop workflow (dev/build/check)\n\
            docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
            perf <subcommand>   Performance benchmarks/profiling workflows\n\
            verify [fast|full]  Run standardized local verification workflow (default: full)\n"
@@ -352,6 +354,72 @@ fn check_web(root: &Path) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn tauri_command(root: &Path, args: Vec<String>) -> Result<(), String> {
+    match args.first().map(String::as_str) {
+        None | Some("dev") => tauri_dev(root, args.get(1..).unwrap_or(&[]).to_vec()),
+        Some("build") => tauri_build(root, args[1..].to_vec()),
+        Some("check") => tauri_check(root),
+        Some("help" | "--help" | "-h") => {
+            print_tauri_usage();
+            Ok(())
+        }
+        Some(other) => Err(format!("unknown tauri subcommand: {other}")),
+    }
+}
+
+fn print_tauri_usage() {
+    eprintln!(
+        "Usage: cargo xtask tauri [dev|build|check] [args]\n\
+         \n\
+         Subcommands:\n\
+           dev [args]          Run `cargo tauri dev` from `crates/desktop_tauri/`\n\
+           build [args]        Run `cargo tauri build` from `crates/desktop_tauri/`\n\
+           check               Compile-check the Tauri crate (`cargo check -p desktop_tauri`)\n\
+         \n\
+         Notes:\n\
+           - `tauri.conf.json` hooks run Trunk against `crates/site/index.html`.\n\
+           - Install CLI with `cargo install tauri-cli --version '^2.0'`.\n"
+    );
+}
+
+fn tauri_dev(root: &Path, args: Vec<String>) -> Result<(), String> {
+    ensure_command(
+        "trunk",
+        "Install it with `cargo setup-web` (or `cargo install trunk`)",
+    )?;
+    ensure_cargo_subcommand(
+        "tauri",
+        "Install it with `cargo install tauri-cli --version '^2.0'`.",
+    )?;
+
+    let mut tauri_args = vec!["tauri".to_string(), "dev".to_string()];
+    tauri_args.extend(args);
+    run_owned(&tauri_dir(root), "cargo", tauri_args)
+}
+
+fn tauri_build(root: &Path, args: Vec<String>) -> Result<(), String> {
+    ensure_command(
+        "trunk",
+        "Install it with `cargo setup-web` (or `cargo install trunk`)",
+    )?;
+    ensure_cargo_subcommand(
+        "tauri",
+        "Install it with `cargo install tauri-cli --version '^2.0'`.",
+    )?;
+
+    let mut tauri_args = vec!["tauri".to_string(), "build".to_string()];
+    tauri_args.extend(args);
+    run_owned(&tauri_dir(root), "cargo", tauri_args)
+}
+
+fn tauri_check(root: &Path) -> Result<(), String> {
+    run(root, "cargo", vec!["check", "-p", "desktop_tauri"])
+}
+
+fn tauri_dir(root: &Path) -> PathBuf {
+    root.join("crates/desktop_tauri")
 }
 
 fn verify(root: &Path, args: Vec<String>) -> Result<(), String> {
@@ -847,6 +915,27 @@ fn command_available(program: &str) -> bool {
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
+}
+
+fn cargo_subcommand_available(subcommand: &str) -> bool {
+    Command::new("cargo")
+        .arg(subcommand)
+        .arg("--help")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn ensure_cargo_subcommand(subcommand: &str, hint: &str) -> Result<(), String> {
+    if cargo_subcommand_available(subcommand) {
+        Ok(())
+    } else {
+        Err(format!(
+            "required cargo subcommand `{subcommand}` not found. {hint}"
+        ))
+    }
 }
 
 #[cfg(unix)]

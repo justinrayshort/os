@@ -1887,7 +1887,8 @@ fn write_audit_report(
 
 const FLUENT_OVERRIDES_PATH: &str =
     "crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css";
-const TYPED_PERSISTENCE_BOUNDARY_DIRS: &[&str] = &["crates/apps", "crates/desktop_runtime"];
+const TYPED_PERSISTENCE_BOUNDARY_DIRS: &[&str] =
+    &["crates/apps", "crates/desktop_runtime", "crates/site"];
 const SHELL_ICON_COMPONENT_FILES: &[&str] = &[
     "crates/desktop_runtime/src/components.rs",
     "crates/desktop_runtime/src/components/display_properties.rs",
@@ -1980,9 +1981,10 @@ fn validate_typed_persistence_boundary(root: &Path) -> Vec<Problem> {
                     continue;
                 }
             };
+            let imports_low_level_load = imports_platform_storage_low_level_load(&text);
 
             for (idx, line) in text.lines().enumerate() {
-                if uses_forbidden_envelope_load_call(line) {
+                if uses_forbidden_envelope_load_call(line, imports_low_level_load) {
                     problems.push(Problem::new(
                         "storage-boundary",
                         rel_path.clone(),
@@ -1997,12 +1999,41 @@ fn validate_typed_persistence_boundary(root: &Path) -> Vec<Problem> {
     problems
 }
 
-fn uses_forbidden_envelope_load_call(line: &str) -> bool {
+fn imports_platform_storage_low_level_load(text: &str) -> bool {
+    text.lines().any(|line| {
+        let compact = line
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect::<String>();
+        compact.contains("useplatform_storage::load_app_state_envelope")
+            || (compact.contains("useplatform_storage::{")
+                && compact.contains("load_app_state_envelope"))
+    })
+}
+
+fn uses_forbidden_envelope_load_call(line: &str, imports_low_level_load: bool) -> bool {
     let trimmed = line.trim_start();
     if trimmed.starts_with("//") {
         return false;
     }
-    trimmed.contains("load_app_state_envelope(")
+    let compact = line
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect::<String>();
+
+    if compact.contains("platform_storage::load_app_state_envelope(") {
+        return true;
+    }
+
+    if imports_low_level_load
+        && compact.contains("load_app_state_envelope(")
+        && !compact.contains(".load_app_state_envelope(")
+        && !compact.contains("fnload_app_state_envelope(")
+    {
+        return true;
+    }
+
+    false
 }
 
 fn validate_shell_icon_standardization(root: &Path) -> Vec<Problem> {
@@ -2385,10 +2416,37 @@ Continue.
     #[test]
     fn storage_boundary_allows_comments_and_flags_calls() {
         assert!(!uses_forbidden_envelope_load_call(
-            "// load_app_state_envelope(\"app.example\")"
+            "// load_app_state_envelope(\"app.example\")",
+            false
         ));
         assert!(uses_forbidden_envelope_load_call(
-            "let _ = platform_storage::load_app_state_envelope(\"app.example\").await;"
+            "let _ = platform_storage::load_app_state_envelope(\"app.example\").await;",
+            false
+        ));
+        assert!(!uses_forbidden_envelope_load_call(
+            "let _ = store.load_app_state_envelope(\"app.example\").await;",
+            true
+        ));
+        assert!(uses_forbidden_envelope_load_call(
+            "let _ = load_app_state_envelope(\"app.example\").await;",
+            true
+        ));
+        assert!(!uses_forbidden_envelope_load_call(
+            "fn load_app_state_envelope(namespace: &str) {}",
+            true
+        ));
+    }
+
+    #[test]
+    fn storage_boundary_detects_platform_storage_import_patterns() {
+        assert!(imports_platform_storage_low_level_load(
+            "use platform_storage::load_app_state_envelope;"
+        ));
+        assert!(imports_platform_storage_low_level_load(
+            "use platform_storage::{load_app_state_envelope, save_app_state_typed};"
+        ));
+        assert!(!imports_platform_storage_low_level_load(
+            "use platform_storage::load_app_state_typed;"
         ));
     }
 }

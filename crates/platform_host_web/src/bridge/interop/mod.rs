@@ -34,6 +34,18 @@ pub async fn list_app_state_namespaces() -> Result<Vec<String>, String> {
     imp::list_app_state_namespaces().await
 }
 
+pub async fn load_pref(key: &str) -> Result<Option<String>, String> {
+    imp::load_pref(key).await
+}
+
+pub async fn save_pref(key: &str, raw_json: &str) -> Result<(), String> {
+    imp::save_pref(key, raw_json).await
+}
+
+pub async fn delete_pref(key: &str) -> Result<(), String> {
+    imp::delete_pref(key).await
+}
+
 pub async fn cache_put_text(cache_name: &str, key: &str, value: &str) -> Result<(), String> {
     imp::cache_put_text(cache_name, key, value).await
 }

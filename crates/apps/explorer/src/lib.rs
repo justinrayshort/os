@@ -382,9 +382,8 @@ pub fn ExplorerApp(
         .map(|slug| format!("/Projects/{slug}"))
         .unwrap_or_else(|| "/".to_string());
 
-    let prefs = create_rw_signal(
-        platform_storage::load_local_pref::<ExplorerPrefs>(EXPLORER_PREFS_KEY).unwrap_or_default(),
-    );
+    let prefs = create_rw_signal(ExplorerPrefs::default());
+    let prefs_hydrated = create_rw_signal(false);
     let status = create_rw_signal::<Option<ExplorerBackendStatus>>(None);
     let cwd = create_rw_signal(normalize_path(&initial_target));
     let entries = create_rw_signal(Vec::<ExplorerEntry>::new());
@@ -420,10 +419,17 @@ pub fn ExplorerApp(
     };
 
     create_effect(move |_| {
-        let prefs_value = prefs.get();
-        if let Err(err) = platform_storage::save_local_pref(EXPLORER_PREFS_KEY, &prefs_value) {
-            logging::warn!("explorer prefs persist failed: {err}");
+        if !prefs_hydrated.get() {
+            return;
         }
+        let prefs_value = prefs.get();
+        spawn_local(async move {
+            if let Err(err) =
+                platform_storage::save_pref_typed(EXPLORER_PREFS_KEY, &prefs_value).await
+            {
+                logging::warn!("explorer prefs persist failed: {err}");
+            }
+        });
     });
 
     let session_store_for_name = session_store.clone();
@@ -442,7 +448,16 @@ pub fn ExplorerApp(
         let signals = signals;
         let requested_path = cwd.get_untracked();
         let last_saved = last_saved;
+        let prefs = prefs;
+        let prefs_hydrated = prefs_hydrated;
         spawn_local(async move {
+            match platform_storage::load_pref_typed::<ExplorerPrefs>(EXPLORER_PREFS_KEY).await {
+                Ok(Some(restored)) => prefs.set(restored),
+                Ok(None) => {}
+                Err(err) => logging::warn!("explorer prefs hydrate failed: {err}"),
+            }
+            prefs_hydrated.set(true);
+
             match platform_storage::load_app_state_with_migration::<ExplorerPersistedState, _>(
                 EXPLORER_STATE_NAMESPACE,
                 EXPLORER_STATE_SCHEMA_VERSION,

@@ -1,12 +1,13 @@
 //! Browser capability bridge implementations for `platform_host_web` service adapters.
 //!
-//! This module is organized by host domain (`app_state`, `cache`, `fs`) while preserving a
+//! This module is organized by host domain (`app_state`, `prefs`, `cache`, `fs`) while preserving a
 //! stable public API for callers in `platform_storage` and `platform_host_web` adapters.
 
 mod app_state;
 mod cache;
 mod fs;
 mod interop;
+mod prefs;
 
 use platform_host::{
     AppStateEnvelope, ExplorerBackendStatus, ExplorerFileReadResult, ExplorerListResult,
@@ -27,6 +28,18 @@ pub async fn delete_app_state(namespace: &str) -> Result<(), String> {
 
 pub async fn list_app_state_namespaces() -> Result<Vec<String>, String> {
     app_state::list_app_state_namespaces().await
+}
+
+pub async fn load_pref(key: &str) -> Result<Option<String>, String> {
+    prefs::load_pref(key).await
+}
+
+pub async fn save_pref(key: &str, raw_json: &str) -> Result<(), String> {
+    prefs::save_pref(key, raw_json).await
+}
+
+pub async fn delete_pref(key: &str) -> Result<(), String> {
+    prefs::delete_pref(key).await
 }
 
 pub async fn cache_put_text(cache_name: &str, key: &str, value: &str) -> Result<(), String> {
@@ -123,6 +136,17 @@ mod tests {
             None
         );
         block_on(cache_delete("cache", "k")).expect("delete text");
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn prefs_public_api_non_wasm_parity() {
+        assert_eq!(
+            block_on(load_pref("retrodesk.explorer.prefs.v1")).expect("load pref"),
+            None
+        );
+        block_on(save_pref("retrodesk.explorer.prefs.v1", "{\"k\":1}")).expect("save pref");
+        block_on(delete_pref("retrodesk.explorer.prefs.v1")).expect("delete pref");
     }
 
     #[cfg(not(target_arch = "wasm32"))]

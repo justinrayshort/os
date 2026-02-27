@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Retro Desktop OS",
+  "version": "0.1.0",
+  "identifier": "com.justinshort.os.desktop",
+  "build": {
+    "beforeDevCommand": "trunk serve ../site/index.html --features desktop-tauri --dist ../site/target/trunk-tauri-dev --port 1420 --no-open",
+    "beforeBuildCommand": "trunk build ../site/index.html --features desktop-tauri --release --dist ../site/target/trunk-tauri-dist",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../site/target/trunk-tauri-dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Retro Desktop OS",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "capabilities": ["default"]
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["icons/icon.png"]
+  }
+}

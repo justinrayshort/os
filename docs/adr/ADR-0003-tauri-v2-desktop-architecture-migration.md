@@ -3,7 +3,7 @@ title: "ADR-0003 Tauri v2 Desktop Architecture Migration"
 category: "adr"
 owner: "architecture-owner"
 status: "draft"
-last_reviewed: "2026-02-26"
+last_reviewed: "2026-02-27"
 audience: ["engineering", "platform", "release"]
 invariants:
   - "Desktop reducer semantics remain platform-agnostic and independent of direct Tauri command implementations."
@@ -132,6 +132,23 @@ All request/response payloads MUST use `platform_host` models to avoid contract 
 - Implement app-state, prefs, and cache command handlers in Rust.
 - Implement explorer filesystem command handlers with scoped-root enforcement.
 - Add native folder selection flow and root-state persistence.
+
+## Implementation Status Snapshot (2026-02-27)
+
+- Stage 1 complete: `platform_storage` host-strategy selection landed.
+- Stage 2 complete: `desktop_tauri` crate/config and command entrypoints landed.
+- Stage 3 in progress:
+  - landed: typed `app_state_load` / `app_state_save` / `app_state_delete` /
+    `app_state_namespaces` plus `prefs_load` / `prefs_save` / `prefs_delete` Tauri command
+    handlers, `cache_put_text` / `cache_get_text` / `cache_delete` command handlers,
+    and explorer command handlers (`explorer_status`, `explorer_list_dir`,
+    `explorer_read_text_file`, `explorer_write_text_file`, `explorer_create_dir`,
+    `explorer_create_file`, `explorer_delete`, `explorer_stat`) with scoped-root enforcement.
+  - landed: desktop feature wiring (`site` -> `desktop_runtime` ->
+    `platform_storage/desktop-host-tauri`) now routes app-state/prefs/cache/explorer.
+  - landed: explorer UI preference hydrate/persist plus runtime theme/terminal-history compatibility
+    paths now use typed host prefs helpers.
+  - pending: hardening/cross-platform validation phases.
 
 ### Stage 4: Frontend IPC transport and runtime integration
 

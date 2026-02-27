@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: verify verify-fast wiki-init rustdoc-check docs-check docs-audit perf-doctor perf-check perf-bench perf-baseline perf-compare perf-flamegraph perf-heaptrack proto-check proto-build proto-build-dev proto-serve proto-start proto-stop proto-status proto-restart
+.PHONY: verify verify-fast wiki-init rustdoc-check docs-check docs-audit perf-doctor perf-check perf-bench perf-baseline perf-compare perf-flamegraph perf-heaptrack proto-check proto-build proto-build-dev proto-serve proto-start proto-stop proto-status proto-restart tauri-check tauri-dev tauri-build
 
 verify:
 	cargo verify
@@ -73,3 +73,12 @@ proto-status:
 
 proto-restart:
 	cargo dev restart
+
+tauri-check:
+	cargo xtask tauri check
+
+tauri-dev:
+	cargo tauri-dev
+
+tauri-build:
+	cargo tauri-build

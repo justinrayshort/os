@@ -19,6 +19,24 @@ function fail(message) {
   throw new Error(message);
 }
 
+function tauriInvokeFn() {
+  if (typeof window === 'undefined') return null;
+  const invokeFromPublic = window.__TAURI__?.core?.invoke;
+  if (typeof invokeFromPublic === 'function') return invokeFromPublic;
+  const invokeFromInternals = window.__TAURI_INTERNALS__?.invoke;
+  if (typeof invokeFromInternals === 'function') return invokeFromInternals;
+  return null;
+}
+
+async function tauriInvoke(command, payload) {
+  const invoke = tauriInvokeFn();
+  if (!invoke) {
+    return { available: false, value: null };
+  }
+  const value = await invoke(command, payload || {});
+  return { available: true, value: value ?? null };
+}
+
 function idbSupported() {
   return typeof indexedDB !== 'undefined';
 }
@@ -509,6 +527,15 @@ function cacheRequestUrl(cacheName, key) {
 }
 
 async function cachePutTextInternal(cacheName, key, value) {
+  const tauri = await tauriInvoke('cache_put_text', {
+cacheName,
+cache_name: cacheName,
+key,
+value,
+  });
+  if (tauri.available) {
+return null;
+  }
   if (typeof caches === 'undefined') {
 fail('Cache API unavailable');
   }
@@ -524,6 +551,14 @@ headers: {
 }
 
 async function cacheGetTextInternal(cacheName, key) {
+  const tauri = await tauriInvoke('cache_get_text', {
+cacheName,
+cache_name: cacheName,
+key,
+  });
+  if (tauri.available) {
+return tauri.value ?? null;
+  }
   if (typeof caches === 'undefined') {
 fail('Cache API unavailable');
   }
@@ -535,6 +570,14 @@ fail('Cache API unavailable');
 }
 
 async function cacheDeleteInternal(cacheName, key) {
+  const tauri = await tauriInvoke('cache_delete', {
+cacheName,
+cache_name: cacheName,
+key,
+  });
+  if (tauri.available) {
+return null;
+  }
   if (typeof caches === 'undefined') {
 fail('Cache API unavailable');
   }
@@ -544,12 +587,20 @@ fail('Cache API unavailable');
 }
 
 async function appStateLoad(namespace) {
+  const tauri = await tauriInvoke('app_state_load', { namespace });
+  if (tauri.available) {
+    return tauri.value;
+  }
   const row = await getByKey(APP_STATE_STORE, namespace);
   return row ?? null;
 }
 
 async function appStateSave(envelope) {
   if (!envelope || typeof envelope !== 'object') fail('Invalid app-state envelope');
+  const tauri = await tauriInvoke('app_state_save', { envelope });
+  if (tauri.available) {
+    return null;
+  }
   const existing = await getByKey(APP_STATE_STORE, envelope.namespace);
   if (existing && typeof existing.updated_at_unix_ms === 'number') {
 const incomingTs = Number(envelope.updated_at_unix_ms ?? 0);
@@ -563,21 +614,68 @@ if (existingTs >= incomingTs) {
 }
 
 async function appStateDelete(namespace) {
+  const tauri = await tauriInvoke('app_state_delete', { namespace });
+  if (tauri.available) {
+    return null;
+  }
   await deleteByKey(APP_STATE_STORE, namespace);
   return null;
 }
 
 async function appStateNamespaces() {
+  const tauri = await tauriInvoke('app_state_namespaces', {});
+  if (tauri.available) {
+    return (tauri.value || []).map(String).sort();
+  }
   const keys = await getAllKeys(APP_STATE_STORE);
   return (keys || []).map(String).sort();
 }
 
+async function prefsLoad(key) {
+  const tauri = await tauriInvoke('prefs_load', { key });
+  if (tauri.available) {
+    return tauri.value ?? null;
+  }
+  const storage = (typeof window !== 'undefined') ? window.localStorage : null;
+  return storage ? storage.getItem(key) : null;
+}
+
+async function prefsSave(key, rawJson) {
+  const tauri = await tauriInvoke('prefs_save', { key, rawJson, raw_json: rawJson });
+  if (tauri.available) {
+    return null;
+  }
+  const storage = (typeof window !== 'undefined') ? window.localStorage : null;
+  if (!storage) fail('localStorage unavailable');
+  storage.setItem(key, rawJson);
+  return null;
+}
+
+async function prefsDelete(key) {
+  const tauri = await tauriInvoke('prefs_delete', { key });
+  if (tauri.available) {
+    return null;
+  }
+  const storage = (typeof window !== 'undefined') ? window.localStorage : null;
+  if (!storage) return null;
+  storage.removeItem(key);
+  return null;
+}
+
 async function explorerStatus() {
+  const tauri = await tauriInvoke('explorer_status', {});
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   return await nativeStatus();
 }
 
 async function explorerPickNativeDirectory() {
+  const tauri = await tauriInvoke('explorer_pick_root', {});
+  if (tauri.available) {
+return tauri.value;
+  }
   if (typeof window === 'undefined' || typeof window.showDirectoryPicker !== 'function') {
 fail('File System Access API is not supported in this browser');
   }
@@ -588,6 +686,10 @@ fail('File System Access API is not supported in this browser');
 }
 
 async function explorerRequestPermission(mode) {
+  const tauri = await tauriInvoke('explorer_request_permission', { mode });
+  if (tauri.available) {
+return tauri.value;
+  }
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
 return 'virtual';
@@ -597,6 +699,10 @@ return 'virtual';
 }
 
 async function explorerListDir(path) {
+  const tauri = await tauriInvoke('explorer_list_dir', { path });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
@@ -640,6 +746,10 @@ entries,
 }
 
 async function explorerReadTextFile(path) {
+  const tauri = await tauriInvoke('explorer_read_text_file', { path });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
@@ -667,6 +777,10 @@ cached_preview_key,
 }
 
 async function explorerWriteTextFile(path, text) {
+  const tauri = await tauriInvoke('explorer_write_text_file', { path, text });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
@@ -689,6 +803,10 @@ return meta;
 }
 
 async function explorerCreateDir(path) {
+  const tauri = await tauriInvoke('explorer_create_dir', { path });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
@@ -711,10 +829,18 @@ current = await current.getDirectoryHandle(segment, { create: true });
 }
 
 async function explorerCreateFile(path, text) {
+  const tauri = await tauriInvoke('explorer_create_file', { path, text: text ?? '' });
+  if (tauri.available) {
+return tauri.value;
+  }
   return await explorerWriteTextFile(path, text ?? '');
 }
 
 async function explorerDelete(path, recursive) {
+  const tauri = await tauriInvoke('explorer_delete', { path, recursive: !!recursive });
+  if (tauri.available) {
+return null;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
@@ -732,6 +858,10 @@ return null;
 }
 
 async function explorerStat(path) {
+  const tauri = await tauriInvoke('explorer_stat', { path });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
@@ -748,6 +878,9 @@ export async function jsAppStateLoad(namespace) { return await appStateLoad(name
 export async function jsAppStateSave(envelope) { return await appStateSave(envelope); }
 export async function jsAppStateDelete(namespace) { return await appStateDelete(namespace); }
 export async function jsAppStateNamespaces() { return await appStateNamespaces(); }
+export async function jsPrefsLoad(key) { return await prefsLoad(key); }
+export async function jsPrefsSave(key, rawJson) { return await prefsSave(key, rawJson); }
+export async function jsPrefsDelete(key) { return await prefsDelete(key); }
 
 export async function jsCachePutText(cacheName, key, value) { return await cachePutTextInternal(cacheName, key, value); }
 export async function jsCacheGetText(cacheName, key) { return await cacheGetTextInternal(cacheName, key); }
@@ -774,6 +907,12 @@ extern "C" {
     fn js_app_state_delete(namespace: &str) -> Promise;
     #[wasm_bindgen(js_name = jsAppStateNamespaces)]
     fn js_app_state_namespaces() -> Promise;
+    #[wasm_bindgen(js_name = jsPrefsLoad)]
+    fn js_prefs_load(key: &str) -> Promise;
+    #[wasm_bindgen(js_name = jsPrefsSave)]
+    fn js_prefs_save(key: &str, raw_json: &str) -> Promise;
+    #[wasm_bindgen(js_name = jsPrefsDelete)]
+    fn js_prefs_delete(key: &str) -> Promise;
 
     #[wasm_bindgen(js_name = jsCachePutText)]
     fn js_cache_put_text(cache_name: &str, key: &str, value: &str) -> Promise;
@@ -857,6 +996,28 @@ pub async fn delete_app_state(namespace: &str) -> Result<(), String> {
 
 pub async fn list_app_state_namespaces() -> Result<Vec<String>, String> {
     promise_to_json(js_app_state_namespaces()).await
+}
+
+pub async fn load_pref(key: &str) -> Result<Option<String>, String> {
+    let value = await_promise(js_prefs_load(key)).await?;
+    if value.is_null() || value.is_undefined() {
+        Ok(None)
+    } else {
+        value
+            .as_string()
+            .map(Some)
+            .ok_or_else(|| "Prefs API returned non-string payload".to_string())
+    }
+}
+
+pub async fn save_pref(key: &str, raw_json: &str) -> Result<(), String> {
+    let _ = await_promise(js_prefs_save(key, raw_json)).await?;
+    Ok(())
+}
+
+pub async fn delete_pref(key: &str) -> Result<(), String> {
+    let _ = await_promise(js_prefs_delete(key)).await?;
+    Ok(())
 }
 
 pub async fn cache_put_text(cache_name: &str, key: &str, value: &str) -> Result<(), String> {

@@ -5,26 +5,41 @@ use platform_host::{
     NoopAppStateStore, NoopContentCache, NoopExplorerFsService, NoopPrefsStore, PrefsStore,
     PrefsStoreFuture,
 };
-use platform_host_web::{WebAppStateStore, WebContentCache, WebExplorerFsService, WebPrefsStore};
+use platform_host_web::{
+    TauriAppStateStore, TauriContentCache, TauriExplorerFsService, TauriPrefsStore,
+    WebAppStateStore, WebContentCache, WebExplorerFsService, WebPrefsStore,
+};
 use serde::{de::DeserializeOwned, Serialize};
 
-#[cfg_attr(not(any(test, feature = "desktop-host-stub")), allow(dead_code))]
+#[cfg(all(feature = "desktop-host-stub", feature = "desktop-host-tauri"))]
+compile_error!(
+    "features `desktop-host-stub` and `desktop-host-tauri` are mutually exclusive; enable only one"
+);
+
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Compile-time selected host strategy for [`platform_storage`] adapters.
 pub(crate) enum HostStrategy {
     /// Browser-backed adapters from `platform_host_web`.
     Browser,
+    /// Tauri desktop transport adapters for app-state, prefs, cache, and explorer domains.
+    DesktopTauri,
     /// Desktop placeholder adapters used while native transport is being introduced.
     DesktopStub,
 }
 
 pub(crate) const fn selected_host_strategy() -> HostStrategy {
+    #[cfg(feature = "desktop-host-tauri")]
+    {
+        HostStrategy::DesktopTauri
+    }
+
     #[cfg(feature = "desktop-host-stub")]
     {
         HostStrategy::DesktopStub
     }
 
-    #[cfg(not(feature = "desktop-host-stub"))]
+    #[cfg(not(any(feature = "desktop-host-stub", feature = "desktop-host-tauri")))]
     {
         HostStrategy::Browser
     }
@@ -33,6 +48,7 @@ pub(crate) const fn selected_host_strategy() -> HostStrategy {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum AppStateStoreAdapter {
     Browser(WebAppStateStore),
+    DesktopTauri(TauriAppStateStore),
     DesktopStub(NoopAppStateStore),
 }
 
@@ -43,6 +59,7 @@ impl AppStateStore for AppStateStoreAdapter {
     ) -> AppStateStoreFuture<'a, Result<Option<AppStateEnvelope>, String>> {
         match self {
             Self::Browser(store) => store.load_app_state_envelope(namespace),
+            Self::DesktopTauri(store) => store.load_app_state_envelope(namespace),
             Self::DesktopStub(store) => store.load_app_state_envelope(namespace),
         }
     }
@@ -53,6 +70,7 @@ impl AppStateStore for AppStateStoreAdapter {
     ) -> AppStateStoreFuture<'a, Result<(), String>> {
         match self {
             Self::Browser(store) => store.save_app_state_envelope(envelope),
+            Self::DesktopTauri(store) => store.save_app_state_envelope(envelope),
             Self::DesktopStub(store) => store.save_app_state_envelope(envelope),
         }
     }
@@ -63,6 +81,7 @@ impl AppStateStore for AppStateStoreAdapter {
     ) -> AppStateStoreFuture<'a, Result<(), String>> {
         match self {
             Self::Browser(store) => store.delete_app_state(namespace),
+            Self::DesktopTauri(store) => store.delete_app_state(namespace),
             Self::DesktopStub(store) => store.delete_app_state(namespace),
         }
     }
@@ -72,6 +91,7 @@ impl AppStateStore for AppStateStoreAdapter {
     ) -> AppStateStoreFuture<'a, Result<Vec<String>, String>> {
         match self {
             Self::Browser(store) => store.list_app_state_namespaces(),
+            Self::DesktopTauri(store) => store.list_app_state_namespaces(),
             Self::DesktopStub(store) => store.list_app_state_namespaces(),
         }
     }
@@ -80,6 +100,7 @@ impl AppStateStore for AppStateStoreAdapter {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum ContentCacheAdapter {
     Browser(WebContentCache),
+    DesktopTauri(TauriContentCache),
     DesktopStub(NoopContentCache),
 }
 
@@ -92,6 +113,7 @@ impl ContentCache for ContentCacheAdapter {
     ) -> ContentCacheFuture<'a, Result<(), String>> {
         match self {
             Self::Browser(store) => store.put_text(cache_name, key, value),
+            Self::DesktopTauri(store) => store.put_text(cache_name, key, value),
             Self::DesktopStub(store) => store.put_text(cache_name, key, value),
         }
     }
@@ -103,6 +125,7 @@ impl ContentCache for ContentCacheAdapter {
     ) -> ContentCacheFuture<'a, Result<Option<String>, String>> {
         match self {
             Self::Browser(store) => store.get_text(cache_name, key),
+            Self::DesktopTauri(store) => store.get_text(cache_name, key),
             Self::DesktopStub(store) => store.get_text(cache_name, key),
         }
     }
@@ -114,6 +137,7 @@ impl ContentCache for ContentCacheAdapter {
     ) -> ContentCacheFuture<'a, Result<(), String>> {
         match self {
             Self::Browser(store) => store.delete(cache_name, key),
+            Self::DesktopTauri(store) => store.delete(cache_name, key),
             Self::DesktopStub(store) => store.delete(cache_name, key),
         }
     }
@@ -122,6 +146,7 @@ impl ContentCache for ContentCacheAdapter {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum ExplorerFsServiceAdapter {
     Browser(WebExplorerFsService),
+    DesktopTauri(TauriExplorerFsService),
     DesktopStub(NoopExplorerFsService),
 }
 
@@ -129,6 +154,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     fn status<'a>(&'a self) -> ExplorerFsFuture<'a, Result<ExplorerBackendStatus, String>> {
         match self {
             Self::Browser(store) => store.status(),
+            Self::DesktopTauri(store) => store.status(),
             Self::DesktopStub(store) => store.status(),
         }
     }
@@ -138,6 +164,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     ) -> ExplorerFsFuture<'a, Result<ExplorerBackendStatus, String>> {
         match self {
             Self::Browser(store) => store.pick_native_directory(),
+            Self::DesktopTauri(store) => store.pick_native_directory(),
             Self::DesktopStub(store) => store.pick_native_directory(),
         }
     }
@@ -148,6 +175,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     ) -> ExplorerFsFuture<'a, Result<ExplorerPermissionState, String>> {
         match self {
             Self::Browser(store) => store.request_permission(mode),
+            Self::DesktopTauri(store) => store.request_permission(mode),
             Self::DesktopStub(store) => store.request_permission(mode),
         }
     }
@@ -158,6 +186,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     ) -> ExplorerFsFuture<'a, Result<ExplorerListResult, String>> {
         match self {
             Self::Browser(store) => store.list_dir(path),
+            Self::DesktopTauri(store) => store.list_dir(path),
             Self::DesktopStub(store) => store.list_dir(path),
         }
     }
@@ -168,6 +197,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     ) -> ExplorerFsFuture<'a, Result<ExplorerFileReadResult, String>> {
         match self {
             Self::Browser(store) => store.read_text_file(path),
+            Self::DesktopTauri(store) => store.read_text_file(path),
             Self::DesktopStub(store) => store.read_text_file(path),
         }
     }
@@ -179,6 +209,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     ) -> ExplorerFsFuture<'a, Result<ExplorerMetadata, String>> {
         match self {
             Self::Browser(store) => store.write_text_file(path, text),
+            Self::DesktopTauri(store) => store.write_text_file(path, text),
             Self::DesktopStub(store) => store.write_text_file(path, text),
         }
     }
@@ -189,6 +220,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     ) -> ExplorerFsFuture<'a, Result<ExplorerMetadata, String>> {
         match self {
             Self::Browser(store) => store.create_dir(path),
+            Self::DesktopTauri(store) => store.create_dir(path),
             Self::DesktopStub(store) => store.create_dir(path),
         }
     }
@@ -200,6 +232,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     ) -> ExplorerFsFuture<'a, Result<ExplorerMetadata, String>> {
         match self {
             Self::Browser(store) => store.create_file(path, text),
+            Self::DesktopTauri(store) => store.create_file(path, text),
             Self::DesktopStub(store) => store.create_file(path, text),
         }
     }
@@ -211,6 +244,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     ) -> ExplorerFsFuture<'a, Result<(), String>> {
         match self {
             Self::Browser(store) => store.delete(path, recursive),
+            Self::DesktopTauri(store) => store.delete(path, recursive),
             Self::DesktopStub(store) => store.delete(path, recursive),
         }
     }
@@ -218,6 +252,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     fn stat<'a>(&'a self, path: &'a str) -> ExplorerFsFuture<'a, Result<ExplorerMetadata, String>> {
         match self {
             Self::Browser(store) => store.stat(path),
+            Self::DesktopTauri(store) => store.stat(path),
             Self::DesktopStub(store) => store.stat(path),
         }
     }
@@ -226,6 +261,7 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum PrefsStoreAdapter {
     Browser(WebPrefsStore),
+    DesktopTauri(TauriPrefsStore),
     DesktopStub(NoopPrefsStore),
 }
 
@@ -233,6 +269,7 @@ impl PrefsStoreAdapter {
     pub(crate) fn load_typed<T: DeserializeOwned>(self, key: &str) -> Option<T> {
         match self {
             Self::Browser(store) => store.load_typed(key),
+            Self::DesktopTauri(_) => None,
             Self::DesktopStub(_) => None,
         }
     }
@@ -240,6 +277,10 @@ impl PrefsStoreAdapter {
     pub(crate) fn save_typed<T: Serialize>(self, key: &str, value: &T) -> Result<(), String> {
         match self {
             Self::Browser(store) => store.save_typed(key, value),
+            Self::DesktopTauri(_) => {
+                let _ = (key, value);
+                Ok(())
+            }
             Self::DesktopStub(_) => {
                 let _ = (key, value);
                 Ok(())
@@ -255,6 +296,7 @@ impl PrefsStore for PrefsStoreAdapter {
     ) -> PrefsStoreFuture<'a, Result<Option<String>, String>> {
         match self {
             Self::Browser(store) => store.load_pref(key),
+            Self::DesktopTauri(store) => store.load_pref(key),
             Self::DesktopStub(store) => store.load_pref(key),
         }
     }
@@ -266,6 +308,7 @@ impl PrefsStore for PrefsStoreAdapter {
     ) -> PrefsStoreFuture<'a, Result<(), String>> {
         match self {
             Self::Browser(store) => store.save_pref(key, raw_json),
+            Self::DesktopTauri(store) => store.save_pref(key, raw_json),
             Self::DesktopStub(store) => store.save_pref(key, raw_json),
         }
     }
@@ -273,6 +316,7 @@ impl PrefsStore for PrefsStoreAdapter {
     fn delete_pref<'a>(&'a self, key: &'a str) -> PrefsStoreFuture<'a, Result<(), String>> {
         match self {
             Self::Browser(store) => store.delete_pref(key),
+            Self::DesktopTauri(store) => store.delete_pref(key),
             Self::DesktopStub(store) => store.delete_pref(key),
         }
     }
@@ -281,6 +325,7 @@ impl PrefsStore for PrefsStoreAdapter {
 fn app_state_store_for(strategy: HostStrategy) -> AppStateStoreAdapter {
     match strategy {
         HostStrategy::Browser => AppStateStoreAdapter::Browser(WebAppStateStore),
+        HostStrategy::DesktopTauri => AppStateStoreAdapter::DesktopTauri(TauriAppStateStore),
         HostStrategy::DesktopStub => AppStateStoreAdapter::DesktopStub(NoopAppStateStore),
     }
 }
@@ -292,6 +337,7 @@ pub(crate) fn app_state_store() -> AppStateStoreAdapter {
 fn content_cache_for(strategy: HostStrategy) -> ContentCacheAdapter {
     match strategy {
         HostStrategy::Browser => ContentCacheAdapter::Browser(WebContentCache),
+        HostStrategy::DesktopTauri => ContentCacheAdapter::DesktopTauri(TauriContentCache),
         HostStrategy::DesktopStub => ContentCacheAdapter::DesktopStub(NoopContentCache),
     }
 }
@@ -303,6 +349,9 @@ pub(crate) fn content_cache() -> ContentCacheAdapter {
 fn explorer_fs_service_for(strategy: HostStrategy) -> ExplorerFsServiceAdapter {
     match strategy {
         HostStrategy::Browser => ExplorerFsServiceAdapter::Browser(WebExplorerFsService),
+        HostStrategy::DesktopTauri => {
+            ExplorerFsServiceAdapter::DesktopTauri(TauriExplorerFsService)
+        }
         HostStrategy::DesktopStub => ExplorerFsServiceAdapter::DesktopStub(NoopExplorerFsService),
     }
 }
@@ -314,6 +363,7 @@ pub(crate) fn explorer_fs_service() -> ExplorerFsServiceAdapter {
 fn prefs_store_for(strategy: HostStrategy) -> PrefsStoreAdapter {
     match strategy {
         HostStrategy::Browser => PrefsStoreAdapter::Browser(WebPrefsStore),
+        HostStrategy::DesktopTauri => PrefsStoreAdapter::DesktopTauri(TauriPrefsStore),
         HostStrategy::DesktopStub => PrefsStoreAdapter::DesktopStub(NoopPrefsStore),
     }
 }
@@ -328,10 +378,13 @@ mod tests {
 
     #[test]
     fn selected_host_strategy_matches_build_feature() {
+        #[cfg(feature = "desktop-host-tauri")]
+        assert_eq!(selected_host_strategy(), HostStrategy::DesktopTauri);
+
         #[cfg(feature = "desktop-host-stub")]
         assert_eq!(selected_host_strategy(), HostStrategy::DesktopStub);
 
-        #[cfg(not(feature = "desktop-host-stub"))]
+        #[cfg(not(any(feature = "desktop-host-stub", feature = "desktop-host-tauri")))]
         assert_eq!(selected_host_strategy(), HostStrategy::Browser);
     }
 
@@ -350,6 +403,21 @@ mod tests {
                     ExplorerFsServiceAdapter::Browser(_)
                 ));
                 assert!(matches!(prefs_store(), PrefsStoreAdapter::Browser(_)));
+            }
+            HostStrategy::DesktopTauri => {
+                assert!(matches!(
+                    app_state_store(),
+                    AppStateStoreAdapter::DesktopTauri(_)
+                ));
+                assert!(matches!(
+                    content_cache(),
+                    ContentCacheAdapter::DesktopTauri(_)
+                ));
+                assert!(matches!(
+                    explorer_fs_service(),
+                    ExplorerFsServiceAdapter::DesktopTauri(_)
+                ));
+                assert!(matches!(prefs_store(), PrefsStoreAdapter::DesktopTauri(_)));
             }
             HostStrategy::DesktopStub => {
                 assert!(matches!(
@@ -372,6 +440,13 @@ mod tests {
     #[test]
     fn desktop_stub_pref_adapter_noops_typed_calls() {
         let prefs = prefs_store_for(HostStrategy::DesktopStub);
+        assert!(prefs.save_typed("example", &42_u32).is_ok());
+        assert_eq!(prefs.load_typed::<u32>("example"), None);
+    }
+
+    #[test]
+    fn desktop_tauri_pref_adapter_noops_typed_calls() {
+        let prefs = prefs_store_for(HostStrategy::DesktopTauri);
         assert!(prefs.save_typed("example", &42_u32).is_ok());
         assert_eq!(prefs.load_typed::<u32>("example"), None);
     }

@@ -7,6 +7,7 @@
 //! - `bridge::app_state`
 //! - `bridge::cache`
 //! - `bridge::fs`
+//! - `bridge::prefs`
 //! - `bridge::interop` (shared wasm/non-wasm transport glue)
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
@@ -17,6 +18,9 @@ pub mod fs;
 pub mod storage;
 
 pub use cache::cache_api::WebContentCache;
-pub use fs::explorer::WebExplorerFsService;
+pub use cache::tauri_cache_api::TauriContentCache;
+pub use fs::explorer::{TauriExplorerFsService, WebExplorerFsService};
 pub use storage::indexed_db::WebAppStateStore;
 pub use storage::local_prefs::WebPrefsStore;
+pub use storage::tauri_app_state::TauriAppStateStore;
+pub use storage::tauri_prefs::TauriPrefsStore;

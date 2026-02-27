@@ -4,9 +4,7 @@ use crate::model::{DesktopSnapshot, DesktopState, DesktopTheme};
 
 #[cfg(target_arch = "wasm32")]
 const SNAPSHOT_KEY: &str = "retrodesk.layout.v1";
-#[cfg(target_arch = "wasm32")]
 const THEME_KEY: &str = "retrodesk.theme.v1";
-#[cfg(target_arch = "wasm32")]
 const TERMINAL_HISTORY_KEY: &str = "retrodesk.terminal_history.v1";
 
 fn migrate_desktop_snapshot(
@@ -19,10 +17,10 @@ fn migrate_desktop_snapshot(
     }
 }
 
-/// Loads the legacy local-storage boot snapshot, theme override, and terminal history if present.
+/// Loads the compatibility boot snapshot, theme override, and terminal history if present.
 ///
 /// On non-WASM targets this returns `None`.
-pub fn load_boot_snapshot() -> Option<DesktopSnapshot> {
+pub async fn load_boot_snapshot() -> Option<DesktopSnapshot> {
     #[cfg(target_arch = "wasm32")]
     {
         let storage = local_storage()?;
@@ -31,18 +29,22 @@ pub fn load_boot_snapshot() -> Option<DesktopSnapshot> {
             .ok()
             .flatten()
             .and_then(|raw| serde_json::from_str::<DesktopSnapshot>(&raw).ok());
+        let theme = match platform_storage::load_pref_typed::<DesktopTheme>(THEME_KEY).await {
+            Ok(theme) => theme,
+            Err(err) => {
+                leptos::logging::warn!("theme compatibility load failed: {err}");
+                None
+            }
+        };
 
-        let theme = storage
-            .get_item(THEME_KEY)
-            .ok()
-            .flatten()
-            .and_then(|raw| serde_json::from_str::<DesktopTheme>(&raw).ok());
-
-        let terminal_history = storage
-            .get_item(TERMINAL_HISTORY_KEY)
-            .ok()
-            .flatten()
-            .and_then(|raw| serde_json::from_str::<Vec<String>>(&raw).ok());
+        let terminal_history =
+            match platform_storage::load_pref_typed::<Vec<String>>(TERMINAL_HISTORY_KEY).await {
+                Ok(history) => history,
+                Err(err) => {
+                    leptos::logging::warn!("terminal history compatibility load failed: {err}");
+                    None
+                }
+            };
 
         match (snapshot, theme, terminal_history) {
             (None, None, None) => None,
@@ -130,42 +132,14 @@ pub fn persist_layout_snapshot(state: &DesktopState) -> Result<(), String> {
     Ok(())
 }
 
-/// Persists the desktop theme to localStorage on WASM targets.
-pub fn persist_theme(theme: &DesktopTheme) -> Result<(), String> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let storage = local_storage().ok_or_else(|| "localStorage unavailable".to_string())?;
-        let serialized = serde_json::to_string(theme).map_err(|e| e.to_string())?;
-        storage
-            .set_item(THEME_KEY, &serialized)
-            .map_err(|e| format!("set theme failed: {e:?}"))?;
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let _ = theme;
-    }
-
-    Ok(())
+/// Persists the desktop theme through typed host prefs storage.
+pub async fn persist_theme(theme: &DesktopTheme) -> Result<(), String> {
+    platform_storage::save_pref_typed(THEME_KEY, theme).await
 }
 
-/// Persists the terminal history list to localStorage on WASM targets.
-pub fn persist_terminal_history(history: &[String]) -> Result<(), String> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let storage = local_storage().ok_or_else(|| "localStorage unavailable".to_string())?;
-        let serialized = serde_json::to_string(history).map_err(|e| e.to_string())?;
-        storage
-            .set_item(TERMINAL_HISTORY_KEY, &serialized)
-            .map_err(|e| format!("set terminal history failed: {e:?}"))?;
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let _ = history;
-    }
-
-    Ok(())
+/// Persists the terminal history list through typed host prefs storage.
+pub async fn persist_terminal_history(history: &[String]) -> Result<(), String> {
+    platform_storage::save_pref_typed(TERMINAL_HISTORY_KEY, &history).await
 }
 
 #[cfg(target_arch = "wasm32")]

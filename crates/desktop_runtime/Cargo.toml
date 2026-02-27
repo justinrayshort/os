@@ -13,6 +13,7 @@ csr = [
   "desktop_app_terminal/csr",
   "platform_storage/csr",
 ]
+desktop-tauri = ["csr", "platform_storage/desktop-host-tauri"]
 
 [dependencies]
 desktop_app_calculator = { path = "../apps/calculator", default-features = false }

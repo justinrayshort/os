@@ -38,6 +38,12 @@ This page documents the supported top-level commands for local development, veri
 - `cargo web-check`: Run prototype compile checks (CSR native and WASM when target is installed).
 - `cargo web-build`: Build the production-style static bundle via `trunk`.
 
+### Desktop (Tauri) Workflow
+
+- `cargo xtask tauri check`: Compile-check the Tauri desktop crate wiring.
+- `cargo tauri-dev`: Run `cargo tauri dev` from `crates/desktop_tauri/` using `tauri.conf.json` build hooks.
+- `cargo tauri-build`: Run `cargo tauri build` from `crates/desktop_tauri/` using `tauri.conf.json` build hooks.
+
 ### Verification Workflow
 
 - `cargo verify-fast`: Run fast project verification (`xtask verify fast`).
@@ -59,7 +65,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo docs-check`: Run `cargo xtask docs all` (Cargo alias convenience wrapper).
 - `cargo docs-audit`: Generate `.artifacts/docs-audit.json` via `cargo xtask docs audit-report`.
 - `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages.
-- `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries (disallow direct `load_app_state_envelope(...)` usage in app/runtime crates).
+- `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries (disallow direct `platform_storage::load_app_state_envelope(...)` usage in `crates/apps`, `crates/desktop_runtime`, and `crates/site`).
 - `cargo doc --workspace --no-deps`: Generate authoritative Rust API reference (`target/doc/`).
 - `cargo test --workspace --doc`: Run rustdoc examples (doctests).
 - `cargo xtask docs all`: Run docs contract validation (also includes `wiki` validation).
@@ -89,6 +95,9 @@ These targets exist for operator convenience and local muscle memory. They deleg
 - `make proto-stop` -> `cargo dev stop`
 - `make proto-status` -> `cargo dev status`
 - `make proto-restart` -> `cargo dev restart`
+- `make tauri-check` -> `cargo xtask tauri check`
+- `make tauri-dev` -> `cargo tauri-dev`
+- `make tauri-build` -> `cargo tauri-build`
 
 ## Local Browser Automation (Playwright CLI Wrapper)
 

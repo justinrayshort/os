@@ -20,6 +20,18 @@ pub async fn list_app_state_namespaces() -> Result<Vec<String>, String> {
     Ok(Vec::new())
 }
 
+pub async fn load_pref(_key: &str) -> Result<Option<String>, String> {
+    Ok(None)
+}
+
+pub async fn save_pref(_key: &str, _raw_json: &str) -> Result<(), String> {
+    Ok(())
+}
+
+pub async fn delete_pref(_key: &str) -> Result<(), String> {
+    Ok(())
+}
+
 pub async fn cache_put_text(_cache_name: &str, _key: &str, _value: &str) -> Result<(), String> {
     Ok(())
 }

@@ -21,18 +21,18 @@ impl DesktopHostContext {
     /// Installs boot hydration/migration side effects for the desktop provider.
     ///
     /// This preserves the current boot sequence:
-    /// 1. hydrate from legacy localStorage snapshot immediately (if present)
+    /// 1. hydrate from compatibility snapshot first (if present)
     /// 2. asynchronously hydrate from durable storage if present
     /// 3. otherwise migrate the legacy snapshot into durable storage
     pub fn install_boot_hydration(self, dispatch: Callback<DesktopAction>) {
         create_effect(move |_| {
-            let legacy_snapshot = persistence::load_boot_snapshot();
-            if let Some(snapshot) = legacy_snapshot.clone() {
-                dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
-            }
-
             let dispatch = dispatch;
             spawn_local(async move {
+                let legacy_snapshot = persistence::load_boot_snapshot().await;
+                if let Some(snapshot) = legacy_snapshot.clone() {
+                    dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
+                }
+
                 if let Some(snapshot) = persistence::load_durable_boot_snapshot().await {
                     dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
                 } else if let Some(snapshot) = legacy_snapshot {
@@ -73,16 +73,20 @@ impl DesktopHostContext {
             }
             RuntimeEffect::PersistTheme => {
                 let theme = runtime.state.get_untracked().theme;
-                if let Err(err) = persistence::persist_theme(&theme) {
-                    logging::warn!("persist theme failed: {err}");
-                }
+                spawn_local(async move {
+                    if let Err(err) = persistence::persist_theme(&theme).await {
+                        logging::warn!("persist theme failed: {err}");
+                    }
+                });
                 self.persist_durable_snapshot(runtime.state.get_untracked(), "theme");
             }
             RuntimeEffect::PersistTerminalHistory => {
                 let history = runtime.state.get_untracked().terminal_history;
-                if let Err(err) = persistence::persist_terminal_history(&history) {
-                    logging::warn!("persist terminal history failed: {err}");
-                }
+                spawn_local(async move {
+                    if let Err(err) = persistence::persist_terminal_history(&history).await {
+                        logging::warn!("persist terminal history failed: {err}");
+                    }
+                });
                 self.persist_durable_snapshot(runtime.state.get_untracked(), "terminal");
             }
             RuntimeEffect::OpenExternalUrl(url) => self.open_external_url(&url),

@@ -37,7 +37,8 @@ lifecycle: "ga"
 3. OpenAPI parse/sanity validation
 4. Mermaid structural validation
 5. Broken internal reference detection
-6. Typed app-state boundary enforcement (`cargo xtask docs storage-boundary`)
+6. Typed app-state boundary enforcement (`cargo xtask docs storage-boundary`) for
+   `crates/apps`, `crates/desktop_runtime`, and `crates/site` (direct low-level envelope load calls are disallowed)
 7. Rustdoc build (`cargo doc --workspace --no-deps`, `RUSTDOCFLAGS=-D warnings`)
 8. Rustdoc doctests (`cargo test --workspace --doc`)
 9. Audit report generation (`cargo xtask docs audit-report --output ...`) when needed

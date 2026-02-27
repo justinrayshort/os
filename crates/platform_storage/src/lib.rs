@@ -5,7 +5,8 @@
 //! behind Rust-friendly types and async functions.
 //!
 //! Adapter selection is explicit through `host_adapters`: browser-backed services are the default,
-//! and a desktop stub strategy is available for early desktop-target wiring.
+//! desktop Tauri app-state/prefs/cache/explorer strategies are available for staged native command
+//! integration, and a desktop stub strategy remains available for placeholder domains.
 //!
 //! # Example
 //!
@@ -60,6 +61,36 @@ pub fn save_local_pref<T: Serialize>(key: &str, value: &T) -> Result<(), String>
     host_adapters::prefs_store().save_typed(key, value)
 }
 
+/// Loads and deserializes a typed preference value through the selected host adapter.
+///
+/// # Errors
+///
+/// Returns an error when host storage or JSON deserialization fails.
+pub async fn load_pref_typed<T: DeserializeOwned>(key: &str) -> Result<Option<T>, String> {
+    let store = host_adapters::prefs_store();
+    load_pref_with(&store, key).await
+}
+
+/// Serializes and saves a typed preference value through the selected host adapter.
+///
+/// # Errors
+///
+/// Returns an error when serialization or host storage fails.
+pub async fn save_pref_typed<T: Serialize>(key: &str, value: &T) -> Result<(), String> {
+    let store = host_adapters::prefs_store();
+    save_pref_with(&store, key, value).await
+}
+
+/// Deletes a preference key through the selected host adapter.
+///
+/// # Errors
+///
+/// Returns an error when host storage delete fails.
+pub async fn delete_pref_typed(key: &str) -> Result<(), String> {
+    let store = host_adapters::prefs_store();
+    store.delete_pref(key).await
+}
+
 async fn load_app_state_envelope_raw(namespace: &str) -> Result<Option<AppStateEnvelope>, String> {
     let store = host_adapters::app_state_store();
     store.load_app_state_envelope(namespace).await
@@ -72,35 +103,59 @@ async fn save_app_state_envelope_raw(envelope: &AppStateEnvelope) -> Result<(), 
 
 /// Loads a persisted app-state envelope by namespace.
 ///
-/// This is a low-level compatibility API intended for boundary adapters and migration internals.
-/// App/runtime callers should prefer [`load_app_state_typed`] or
+/// This is a low-level compatibility API for storage/host boundary adapters and migration
+/// internals. App/runtime callers should prefer [`load_app_state_typed`] or
 /// [`load_app_state_with_migration`].
 ///
 /// # Errors
 ///
 /// Returns an error when the browser storage bridge fails.
-#[deprecated(
-    since = "0.1.0",
-    note = "Low-level envelope API. Prefer load_app_state_typed or load_app_state_with_migration."
-)]
-pub async fn load_app_state_envelope(namespace: &str) -> Result<Option<AppStateEnvelope>, String> {
+pub async fn load_app_state_envelope_low_level(
+    namespace: &str,
+) -> Result<Option<AppStateEnvelope>, String> {
     load_app_state_envelope_raw(namespace).await
 }
 
 /// Saves a full app-state envelope.
 ///
-/// This is a low-level compatibility API intended for boundary adapters and migration internals.
-/// App/runtime callers should prefer [`save_app_state`].
+/// This is a low-level compatibility API for storage/host boundary adapters and migration
+/// internals. App/runtime callers should prefer [`save_app_state`].
+///
+/// # Errors
+///
+/// Returns an error when the browser storage bridge fails.
+pub async fn save_app_state_envelope_low_level(envelope: &AppStateEnvelope) -> Result<(), String> {
+    save_app_state_envelope_raw(envelope).await
+}
+
+/// Loads a persisted app-state envelope by namespace.
+///
+/// Deprecated compatibility alias for [`load_app_state_envelope_low_level`].
 ///
 /// # Errors
 ///
 /// Returns an error when the browser storage bridge fails.
 #[deprecated(
     since = "0.1.0",
-    note = "Low-level envelope API. Prefer save_app_state."
+    note = "Low-level envelope API. Use load_app_state_envelope_low_level at boundary adapters, or load_app_state_typed/load_app_state_with_migration in app/runtime callers."
+)]
+pub async fn load_app_state_envelope(namespace: &str) -> Result<Option<AppStateEnvelope>, String> {
+    load_app_state_envelope_low_level(namespace).await
+}
+
+/// Saves a full app-state envelope.
+///
+/// Deprecated compatibility alias for [`save_app_state_envelope_low_level`].
+///
+/// # Errors
+///
+/// Returns an error when the browser storage bridge fails.
+#[deprecated(
+    since = "0.1.0",
+    note = "Low-level envelope API. Use save_app_state_envelope_low_level at boundary adapters, or save_app_state in app/runtime callers."
 )]
 pub async fn save_app_state_envelope(envelope: &AppStateEnvelope) -> Result<(), String> {
-    save_app_state_envelope_raw(envelope).await
+    save_app_state_envelope_low_level(envelope).await
 }
 
 /// Serializes and saves an app-state payload under `namespace`.
