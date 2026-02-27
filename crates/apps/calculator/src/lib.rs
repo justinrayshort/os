@@ -7,6 +7,7 @@ mod engine;
 use crate::engine::{
     format_number, keyboard_action, BinaryOp, CalcAction, CalculatorState, UnaryOp,
 };
+use desktop_app_contract::AppHost;
 use leptos::ev::KeyboardEvent;
 use leptos::*;
 use platform_storage::{self, CALCULATOR_STATE_NAMESPACE};
@@ -253,11 +254,28 @@ fn migrate_calculator_state(
 pub fn CalculatorApp(
     /// App launch parameters from the desktop runtime (currently unused).
     launch_params: Value,
+    /// Manager-restored app state payload for this window instance.
+    restored_state: Option<Value>,
+    /// Optional app-host bridge for manager-owned commands.
+    host: Option<AppHost>,
 ) -> impl IntoView {
     let _ = launch_params;
     let calc = create_rw_signal(CalculatorState::default());
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
+    let host_for_persist = host;
+
+    if let Some(restored_state) = restored_state.as_ref() {
+        if let Ok(restored) = serde_json::from_value::<CalculatorState>(restored_state.clone()) {
+            let serialized = serde_json::to_string(&restored).ok();
+            calc.set(restored);
+            last_saved.set(serialized);
+            hydrated.set(true);
+        }
+    }
+    if let Some(host) = host {
+        host.set_window_title("Calculator");
+    }
 
     create_effect(move |_| {
         let calc = calc;
@@ -272,9 +290,11 @@ pub fn CalculatorApp(
             .await
             {
                 Ok(Some(restored)) => {
-                    let serialized = serde_json::to_string(&restored).ok();
-                    calc.set(restored);
-                    last_saved.set(serialized);
+                    if last_saved.get_untracked().is_none() {
+                        let serialized = serde_json::to_string(&restored).ok();
+                        calc.set(restored);
+                        last_saved.set(serialized);
+                    }
                 }
                 Ok(None) => {}
                 Err(err) => logging::warn!("calculator state hydrate failed: {err}"),
@@ -301,6 +321,12 @@ pub fn CalculatorApp(
             return;
         }
         last_saved.set(Some(serialized));
+
+        if let Some(host) = host_for_persist {
+            if let Ok(value) = serde_json::to_value(&snapshot) {
+                host.persist_state(value);
+            }
+        }
 
         spawn_local(async move {
             if let Err(err) = platform_storage::save_app_state(

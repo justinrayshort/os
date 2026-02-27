@@ -151,6 +151,9 @@ pub struct WindowRecord {
     pub minimized: bool,
     /// Whether the window is maximized.
     pub maximized: bool,
+    /// Whether the window is currently suspended by the manager.
+    #[serde(default)]
+    pub suspended: bool,
     /// Window behavior flags.
     pub flags: WindowFlags,
     /// Optional persistence key for app-specific state reuse.
@@ -159,6 +162,9 @@ pub struct WindowRecord {
     pub app_state: Value,
     /// Launch parameters provided to the app component.
     pub launch_params: Value,
+    /// Last lifecycle token observed for this window.
+    #[serde(default)]
+    pub last_lifecycle_event: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -438,4 +444,111 @@ pub enum DeepLinkOpenTarget {
 pub struct DeepLinkState {
     /// Ordered list of targets to open.
     pub open: Vec<DeepLinkOpenTarget>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_v1_window_defaults_new_lifecycle_fields() {
+        let payload = serde_json::json!({
+            "schema_version": 1,
+            "theme": {
+                "name": "Fluent Modern",
+                "wallpaper_id": "cloud-bands",
+                "high_contrast": false,
+                "reduced_motion": false,
+                "audio_enabled": false
+            },
+            "preferences": {
+                "restore_on_boot": true,
+                "max_restore_windows": 5,
+                "terminal_history_enabled": true
+            },
+            "windows": [{
+                "id": 7,
+                "app_id": "Explorer",
+                "title": "Explorer",
+                "icon_id": "folder",
+                "rect": { "x": 10, "y": 20, "w": 640, "h": 480 },
+                "restore_rect": null,
+                "z_index": 1,
+                "is_focused": true,
+                "minimized": false,
+                "maximized": false,
+                "flags": {
+                    "resizable": true,
+                    "minimizable": true,
+                    "maximizable": true,
+                    "modal_parent": null
+                },
+                "persist_key": null,
+                "app_state": null,
+                "launch_params": null
+            }],
+            "last_explorer_path": null,
+            "last_notepad_slug": null,
+            "terminal_history": []
+        });
+
+        let snapshot: DesktopSnapshot =
+            serde_json::from_value(payload).expect("snapshot should deserialize");
+        let window = snapshot.windows.first().expect("window");
+        assert!(!window.suspended);
+        assert!(window.last_lifecycle_event.is_none());
+    }
+
+    #[test]
+    fn from_snapshot_recomputes_next_window_id_from_restored_windows() {
+        let state = DesktopState::from_snapshot(DesktopSnapshot {
+            schema_version: DESKTOP_LAYOUT_SCHEMA_VERSION,
+            theme: DesktopTheme::default(),
+            preferences: DesktopPreferences::default(),
+            windows: vec![
+                WindowRecord {
+                    id: WindowId(4),
+                    app_id: AppId::Explorer,
+                    title: "Explorer".to_string(),
+                    icon_id: "folder".to_string(),
+                    rect: WindowRect::default(),
+                    restore_rect: None,
+                    z_index: 1,
+                    is_focused: false,
+                    minimized: false,
+                    maximized: false,
+                    suspended: false,
+                    flags: WindowFlags::default(),
+                    persist_key: None,
+                    app_state: Value::Null,
+                    launch_params: Value::Null,
+                    last_lifecycle_event: None,
+                },
+                WindowRecord {
+                    id: WindowId(11),
+                    app_id: AppId::Terminal,
+                    title: "Terminal".to_string(),
+                    icon_id: "terminal".to_string(),
+                    rect: WindowRect::default(),
+                    restore_rect: None,
+                    z_index: 2,
+                    is_focused: true,
+                    minimized: false,
+                    maximized: false,
+                    suspended: false,
+                    flags: WindowFlags::default(),
+                    persist_key: None,
+                    app_state: Value::Null,
+                    launch_params: Value::Null,
+                    last_lifecycle_event: Some("focused".to_string()),
+                },
+            ],
+            last_explorer_path: None,
+            last_notepad_slug: None,
+            terminal_history: Vec::new(),
+        });
+
+        assert_eq!(state.next_window_id, 12);
+        assert_eq!(state.focused_window_id(), Some(WindowId(11)));
+    }
 }

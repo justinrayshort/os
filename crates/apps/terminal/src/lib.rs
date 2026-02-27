@@ -8,6 +8,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
+use desktop_app_contract::AppHost;
 use leptos::ev::KeyboardEvent;
 use leptos::*;
 use platform_storage::{self, TERMINAL_STATE_NAMESPACE};
@@ -73,6 +74,10 @@ fn restore_terminal_state(
 pub fn TerminalApp(
     /// App launch parameters (for example, the initial working directory).
     launch_params: Value,
+    /// Manager-restored app state payload for this window instance.
+    restored_state: Option<Value>,
+    /// Optional app-host bridge for manager-owned commands.
+    host: Option<AppHost>,
 ) -> impl IntoView {
     let input_id = format!(
         "retro-shell-input-{}",
@@ -88,11 +93,33 @@ pub fn TerminalApp(
     let lines = create_rw_signal(default_terminal_lines());
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
+    let host_for_persist = host;
+    let host_for_title = host;
     let hydrate_alive = Rc::new(Cell::new(true));
     on_cleanup({
         let hydrate_alive = hydrate_alive.clone();
         move || hydrate_alive.set(false)
     });
+
+    if let Some(restored_state) = restored_state.as_ref() {
+        if let Ok(restored) =
+            serde_json::from_value::<TerminalPersistedState>(restored_state.clone())
+        {
+            let restored = restore_terminal_state(restored, &launch_cwd);
+            let serialized = serde_json::to_string(&restored).ok();
+            cwd.set(restored.cwd);
+            input.set(restored.input);
+            lines.set(restored.lines);
+            last_saved.set(serialized);
+            hydrated.set(true);
+        }
+    }
+
+    if let Some(host) = host_for_title {
+        create_effect(move |_| {
+            host.set_window_title(format!("Terminal - {}", cwd.get()));
+        });
+    }
 
     create_effect(move |_| {
         let cwd = cwd;
@@ -111,15 +138,17 @@ pub fn TerminalApp(
             .await
             {
                 Ok(Some(restored)) => {
-                    let restored = restore_terminal_state(restored, &launch_cwd);
-                    if !hydrate_alive.get() {
-                        return;
+                    if last_saved.get_untracked().is_none() {
+                        let restored = restore_terminal_state(restored, &launch_cwd);
+                        if !hydrate_alive.get() {
+                            return;
+                        }
+                        let serialized = serde_json::to_string(&restored).ok();
+                        cwd.set(restored.cwd);
+                        input.set(restored.input);
+                        lines.set(restored.lines);
+                        last_saved.set(serialized);
                     }
-                    let serialized = serde_json::to_string(&restored).ok();
-                    cwd.set(restored.cwd);
-                    input.set(restored.input);
-                    lines.set(restored.lines);
-                    last_saved.set(serialized);
                 }
                 Ok(None) => {}
                 Err(err) => logging::warn!("terminal hydrate failed: {err}"),
@@ -155,6 +184,12 @@ pub fn TerminalApp(
             return;
         }
         last_saved.set(Some(serialized));
+
+        if let Some(host) = host_for_persist {
+            if let Ok(value) = serde_json::to_value(&snapshot) {
+                host.persist_state(value);
+            }
+        }
 
         spawn_local(async move {
             if let Err(err) = platform_storage::save_app_state(

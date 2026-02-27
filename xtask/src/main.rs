@@ -6,11 +6,13 @@
 mod docs;
 mod perf;
 
+use serde::Deserialize;
+use std::collections::{BTreeSet, HashSet};
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::net::{TcpStream, ToSocketAddrs};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Child, Command, ExitCode, Stdio};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -23,6 +25,7 @@ const DEV_SERVER_DEFAULT_PORT: u16 = 8080;
 const DEV_SERVER_START_POLL: Duration = Duration::from_secs(8);
 const DEV_SERVER_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 const SITE_CARGO_FEATURE: &str = "csr";
+const PLATFORM_STORAGE_PACKAGE: &str = "platform_storage";
 
 fn main() -> ExitCode {
     let root = workspace_root();
@@ -41,6 +44,7 @@ fn main() -> ExitCode {
         "build-web" => build_web(&root, rest),
         "check-web" => check_web(&root),
         "tauri" => tauri_command(&root, rest),
+        "flow" => flow_command(&root, rest),
         "docs" => docs::run_docs_command(&root, rest),
         "perf" => perf::run_perf_command(&root, rest),
         "verify" => verify(&root, rest),
@@ -77,6 +81,7 @@ fn print_usage() {
            build-web [args]    Build static web bundle with trunk\n\
            check-web           Run site compile checks (CSR native + wasm)\n\
            tauri [...]         Tauri desktop workflow (dev/build/check)\n\
+           flow [...]          Run scoped inner-loop checks for changed packages/docs\n\
            docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
            perf <subcommand>   Performance benchmarks/profiling workflows\n\
            verify [fast|full]  Run standardized local verification workflow (default: full)\n"
@@ -422,6 +427,385 @@ fn tauri_dir(root: &Path) -> PathBuf {
     root.join("crates/desktop_tauri")
 }
 
+#[derive(Debug, Default)]
+struct FlowOptions {
+    packages: BTreeSet<String>,
+    run_workspace: bool,
+    force_docs: bool,
+    skip_fmt: bool,
+    show_help: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoMetadata {
+    packages: Vec<CargoMetadataPackage>,
+    workspace_members: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoMetadataPackage {
+    id: String,
+    name: String,
+    manifest_path: String,
+}
+
+#[derive(Debug)]
+struct WorkspacePackage {
+    name: String,
+    rel_dir: String,
+}
+
+fn flow_command(root: &Path, args: Vec<String>) -> Result<(), String> {
+    let options = parse_flow_options(args)?;
+    if options.show_help {
+        print_flow_usage();
+        return Ok(());
+    }
+
+    let started = Instant::now();
+    let changed_paths = if options.run_workspace || !options.packages.is_empty() {
+        Vec::new()
+    } else {
+        collect_changed_paths(root)?
+    };
+
+    let docs_changed = changed_paths
+        .iter()
+        .any(|path| looks_like_docs_change(path));
+    let rust_changed = changed_paths.iter().any(|path| path.ends_with(".rs"));
+    let workspace_wide_change = changed_paths
+        .iter()
+        .any(|path| looks_like_workspace_wide_change(path));
+
+    let workspace_packages = load_workspace_packages(root)?;
+    let known_packages: HashSet<&str> = workspace_packages
+        .iter()
+        .map(|pkg| pkg.name.as_str())
+        .collect();
+
+    for package in &options.packages {
+        if !known_packages.contains(package.as_str()) {
+            return Err(format!(
+                "unknown package `{package}` for `cargo flow`. Use `cargo metadata --no-deps` to list workspace packages."
+            ));
+        }
+    }
+
+    let scoped_packages = if !options.packages.is_empty() {
+        options.packages.clone()
+    } else {
+        detect_changed_packages(&changed_paths, &workspace_packages)
+    };
+    let run_workspace_checks = options.run_workspace
+        || workspace_wide_change
+        || (scoped_packages.is_empty() && !docs_changed);
+
+    if workspace_wide_change && !options.run_workspace {
+        println!("workspace-wide change detected; running workspace flow checks");
+    }
+
+    if !options.run_workspace && options.packages.is_empty() && !run_workspace_checks {
+        let package_list: Vec<String> = scoped_packages.iter().cloned().collect();
+        println!("flow package scope: {}", format_package_list(&package_list));
+    }
+
+    if !options.run_workspace
+        && options.packages.is_empty()
+        && scoped_packages.is_empty()
+        && docs_changed
+    {
+        println!("no crate changes detected; running docs-only flow checks");
+    }
+
+    if !options.skip_fmt
+        && (rust_changed
+            || run_workspace_checks
+            || !scoped_packages.is_empty()
+            || !options.packages.is_empty())
+    {
+        run_timed_stage("Rust format check", || {
+            run(root, "cargo", vec!["fmt", "--all", "--", "--check"])
+        })?;
+    }
+
+    if run_workspace_checks {
+        run_timed_stage("Workspace compile check", || {
+            run(root, "cargo", vec!["check", "--workspace"])
+        })?;
+        run_timed_stage("Workspace unit/integration tests", || {
+            run(
+                root,
+                "cargo",
+                vec!["test", "--workspace", "--lib", "--tests"],
+            )
+        })?;
+    } else if !scoped_packages.is_empty() {
+        let package_list: Vec<String> = scoped_packages.iter().cloned().collect();
+        let check_label = format!(
+            "Package compile check ({})",
+            format_package_list(&package_list)
+        );
+        run_timed_stage(&check_label, || {
+            run_owned(root, "cargo", cargo_check_package_args(&package_list))
+        })?;
+
+        let test_label = format!("Package tests ({})", format_package_list(&package_list));
+        run_timed_stage(&test_label, || {
+            run_owned(root, "cargo", cargo_test_package_args(&package_list))
+        })?;
+    }
+
+    if options.force_docs || docs_changed || workspace_wide_change {
+        run_timed_stage("Documentation validation", || {
+            docs::run_docs_command(root, vec!["all".into()])
+        })?;
+    } else {
+        println!("\n==> Documentation validation skipped (no docs/wiki/tooling changes detected)");
+    }
+
+    println!(
+        "\n==> Flow checks complete in {}",
+        format_duration(started.elapsed())
+    );
+    Ok(())
+}
+
+fn parse_flow_options(args: Vec<String>) -> Result<FlowOptions, String> {
+    let mut options = FlowOptions::default();
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--all" => {
+                options.run_workspace = true;
+                i += 1;
+            }
+            "--docs" => {
+                options.force_docs = true;
+                i += 1;
+            }
+            "--no-fmt" => {
+                options.skip_fmt = true;
+                i += 1;
+            }
+            "-p" | "--package" => {
+                let Some(package) = args.get(i + 1) else {
+                    return Err("missing value for `--package`".to_string());
+                };
+                options.packages.insert(package.clone());
+                i += 2;
+            }
+            "help" | "--help" | "-h" => {
+                options.show_help = true;
+                i += 1;
+            }
+            other => {
+                return Err(format!(
+                    "unsupported `cargo flow` argument `{other}` (run `cargo flow --help`)"
+                ));
+            }
+        }
+    }
+
+    if options.run_workspace && !options.packages.is_empty() {
+        return Err("`cargo flow --all` cannot be combined with `--package`".to_string());
+    }
+
+    Ok(options)
+}
+
+fn print_flow_usage() {
+    eprintln!(
+        "Usage: cargo flow [--all] [-p|--package <name> ...] [--docs] [--no-fmt]\n\
+         \n\
+         Purpose:\n\
+           Run a fast inner-loop validation path scoped to changed workspace packages.\n\
+         \n\
+         Options:\n\
+           --all                Run workspace-wide checks/tests\n\
+           -p, --package <name> Restrict checks/tests to one or more explicit packages\n\
+           --docs               Force docs validation (`cargo xtask docs all`)\n\
+           --no-fmt             Skip `cargo fmt --all -- --check`\n\
+         \n\
+         Default behavior (no package/all flags):\n\
+           - Detect changed files via `git status --porcelain`\n\
+           - Run checks/tests only for changed workspace crates\n\
+           - Run docs validation only when docs/wiki/tooling files changed\n"
+    );
+}
+
+fn collect_changed_paths(root: &Path) -> Result<Vec<String>, String> {
+    let output = Command::new("git")
+        .current_dir(root)
+        .args(["status", "--porcelain"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|err| format!("failed to run `git status --porcelain`: {err}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "`git status --porcelain` exited with status {}: {}",
+            output.status,
+            stderr.trim()
+        ));
+    }
+
+    let mut paths = Vec::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        if let Some(path) = parse_porcelain_status_path(line) {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    Ok(paths)
+}
+
+fn parse_porcelain_status_path(line: &str) -> Option<String> {
+    let raw = line.get(3..)?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+
+    let path = raw.rsplit(" -> ").next().unwrap_or(raw).trim();
+    if path.is_empty() {
+        return None;
+    }
+
+    if path.starts_with('"') && path.ends_with('"') && path.len() >= 2 {
+        let unquoted = &path[1..path.len() - 1];
+        return Some(unquoted.replace("\\\"", "\"").replace("\\\\", "\\"));
+    }
+
+    Some(path.to_string())
+}
+
+fn load_workspace_packages(root: &Path) -> Result<Vec<WorkspacePackage>, String> {
+    let output = Command::new("cargo")
+        .current_dir(root)
+        .args(["metadata", "--format-version", "1", "--no-deps"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|err| format!("failed to run `cargo metadata`: {err}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "`cargo metadata` exited with status {}: {}",
+            output.status,
+            stderr.trim()
+        ));
+    }
+
+    let metadata: CargoMetadata = serde_json::from_slice(&output.stdout)
+        .map_err(|err| format!("failed to parse `cargo metadata` JSON: {err}"))?;
+    let members: HashSet<&str> = metadata
+        .workspace_members
+        .iter()
+        .map(String::as_str)
+        .collect();
+
+    let mut packages = Vec::new();
+    for package in metadata.packages {
+        if !members.contains(package.id.as_str()) {
+            continue;
+        }
+
+        let manifest_path = PathBuf::from(package.manifest_path);
+        let Some(manifest_dir) = manifest_path.parent() else {
+            continue;
+        };
+        let rel_dir = manifest_dir
+            .strip_prefix(root)
+            .map(path_to_posix)
+            .unwrap_or_else(|_| path_to_posix(manifest_dir));
+
+        packages.push(WorkspacePackage {
+            name: package.name,
+            rel_dir,
+        });
+    }
+
+    packages.sort_by(|a, b| {
+        b.rel_dir
+            .len()
+            .cmp(&a.rel_dir.len())
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    Ok(packages)
+}
+
+fn path_to_posix(path: &Path) -> String {
+    path.components()
+        .filter_map(|component| match component {
+            Component::Normal(segment) => Some(segment.to_string_lossy().to_string()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn detect_changed_packages(
+    changed_paths: &[String],
+    workspace_packages: &[WorkspacePackage],
+) -> BTreeSet<String> {
+    let mut packages = BTreeSet::new();
+    for path in changed_paths {
+        for package in workspace_packages {
+            if path == &package.rel_dir || path.starts_with(&format!("{}/", package.rel_dir)) {
+                packages.insert(package.name.clone());
+                break;
+            }
+        }
+    }
+    packages
+}
+
+fn looks_like_docs_change(path: &str) -> bool {
+    path.starts_with("docs/")
+        || path.starts_with("wiki/")
+        || path == "README.md"
+        || path == "AGENTS.md"
+        || path == "tools/docs/doc_contracts.json"
+        || path == "xtask/src/docs.rs"
+}
+
+fn looks_like_workspace_wide_change(path: &str) -> bool {
+    matches!(
+        path,
+        "Cargo.toml" | "Cargo.lock" | ".cargo/config.toml" | "Makefile"
+    )
+}
+
+fn cargo_check_package_args(packages: &[String]) -> Vec<String> {
+    let mut args = vec!["check".to_string()];
+    for package in packages {
+        args.push("-p".to_string());
+        args.push(package.clone());
+    }
+    args
+}
+
+fn cargo_test_package_args(packages: &[String]) -> Vec<String> {
+    let mut args = vec!["test".to_string()];
+    for package in packages {
+        args.push("-p".to_string());
+        args.push(package.clone());
+    }
+    args
+}
+
+fn format_package_list(packages: &[String]) -> String {
+    if packages.len() <= 4 {
+        return packages.join(", ");
+    }
+
+    let shown = packages[..4].join(", ");
+    format!("{shown} (+{} more)", packages.len() - 4)
+}
+
 fn verify(root: &Path, args: Vec<String>) -> Result<(), String> {
     let mode = args.first().map(String::as_str).unwrap_or("full");
     match mode {
@@ -434,41 +818,138 @@ fn verify(root: &Path, args: Vec<String>) -> Result<(), String> {
 }
 
 fn verify_fast(root: &Path) -> Result<(), String> {
-    run_cargo_matrix(root)?;
-    run_rustdoc_checks(root)?;
-    run_docs_checks(root)?;
-    println!("\n==> Verification complete");
+    let started = Instant::now();
+    run_timed_stage("Rust format and default test matrix", || {
+        run_cargo_default_matrix(root)
+    })?;
+    run_timed_stage("Rust all-features matrix", || run_rust_feature_matrix(root))?;
+    run_timed_stage("Rustdoc build and doctests", || run_rustdoc_checks(root))?;
+    run_timed_stage("Documentation validation and audit", || {
+        run_docs_checks(root)
+    })?;
+    println!(
+        "\n==> Verification complete in {}",
+        format_duration(started.elapsed())
+    );
     Ok(())
 }
 
 fn verify_full(root: &Path) -> Result<(), String> {
-    run_cargo_matrix(root)?;
-    run_rustdoc_checks(root)?;
-    run_docs_checks(root)?;
-    run_prototype_compile_checks(root)?;
-    run_optional_clippy(root)?;
-    println!("\n==> Verification complete");
+    let started = Instant::now();
+    run_timed_stage("Rust format and default test matrix", || {
+        run_cargo_default_matrix(root)
+    })?;
+    run_timed_stage("Rust all-features matrix", || run_rust_feature_matrix(root))?;
+    run_timed_stage("Rustdoc build and doctests", || run_rustdoc_checks(root))?;
+    run_timed_stage("Documentation validation and audit", || {
+        run_docs_checks(root)
+    })?;
+    run_timed_stage("Prototype compile checks", || {
+        run_prototype_compile_checks(root)
+    })?;
+    run_timed_stage("Clippy lint checks", || run_optional_clippy(root))?;
+    println!(
+        "\n==> Verification complete in {}",
+        format_duration(started.elapsed())
+    );
     Ok(())
 }
 
-fn run_cargo_matrix(root: &Path) -> Result<(), String> {
-    log_stage("Rust format and tests");
+fn run_cargo_default_matrix(root: &Path) -> Result<(), String> {
     run(root, "cargo", vec!["fmt", "--all", "--", "--check"])?;
     run(root, "cargo", vec!["check", "--workspace"])?;
-    run(root, "cargo", vec!["test", "--workspace"])?;
-
-    log_stage("Rust feature matrix");
     run(
         root,
         "cargo",
-        vec!["check", "--workspace", "--all-features"],
+        vec!["test", "--workspace", "--lib", "--tests"],
     )?;
-    run(root, "cargo", vec!["test", "--workspace", "--all-features"])?;
+    Ok(())
+}
+
+fn run_rust_feature_matrix(root: &Path) -> Result<(), String> {
+    run(
+        root,
+        "cargo",
+        vec![
+            "check",
+            "--workspace",
+            "--all-features",
+            "--exclude",
+            PLATFORM_STORAGE_PACKAGE,
+        ],
+    )?;
+    run(
+        root,
+        "cargo",
+        vec![
+            "test",
+            "--workspace",
+            "--all-features",
+            "--exclude",
+            PLATFORM_STORAGE_PACKAGE,
+            "--lib",
+            "--tests",
+        ],
+    )?;
+
+    run(
+        root,
+        "cargo",
+        vec![
+            "check",
+            "-p",
+            PLATFORM_STORAGE_PACKAGE,
+            "--no-default-features",
+            "--features",
+            "csr,desktop-host-stub",
+        ],
+    )?;
+    run(
+        root,
+        "cargo",
+        vec![
+            "test",
+            "-p",
+            PLATFORM_STORAGE_PACKAGE,
+            "--no-default-features",
+            "--features",
+            "csr,desktop-host-stub",
+            "--lib",
+            "--tests",
+        ],
+    )?;
+
+    run(
+        root,
+        "cargo",
+        vec![
+            "check",
+            "-p",
+            PLATFORM_STORAGE_PACKAGE,
+            "--no-default-features",
+            "--features",
+            "csr,desktop-host-tauri",
+        ],
+    )?;
+    run(
+        root,
+        "cargo",
+        vec![
+            "test",
+            "-p",
+            PLATFORM_STORAGE_PACKAGE,
+            "--no-default-features",
+            "--features",
+            "csr,desktop-host-tauri",
+            "--lib",
+            "--tests",
+        ],
+    )?;
+
     Ok(())
 }
 
 fn run_rustdoc_checks(root: &Path) -> Result<(), String> {
-    log_stage("Rustdoc build and doctests");
     run_owned_with_env(
         root,
         "cargo",
@@ -480,7 +961,6 @@ fn run_rustdoc_checks(root: &Path) -> Result<(), String> {
 }
 
 fn run_docs_checks(root: &Path) -> Result<(), String> {
-    log_stage("Documentation validation");
     docs::run_docs_command(root, vec!["all".into()])?;
     docs::run_docs_command(
         root,
@@ -503,7 +983,6 @@ fn run_optional_clippy(root: &Path) -> Result<(), String> {
         .unwrap_or(false);
 
     if clippy_available {
-        log_stage("Clippy (all targets/features)");
         run(
             root,
             "cargo",
@@ -525,7 +1004,6 @@ fn run_optional_clippy(root: &Path) -> Result<(), String> {
 }
 
 fn run_prototype_compile_checks(root: &Path) -> Result<(), String> {
-    log_stage("Prototype compile checks");
     run(
         root,
         "cargo",
@@ -551,7 +1029,6 @@ fn run_prototype_compile_checks(root: &Path) -> Result<(), String> {
     }
 
     if command_available("trunk") {
-        log_stage("Prototype static build (Trunk)");
         trunk_build(root, Vec::new(), BuildProfile::Release)?;
     } else {
         warn_stage("trunk not installed; skipping trunk build");
@@ -560,12 +1037,31 @@ fn run_prototype_compile_checks(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn log_stage(message: &str) {
-    println!("\n==> {message}");
-}
-
 fn warn_stage(message: &str) {
     println!("\n[warn] {message}");
+}
+
+fn run_timed_stage<F>(message: &str, action: F) -> Result<(), String>
+where
+    F: FnOnce() -> Result<(), String>,
+{
+    println!("\n==> {message}");
+    let started = Instant::now();
+    action()?;
+    println!("    done in {}", format_duration(started.elapsed()));
+    Ok(())
+}
+
+fn format_duration(duration: Duration) -> String {
+    let secs = duration.as_secs();
+    let millis = duration.subsec_millis();
+    if secs >= 60 {
+        let minutes = secs / 60;
+        let rem_secs = secs % 60;
+        format!("{minutes}m {rem_secs}.{millis:03}s")
+    } else {
+        format!("{secs}.{millis:03}s")
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1139,5 +1635,41 @@ mod tests {
         assert!(args_specify_dist(&["--dist".into(), "x".into()]));
         assert!(args_specify_dist(&["--dist=target/custom".into()]));
         assert!(!args_specify_dist(&["--release".into()]));
+    }
+
+    #[test]
+    fn flow_option_parser_rejects_package_with_all_scope() {
+        let err = parse_flow_options(vec!["--all".into(), "--package".into(), "site".into()])
+            .expect_err("must reject incompatible flags");
+        assert!(err.contains("--all"));
+    }
+
+    #[test]
+    fn porcelain_parser_handles_rename_records() {
+        let parsed =
+            parse_porcelain_status_path("R  docs/old.md -> docs/new.md").expect("path present");
+        assert_eq!(parsed, "docs/new.md");
+    }
+
+    #[test]
+    fn changed_package_detection_matches_workspace_path_prefixes() {
+        let workspace = vec![
+            WorkspacePackage {
+                name: "site".into(),
+                rel_dir: "crates/site".into(),
+            },
+            WorkspacePackage {
+                name: "xtask".into(),
+                rel_dir: "xtask".into(),
+            },
+        ];
+
+        let changed = vec![
+            "crates/site/src/lib.rs".to_string(),
+            "xtask/src/main.rs".to_string(),
+        ];
+        let detected = detect_changed_packages(&changed, &workspace);
+        assert!(detected.contains("site"));
+        assert!(detected.contains("xtask"));
     }
 }

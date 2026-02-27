@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use desktop_app_contract::AppHost;
 use leptos::*;
 use platform_storage::{self, NOTEPAD_STATE_NAMESPACE};
 use serde::{Deserialize, Serialize};
@@ -156,6 +157,10 @@ fn tab_dom_id(slug: &str) -> String {
 pub fn NotepadApp(
     /// App launch parameters (for example, the initial note slug).
     launch_params: Value,
+    /// Manager-restored app state payload for this window instance.
+    restored_state: Option<Value>,
+    /// Optional app-host bridge for manager-owned commands.
+    host: Option<AppHost>,
 ) -> impl IntoView {
     let requested_slug = launch_params
         .get("slug")
@@ -167,6 +172,26 @@ pub fn NotepadApp(
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
     let transient_notice = create_rw_signal::<Option<String>>(None);
+    let host_for_persist = host;
+    let host_for_title = host;
+
+    if let Some(restored_state) = restored_state.as_ref() {
+        if let Ok(mut restored) =
+            serde_json::from_value::<NotepadWorkspaceState>(restored_state.clone())
+        {
+            restored.ensure_document(&requested_slug);
+            let serialized = serde_json::to_string(&restored).ok();
+            workspace.set(restored);
+            last_saved.set(serialized);
+            hydrated.set(true);
+        }
+    }
+
+    if let Some(host) = host_for_title {
+        create_effect(move |_| {
+            host.set_window_title(format!("Notes - {}", workspace.get().active_slug));
+        });
+    }
 
     create_effect(move |_| {
         let workspace = workspace;
@@ -182,10 +207,12 @@ pub fn NotepadApp(
             .await
             {
                 Ok(Some(mut restored)) => {
-                    restored.ensure_document(&requested_slug);
-                    let serialized = serde_json::to_string(&restored).ok();
-                    workspace.set(restored);
-                    last_saved.set(serialized);
+                    if last_saved.get_untracked().is_none() {
+                        restored.ensure_document(&requested_slug);
+                        let serialized = serde_json::to_string(&restored).ok();
+                        workspace.set(restored);
+                        last_saved.set(serialized);
+                    }
                 }
                 Ok(None) => {}
                 Err(err) => logging::warn!("notepad hydrate failed: {err}"),
@@ -212,6 +239,12 @@ pub fn NotepadApp(
             return;
         }
         last_saved.set(Some(serialized));
+
+        if let Some(host) = host_for_persist {
+            if let Ok(value) = serde_json::to_value(&snapshot) {
+                host.persist_state(value);
+            }
+        }
 
         spawn_local(async move {
             if let Err(err) = platform_storage::save_app_state(

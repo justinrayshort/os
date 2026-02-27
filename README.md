@@ -95,21 +95,30 @@ cargo web-check
 
 ## Standardized Verification
 
-Fast verification (Rust + docs):
+Fast inner-loop validation scoped to changed packages/docs:
+
+```bash
+cargo flow
+```
+
+Fast verification (workspace Rust + docs, including explicit `platform_storage` feature-set matrix):
 
 ```bash
 cargo verify-fast
 ```
 
-Full verification (feature matrix, docs audit, prototype checks, optional clippy/trunk build):
+Full verification (fast verification + prototype checks + optional clippy/trunk build):
 
 ```bash
 cargo verify
 ```
 
-Equivalent legacy `make` targets still work (they now delegate to Cargo aliases):
+`cargo verify-fast` and `cargo verify` now print per-stage timing so bottlenecks are observable directly from command output.
+
+Compatibility `make` targets still work (delegating to Cargo aliases):
 
 ```bash
+make flow
 make verify-fast
 make verify
 make proto-serve

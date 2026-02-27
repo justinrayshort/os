@@ -257,6 +257,7 @@ cargo dev
 cargo setup-web
 cargo web-check
 cargo web-build
+cargo flow
 cargo docs-check
 cargo docs-audit
 cargo perf <subcommand>
@@ -267,6 +268,7 @@ cargo verify
 Common `make` wrappers (delegating to Cargo aliases / `xtask` docs commands):
 
 ```bash
+make flow
 make verify-fast
 make verify
 make wiki-init

@@ -46,8 +46,10 @@ This page documents the supported top-level commands for local development, veri
 
 ### Verification Workflow
 
-- `cargo verify-fast`: Run fast project verification (`xtask verify fast`).
-- `cargo verify`: Run full project verification (`xtask verify full`).
+- `cargo flow`: Run scoped inner-loop validation (`xtask flow`) using changed files (`git status --porcelain`) to target affected workspace crates.
+- `cargo verify-fast`: Run workspace verification (`xtask verify fast`) with explicit handling for mutually-exclusive `platform_storage` host feature sets.
+- `cargo verify`: Run full project verification (`xtask verify full`) including prototype compile checks and optional clippy.
+- `cargo verify-fast` / `cargo verify`: print per-stage duration for measurable feedback-loop latency.
 
 ### Performance Engineering Workflow
 
@@ -76,6 +78,7 @@ These targets exist for operator convenience and local muscle memory. They deleg
 
 - `make verify-fast` -> `cargo verify-fast`
 - `make verify` -> `cargo verify`
+- `make flow` -> `cargo flow`
 - `make wiki-init` -> `git submodule sync --recursive && git submodule update --init --recursive`
 - `make rustdoc-check` -> `cargo doc --workspace --no-deps && cargo test --workspace --doc`
 - `make docs-check` -> `cargo xtask docs all` + `make rustdoc-check`

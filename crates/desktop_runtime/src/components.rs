@@ -24,6 +24,7 @@ use self::{
 };
 
 use crate::{
+    app_runtime::{sync_runtime_sessions, AppRuntimeState},
     apps,
     host::DesktopHostContext,
     icons::{app_icon_name, FluentIcon, IconName, IconSize},
@@ -137,6 +138,8 @@ pub struct DesktopRuntimeContext {
     pub interaction: RwSignal<InteractionState>,
     /// Queue of runtime effects emitted by the reducer and processed by the shell.
     pub effects: RwSignal<Vec<RuntimeEffect>>,
+    /// Runtime app-session and pub/sub state.
+    pub app_runtime: RwSignal<AppRuntimeState>,
     /// Reducer dispatch callback.
     pub dispatch: Callback<DesktopAction>,
 }
@@ -160,6 +163,7 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
     let state = create_rw_signal(DesktopState::default());
     let interaction = create_rw_signal(InteractionState::default());
     let effects = create_rw_signal(Vec::<RuntimeEffect>::new());
+    let app_runtime = create_rw_signal(AppRuntimeState::default());
 
     let dispatch = Callback::new(move |action: DesktopAction| {
         let mut reducer_outcome = None;
@@ -187,6 +191,7 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
         state,
         interaction,
         effects,
+        app_runtime,
         dispatch,
     });
 
@@ -229,6 +234,11 @@ pub fn DesktopShell() -> impl IntoView {
         if !display_properties_open.get() {
             wallpaper_selection.set(active_wallpaper.id.to_string());
         }
+    });
+
+    create_effect(move |_| {
+        let windows = state.get().windows;
+        sync_runtime_sessions(runtime.app_runtime, &windows);
     });
 
     create_effect(move |_| {

@@ -1,5 +1,6 @@
 //! Reducer actions, side-effect intents, and transition logic for the desktop runtime.
 
+use desktop_app_contract::{AppCommand, AppEvent, AppLifecycleEvent};
 use serde_json::{json, Value};
 use thiserror::Error;
 
@@ -9,10 +10,10 @@ use crate::model::{
     OpenWindowRequest, PointerPosition, ResizeEdge, ResizeSession, WindowId, WindowRecord,
     WindowRect, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
 };
-
-const MIN_WINDOW_WIDTH: i32 = 220;
-const MIN_WINDOW_HEIGHT: i32 = 140;
-const SNAP_EDGE_THRESHOLD: i32 = 24;
+use crate::window_manager::{
+    focus_window_internal, normalize_window_stack, resize_rect, snap_window_to_viewport_edge,
+    MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 /// Actions accepted by [`reduce_desktop`] to mutate [`DesktopState`].
@@ -98,6 +99,23 @@ pub enum DesktopAction {
     },
     /// End the active window resize.
     EndResize,
+    /// Suspend a window instance.
+    SuspendWindow {
+        /// Window to suspend.
+        window_id: WindowId,
+    },
+    /// Resume a suspended window instance.
+    ResumeWindow {
+        /// Window to resume.
+        window_id: WindowId,
+    },
+    /// Handle an app-originated command for a managed window.
+    HandleAppCommand {
+        /// Source window id.
+        window_id: WindowId,
+        /// App command payload.
+        command: AppCommand,
+    },
     /// Set the desktop theme display name.
     SetThemeName {
         /// New theme name.
@@ -159,6 +177,43 @@ pub enum RuntimeEffect {
     OpenExternalUrl(String),
     /// Play a named UI sound effect.
     PlaySound(&'static str),
+    /// Dispatches a lifecycle signal to a managed app instance.
+    DispatchLifecycle {
+        /// Target window id.
+        window_id: WindowId,
+        /// Lifecycle event payload.
+        event: AppLifecycleEvent,
+    },
+    /// Delivers a direct app event to a managed window inbox.
+    DeliverAppEvent {
+        /// Target window id.
+        window_id: WindowId,
+        /// Event payload.
+        event: AppEvent,
+    },
+    /// Subscribes a window to an app-bus topic.
+    SubscribeWindowTopic {
+        /// Target window id.
+        window_id: WindowId,
+        /// Topic name.
+        topic: String,
+    },
+    /// Unsubscribes a window from an app-bus topic.
+    UnsubscribeWindowTopic {
+        /// Target window id.
+        window_id: WindowId,
+        /// Topic name.
+        topic: String,
+    },
+    /// Publishes an app-bus event from the source window.
+    PublishTopicEvent {
+        /// Source window id.
+        source_window_id: WindowId,
+        /// Topic name.
+        topic: String,
+        /// Event payload.
+        payload: Value,
+    },
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -224,6 +279,7 @@ pub fn reduce_desktop(
             return Ok(effects);
         }
         DesktopAction::OpenWindow(req) => {
+            let previously_focused = state.focused_window_id();
             let window_id = next_window_id(state);
             let default_offset = ((window_id.0 as i32) - 1) % 8 * 20;
             let rect = req
@@ -248,14 +304,24 @@ pub fn reduce_desktop(
                 is_focused: false,
                 minimized: false,
                 maximized: false,
+                suspended: false,
                 flags: req.flags,
                 persist_key: req.persist_key,
                 app_state: req.app_state,
                 launch_params: req.launch_params,
+                last_lifecycle_event: None,
             };
             state.windows.push(record);
-            focus_window_internal(state, window_id)?;
+            if !focus_window_internal(state, window_id) {
+                return Err(ReducerError::WindowNotFound);
+            }
             state.start_menu_open = false;
+            record_window_lifecycle(state, window_id, AppLifecycleEvent::Mounted);
+            effects.push(RuntimeEffect::DispatchLifecycle {
+                window_id,
+                event: AppLifecycleEvent::Mounted,
+            });
+            emit_focus_transition(previously_focused, Some(window_id), state, &mut effects);
             effects.push(RuntimeEffect::PersistLayout);
             effects.push(RuntimeEffect::FocusWindowInput(window_id));
             if matches!(req.app_id, AppId::Dialup) && state.theme.audio_enabled {
@@ -263,6 +329,11 @@ pub fn reduce_desktop(
             }
         }
         DesktopAction::CloseWindow { window_id } => {
+            let was_focused = state.focused_window_id() == Some(window_id);
+            effects.push(RuntimeEffect::DispatchLifecycle {
+                window_id,
+                event: AppLifecycleEvent::Closing,
+            });
             let before_len = state.windows.len();
             state.windows.retain(|w| w.id != window_id);
             if state.windows.len() == before_len {
@@ -272,44 +343,120 @@ pub fn reduce_desktop(
                 state.active_modal = None;
             }
             normalize_window_stack(state);
+            effects.push(RuntimeEffect::DispatchLifecycle {
+                window_id,
+                event: AppLifecycleEvent::Closed,
+            });
+            if was_focused {
+                let new_focus = state.focused_window_id();
+                emit_focus_transition(Some(window_id), new_focus, state, &mut effects);
+            }
             effects.push(RuntimeEffect::PersistLayout);
         }
         DesktopAction::FocusWindow { window_id } => {
-            focus_window_internal(state, window_id)?;
+            let previous_focus = state.focused_window_id();
+            if !focus_window_internal(state, window_id) {
+                return Err(ReducerError::WindowNotFound);
+            }
             state.start_menu_open = false;
+            emit_focus_transition(previous_focus, Some(window_id), state, &mut effects);
             effects.push(RuntimeEffect::FocusWindowInput(window_id));
         }
         DesktopAction::MinimizeWindow { window_id } => {
-            let window = find_window_mut(state, window_id)?;
-            window.minimized = true;
-            window.is_focused = false;
+            let previous_focus = state.focused_window_id();
+            let should_suspend = {
+                let window = find_window_mut(state, window_id)?;
+                window.minimized = true;
+                window.is_focused = false;
+                let should_suspend = matches!(
+                    apps::app_suspend_policy(window.app_id),
+                    desktop_app_contract::SuspendPolicy::OnMinimize
+                ) && !window.suspended;
+                if should_suspend {
+                    window.suspended = true;
+                }
+                should_suspend
+            };
+            record_window_lifecycle(state, window_id, AppLifecycleEvent::Minimized);
+            effects.push(RuntimeEffect::DispatchLifecycle {
+                window_id,
+                event: AppLifecycleEvent::Minimized,
+            });
+            if should_suspend {
+                record_window_lifecycle(state, window_id, AppLifecycleEvent::Suspended);
+                effects.push(RuntimeEffect::DispatchLifecycle {
+                    window_id,
+                    event: AppLifecycleEvent::Suspended,
+                });
+            }
             normalize_window_stack(state);
+            if previous_focus == Some(window_id) {
+                let next_focus = state.focused_window_id();
+                emit_focus_transition(Some(window_id), next_focus, state, &mut effects);
+            }
             effects.push(RuntimeEffect::PersistLayout);
         }
         DesktopAction::MaximizeWindow {
             window_id,
             viewport,
         } => {
-            let window = find_window_mut(state, window_id)?;
-            if !window.maximized {
-                window.restore_rect = Some(window.rect);
+            let previous_focus = state.focused_window_id();
+            let was_suspended = {
+                let window = find_window_mut(state, window_id)?;
+                if !window.maximized {
+                    window.restore_rect = Some(window.rect);
+                }
+                window.rect = viewport.clamped_min(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
+                window.maximized = true;
+                window.minimized = false;
+                let was_suspended = window.suspended;
+                window.suspended = false;
+                was_suspended
+            };
+            if !focus_window_internal(state, window_id) {
+                return Err(ReducerError::WindowNotFound);
             }
-            window.rect = viewport.clamped_min(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
-            window.maximized = true;
-            window.minimized = false;
-            focus_window_internal(state, window_id)?;
+            if was_suspended {
+                record_window_lifecycle(state, window_id, AppLifecycleEvent::Resumed);
+                effects.push(RuntimeEffect::DispatchLifecycle {
+                    window_id,
+                    event: AppLifecycleEvent::Resumed,
+                });
+            }
+            emit_focus_transition(previous_focus, Some(window_id), state, &mut effects);
             effects.push(RuntimeEffect::PersistLayout);
         }
         DesktopAction::RestoreWindow { window_id } => {
-            let window = find_window_mut(state, window_id)?;
-            if window.maximized {
-                if let Some(restore_rect) = window.restore_rect {
-                    window.rect = restore_rect;
+            let previous_focus = state.focused_window_id();
+            let was_suspended = {
+                let window = find_window_mut(state, window_id)?;
+                if window.maximized {
+                    if let Some(restore_rect) = window.restore_rect {
+                        window.rect = restore_rect;
+                    }
+                    window.maximized = false;
                 }
-                window.maximized = false;
+                window.minimized = false;
+                let was_suspended = window.suspended;
+                window.suspended = false;
+                was_suspended
+            };
+            if !focus_window_internal(state, window_id) {
+                return Err(ReducerError::WindowNotFound);
             }
-            window.minimized = false;
-            focus_window_internal(state, window_id)?;
+            record_window_lifecycle(state, window_id, AppLifecycleEvent::Restored);
+            effects.push(RuntimeEffect::DispatchLifecycle {
+                window_id,
+                event: AppLifecycleEvent::Restored,
+            });
+            if was_suspended {
+                record_window_lifecycle(state, window_id, AppLifecycleEvent::Resumed);
+                effects.push(RuntimeEffect::DispatchLifecycle {
+                    window_id,
+                    event: AppLifecycleEvent::Resumed,
+                });
+            }
+            emit_focus_transition(previous_focus, Some(window_id), state, &mut effects);
             effects.push(RuntimeEffect::PersistLayout);
             effects.push(RuntimeEffect::FocusWindowInput(window_id));
         }
@@ -348,8 +495,12 @@ pub fn reduce_desktop(
             state.start_menu_open = false;
         }
         DesktopAction::BeginMove { window_id, pointer } => {
+            let previous_focus = state.focused_window_id();
             let rect_start = find_window_mut(state, window_id)?.rect;
-            focus_window_internal(state, window_id)?;
+            if !focus_window_internal(state, window_id) {
+                return Err(ReducerError::WindowNotFound);
+            }
+            emit_focus_transition(previous_focus, Some(window_id), state, &mut effects);
             interaction.dragging = Some(crate::model::DragSession {
                 window_id,
                 pointer_start: pointer,
@@ -388,8 +539,12 @@ pub fn reduce_desktop(
             edge,
             pointer,
         } => {
+            let previous_focus = state.focused_window_id();
             let rect_start = find_window_mut(state, window_id)?.rect;
-            focus_window_internal(state, window_id)?;
+            if !focus_window_internal(state, window_id) {
+                return Err(ReducerError::WindowNotFound);
+            }
+            emit_focus_transition(previous_focus, Some(window_id), state, &mut effects);
             interaction.resizing = Some(ResizeSession {
                 window_id,
                 edge,
@@ -412,6 +567,86 @@ pub fn reduce_desktop(
             interaction.resizing = None;
             effects.push(RuntimeEffect::PersistLayout);
         }
+        DesktopAction::SuspendWindow { window_id } => {
+            let should_emit = {
+                let window = find_window_mut(state, window_id)?;
+                if window.suspended {
+                    false
+                } else {
+                    window.suspended = true;
+                    true
+                }
+            };
+            if should_emit {
+                record_window_lifecycle(state, window_id, AppLifecycleEvent::Suspended);
+                effects.push(RuntimeEffect::DispatchLifecycle {
+                    window_id,
+                    event: AppLifecycleEvent::Suspended,
+                });
+                effects.push(RuntimeEffect::PersistLayout);
+            }
+        }
+        DesktopAction::ResumeWindow { window_id } => {
+            let should_emit = {
+                let window = find_window_mut(state, window_id)?;
+                if window.suspended {
+                    window.suspended = false;
+                    true
+                } else {
+                    false
+                }
+            };
+            if should_emit {
+                record_window_lifecycle(state, window_id, AppLifecycleEvent::Resumed);
+                effects.push(RuntimeEffect::DispatchLifecycle {
+                    window_id,
+                    event: AppLifecycleEvent::Resumed,
+                });
+                effects.push(RuntimeEffect::PersistLayout);
+            }
+        }
+        DesktopAction::HandleAppCommand { window_id, command } => match command {
+            AppCommand::SetWindowTitle { title } => {
+                let window = find_window_mut(state, window_id)?;
+                if window.title != title {
+                    window.title = title;
+                    effects.push(RuntimeEffect::PersistLayout);
+                }
+            }
+            AppCommand::PersistState { state: app_state } => {
+                let nested = reduce_desktop(
+                    state,
+                    interaction,
+                    DesktopAction::SetAppState {
+                        window_id,
+                        app_state,
+                    },
+                )?;
+                effects.extend(nested);
+            }
+            AppCommand::OpenExternalUrl { url } => {
+                effects.push(RuntimeEffect::OpenExternalUrl(url));
+            }
+            AppCommand::Subscribe { topic } => {
+                if !topic.trim().is_empty() {
+                    effects.push(RuntimeEffect::SubscribeWindowTopic { window_id, topic });
+                }
+            }
+            AppCommand::Unsubscribe { topic } => {
+                if !topic.trim().is_empty() {
+                    effects.push(RuntimeEffect::UnsubscribeWindowTopic { window_id, topic });
+                }
+            }
+            AppCommand::PublishEvent { topic, payload } => {
+                if !topic.trim().is_empty() {
+                    effects.push(RuntimeEffect::PublishTopicEvent {
+                        source_window_id: window_id,
+                        topic,
+                        payload,
+                    });
+                }
+            }
+        },
         DesktopAction::SetThemeName { theme_name } => {
             state.theme.name = theme_name;
             effects.push(RuntimeEffect::PersistTheme);
@@ -453,6 +688,23 @@ pub fn reduce_desktop(
                 state.windows.truncate(max_restore);
             }
             normalize_window_stack(state);
+            for window in state.windows.iter_mut() {
+                if window.last_lifecycle_event.is_none() {
+                    window.last_lifecycle_event =
+                        Some(AppLifecycleEvent::Mounted.token().to_string());
+                }
+                effects.push(RuntimeEffect::DispatchLifecycle {
+                    window_id: window.id,
+                    event: AppLifecycleEvent::Mounted,
+                });
+            }
+            if let Some(focused) = state.focused_window_id() {
+                record_window_lifecycle(state, focused, AppLifecycleEvent::Focused);
+                effects.push(RuntimeEffect::DispatchLifecycle {
+                    window_id: focused,
+                    event: AppLifecycleEvent::Focused,
+                });
+            }
         }
         DesktopAction::ApplyDeepLink { deep_link } => {
             effects.push(RuntimeEffect::ParseAndOpenDeepLink(deep_link));
@@ -518,151 +770,45 @@ fn find_window_mut(
         .ok_or(ReducerError::WindowNotFound)
 }
 
-fn focus_window_internal(
+fn record_window_lifecycle(
     state: &mut DesktopState,
     window_id: WindowId,
-) -> Result<(), ReducerError> {
-    let index = state
-        .windows
-        .iter()
-        .position(|w| w.id == window_id)
-        .ok_or(ReducerError::WindowNotFound)?;
-    let already_focused_top = index + 1 == state.windows.len()
-        && state
-            .windows
-            .get(index)
-            .map(|w| w.is_focused && !w.minimized)
-            .unwrap_or(false);
-    if already_focused_top {
-        return Ok(());
-    }
-    for window in &mut state.windows {
-        window.is_focused = false;
-    }
-    let mut window = state.windows.remove(index);
-    window.is_focused = true;
-    window.minimized = false;
-    state.windows.push(window);
-    normalize_window_stack(state);
-    Ok(())
-}
-
-fn normalize_window_stack(state: &mut DesktopState) {
-    let mut has_focused = false;
-    for (idx, window) in state.windows.iter_mut().enumerate() {
-        window.z_index = (idx + 1) as u32;
-        if window.minimized {
-            window.is_focused = false;
-        }
-        if window.is_focused {
-            if has_focused {
-                window.is_focused = false;
-            } else {
-                has_focused = true;
-            }
-        }
-    }
-
-    if !has_focused {
-        if let Some(last_non_minimized) = state.windows.iter_mut().rev().find(|w| !w.minimized) {
-            last_non_minimized.is_focused = true;
-        }
-    }
-}
-
-fn resize_rect(start: WindowRect, edge: ResizeEdge, dx: i32, dy: i32) -> WindowRect {
-    match edge {
-        ResizeEdge::East => WindowRect {
-            w: start.w + dx,
-            ..start
-        },
-        ResizeEdge::West => WindowRect {
-            x: start.x + dx,
-            w: start.w - dx,
-            ..start
-        },
-        ResizeEdge::South => WindowRect {
-            h: start.h + dy,
-            ..start
-        },
-        ResizeEdge::North => WindowRect {
-            y: start.y + dy,
-            h: start.h - dy,
-            ..start
-        },
-        ResizeEdge::NorthEast => WindowRect {
-            y: start.y + dy,
-            h: start.h - dy,
-            w: start.w + dx,
-            ..start
-        },
-        ResizeEdge::NorthWest => WindowRect {
-            x: start.x + dx,
-            y: start.y + dy,
-            w: start.w - dx,
-            h: start.h - dy,
-        },
-        ResizeEdge::SouthEast => WindowRect {
-            w: start.w + dx,
-            h: start.h + dy,
-            ..start
-        },
-        ResizeEdge::SouthWest => WindowRect {
-            x: start.x + dx,
-            w: start.w - dx,
-            h: start.h + dy,
-            ..start
-        },
-    }
-}
-
-fn snap_window_to_viewport_edge(
-    state: &mut DesktopState,
-    window_id: WindowId,
-    viewport: WindowRect,
+    event: AppLifecycleEvent,
 ) {
-    let Some(window) = state.windows.iter_mut().find(|w| w.id == window_id) else {
-        return;
-    };
+    if let Some(window) = state.windows.iter_mut().find(|w| w.id == window_id) {
+        window.last_lifecycle_event = Some(event.token().to_string());
+    }
+}
 
-    if window.minimized {
+fn emit_focus_transition(
+    previous_focus: Option<WindowId>,
+    next_focus: Option<WindowId>,
+    state: &mut DesktopState,
+    effects: &mut Vec<RuntimeEffect>,
+) {
+    if previous_focus == next_focus {
         return;
     }
 
-    let near_left = window.rect.x <= viewport.x + SNAP_EDGE_THRESHOLD;
-    let near_right = window.rect.x + window.rect.w >= viewport.x + viewport.w - SNAP_EDGE_THRESHOLD;
-    let near_top = window.rect.y <= viewport.y + SNAP_EDGE_THRESHOLD;
-
-    if near_top && window.flags.maximizable {
-        if !window.maximized {
-            window.restore_rect = Some(window.rect);
+    if let Some(previous) = previous_focus {
+        if state.windows.iter().any(|window| window.id == previous) {
+            record_window_lifecycle(state, previous, AppLifecycleEvent::Blurred);
+            effects.push(RuntimeEffect::DispatchLifecycle {
+                window_id: previous,
+                event: AppLifecycleEvent::Blurred,
+            });
         }
-        window.rect = viewport.clamped_min(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
-        window.maximized = true;
-        window.minimized = false;
-        return;
     }
 
-    if !(near_left || near_right) || !window.flags.resizable {
-        return;
+    if let Some(next) = next_focus {
+        if state.windows.iter().any(|window| window.id == next) {
+            record_window_lifecycle(state, next, AppLifecycleEvent::Focused);
+            effects.push(RuntimeEffect::DispatchLifecycle {
+                window_id: next,
+                event: AppLifecycleEvent::Focused,
+            });
+        }
     }
-
-    let half_width = (viewport.w / 2).max(MIN_WINDOW_WIDTH);
-    let snapped = WindowRect {
-        x: if near_right {
-            viewport.x + viewport.w - half_width
-        } else {
-            viewport.x
-        },
-        y: viewport.y,
-        w: half_width,
-        h: viewport.h.max(MIN_WINDOW_HEIGHT),
-    };
-
-    window.restore_rect = Some(window.rect);
-    window.rect = snapped;
-    window.maximized = false;
-    window.minimized = false;
 }
 
 #[cfg(test)]
@@ -973,5 +1119,186 @@ mod tests {
 
         assert!(state.theme.high_contrast);
         assert_eq!(effects, vec![RuntimeEffect::PersistTheme]);
+    }
+
+    #[test]
+    fn handle_app_command_persist_state_updates_window_record_and_persists() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+        let window_id = open(&mut state, &mut interaction, AppId::Explorer);
+        let payload = serde_json::json!({ "cwd": "/Projects" });
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::HandleAppCommand {
+                window_id,
+                command: AppCommand::PersistState {
+                    state: payload.clone(),
+                },
+            },
+        )
+        .expect("persist state command");
+
+        let window = state.windows.iter().find(|w| w.id == window_id).unwrap();
+        assert_eq!(window.app_state, payload);
+        assert!(effects.contains(&RuntimeEffect::PersistLayout));
+    }
+
+    #[test]
+    fn handle_app_command_set_window_title_updates_taskbar_and_chrome_title() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+        let window_id = open(&mut state, &mut interaction, AppId::Notepad);
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::HandleAppCommand {
+                window_id,
+                command: AppCommand::SetWindowTitle {
+                    title: "Notes - roadmap".to_string(),
+                },
+            },
+        )
+        .expect("set title command");
+
+        let window = state.windows.iter().find(|w| w.id == window_id).unwrap();
+        assert_eq!(window.title, "Notes - roadmap");
+        assert!(effects.contains(&RuntimeEffect::PersistLayout));
+    }
+
+    #[test]
+    fn minimize_applies_suspend_policy() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+        let explorer = open(&mut state, &mut interaction, AppId::Explorer);
+        let terminal = open(&mut state, &mut interaction, AppId::Terminal);
+
+        let explorer_effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::MinimizeWindow {
+                window_id: explorer,
+            },
+        )
+        .expect("minimize explorer");
+        let explorer_window = state.windows.iter().find(|w| w.id == explorer).unwrap();
+        assert!(explorer_window.suspended);
+        assert!(
+            explorer_effects.contains(&RuntimeEffect::DispatchLifecycle {
+                window_id: explorer,
+                event: AppLifecycleEvent::Suspended,
+            })
+        );
+
+        let terminal_effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::MinimizeWindow {
+                window_id: terminal,
+            },
+        )
+        .expect("minimize terminal");
+        let terminal_window = state.windows.iter().find(|w| w.id == terminal).unwrap();
+        assert!(!terminal_window.suspended);
+        assert!(
+            !terminal_effects.contains(&RuntimeEffect::DispatchLifecycle {
+                window_id: terminal,
+                event: AppLifecycleEvent::Suspended,
+            })
+        );
+    }
+
+    #[test]
+    fn close_flow_emits_closing_then_closed() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+        let _first = open(&mut state, &mut interaction, AppId::Explorer);
+        let second = open(&mut state, &mut interaction, AppId::Notepad);
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::CloseWindow { window_id: second },
+        )
+        .expect("close focused window");
+
+        let closing_idx = effects
+            .iter()
+            .position(|effect| {
+                matches!(
+                    effect,
+                    RuntimeEffect::DispatchLifecycle {
+                        window_id,
+                        event: AppLifecycleEvent::Closing
+                    } if *window_id == second
+                )
+            })
+            .expect("closing lifecycle");
+        let closed_idx = effects
+            .iter()
+            .position(|effect| {
+                matches!(
+                    effect,
+                    RuntimeEffect::DispatchLifecycle {
+                        window_id,
+                        event: AppLifecycleEvent::Closed
+                    } if *window_id == second
+                )
+            })
+            .expect("closed lifecycle");
+
+        assert!(closing_idx < closed_idx);
+        assert!(!state.windows.iter().any(|w| w.id == second));
+        assert!(state.focused_window_id().is_some());
+    }
+
+    #[test]
+    fn app_bus_commands_emit_window_manager_effects() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+        let window_id = open(&mut state, &mut interaction, AppId::Explorer);
+        let payload = serde_json::json!({ "path": "/Projects/demo" });
+
+        let subscribe_effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::HandleAppCommand {
+                window_id,
+                command: AppCommand::Subscribe {
+                    topic: "explorer.refresh".to_string(),
+                },
+            },
+        )
+        .expect("subscribe command");
+        assert_eq!(
+            subscribe_effects,
+            vec![RuntimeEffect::SubscribeWindowTopic {
+                window_id,
+                topic: "explorer.refresh".to_string(),
+            }]
+        );
+
+        let publish_effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::HandleAppCommand {
+                window_id,
+                command: AppCommand::PublishEvent {
+                    topic: "explorer.refresh".to_string(),
+                    payload: payload.clone(),
+                },
+            },
+        )
+        .expect("publish command");
+        assert_eq!(
+            publish_effects,
+            vec![RuntimeEffect::PublishTopicEvent {
+                source_window_id: window_id,
+                topic: "explorer.refresh".to_string(),
+                payload,
+            }]
+        );
     }
 }

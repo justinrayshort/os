@@ -1,4 +1,6 @@
 use super::*;
+use crate::app_runtime::ensure_window_session;
+use desktop_app_contract::{AppHost, AppMountContext};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
@@ -243,12 +245,29 @@ fn WindowResizeHandle(window_id: WindowId, edge: ResizeEdge) -> impl IntoView {
 fn WindowBody(window_id: WindowId) -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
+    let session = ensure_window_session(runtime.app_runtime, window_id);
+    let lifecycle = session.lifecycle.read_only();
+    let inbox = session.inbox;
+    let command_sender = Callback::new(move |command| {
+        runtime.dispatch_action(DesktopAction::HandleAppCommand { window_id, command });
+    });
+    let host = AppHost::new(command_sender);
     let contents = state
         .get_untracked()
         .windows
         .into_iter()
         .find(|w| w.id == window_id)
-        .map(|w| apps::render_window_contents(&w))
+        .map(|w| {
+            let module = apps::app_module(w.app_id);
+            module.mount(AppMountContext {
+                window_id: w.id.0,
+                launch_params: w.launch_params.clone(),
+                restored_state: w.app_state.clone(),
+                lifecycle,
+                inbox,
+                host,
+            })
+        })
         .unwrap_or_else(|| view! { <p>"Closed"</p> }.into_view());
 
     view! {

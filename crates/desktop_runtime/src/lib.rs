@@ -8,6 +8,7 @@
 //! - host-side effect execution helpers in [`host`]
 //! - centralized Fluent icon primitives in [`icons`]
 //! - Leptos UI primitives in [`components`]
+//! - app integration bridge types re-exported from [`desktop_app_contract`]
 //!
 //! # Example
 //!
@@ -32,6 +33,7 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
+mod app_runtime;
 /// Application registry metadata and app view renderers.
 pub mod apps;
 /// Leptos provider/context and desktop shell UI components.
@@ -46,9 +48,14 @@ pub mod model;
 pub mod persistence;
 /// Reducer actions and effect generation for desktop state transitions.
 pub mod reducer;
+mod window_manager;
 
 /// Re-exported runtime provider and shell UI entrypoints.
 pub use components::{use_desktop_runtime, DesktopProvider, DesktopRuntimeContext, DesktopShell};
+/// Re-exported app-runtime contract types for managed app integrations.
+pub use desktop_app_contract::{
+    AppCommand, AppEvent, AppHost, AppLifecycleEvent, AppModule, AppMountContext, SuspendPolicy,
+};
 /// Re-exported host-side effect execution context.
 pub use host::DesktopHostContext;
 /// Re-exported centralized shell icon primitives.

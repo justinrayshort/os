@@ -1,9 +1,10 @@
-//! Desktop app registry metadata and app-content rendering helpers.
+//! Desktop app registry metadata and app-content mounting helpers.
 
 use std::{cell::Cell, rc::Rc};
 
-use crate::model::{AppId, OpenWindowRequest, WindowRecord};
+use crate::model::{AppId, OpenWindowRequest};
 use desktop_app_calculator::CalculatorApp;
+use desktop_app_contract::{AppModule, AppMountContext, SuspendPolicy};
 use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
 use desktop_app_terminal::TerminalApp;
@@ -23,7 +24,7 @@ fn migrate_paint_placeholder_state(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 /// Metadata describing how an app appears in the launcher/desktop and how it is instantiated.
 pub struct AppDescriptor {
     /// Stable runtime application identifier.
@@ -38,6 +39,10 @@ pub struct AppDescriptor {
     pub show_on_desktop: bool,
     /// Whether only one instance should be open at a time.
     pub single_instance: bool,
+    /// Managed app module mount descriptor.
+    pub module: AppModule,
+    /// Suspend policy applied by the desktop window manager.
+    pub suspend_policy: SuspendPolicy,
 }
 
 const APP_REGISTRY: [AppDescriptor; 6] = [
@@ -48,6 +53,8 @@ const APP_REGISTRY: [AppDescriptor; 6] = [
         show_in_launcher: true,
         show_on_desktop: true,
         single_instance: true,
+        module: AppModule::new(mount_calculator_app),
+        suspend_policy: SuspendPolicy::OnMinimize,
     },
     AppDescriptor {
         app_id: AppId::Explorer,
@@ -56,6 +63,8 @@ const APP_REGISTRY: [AppDescriptor; 6] = [
         show_in_launcher: true,
         show_on_desktop: true,
         single_instance: false,
+        module: AppModule::new(mount_explorer_app),
+        suspend_policy: SuspendPolicy::OnMinimize,
     },
     AppDescriptor {
         app_id: AppId::Notepad,
@@ -64,6 +73,8 @@ const APP_REGISTRY: [AppDescriptor; 6] = [
         show_in_launcher: true,
         show_on_desktop: false,
         single_instance: false,
+        module: AppModule::new(mount_notepad_app),
+        suspend_policy: SuspendPolicy::OnMinimize,
     },
     AppDescriptor {
         app_id: AppId::Paint,
@@ -72,6 +83,8 @@ const APP_REGISTRY: [AppDescriptor; 6] = [
         show_in_launcher: true,
         show_on_desktop: false,
         single_instance: false,
+        module: AppModule::new(mount_paint_placeholder_app),
+        suspend_policy: SuspendPolicy::OnMinimize,
     },
     AppDescriptor {
         app_id: AppId::Terminal,
@@ -80,6 +93,8 @@ const APP_REGISTRY: [AppDescriptor; 6] = [
         show_in_launcher: true,
         show_on_desktop: true,
         single_instance: true,
+        module: AppModule::new(mount_terminal_app),
+        suspend_policy: SuspendPolicy::Never,
     },
     AppDescriptor {
         app_id: AppId::Dialup,
@@ -88,6 +103,8 @@ const APP_REGISTRY: [AppDescriptor; 6] = [
         show_in_launcher: true,
         show_on_desktop: false,
         single_instance: false,
+        module: AppModule::new(mount_dialup_placeholder_app),
+        suspend_policy: SuspendPolicy::OnMinimize,
     },
 ];
 
@@ -126,6 +143,16 @@ pub fn app_descriptor(app_id: AppId) -> &'static AppDescriptor {
         .expect("app descriptor exists")
 }
 
+/// Returns the managed app module descriptor for `app_id`.
+pub fn app_module(app_id: AppId) -> AppModule {
+    app_descriptor(app_id).module
+}
+
+/// Returns the window-manager suspend policy for `app_id`.
+pub fn app_suspend_policy(app_id: AppId) -> SuspendPolicy {
+    app_descriptor(app_id).suspend_policy
+}
+
 /// Builds the default [`OpenWindowRequest`] for a given app.
 ///
 /// Some apps override the default geometry to better fit their UI.
@@ -142,31 +169,56 @@ pub fn default_open_request(app_id: AppId) -> OpenWindowRequest {
     req
 }
 
-/// Renders the Leptos view for a runtime window record.
-pub fn render_window_contents(window: &WindowRecord) -> View {
-    match window.app_id {
-        AppId::Calculator => {
-            view! { <CalculatorApp launch_params=window.launch_params.clone() /> }.into_view()
-        }
-        AppId::Explorer => {
-            view! { <ExplorerApp launch_params=window.launch_params.clone() /> }.into_view()
-        }
-        AppId::Notepad => {
-            view! { <NotepadApp launch_params=window.launch_params.clone() /> }.into_view()
-        }
-        AppId::Paint => render_paint_placeholder(),
-        AppId::Terminal => {
-            view! { <TerminalApp launch_params=window.launch_params.clone() /> }.into_view()
-        }
-        AppId::Dialup => render_dialup_placeholder(),
+fn mount_calculator_app(context: AppMountContext) -> View {
+    view! {
+        <CalculatorApp
+            launch_params=context.launch_params.clone()
+            restored_state=Some(context.restored_state.clone())
+            host=Some(context.host)
+        />
     }
+    .into_view()
 }
 
-fn render_paint_placeholder() -> View {
-    view! { <PaintPlaceholderApp /> }.into_view()
+fn mount_explorer_app(context: AppMountContext) -> View {
+    view! {
+        <ExplorerApp
+            launch_params=context.launch_params.clone()
+            restored_state=Some(context.restored_state.clone())
+            host=Some(context.host)
+            inbox=Some(context.inbox)
+        />
+    }
+    .into_view()
 }
 
-fn render_dialup_placeholder() -> View {
+fn mount_notepad_app(context: AppMountContext) -> View {
+    view! {
+        <NotepadApp
+            launch_params=context.launch_params.clone()
+            restored_state=Some(context.restored_state.clone())
+            host=Some(context.host)
+        />
+    }
+    .into_view()
+}
+
+fn mount_terminal_app(context: AppMountContext) -> View {
+    view! {
+        <TerminalApp
+            launch_params=context.launch_params.clone()
+            restored_state=Some(context.restored_state.clone())
+            host=Some(context.host)
+        />
+    }
+    .into_view()
+}
+
+fn mount_paint_placeholder_app(context: AppMountContext) -> View {
+    view! { <PaintPlaceholderApp context=context /> }.into_view()
+}
+
+fn mount_dialup_placeholder_app(_: AppMountContext) -> View {
     view! {
         <div class="app app-dialup">
             <p>"Dial-up placeholder"</p>
@@ -216,7 +268,7 @@ fn restore_paint_placeholder_state(mut restored: PaintPlaceholderState) -> Paint
 }
 
 #[component]
-fn PaintPlaceholderApp() -> impl IntoView {
+fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
     let state = create_rw_signal(PaintPlaceholderState::default());
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
@@ -224,6 +276,19 @@ fn PaintPlaceholderApp() -> impl IntoView {
     on_cleanup({
         let hydrate_alive = hydrate_alive.clone();
         move || hydrate_alive.set(false)
+    });
+
+    create_effect(move |_| {
+        if context.restored_state.is_object() {
+            if let Ok(restored) =
+                serde_json::from_value::<PaintPlaceholderState>(context.restored_state.clone())
+            {
+                let restored = restore_paint_placeholder_state(restored);
+                let serialized = serde_json::to_string(&restored).ok();
+                state.set(restored);
+                last_saved.set(serialized);
+            }
+        }
     });
 
     create_effect(move |_| {
@@ -245,8 +310,10 @@ fn PaintPlaceholderApp() -> impl IntoView {
                         return;
                     }
                     let serialized = serde_json::to_string(&restored).ok();
-                    state.set(restored);
-                    last_saved.set(serialized);
+                    if last_saved.get_untracked().is_none() {
+                        state.set(restored);
+                        last_saved.set(serialized);
+                    }
                 }
                 Ok(None) => {}
                 Err(err) => logging::warn!("paint placeholder hydrate failed: {err}"),
@@ -277,6 +344,12 @@ fn PaintPlaceholderApp() -> impl IntoView {
         }
         last_saved.set(Some(serialized));
 
+        // Manager-owned app state path.
+        if let Ok(value) = serde_json::to_value(&snapshot) {
+            context.host.persist_state(value);
+        }
+
+        // Legacy namespace persistence retained for migration compatibility.
         spawn_local(async move {
             if let Err(err) = platform_storage::save_app_state(
                 platform_storage::PAINT_STATE_NAMESPACE,

@@ -7,6 +7,10 @@
 use leptos::*;
 
 use crate::{
+    app_runtime::{
+        deliver_window_event, publish_topic_event, set_window_lifecycle, subscribe_window_topic,
+        unsubscribe_window_topic,
+    },
     components::DesktopRuntimeContext,
     model::WindowRect,
     persistence,
@@ -92,6 +96,25 @@ impl DesktopHostContext {
             RuntimeEffect::OpenExternalUrl(url) => self.open_external_url(&url),
             RuntimeEffect::FocusWindowInput(window_id) => self.focus_window_input(window_id),
             RuntimeEffect::PlaySound(_) => {}
+            RuntimeEffect::DispatchLifecycle { window_id, event } => {
+                set_window_lifecycle(runtime.app_runtime, window_id, event);
+            }
+            RuntimeEffect::DeliverAppEvent { window_id, event } => {
+                deliver_window_event(runtime.app_runtime, window_id, event);
+            }
+            RuntimeEffect::SubscribeWindowTopic { window_id, topic } => {
+                subscribe_window_topic(runtime.app_runtime, window_id, &topic);
+            }
+            RuntimeEffect::UnsubscribeWindowTopic { window_id, topic } => {
+                unsubscribe_window_topic(runtime.app_runtime, window_id, &topic);
+            }
+            RuntimeEffect::PublishTopicEvent {
+                source_window_id,
+                topic,
+                payload,
+            } => {
+                publish_topic_event(runtime.app_runtime, source_window_id, &topic, payload);
+            }
         }
     }
 

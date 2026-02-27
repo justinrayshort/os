@@ -7,6 +7,7 @@ edition = "2021"
 default = ["csr"]
 csr = [
   "leptos/csr",
+  "desktop_app_contract/csr",
   "desktop_app_calculator/csr",
   "desktop_app_explorer/csr",
   "desktop_app_notepad/csr",
@@ -16,6 +17,7 @@ csr = [
 desktop-tauri = ["csr", "platform_storage/desktop-host-tauri"]
 
 [dependencies]
+desktop_app_contract = { path = "../desktop_app_contract", default-features = false }
 desktop_app_calculator = { path = "../apps/calculator", default-features = false }
 desktop_app_explorer = { path = "../apps/explorer", default-features = false }
 desktop_app_notepad = { path = "../apps/notepad", default-features = false }

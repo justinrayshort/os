@@ -2,6 +2,9 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
+use std::{cell::Cell, rc::Rc};
+
+use desktop_app_contract::{AppCommand, AppEvent, AppHost};
 use leptos::*;
 use platform_storage::{
     self, ExplorerBackend, ExplorerBackendStatus, ExplorerEntry, ExplorerEntryKind,
@@ -9,7 +12,7 @@ use platform_storage::{
     EXPLORER_PREFS_KEY, EXPLORER_STATE_NAMESPACE,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 const EXPLORER_STATE_SCHEMA_VERSION: u32 = 1;
 
@@ -375,6 +378,12 @@ fn connect_native_folder(signals: ExplorerSignals) {
 pub fn ExplorerApp(
     /// App launch parameters (for example, initial project slug hints).
     launch_params: Value,
+    /// Manager-restored app state payload for this window instance.
+    restored_state: Option<Value>,
+    /// Optional app-host bridge for manager-owned commands.
+    host: Option<AppHost>,
+    /// Optional runtime inbox for app-bus events.
+    inbox: Option<RwSignal<Vec<AppEvent>>>,
 ) -> impl IntoView {
     let initial_target = launch_params
         .get("project_slug")
@@ -397,6 +406,10 @@ pub fn ExplorerApp(
     let busy = create_rw_signal(false);
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
+    let host_for_bus = host;
+    let host_for_title = host;
+    let host_for_persist = host;
+    let host_for_publish = host;
 
     let session_store = platform_storage::session_store();
     let initial_draft_name = session_store
@@ -417,6 +430,63 @@ pub fn ExplorerApp(
         notice,
         busy,
     };
+
+    if let Some(restored_state) = restored_state.as_ref() {
+        if let Ok(restored) =
+            serde_json::from_value::<ExplorerPersistedState>(restored_state.clone())
+        {
+            let serialized = serde_json::to_string(&restored).ok();
+            signals.cwd.set(normalize_path(&restored.cwd));
+            signals.selected_path.set(restored.selected_path);
+            signals.selected_metadata.set(restored.selected_metadata);
+            signals.editor_path.set(restored.editor_path.clone());
+            signals.editor_text.set(restored.editor_text);
+            signals.editor_dirty.set(restored.editor_dirty);
+            last_saved.set(serialized);
+        }
+    }
+
+    if let Some(host) = host_for_title {
+        create_effect(move |_| {
+            host.set_window_title(format!("Explorer - {}", cwd.get()));
+        });
+    }
+
+    if let Some(host) = host_for_bus {
+        host.send(AppCommand::Subscribe {
+            topic: "explorer.refresh".to_string(),
+        });
+        on_cleanup(move || {
+            host.send(AppCommand::Unsubscribe {
+                topic: "explorer.refresh".to_string(),
+            });
+        });
+    }
+
+    if let Some(host) = host_for_publish {
+        create_effect(move |_| {
+            host.publish_event("explorer.cwd.changed", json!({ "cwd": cwd.get() }));
+        });
+    }
+
+    if let Some(inbox) = inbox {
+        let cursor = Rc::new(Cell::new(0usize));
+        create_effect(move |_| {
+            let events = inbox.get();
+            let start = cursor.get().min(events.len());
+            for event in events[start..].iter() {
+                if event.topic == "explorer.refresh" {
+                    let target = event
+                        .payload
+                        .get("path")
+                        .and_then(Value::as_str)
+                        .map(str::to_string);
+                    refresh_directory(signals, target);
+                }
+            }
+            cursor.set(events.len());
+        });
+    }
 
     create_effect(move |_| {
         if !prefs_hydrated.get() {
@@ -466,17 +536,21 @@ pub fn ExplorerApp(
             .await
             {
                 Ok(Some(restored)) => {
-                    let serialized = serde_json::to_string(&restored).ok();
-                    signals.cwd.set(normalize_path(&restored.cwd));
-                    signals.selected_path.set(restored.selected_path);
-                    signals.selected_metadata.set(restored.selected_metadata);
-                    signals.editor_path.set(restored.editor_path.clone());
-                    signals.editor_text.set(restored.editor_text);
-                    signals.editor_dirty.set(restored.editor_dirty);
-                    last_saved.set(serialized);
+                    if last_saved.get_untracked().is_none() {
+                        let serialized = serde_json::to_string(&restored).ok();
+                        signals.cwd.set(normalize_path(&restored.cwd));
+                        signals.selected_path.set(restored.selected_path);
+                        signals.selected_metadata.set(restored.selected_metadata);
+                        signals.editor_path.set(restored.editor_path.clone());
+                        signals.editor_text.set(restored.editor_text);
+                        signals.editor_dirty.set(restored.editor_dirty);
+                        last_saved.set(serialized);
+                    }
                 }
                 Ok(None) => {
-                    signals.cwd.set(normalize_path(&requested_path));
+                    if last_saved.get_untracked().is_none() {
+                        signals.cwd.set(normalize_path(&requested_path));
+                    }
                 }
                 Err(err) => logging::warn!("explorer hydrate failed: {err}"),
             }
@@ -518,6 +592,13 @@ pub fn ExplorerApp(
             return;
         }
         last_saved.set(Some(serialized));
+
+        if let Some(host) = host_for_persist {
+            if let Ok(value) = serde_json::to_value(&snapshot) {
+                host.persist_state(value);
+            }
+        }
+
         spawn_local(async move {
             if let Err(err) = platform_storage::save_app_state(
                 EXPLORER_STATE_NAMESPACE,

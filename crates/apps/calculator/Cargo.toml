@@ -5,9 +5,10 @@ edition = "2021"
 
 [features]
 default = ["csr"]
-csr = ["leptos/csr", "platform_storage/csr"]
+csr = ["leptos/csr", "platform_storage/csr", "desktop_app_contract/csr"]
 
 [dependencies]
+desktop_app_contract = { path = "../../desktop_app_contract", default-features = false }
 leptos = { version = "0.6", default-features = false }
 platform_storage = { path = "../../platform_storage", default-features = false }
 serde = { version = "1", features = ["derive"] }

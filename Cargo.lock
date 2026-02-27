@@ -795,8 +795,18 @@ dependencies = [
 name = "desktop_app_calculator"
 version = "0.1.0"
 dependencies = [
+ "desktop_app_contract",
  "leptos",
  "platform_storage",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "desktop_app_contract"
+version = "0.1.0"
+dependencies = [
+ "leptos",
  "serde",
  "serde_json",
 ]
@@ -805,6 +815,7 @@ dependencies = [
 name = "desktop_app_explorer"
 version = "0.1.0"
 dependencies = [
+ "desktop_app_contract",
  "leptos",
  "platform_storage",
  "serde",
@@ -815,6 +826,7 @@ dependencies = [
 name = "desktop_app_notepad"
 version = "0.1.0"
 dependencies = [
+ "desktop_app_contract",
  "leptos",
  "platform_storage",
  "serde",
@@ -825,6 +837,7 @@ dependencies = [
 name = "desktop_app_terminal"
 version = "0.1.0"
 dependencies = [
+ "desktop_app_contract",
  "leptos",
  "platform_storage",
  "serde",
@@ -836,6 +849,7 @@ name = "desktop_runtime"
 version = "0.1.0"
 dependencies = [
  "desktop_app_calculator",
+ "desktop_app_contract",
  "desktop_app_explorer",
  "desktop_app_notepad",
  "desktop_app_terminal",
