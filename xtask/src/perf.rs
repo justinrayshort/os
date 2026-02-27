@@ -4,14 +4,17 @@
 //! workspace can standardize artifact locations and command usage without forcing heavyweight CI
 //! integration by default.
 
+use serde_json::json;
+use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 const PERF_DIR: &str = ".artifacts/perf";
 const PERF_FLAMEGRAPH_DIR: &str = ".artifacts/perf/flamegraphs";
 const PERF_REPORT_DIR: &str = ".artifacts/perf/reports";
+const DEV_LOOP_BASELINE_DEFAULT_OUTPUT: &str = ".artifacts/perf/reports/dev-loop-baseline.json";
 
 /// Executes a performance workflow subcommand.
 pub(crate) fn run_perf_command(root: &Path, args: Vec<String>) -> Result<(), String> {
@@ -26,6 +29,7 @@ pub(crate) fn run_perf_command(root: &Path, args: Vec<String>) -> Result<(), Str
         "bench" => perf_bench(root, args[1..].to_vec()),
         "baseline" => perf_baseline(root, args[1..].to_vec()),
         "compare" => perf_compare(root, args[1..].to_vec()),
+        "dev-loop-baseline" => perf_dev_loop_baseline(root, args[1..].to_vec()),
         "flamegraph" => perf_flamegraph(root, args[1..].to_vec()),
         "heaptrack" => perf_heaptrack(root, args[1..].to_vec()),
         "help" | "--help" | "-h" => {
@@ -47,6 +51,8 @@ pub(crate) fn print_perf_usage() {
            bench [args]           Run `cargo bench --workspace` (pass args through)\n\
            baseline <name> [args] Run Criterion benchmarks and save baseline `<name>`\n\
            compare <name> [args]  Run Criterion benchmarks and compare to baseline `<name>`\n\
+           dev-loop-baseline [--output <path>]\n\
+                                  Run standard dev-loop timing commands and write JSON output\n\
            flamegraph [args]      Run `cargo flamegraph` (adds default SVG output path)\n\
            heaptrack [-- cmd...]  Run heaptrack around a command (default: cargo bench --workspace)\n\
          \n\
@@ -62,6 +68,12 @@ fn perf_doctor() -> Result<(), String> {
     let perf_ok = command_available("perf");
     let heaptrack_ok = command_available("heaptrack");
     let cargo_flamegraph_ok = cargo_subcommand_available("flamegraph");
+    let sccache_ok = command_available("sccache");
+    let rustc_wrapper = env::var("RUSTC_WRAPPER").ok();
+    let sccache_wrapper_active = rustc_wrapper
+        .as_deref()
+        .map(is_sccache_wrapper)
+        .unwrap_or(false);
 
     println!("performance tooling status:");
     print_tool_status("cargo", cargo_ok, "required");
@@ -72,6 +84,20 @@ fn perf_doctor() -> Result<(), String> {
     );
     print_tool_status("perf", perf_ok, "optional (Linux CPU sampling backend)");
     print_tool_status("heaptrack", heaptrack_ok, "optional (Linux heap profiler)");
+    print_tool_status(
+        "sccache",
+        sccache_ok,
+        "optional (compiler artifact cache for faster rebuilds)",
+    );
+
+    let wrapper_status = match rustc_wrapper {
+        Some(ref wrapper) if sccache_wrapper_active => {
+            format!("active ({wrapper}); run `sccache --show-stats`")
+        }
+        Some(wrapper) => format!("set to `{wrapper}` (not sccache)"),
+        None => "not set (set `RUSTC_WRAPPER=sccache` to enable local compiler caching)".into(),
+    };
+    println!("- RUSTC_WRAPPER: {wrapper_status}");
 
     if cargo_ok {
         Ok(())
@@ -146,6 +172,139 @@ fn perf_compare(root: &Path, args: Vec<String>) -> Result<(), String> {
         "cargo",
         build_criterion_named_args(&cargo_args, "baseline", &baseline),
     )
+}
+
+fn perf_dev_loop_baseline(root: &Path, args: Vec<String>) -> Result<(), String> {
+    ensure_perf_dirs(root)?;
+    let output = parse_dev_loop_baseline_output_arg(args)?;
+    let output_path = resolve_output_path(root, output);
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("failed to create {}: {err}", parent.display()))?;
+    }
+
+    let commands = vec![
+        BaselineCommandSpec::new("cargo", vec!["clean"]),
+        BaselineCommandSpec::new("cargo", vec!["check", "--workspace"]),
+        BaselineCommandSpec::new(
+            "cargo",
+            vec!["test", "--workspace", "--lib", "--tests", "--no-run"],
+        ),
+        BaselineCommandSpec::new("cargo", vec!["verify-fast"]),
+        BaselineCommandSpec::new("cargo", vec!["xtask", "docs", "all"]),
+    ];
+
+    log_stage("Developer loop baseline capture");
+    let total_started = Instant::now();
+    let mut command_reports = Vec::with_capacity(commands.len());
+    for spec in commands {
+        let started_unix_secs = unix_timestamp_secs();
+        let started = Instant::now();
+        run_owned(root, spec.program, spec.args.clone())?;
+        let elapsed = started.elapsed().as_secs_f64();
+        command_reports.push(json!({
+            "command": spec.command_string(),
+            "started_unix_secs": started_unix_secs,
+            "duration_secs": elapsed,
+        }));
+    }
+
+    let report = json!({
+        "generated_unix_secs": unix_timestamp_secs(),
+        "workspace_root": root.display().to_string(),
+        "git_commit": git_commit_sha(root),
+        "toolchain": {
+            "cargo": command_stdout_line("cargo", &["--version"]),
+            "rustc": command_stdout_line("rustc", &["--version"]),
+        },
+        "commands": command_reports,
+        "total_duration_secs": total_started.elapsed().as_secs_f64(),
+    });
+
+    let report_body = serde_json::to_string_pretty(&report)
+        .map_err(|err| format!("failed to encode report: {err}"))?;
+    fs::write(&output_path, report_body)
+        .map_err(|err| format!("failed to write {}: {err}", output_path.display()))?;
+    println!("Wrote dev-loop baseline report: {}", output_path.display());
+    Ok(())
+}
+
+#[derive(Clone, Debug)]
+struct BaselineCommandSpec {
+    program: &'static str,
+    args: Vec<String>,
+}
+
+impl BaselineCommandSpec {
+    fn new(program: &'static str, args: Vec<&'static str>) -> Self {
+        Self {
+            program,
+            args: args.into_iter().map(ToString::to_string).collect(),
+        }
+    }
+
+    fn command_string(&self) -> String {
+        if self.args.is_empty() {
+            self.program.to_string()
+        } else {
+            format!("{} {}", self.program, self.args.join(" "))
+        }
+    }
+}
+
+fn parse_dev_loop_baseline_output_arg(args: Vec<String>) -> Result<PathBuf, String> {
+    if args.is_empty() {
+        return Ok(PathBuf::from(DEV_LOOP_BASELINE_DEFAULT_OUTPUT));
+    }
+
+    if args.len() == 2 && args[0] == "--output" {
+        return Ok(PathBuf::from(args[1].clone()));
+    }
+
+    Err("usage: cargo xtask perf dev-loop-baseline [--output <path>]".to_string())
+}
+
+fn resolve_output_path(root: &Path, output: PathBuf) -> PathBuf {
+    if output.is_absolute() {
+        output
+    } else {
+        root.join(output)
+    }
+}
+
+fn git_commit_sha(root: &Path) -> String {
+    let Ok(output) = Command::new("git")
+        .current_dir(root)
+        .args(["rev-parse", "HEAD"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .output()
+    else {
+        return "unknown".to_string();
+    };
+
+    if !output.status.success() {
+        return "unknown".to_string();
+    }
+
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
+}
+
+fn command_stdout_line(program: &str, args: &[&str]) -> String {
+    let Ok(output) = Command::new(program)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .output()
+    else {
+        return "unknown".to_string();
+    };
+
+    if !output.status.success() {
+        return "unknown".to_string();
+    }
+
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
 fn parse_named_bench_args(
@@ -260,6 +419,16 @@ fn parse_heaptrack_command(args: Vec<String>) -> Vec<String> {
 fn has_output_flag(args: &[String]) -> bool {
     args.iter()
         .any(|arg| arg == "-o" || arg == "--output" || arg.starts_with("--output="))
+}
+
+fn is_sccache_wrapper(wrapper: &str) -> bool {
+    let trimmed = wrapper.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    let normalized = trimmed.replace('\\', "/");
+    normalized == "sccache" || normalized.ends_with("/sccache")
 }
 
 fn ensure_perf_dirs(root: &Path) -> Result<(), String> {
@@ -402,5 +571,32 @@ mod tests {
         let err = parse_named_bench_args("baseline", vec!["main".into(), "--".into()])
             .expect_err("expected error");
         assert!(err.contains("do not pass `--`"));
+    }
+
+    #[test]
+    fn dev_loop_baseline_output_arg_defaults_to_standard_path() {
+        let output = parse_dev_loop_baseline_output_arg(Vec::new()).expect("parse");
+        assert_eq!(output, PathBuf::from(DEV_LOOP_BASELINE_DEFAULT_OUTPUT));
+    }
+
+    #[test]
+    fn dev_loop_baseline_output_arg_accepts_explicit_path() {
+        let output = parse_dev_loop_baseline_output_arg(vec!["--output".into(), "x.json".into()])
+            .expect("parse");
+        assert_eq!(output, PathBuf::from("x.json"));
+    }
+
+    #[test]
+    fn dev_loop_baseline_output_arg_rejects_invalid_shape() {
+        let err = parse_dev_loop_baseline_output_arg(vec!["--bad".into()]).expect_err("invalid");
+        assert!(err.contains("usage: cargo xtask perf dev-loop-baseline"));
+    }
+
+    #[test]
+    fn sccache_wrapper_detection_handles_binary_and_path() {
+        assert!(is_sccache_wrapper("sccache"));
+        assert!(is_sccache_wrapper("/usr/local/bin/sccache"));
+        assert!(is_sccache_wrapper("C:\\tools\\sccache"));
+        assert!(!is_sccache_wrapper("/usr/bin/rustc"));
     }
 }

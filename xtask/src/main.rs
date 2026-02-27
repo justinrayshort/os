@@ -26,6 +26,7 @@ const DEV_SERVER_START_POLL: Duration = Duration::from_secs(8);
 const DEV_SERVER_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 const SITE_CARGO_FEATURE: &str = "csr";
 const PLATFORM_STORAGE_PACKAGE: &str = "platform_storage";
+const DESKTOP_TAURI_PACKAGE: &str = "desktop_tauri";
 
 fn main() -> ExitCode {
     let root = workspace_root();
@@ -84,7 +85,8 @@ fn print_usage() {
            flow [...]          Run scoped inner-loop checks for changed packages/docs\n\
            docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
            perf <subcommand>   Performance benchmarks/profiling workflows\n\
-           verify [fast|full]  Run standardized local verification workflow (default: full)\n"
+           verify [fast|full] [--with-desktop|--without-desktop]\n\
+                              Run standardized local verification workflow (default: full)\n"
     );
 }
 
@@ -807,23 +809,195 @@ fn format_package_list(packages: &[String]) -> String {
 }
 
 fn verify(root: &Path, args: Vec<String>) -> Result<(), String> {
-    let mode = args.first().map(String::as_str).unwrap_or("full");
-    match mode {
-        "fast" => verify_fast(root),
-        "full" => verify_full(root),
-        _ => Err(format!(
-            "invalid verify mode `{mode}` (expected `fast` or `full`)"
-        )),
+    let options = parse_verify_options(args)?;
+    match options.mode {
+        VerifyMode::Fast => verify_fast(root, options.desktop_mode),
+        VerifyMode::Full => verify_full(root),
     }
 }
 
-fn verify_fast(root: &Path) -> Result<(), String> {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum VerifyMode {
+    Fast,
+    Full,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum VerifyFastDesktopMode {
+    Auto,
+    WithDesktop,
+    WithoutDesktop,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct VerifyOptions {
+    mode: VerifyMode,
+    desktop_mode: VerifyFastDesktopMode,
+}
+
+fn parse_verify_options(args: Vec<String>) -> Result<VerifyOptions, String> {
+    let mut mode = VerifyMode::Full;
+    let mut desktop_mode = VerifyFastDesktopMode::Auto;
+    let mut i = 0usize;
+
+    if let Some(first) = args.first().map(String::as_str) {
+        match first {
+            "fast" => {
+                mode = VerifyMode::Fast;
+                i = 1;
+            }
+            "full" => {
+                mode = VerifyMode::Full;
+                i = 1;
+            }
+            _ => {}
+        }
+    }
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--with-desktop" => {
+                if desktop_mode == VerifyFastDesktopMode::WithoutDesktop {
+                    return Err(
+                        "`--with-desktop` cannot be combined with `--without-desktop`".to_string(),
+                    );
+                }
+                desktop_mode = VerifyFastDesktopMode::WithDesktop;
+                i += 1;
+            }
+            "--without-desktop" => {
+                if desktop_mode == VerifyFastDesktopMode::WithDesktop {
+                    return Err(
+                        "`--with-desktop` cannot be combined with `--without-desktop`".to_string(),
+                    );
+                }
+                desktop_mode = VerifyFastDesktopMode::WithoutDesktop;
+                i += 1;
+            }
+            other => {
+                return Err(format!(
+                    "unsupported `cargo verify` argument `{other}` (expected `fast`, `full`, `--with-desktop`, `--without-desktop`)"
+                ));
+            }
+        }
+    }
+
+    if mode == VerifyMode::Full && desktop_mode != VerifyFastDesktopMode::Auto {
+        return Err(
+            "`--with-desktop` and `--without-desktop` are only valid with `cargo verify-fast`"
+                .to_string(),
+        );
+    }
+
+    Ok(VerifyOptions { mode, desktop_mode })
+}
+
+#[derive(Clone, Debug)]
+struct VerifyFastDesktopDecision {
+    include_desktop: bool,
+    reason: String,
+}
+
+fn resolve_verify_fast_desktop_decision(
+    root: &Path,
+    mode: VerifyFastDesktopMode,
+) -> VerifyFastDesktopDecision {
+    match mode {
+        VerifyFastDesktopMode::WithDesktop => VerifyFastDesktopDecision {
+            include_desktop: true,
+            reason: "forced by `--with-desktop`".to_string(),
+        },
+        VerifyFastDesktopMode::WithoutDesktop => VerifyFastDesktopDecision {
+            include_desktop: false,
+            reason: "forced by `--without-desktop`".to_string(),
+        },
+        VerifyFastDesktopMode::Auto => match collect_changed_paths(root) {
+            Ok(paths) => infer_verify_fast_desktop_decision(paths),
+            Err(err) => {
+                warn_stage(&format!(
+                    "failed to inspect changed files for desktop auto-detection; including desktop host checks ({err})"
+                ));
+                VerifyFastDesktopDecision {
+                    include_desktop: true,
+                    reason: "automatic detection failed; defaulting to include desktop host checks"
+                        .to_string(),
+                }
+            }
+        },
+    }
+}
+
+fn infer_verify_fast_desktop_decision(changed_paths: Vec<String>) -> VerifyFastDesktopDecision {
+    if changed_paths.is_empty() {
+        return VerifyFastDesktopDecision {
+            include_desktop: false,
+            reason: "no changed files detected by `git status --porcelain`".to_string(),
+        };
+    }
+
+    let desktop_triggers: Vec<String> = changed_paths
+        .iter()
+        .filter(|path| looks_like_desktop_host_change(path))
+        .cloned()
+        .collect();
+
+    if !desktop_triggers.is_empty() {
+        return VerifyFastDesktopDecision {
+            include_desktop: true,
+            reason: format!(
+                "desktop-relevant changes detected ({})",
+                format_path_list_for_reason(&desktop_triggers)
+            ),
+        };
+    }
+
+    VerifyFastDesktopDecision {
+        include_desktop: false,
+        reason: "no desktop host trigger paths changed".to_string(),
+    }
+}
+
+fn format_path_list_for_reason(paths: &[String]) -> String {
+    if paths.len() <= 3 {
+        return paths.join(", ");
+    }
+
+    let shown = paths[..3].join(", ");
+    format!("{shown} (+{} more)", paths.len() - 3)
+}
+
+fn looks_like_desktop_host_change(path: &str) -> bool {
+    path.starts_with("crates/desktop_tauri/")
+        || path.starts_with("crates/platform_host/")
+        || path.starts_with("crates/platform_host_web/")
+        || path.starts_with("crates/platform_storage/")
+        || matches!(path, "Cargo.toml" | "Cargo.lock" | ".cargo/config.toml")
+}
+
+fn print_verify_fast_desktop_decision(decision: &VerifyFastDesktopDecision) {
+    println!("\n==> Desktop host coverage (verify-fast)");
+    if decision.include_desktop {
+        println!("    included: {}", decision.reason);
+    } else {
+        println!("    skipped: {}", decision.reason);
+        println!("    hint: pass `cargo verify-fast --with-desktop` to force desktop host checks");
+    }
+}
+
+fn verify_fast(root: &Path, desktop_mode: VerifyFastDesktopMode) -> Result<(), String> {
     let started = Instant::now();
+    let desktop_decision = resolve_verify_fast_desktop_decision(root, desktop_mode);
+    print_verify_fast_desktop_decision(&desktop_decision);
+
     run_timed_stage("Rust format and default test matrix", || {
-        run_cargo_default_matrix(root)
+        run_cargo_default_matrix_fast(root, desktop_decision.include_desktop)
     })?;
-    run_timed_stage("Rust all-features matrix", || run_rust_feature_matrix(root))?;
-    run_timed_stage("Rustdoc build and doctests", || run_rustdoc_checks(root))?;
+    run_timed_stage("Rust all-features matrix", || {
+        run_rust_feature_matrix_fast(root, desktop_decision.include_desktop)
+    })?;
+    run_timed_stage("Rustdoc build and doctests", || {
+        run_rustdoc_checks_fast(root, desktop_decision.include_desktop)
+    })?;
     run_timed_stage("Documentation validation and audit", || {
         run_docs_checks(root)
     })?;
@@ -837,10 +1011,14 @@ fn verify_fast(root: &Path) -> Result<(), String> {
 fn verify_full(root: &Path) -> Result<(), String> {
     let started = Instant::now();
     run_timed_stage("Rust format and default test matrix", || {
-        run_cargo_default_matrix(root)
+        run_cargo_default_matrix_full(root)
     })?;
-    run_timed_stage("Rust all-features matrix", || run_rust_feature_matrix(root))?;
-    run_timed_stage("Rustdoc build and doctests", || run_rustdoc_checks(root))?;
+    run_timed_stage("Rust all-features matrix", || {
+        run_rust_feature_matrix_full(root)
+    })?;
+    run_timed_stage("Rustdoc build and doctests", || {
+        run_rustdoc_checks_full(root)
+    })?;
     run_timed_stage("Documentation validation and audit", || {
         run_docs_checks(root)
     })?;
@@ -855,7 +1033,17 @@ fn verify_full(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn run_cargo_default_matrix(root: &Path) -> Result<(), String> {
+fn run_cargo_default_matrix_fast(root: &Path, include_desktop: bool) -> Result<(), String> {
+    run(root, "cargo", vec!["fmt", "--all", "--", "--check"])?;
+    let mut test_args = vec!["test", "--workspace", "--lib", "--tests"];
+    if !include_desktop {
+        test_args.extend(["--exclude", DESKTOP_TAURI_PACKAGE]);
+    }
+    run(root, "cargo", test_args)?;
+    Ok(())
+}
+
+fn run_cargo_default_matrix_full(root: &Path) -> Result<(), String> {
     run(root, "cargo", vec!["fmt", "--all", "--", "--check"])?;
     run(root, "cargo", vec!["check", "--workspace"])?;
     run(
@@ -866,7 +1054,55 @@ fn run_cargo_default_matrix(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn run_rust_feature_matrix(root: &Path) -> Result<(), String> {
+fn run_rust_feature_matrix_fast(root: &Path, include_desktop: bool) -> Result<(), String> {
+    let mut workspace_feature_test_args = vec![
+        "test",
+        "--workspace",
+        "--all-features",
+        "--exclude",
+        PLATFORM_STORAGE_PACKAGE,
+        "--lib",
+        "--tests",
+    ];
+    if !include_desktop {
+        workspace_feature_test_args.extend(["--exclude", DESKTOP_TAURI_PACKAGE]);
+    }
+
+    run(root, "cargo", workspace_feature_test_args)?;
+    run(
+        root,
+        "cargo",
+        vec![
+            "test",
+            "-p",
+            PLATFORM_STORAGE_PACKAGE,
+            "--no-default-features",
+            "--features",
+            "csr,desktop-host-stub",
+            "--lib",
+            "--tests",
+        ],
+    )?;
+
+    run(
+        root,
+        "cargo",
+        vec![
+            "test",
+            "-p",
+            PLATFORM_STORAGE_PACKAGE,
+            "--no-default-features",
+            "--features",
+            "csr,desktop-host-tauri",
+            "--lib",
+            "--tests",
+        ],
+    )?;
+
+    Ok(())
+}
+
+fn run_rust_feature_matrix_full(root: &Path) -> Result<(), String> {
     run(
         root,
         "cargo",
@@ -949,7 +1185,22 @@ fn run_rust_feature_matrix(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn run_rustdoc_checks(root: &Path) -> Result<(), String> {
+fn run_rustdoc_checks_fast(root: &Path, include_desktop: bool) -> Result<(), String> {
+    let mut doc_args = vec!["doc".into(), "--workspace".into(), "--no-deps".into()];
+    if !include_desktop {
+        doc_args.extend(["--exclude".into(), DESKTOP_TAURI_PACKAGE.into()]);
+    }
+    run_owned_with_env(root, "cargo", doc_args, &[("RUSTDOCFLAGS", "-Dwarnings")])?;
+
+    let mut doc_test_args = vec!["test", "--workspace", "--doc"];
+    if !include_desktop {
+        doc_test_args.extend(["--exclude", DESKTOP_TAURI_PACKAGE]);
+    }
+    run(root, "cargo", doc_test_args)?;
+    Ok(())
+}
+
+fn run_rustdoc_checks_full(root: &Path) -> Result<(), String> {
     run_owned_with_env(
         root,
         "cargo",
@@ -1700,5 +1951,89 @@ mod tests {
         assert_eq!(normalized_no_color_value(Some("true")), None);
         assert_eq!(normalized_no_color_value(Some("false")), None);
         assert_eq!(normalized_no_color_value(None), None);
+    }
+
+    #[test]
+    fn verify_option_parser_defaults_to_full_mode() {
+        let options = parse_verify_options(Vec::new()).expect("parse");
+        assert_eq!(
+            options,
+            VerifyOptions {
+                mode: VerifyMode::Full,
+                desktop_mode: VerifyFastDesktopMode::Auto
+            }
+        );
+    }
+
+    #[test]
+    fn verify_option_parser_accepts_fast_desktop_flags() {
+        let options =
+            parse_verify_options(vec!["fast".into(), "--with-desktop".into()]).expect("parse");
+        assert_eq!(
+            options,
+            VerifyOptions {
+                mode: VerifyMode::Fast,
+                desktop_mode: VerifyFastDesktopMode::WithDesktop
+            }
+        );
+
+        let options =
+            parse_verify_options(vec!["fast".into(), "--without-desktop".into()]).expect("parse");
+        assert_eq!(
+            options,
+            VerifyOptions {
+                mode: VerifyMode::Fast,
+                desktop_mode: VerifyFastDesktopMode::WithoutDesktop
+            }
+        );
+    }
+
+    #[test]
+    fn verify_option_parser_rejects_conflicting_desktop_flags() {
+        let err = parse_verify_options(vec![
+            "fast".into(),
+            "--with-desktop".into(),
+            "--without-desktop".into(),
+        ])
+        .expect_err("must reject conflicting desktop flags");
+        assert!(err.contains("cannot be combined"));
+    }
+
+    #[test]
+    fn desktop_trigger_detection_matches_expected_paths() {
+        assert!(looks_like_desktop_host_change(
+            "crates/desktop_tauri/src/main.rs"
+        ));
+        assert!(looks_like_desktop_host_change(
+            "crates/platform_host/src/lib.rs"
+        ));
+        assert!(looks_like_desktop_host_change(".cargo/config.toml"));
+        assert!(!looks_like_desktop_host_change(
+            "crates/site/src/web_app.rs"
+        ));
+    }
+
+    #[test]
+    fn verify_fast_auto_detection_skips_when_no_desktop_trigger_paths_changed() {
+        let decision =
+            infer_verify_fast_desktop_decision(vec!["crates/site/src/web_app.rs".to_string()]);
+        assert!(!decision.include_desktop);
+        assert_eq!(decision.reason, "no desktop host trigger paths changed");
+    }
+
+    #[test]
+    fn verify_fast_auto_detection_includes_when_desktop_trigger_paths_changed() {
+        let decision = infer_verify_fast_desktop_decision(vec![
+            "crates/site/src/web_app.rs".to_string(),
+            "crates/desktop_tauri/src/main.rs".to_string(),
+        ]);
+        assert!(decision.include_desktop);
+        assert!(
+            decision
+                .reason
+                .contains("desktop-relevant changes detected"),
+            "unexpected reason: {}",
+            decision.reason
+        );
     }
 }

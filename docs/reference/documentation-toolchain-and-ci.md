@@ -49,9 +49,17 @@ lifecycle: "ga"
 
 ```bash
 cargo xtask docs all
-cargo xtask docs storage-boundary
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
+```
+
+`cargo xtask docs all` already includes wiki structure checks and storage-boundary enforcement.
+
+- Staged diagnostics (optional when you want isolated failures):
+
+```bash
+cargo xtask docs wiki
+cargo xtask docs storage-boundary
 ```
 
 - Full workspace verification (includes docs audit + optional clippy/trunk stages):

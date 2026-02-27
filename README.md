@@ -109,13 +109,20 @@ Fast verification (workspace Rust + docs, including explicit `platform_storage` 
 cargo verify-fast
 ```
 
+`cargo verify-fast` automatically skips desktop host (`desktop_tauri`) checks when changed files do not touch desktop/host boundary trigger paths. Override auto-detection when needed:
+
+```bash
+cargo verify-fast --with-desktop
+cargo verify-fast --without-desktop
+```
+
 Full verification (fast verification + prototype checks + optional clippy/trunk build):
 
 ```bash
 cargo verify
 ```
 
-`cargo verify-fast` and `cargo verify` now print per-stage timing so bottlenecks are observable directly from command output.
+`cargo verify` remains exhaustive and always includes desktop host coverage. `cargo verify-fast` and `cargo verify` print per-stage timing so bottlenecks are observable directly from command output.
 
 Compatibility `make` targets still work (delegating to Cargo aliases):
 
@@ -130,6 +137,13 @@ make proto-stop
 
 Direct commands remain available if you prefer (`cargo run -p xtask -- ...`, `trunk ...`).
 
+Useful ad-hoc full-workspace aliases:
+
+```bash
+cargo check-all
+cargo test-all
+```
+
 ## Performance Engineering Workflow (Benchmarks + Profiling)
 
 The repository now exposes a standardized performance workflow through `xtask` so benchmark runs, baselines, and profiling artifacts are repeatable across local environments.
@@ -138,6 +152,19 @@ Tooling availability check:
 
 ```bash
 cargo perf doctor
+```
+
+Capture a repeatable local development-loop baseline report:
+
+```bash
+cargo perf dev-loop-baseline --output .artifacts/perf/reports/dev-loop-baseline.json
+```
+
+Enable local compiler caching (optional, local-first):
+
+```bash
+source scripts/dev/setup-sccache.sh
+sccache --show-stats
 ```
 
 Preflight functional correctness before optimization (unit/integration tests, all-features tests, doctests, benchmark target compile):
@@ -189,6 +216,8 @@ Run repo docs validation (docs contracts + wiki submodule checks):
 ```bash
 cargo xtask docs all
 ```
+
+`cargo xtask docs all` already includes wiki validation. Use `cargo xtask docs wiki` separately when you want isolated wiki diagnostics.
 
 ## Project Layout (Current)
 

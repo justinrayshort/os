@@ -13,4 +13,16 @@ members = [
   "crates/apps/terminal",
   "xtask",
 ]
+default-members = [
+  "crates/desktop_app_contract",
+  "crates/apps/calculator",
+  "crates/desktop_runtime",
+  "crates/platform_host",
+  "crates/platform_host_web",
+  "crates/platform_storage",
+  "crates/site",
+  "crates/apps/explorer",
+  "crates/apps/notepad",
+  "crates/apps/terminal",
+]
 resolver = "2"

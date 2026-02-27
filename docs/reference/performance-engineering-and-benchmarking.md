@@ -30,6 +30,7 @@ Use this page as the neutral reference for performance tooling, baselines, thres
 
 - Run correctness checks before and after performance changes (`cargo perf check` at minimum for performance-sensitive work).
 - Capture a baseline before optimization (`cargo perf baseline <name>` when Criterion benches exist).
+- Capture a development-loop baseline when optimizing iteration workflows (`cargo perf dev-loop-baseline --output <path>`).
 - Profile before tuning hot paths (CPU and/or memory, depending on symptom).
 - Compare against a baseline after changes (`cargo perf compare <name>`).
 - Record measured results and decisions in PRs and relevant docs/wiki pages.
@@ -88,6 +89,7 @@ Minimum benchmark categories to maintain over time:
 - `criterion` for statistically robust measurements, baseline capture, and comparison
 - `cargo perf bench` as the standardized workspace entry point
 - `cargo perf baseline <name>` / `cargo perf compare <name>` for Criterion baseline workflows
+- `cargo perf dev-loop-baseline [--output <path>]` for repeatable local feedback-loop timing snapshots
 
 ### CPU Profiling
 
@@ -99,6 +101,12 @@ Minimum benchmark categories to maintain over time:
 
 - `heaptrack` (or platform-equivalent tool) for allocation growth and heap hotspot analysis
 - `cargo perf heaptrack -- <command...>` for repeatable local heaptrack capture (defaults to `cargo bench --workspace`)
+
+### Compiler Caching
+
+- `sccache` for local compiler artifact reuse across rebuilds
+- `cargo perf doctor` reports `sccache` availability plus active `RUSTC_WRAPPER` status
+- local setup helper script: `source scripts/dev/setup-sccache.sh`
 
 ### Instrumentation (Built-in / Low-overhead)
 
@@ -162,6 +170,16 @@ Recommended controls:
 - `.artifacts/perf/reports/`: reserved for summarized benchmark/profile reports or exported comparisons
 - `target/criterion/`: Criterion benchmark outputs/baselines (tool-managed default location)
 
+## Dependency Hygiene Snapshot
+
+When evaluating compile-time regressions, capture duplicate dependency families and high-churn versions:
+
+```bash
+cargo tree -d --workspace
+```
+
+Record notable multi-version families in optimization review notes when they materially affect compile time.
+
 ## Optimization Decision Documentation Requirements
 
 When optimization changes are proposed, document:
@@ -184,6 +202,7 @@ cargo perf check
 cargo perf bench
 cargo perf baseline <name>
 cargo perf compare <name>
+cargo perf dev-loop-baseline --output .artifacts/perf/reports/dev-loop-baseline.json
 cargo perf flamegraph --bench <bench_name>
 cargo perf heaptrack -- cargo bench --workspace
 ```

@@ -119,14 +119,17 @@ Primary entry points:
 - `cargo doc --workspace --no-deps`
 - `cargo test --workspace --doc`
 - `cargo verify-fast`
+- `cargo verify-fast --with-desktop`
+- `cargo verify-fast --without-desktop`
 - `cargo verify`
 - `cargo perf doctor`
 - `cargo perf check`
 - `cargo perf bench`
+- `cargo perf dev-loop-baseline --output .artifacts/perf/reports/dev-loop-baseline.json`
 
 Stages (local verification order):
 
-1. Wiki submodule + Wiki structure/template validation (`cargo xtask docs wiki`)
+1. Docs + wiki validation (`cargo xtask docs all`, which includes wiki structure/template checks)
 2. Docs contract validation (`structure`, `frontmatter`, `sop`)
 3. OpenAPI validation (`cargo xtask docs openapi`)
 4. Mermaid validation (`cargo xtask docs mermaid`)
@@ -171,7 +174,7 @@ When changing `xtask/src/docs.rs`, `xtask/src/perf.rs`, or command/workflow sema
 
 1. Run `cargo fmt --all`.
 2. Run `cargo test -p xtask`.
-3. Run the affected workflow commands (for example `cargo xtask docs wiki`, `cargo xtask docs all`, `cargo perf doctor`).
+3. Run the affected workflow commands (for example `cargo xtask docs all`, `cargo xtask docs wiki` for isolated wiki diagnostics, `cargo perf doctor`).
 4. Update `AGENTS.md`, wiki/reference docs, and command catalogs when behavior/contracts changed.
 
 ## 5) Local Commands
@@ -188,11 +191,12 @@ Run the standard local docs validation entry point:
 
 ```bash
 git submodule update --init --recursive
-cargo xtask docs wiki
 cargo xtask docs all
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
 ```
+
+`cargo xtask docs all` includes wiki validation. Add `cargo xtask docs wiki` when you want staged or isolated wiki diagnostics.
 
 ### 5.3 Docs Commands (explicit)
 
@@ -238,6 +242,7 @@ cargo perf check
 cargo perf bench
 cargo perf baseline local-main
 cargo perf compare local-main
+cargo perf dev-loop-baseline --output .artifacts/perf/reports/dev-loop-baseline.json
 cargo perf flamegraph --bench <bench_name>
 cargo perf heaptrack -- cargo bench --workspace
 ```
@@ -247,6 +252,8 @@ Notes:
 - `cargo perf check` runs tests/doctests and compiles benchmark targets before optimization work.
 - `cargo perf baseline` / `cargo perf compare` assume Criterion-style benchmark flags and append `-- --save-baseline/--baseline` automatically.
 - `cargo perf flamegraph` and `cargo perf heaptrack` require optional local tooling and may be platform-specific.
+- `cargo perf doctor` reports `sccache` availability and active `RUSTC_WRAPPER` status.
+- Optional local cache setup helper: `source scripts/dev/setup-sccache.sh`.
 
 ### 5.7 Cargo Aliases / Convenience Wrappers (Current)
 
@@ -263,6 +270,8 @@ cargo docs-audit
 cargo perf <subcommand>
 cargo verify-fast
 cargo verify
+cargo check-all
+cargo test-all
 ```
 
 Common `make` wrappers (delegating to Cargo aliases / `xtask` docs commands):
@@ -295,9 +304,10 @@ make proto-restart
 ```bash
 cargo fmt --all
 cargo test -p xtask
-cargo xtask docs wiki
 cargo xtask docs all
 ```
+
+Run `cargo xtask docs wiki` in addition when validating staged wiki-only diagnostics.
 
 ## 6) Change Workflows for Agents
 
@@ -310,7 +320,7 @@ cargo xtask docs all
 3. Keep docs frontmatter complete and valid for `docs/*.md` changes.
 4. If editing `wiki/Tutorial-*.md` or `wiki/How-to-*.md`, preserve the shared instructional template (`Outcome`, `Entry Criteria`, `Procedure`, `Validation`, `Next Steps` + required `Entry Criteria` subsections).
 5. If ADRs, SOPs, diagrams, or other formal artifacts changed in `docs/`, update the relevant Wiki reference/index pages in the same change.
-6. Run `cargo xtask docs wiki`, `cargo xtask docs storage-boundary`, `cargo xtask docs ui-conformance` (when Fluent shell UI/token conformance surfaces changed), and `cargo xtask docs all`.
+6. Run `cargo xtask docs all`, `cargo xtask docs storage-boundary`, `cargo xtask docs ui-conformance` (when Fluent shell UI/token conformance surfaces changed), and `cargo xtask docs wiki` when you need isolated wiki diagnostics.
 7. Run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc` when rustdoc changed (recommended for all docs changes that mention APIs).
 8. If Mermaid or OpenAPI changed, run targeted checks (`cargo xtask docs mermaid`, `cargo xtask docs openapi`) in addition to `all`.
 9. Generate an audit artifact (`cargo xtask docs audit-report --output .artifacts/docs-audit.json`) when the change affects governance/reporting flows.
@@ -328,7 +338,7 @@ cargo xtask docs all
 5. Keep rustdoc and Wiki descriptions synchronized with each other and with the implementation before requesting review.
 6. Run targeted Cargo checks (`cargo test --workspace` if behavior changed).
 7. Run rustdoc checks (`cargo doc --workspace --no-deps`, `cargo test --workspace --doc`).
-8. Run docs validation (`cargo xtask docs wiki` and `cargo xtask docs all`).
+8. Run docs validation (`cargo xtask docs all`; add `cargo xtask docs wiki` for isolated wiki diagnostics).
 9. If `xtask` docs/perf behavior changed, run `cargo test -p xtask` and update command/docs guidance (`AGENTS.md`, Wiki, `docs/reference/*`) as needed.
 10. If wiki content changed, commit `wiki/` changes and include the updated `wiki/` submodule pointer in the same PR/change set.
 
@@ -354,7 +364,7 @@ When changing `platform_host`, `platform_host_web`, or `platform_storage` contra
    - `Explanation-Browser-Host-Boundary-and-Storage-Model`
    - `Reference-System-Architecture-Map`
 4. Add/update ADRs in `docs/adr/*` when boundary decisions or migration contracts change materially.
-5. Run targeted tests/checks for affected crates plus `cargo xtask docs wiki` and `cargo xtask docs all`.
+5. Run targeted tests/checks for affected crates plus `cargo xtask docs all` (`cargo xtask docs wiki` optional for isolated wiki diagnostics).
 
 ## 7) Key Files
 

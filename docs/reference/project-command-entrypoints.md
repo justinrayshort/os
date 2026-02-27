@@ -47,32 +47,38 @@ This page documents the supported top-level commands for local development, veri
 ### Verification Workflow
 
 - `cargo flow`: Run scoped inner-loop validation (`xtask flow`) using changed files (`git status --porcelain`) to target affected workspace crates.
-- `cargo verify-fast`: Run workspace verification (`xtask verify fast`) with explicit handling for mutually-exclusive `platform_storage` host feature sets.
-- `cargo verify`: Run full project verification (`xtask verify full`) including prototype compile checks and optional clippy.
+- `cargo verify-fast`: Run fast workspace verification (`xtask verify fast`) with explicit handling for mutually-exclusive `platform_storage` host feature sets and conditional desktop host checks.
+  - `cargo verify-fast --with-desktop`: Force include desktop host checks.
+  - `cargo verify-fast --without-desktop`: Force skip desktop host checks.
+- `cargo verify`: Run full project verification (`xtask verify full`) including prototype compile checks, optional clippy, and always-on desktop host coverage.
 - `cargo verify-fast` / `cargo verify`: print per-stage duration for measurable feedback-loop latency.
+- `cargo check-all`: Explicit full-workspace compile check alias (`cargo check --workspace`).
+- `cargo test-all`: Explicit full-workspace test alias (`cargo test --workspace`).
 
 ### Performance Engineering Workflow
 
-- `cargo perf doctor`: Check availability of local benchmark/profiling tools (`cargo`, `cargo flamegraph`, `perf`, `heaptrack`).
+- `cargo perf doctor`: Check availability of local benchmark/profiling tools (`cargo`, `cargo flamegraph`, `perf`, `heaptrack`, `sccache`) and report `RUSTC_WRAPPER`/sccache activation status.
 - `cargo perf check`: Run functional test preflight (workspace tests, all-features tests, doctests) and compile benchmark targets (`cargo bench --no-run`).
 - `cargo perf bench [args...]`: Run workspace benchmark suites (`cargo xtask perf bench` passthrough).
 - `cargo perf baseline <name> [cargo-bench-args...]`: Run Criterion benchmarks and save a baseline for regression comparison.
 - `cargo perf compare <name> [cargo-bench-args...]`: Run Criterion benchmarks and compare against a named baseline.
+- `cargo perf dev-loop-baseline [--output <path>]`: Run a repeatable local developer-loop timing bundle (`clean`, `check --workspace`, `test --no-run`, `verify-fast`, `xtask docs all`) and emit a JSON report (default: `.artifacts/perf/reports/dev-loop-baseline.json`).
 - `cargo perf flamegraph [args...]`: Run CPU profiling via `cargo flamegraph` with a default SVG output path under `.artifacts/perf/flamegraphs/` when none is provided.
 - `cargo perf heaptrack [-- <cmd...>]`: Run heap profiling with `heaptrack` (default command: `cargo bench --workspace`).
+- `source scripts/dev/setup-sccache.sh`: Optional local helper to configure `RUSTC_WRAPPER=sccache`, `SCCACHE_DIR=.artifacts/sccache`, and `SCCACHE_CACHE_SIZE=20G` in the current shell.
 
 ### Documentation Workflow (Rustdoc + Wiki)
 
 - `git submodule sync --recursive && git submodule update --init --recursive`: Refresh submodule wiring and initialize/update the `wiki/` submodule.
 - `cargo docs-check`: Run `cargo xtask docs all` (Cargo alias convenience wrapper).
 - `cargo docs-audit`: Generate `.artifacts/docs-audit.json` via `cargo xtask docs audit-report`.
-- `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages.
+- `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages (useful for staged/isolated wiki diagnostics).
 - `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries (disallow direct `platform_storage::load_app_state_envelope(...)` usage in `crates/apps`, `crates/desktop_runtime`, and `crates/site`).
 - `scripts/ui/capture-skin-matrix.sh [base_url] [output_dir]`: Capture screenshot evidence matrix across skins (`modern-adaptive`, `classic-xp`, `classic-95`) and breakpoints (`desktop`, `tablet`, `mobile`) into `.artifacts/ui-conformance/screenshots/`.
 - `scripts/ui/keyboard-flow-smoke.sh [base_url] [output_dir]`: Run keyboard traversal smoke checks for context menu and Display Properties listbox/tab flows across all skins, writing `.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json`.
 - `cargo doc --workspace --no-deps`: Generate authoritative Rust API reference (`target/doc/`).
 - `cargo test --workspace --doc`: Run rustdoc examples (doctests).
-- `cargo xtask docs all`: Run docs contract validation (also includes `wiki` validation).
+- `cargo xtask docs all`: Run docs contract validation (includes `wiki` validation).
 
 ## Root `make` Compatibility Targets
 
