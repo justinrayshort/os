@@ -9,46 +9,64 @@ function fail(message) {
   throw new Error(message);
 }
 
+function tauriInvokeFn() {
+  if (typeof window === 'undefined') return null;
+  const invokeFromPublic = window.__TAURI__?.core?.invoke;
+  if (typeof invokeFromPublic === 'function') return invokeFromPublic;
+  const invokeFromInternals = window.__TAURI_INTERNALS__?.invoke;
+  if (typeof invokeFromInternals === 'function') return invokeFromInternals;
+  return null;
+}
+
+async function tauriInvoke(command, payload) {
+  const invoke = tauriInvokeFn();
+  if (!invoke) {
+    return { available: false, value: null };
+  }
+  const value = await invoke(command, payload || {});
+  return { available: true, value: value ?? null };
+}
+
 function idbSupported() {
   return typeof indexedDB !== 'undefined';
 }
 
 function requestToPromise(req) {
   return new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
+req.onsuccess = () => resolve(req.result);
+req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
   });
 }
 
 function txDone(tx) {
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
-    tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction error'));
+tx.oncomplete = () => resolve();
+tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction error'));
   });
 }
 
 async function openDb() {
   if (!idbSupported()) {
-    fail('IndexedDB is unavailable in this browser context');
+fail('IndexedDB is unavailable in this browser context');
   }
   return await new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(APP_STATE_STORE)) {
-        db.createObjectStore(APP_STATE_STORE, { keyPath: 'namespace' });
-      }
-      if (!db.objectStoreNames.contains(VFS_STORE)) {
-        const store = db.createObjectStore(VFS_STORE, { keyPath: 'path' });
-        store.createIndex('by_parent', 'parent', { unique: false });
-      }
-      if (!db.objectStoreNames.contains(FS_CONFIG_STORE)) {
-        db.createObjectStore(FS_CONFIG_STORE, { keyPath: 'key' });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error || new Error('Failed to open IndexedDB'));
+const req = indexedDB.open(DB_NAME, DB_VERSION);
+req.onupgradeneeded = () => {
+  const db = req.result;
+  if (!db.objectStoreNames.contains(APP_STATE_STORE)) {
+    db.createObjectStore(APP_STATE_STORE, { keyPath: 'namespace' });
+  }
+  if (!db.objectStoreNames.contains(VFS_STORE)) {
+    const store = db.createObjectStore(VFS_STORE, { keyPath: 'path' });
+    store.createIndex('by_parent', 'parent', { unique: false });
+  }
+  if (!db.objectStoreNames.contains(FS_CONFIG_STORE)) {
+    db.createObjectStore(FS_CONFIG_STORE, { keyPath: 'key' });
+  }
+};
+req.onsuccess = () => resolve(req.result);
+req.onerror = () => reject(req.error || new Error('Failed to open IndexedDB'));
   });
 }
 
@@ -63,40 +81,40 @@ async function withStore(storeName, mode, fn) {
 
 async function getByKey(storeName, key) {
   return await withStore(storeName, 'readonly', async (store) => {
-    return await requestToPromise(store.get(key));
+return await requestToPromise(store.get(key));
   });
 }
 
 async function putRecord(storeName, value) {
   return await withStore(storeName, 'readwrite', async (store) => {
-    await requestToPromise(store.put(value));
-    return null;
+await requestToPromise(store.put(value));
+return null;
   });
 }
 
 async function deleteByKey(storeName, key) {
   return await withStore(storeName, 'readwrite', async (store) => {
-    await requestToPromise(store.delete(key));
-    return null;
+await requestToPromise(store.delete(key));
+return null;
   });
 }
 
 async function getAllKeys(storeName) {
   return await withStore(storeName, 'readonly', async (store) => {
-    return await requestToPromise(store.getAllKeys());
+return await requestToPromise(store.getAllKeys());
   });
 }
 
 async function getChildren(parentPath) {
   return await withStore(VFS_STORE, 'readonly', async (store) => {
-    const index = store.index('by_parent');
-    return await requestToPromise(index.getAll(parentPath));
+const index = store.index('by_parent');
+return await requestToPromise(index.getAll(parentPath));
   });
 }
 
 async function getAllNodes() {
   return await withStore(VFS_STORE, 'readonly', async (store) => {
-    return await requestToPromise(store.getAll());
+return await requestToPromise(store.getAll());
   });
 }
 
@@ -107,21 +125,21 @@ function nowMs() {
 function normalizePath(input) {
   let path = (input || '/').trim();
   if (!path.startsWith('/')) {
-    path = '/' + path;
+path = '/' + path;
   }
   path = path.replace(/\\+/g, '/');
   path = path.replace(/\/+/g, '/');
   if (path.length > 1 && path.endsWith('/')) {
-    path = path.slice(0, -1);
+path = path.slice(0, -1);
   }
   const parts = [];
   for (const segment of path.split('/')) {
-    if (!segment || segment === '.') continue;
-    if (segment === '..') {
-      parts.pop();
-      continue;
-    }
-    parts.push(segment);
+if (!segment || segment === '.') continue;
+if (segment === '..') {
+  parts.pop();
+  continue;
+}
+parts.push(segment);
   }
   return '/' + parts.join('/');
 }
@@ -152,33 +170,33 @@ function bytesLen(text) {
 
 function sortEntries(entries) {
   entries.sort((a, b) => {
-    if (a.kind !== b.kind) {
-      return a.kind === 'directory' ? -1 : 1;
-    }
-    return a.name.localeCompare(b.name);
+if (a.kind !== b.kind) {
+  return a.kind === 'directory' ? -1 : 1;
+}
+return a.name.localeCompare(b.name);
   });
   return entries;
 }
 
 function vfsNodeToMetadata(node, permission = 'virtual') {
   return {
-    name: node.path === '/' ? '/' : node.name,
-    path: node.path,
-    kind: node.kind === 'dir' ? 'directory' : 'file',
-    backend: 'indexed-db-virtual',
-    size: node.kind === 'file' ? (node.size ?? 0) : null,
-    modified_at_unix_ms: node.modifiedAt ?? null,
-    permission,
+name: node.path === '/' ? '/' : node.name,
+path: node.path,
+kind: node.kind === 'dir' ? 'directory' : 'file',
+backend: 'indexed-db-virtual',
+size: node.kind === 'file' ? (node.size ?? 0) : null,
+modified_at_unix_ms: node.modifiedAt ?? null,
+permission,
   };
 }
 
 function vfsNodeToEntry(node) {
   return {
-    name: node.path === '/' ? '/' : node.name,
-    path: node.path,
-    kind: node.kind === 'dir' ? 'directory' : 'file',
-    size: node.kind === 'file' ? (node.size ?? 0) : null,
-    modified_at_unix_ms: node.modifiedAt ?? null,
+name: node.path === '/' ? '/' : node.name,
+path: node.path,
+kind: node.kind === 'dir' ? 'directory' : 'file',
+size: node.kind === 'file' ? (node.size ?? 0) : null,
+modified_at_unix_ms: node.modifiedAt ?? null,
   };
 }
 
@@ -193,21 +211,21 @@ async function ensureVfsSeed() {
 
   const ts = nowMs();
   const seed = [
-    { path: '/', parent: null, name: '', kind: 'dir', createdAt: ts, modifiedAt: ts },
-    { path: '/Documents', parent: '/', name: 'Documents', kind: 'dir', createdAt: ts, modifiedAt: ts },
-    { path: '/Documents/welcome.txt', parent: '/Documents', name: 'welcome.txt', kind: 'file', content: 'Virtual file system (IndexedDB)\\n\\nThis explorer works offline and mirrors the native file API shape where possible.\\n', size: 112, createdAt: ts, modifiedAt: ts },
-    { path: '/Documents/todo.txt', parent: '/Documents', name: 'todo.txt', kind: 'file', content: '- Connect a local folder (File System Access API)\\n- Edit and save files\\n- Inspect metadata and permissions\\n', size: 111, createdAt: ts, modifiedAt: ts },
-    { path: '/Projects', parent: '/', name: 'Projects', kind: 'dir', createdAt: ts, modifiedAt: ts },
-    { path: '/Projects/notes.json', parent: '/Projects', name: 'notes.json', kind: 'file', content: JSON.stringify({ project: 'retrodesk', storage: ['indexeddb', 'cache', 'localstorage', 'memory'] }, null, 2) + '\\n', size: 0, createdAt: ts, modifiedAt: ts },
+{ path: '/', parent: null, name: '', kind: 'dir', createdAt: ts, modifiedAt: ts },
+{ path: '/Documents', parent: '/', name: 'Documents', kind: 'dir', createdAt: ts, modifiedAt: ts },
+{ path: '/Documents/welcome.txt', parent: '/Documents', name: 'welcome.txt', kind: 'file', content: 'Virtual file system (IndexedDB)\\n\\nThis explorer works offline and mirrors the native file API shape where possible.\\n', size: 112, createdAt: ts, modifiedAt: ts },
+{ path: '/Documents/todo.txt', parent: '/Documents', name: 'todo.txt', kind: 'file', content: '- Connect a local folder (File System Access API)\\n- Edit and save files\\n- Inspect metadata and permissions\\n', size: 111, createdAt: ts, modifiedAt: ts },
+{ path: '/Projects', parent: '/', name: 'Projects', kind: 'dir', createdAt: ts, modifiedAt: ts },
+{ path: '/Projects/notes.json', parent: '/Projects', name: 'notes.json', kind: 'file', content: JSON.stringify({ project: 'retrodesk', storage: ['indexeddb', 'cache', 'localstorage', 'memory'] }, null, 2) + '\\n', size: 0, createdAt: ts, modifiedAt: ts },
   ];
 
   seed[5].size = bytesLen(seed[5].content);
 
   await withStore(VFS_STORE, 'readwrite', async (store) => {
-    for (const node of seed) {
-      await requestToPromise(store.put(node));
-    }
-    return null;
+for (const node of seed) {
+  await requestToPromise(store.put(node));
+}
+return null;
   });
 }
 
@@ -247,10 +265,10 @@ async function vfsListDir(path) {
   const dir = await vfsRequireDir(dirPath);
   const children = await getChildren(dir.path);
   return {
-    cwd: dir.path,
-    backend: 'indexed-db-virtual',
-    permission: 'virtual',
-    entries: sortEntries((children || []).map(vfsNodeToEntry)),
+cwd: dir.path,
+backend: 'indexed-db-virtual',
+permission: 'virtual',
+entries: sortEntries((children || []).map(vfsNodeToEntry)),
   };
 }
 
@@ -259,11 +277,11 @@ async function vfsReadText(path) {
   if (node.kind !== 'file') fail(`Not a file: ${normalizePath(path)}`);
   const metadata = vfsNodeToMetadata(node, 'virtual');
   return {
-    backend: 'indexed-db-virtual',
-    path: node.path,
-    text: node.content ?? '',
-    metadata,
-    cached_preview_key: `file-preview:${node.path}`,
+backend: 'indexed-db-virtual',
+path: node.path,
+text: node.content ?? '',
+metadata,
+cached_preview_key: `file-preview:${node.path}`,
   };
 }
 
@@ -274,17 +292,17 @@ async function vfsWriteText(path, text) {
   const existing = await getByKey(VFS_STORE, normalized);
   const ts = nowMs();
   const node = existing
-    ? { ...existing, kind: 'file', content: text, size: bytesLen(text), modifiedAt: ts }
-    : {
-        path: normalized,
-        parent: dirname(normalized),
-        name: basename(normalized),
-        kind: 'file',
-        content: text,
-        size: bytesLen(text),
-        createdAt: ts,
-        modifiedAt: ts,
-      };
+? { ...existing, kind: 'file', content: text, size: bytesLen(text), modifiedAt: ts }
+: {
+    path: normalized,
+    parent: dirname(normalized),
+    name: basename(normalized),
+    kind: 'file',
+    content: text,
+    size: bytesLen(text),
+    createdAt: ts,
+    modifiedAt: ts,
+  };
   await putRecord(VFS_STORE, node);
   await vfsTouchParent(normalized);
   return vfsNodeToMetadata(node, 'virtual');
@@ -293,22 +311,22 @@ async function vfsWriteText(path, text) {
 async function vfsCreateDir(path) {
   const normalized = normalizePath(path);
   if (normalized === '/') {
-    return vfsNodeToMetadata(await vfsRequireDir('/'), 'virtual');
+return vfsNodeToMetadata(await vfsRequireDir('/'), 'virtual');
   }
   await vfsEnsureParentDir(normalized);
   const existing = await getByKey(VFS_STORE, normalized);
   if (existing) {
-    if (existing.kind !== 'dir') fail(`File already exists at ${normalized}`);
-    return vfsNodeToMetadata(existing, 'virtual');
+if (existing.kind !== 'dir') fail(`File already exists at ${normalized}`);
+return vfsNodeToMetadata(existing, 'virtual');
   }
   const ts = nowMs();
   const node = {
-    path: normalized,
-    parent: dirname(normalized),
-    name: basename(normalized),
-    kind: 'dir',
-    createdAt: ts,
-    modifiedAt: ts,
+path: normalized,
+parent: dirname(normalized),
+name: basename(normalized),
+kind: 'dir',
+createdAt: ts,
+modifiedAt: ts,
   };
   await putRecord(VFS_STORE, node);
   await vfsTouchParent(normalized);
@@ -324,26 +342,26 @@ async function vfsDelete(path, recursive) {
   if (normalized === '/') fail('Cannot delete root directory');
   const node = await vfsRequireNode(normalized);
   if (node.kind === 'dir') {
-    const children = await getChildren(normalized);
-    if ((children?.length ?? 0) > 0 && !recursive) {
-      fail(`Directory not empty: ${normalized}`);
+const children = await getChildren(normalized);
+if ((children?.length ?? 0) > 0 && !recursive) {
+  fail(`Directory not empty: ${normalized}`);
+}
+if (recursive) {
+  const allNodes = await getAllNodes();
+  const txDb = await openDb();
+  const tx = txDb.transaction(VFS_STORE, 'readwrite');
+  const store = tx.objectStore(VFS_STORE);
+  for (const candidate of allNodes || []) {
+    if (candidate.path === normalized || isDescendantPath(normalized, candidate.path)) {
+      await requestToPromise(store.delete(candidate.path));
     }
-    if (recursive) {
-      const allNodes = await getAllNodes();
-      const txDb = await openDb();
-      const tx = txDb.transaction(VFS_STORE, 'readwrite');
-      const store = tx.objectStore(VFS_STORE);
-      for (const candidate of allNodes || []) {
-        if (candidate.path === normalized || isDescendantPath(normalized, candidate.path)) {
-          await requestToPromise(store.delete(candidate.path));
-        }
-      }
-      await txDone(tx);
-    } else {
-      await deleteByKey(VFS_STORE, normalized);
-    }
+  }
+  await txDone(tx);
+} else {
+  await deleteByKey(VFS_STORE, normalized);
+}
   } else {
-    await deleteByKey(VFS_STORE, normalized);
+await deleteByKey(VFS_STORE, normalized);
   }
   await vfsTouchParent(normalized);
 }
@@ -360,14 +378,14 @@ async function getNativeRootHandle() {
 
 async function setNativeRootHandle(handle) {
   await putRecord(FS_CONFIG_STORE, {
-    key: 'native_root_handle',
-    value: handle,
-    updatedAt: nowMs(),
+key: 'native_root_handle',
+value: handle,
+updatedAt: nowMs(),
   });
   await putRecord(FS_CONFIG_STORE, {
-    key: 'native_root_name',
-    value: handle?.name ?? null,
-    updatedAt: nowMs(),
+key: 'native_root_name',
+value: handle?.name ?? null,
+updatedAt: nowMs(),
   });
 }
 
@@ -392,10 +410,10 @@ async function queryHandlePermission(handle, mode = 'read') {
   if (!handle) return 'prompt';
   if (typeof handle.queryPermission !== 'function') return 'unsupported';
   try {
-    const result = await handle.queryPermission({ mode });
-    return mapPermission(result);
+const result = await handle.queryPermission({ mode });
+return mapPermission(result);
   } catch {
-    return 'unsupported';
+return 'unsupported';
   }
 }
 
@@ -403,10 +421,10 @@ async function requestHandlePermission(handle, mode = 'read') {
   if (!handle) return 'prompt';
   if (typeof handle.requestPermission !== 'function') return 'unsupported';
   try {
-    const result = await handle.requestPermission({ mode });
-    return mapPermission(result);
+const result = await handle.requestPermission({ mode });
+return mapPermission(result);
   } catch {
-    return 'denied';
+return 'denied';
   }
 }
 
@@ -416,7 +434,7 @@ async function resolveNativeDirectoryHandle(path, opts = { create: false }) {
   let current = root;
   const segments = splitSegments(path);
   for (const segment of segments) {
-    current = await current.getDirectoryHandle(segment, { create: !!opts.create });
+current = await current.getDirectoryHandle(segment, { create: !!opts.create });
   }
   return current;
 }
@@ -433,25 +451,25 @@ async function resolveNativeParentAndName(path) {
 async function nativeEntryMetadata(path, handle, permission) {
   const normalized = normalizePath(path);
   if (handle.kind === 'directory') {
-    return {
-      name: normalized === '/' ? '/' : basename(normalized),
-      path: normalized,
-      kind: 'directory',
-      backend: 'native-fs-access',
-      size: null,
-      modified_at_unix_ms: null,
-      permission,
-    };
+return {
+  name: normalized === '/' ? '/' : basename(normalized),
+  path: normalized,
+  kind: 'directory',
+  backend: 'native-fs-access',
+  size: null,
+  modified_at_unix_ms: null,
+  permission,
+};
   }
   const file = await handle.getFile();
   return {
-    name: basename(normalized),
-    path: normalized,
-    kind: 'file',
-    backend: 'native-fs-access',
-    size: file.size,
-    modified_at_unix_ms: file.lastModified ?? null,
-    permission,
+name: basename(normalized),
+path: normalized,
+kind: 'file',
+backend: 'native-fs-access',
+size: file.size,
+modified_at_unix_ms: file.lastModified ?? null,
+permission,
   };
 }
 
@@ -463,15 +481,15 @@ async function resolveNativeFileHandle(path) {
 async function resolveNativeEntry(path) {
   const normalized = normalizePath(path);
   if (normalized === '/') {
-    const root = await getNativeRootHandle();
-    if (!root) fail('No native directory is connected');
-    return root;
+const root = await getNativeRootHandle();
+if (!root) fail('No native directory is connected');
+return root;
   }
   const { parent, name } = await resolveNativeParentAndName(normalized);
   try {
-    return await parent.getFileHandle(name, { create: false });
+return await parent.getFileHandle(name, { create: false });
   } catch (_) {
-    return await parent.getDirectoryHandle(name, { create: false });
+return await parent.getDirectoryHandle(name, { create: false });
   }
 }
 
@@ -480,17 +498,17 @@ async function nativeStatus() {
   const root = native_supported ? await getNativeRootHandle() : null;
   const has_native_root = !!root;
   const permission = !native_supported
-    ? 'virtual'
-    : root
-      ? await queryHandlePermission(root, 'readwrite')
-      : 'prompt';
+? 'virtual'
+: root
+  ? await queryHandlePermission(root, 'readwrite')
+  : 'prompt';
   const rootName = root?.name ?? (await getNativeRootName());
   return {
-    backend: has_native_root ? 'native-fs-access' : 'indexed-db-virtual',
-    native_supported,
-    has_native_root,
-    permission: has_native_root ? permission : (native_supported ? 'prompt' : 'virtual'),
-    root_path_hint: rootName ? `/${rootName}` : null,
+backend: has_native_root ? 'native-fs-access' : 'indexed-db-virtual',
+native_supported,
+has_native_root,
+permission: has_native_root ? permission : (native_supported ? 'prompt' : 'virtual'),
+root_path_hint: rootName ? `/${rootName}` : null,
   };
 }
 
@@ -499,23 +517,40 @@ function cacheRequestUrl(cacheName, key) {
 }
 
 async function cachePutTextInternal(cacheName, key, value) {
+  const tauri = await tauriInvoke('cache_put_text', {
+cacheName,
+cache_name: cacheName,
+key,
+value,
+  });
+  if (tauri.available) {
+return null;
+  }
   if (typeof caches === 'undefined') {
-    fail('Cache API unavailable');
+fail('Cache API unavailable');
   }
   const cache = await caches.open(cacheName);
   const req = new Request(cacheRequestUrl(cacheName, key), { method: 'GET' });
   const res = new Response(value, {
-    headers: {
-      'content-type': 'text/plain; charset=utf-8',
-      'x-retrodesk-cache-key': key,
-    },
+headers: {
+  'content-type': 'text/plain; charset=utf-8',
+  'x-retrodesk-cache-key': key,
+},
   });
   await cache.put(req, res);
 }
 
 async function cacheGetTextInternal(cacheName, key) {
+  const tauri = await tauriInvoke('cache_get_text', {
+cacheName,
+cache_name: cacheName,
+key,
+  });
+  if (tauri.available) {
+return tauri.value ?? null;
+  }
   if (typeof caches === 'undefined') {
-    fail('Cache API unavailable');
+fail('Cache API unavailable');
   }
   const cache = await caches.open(cacheName);
   const req = new Request(cacheRequestUrl(cacheName, key), { method: 'GET' });
@@ -525,8 +560,16 @@ async function cacheGetTextInternal(cacheName, key) {
 }
 
 async function cacheDeleteInternal(cacheName, key) {
+  const tauri = await tauriInvoke('cache_delete', {
+cacheName,
+cache_name: cacheName,
+key,
+  });
+  if (tauri.available) {
+return null;
+  }
   if (typeof caches === 'undefined') {
-    fail('Cache API unavailable');
+fail('Cache API unavailable');
   }
   const cache = await caches.open(cacheName);
   const req = new Request(cacheRequestUrl(cacheName, key), { method: 'GET' });
@@ -534,42 +577,97 @@ async function cacheDeleteInternal(cacheName, key) {
 }
 
 async function appStateLoad(namespace) {
+  const tauri = await tauriInvoke('app_state_load', { namespace });
+  if (tauri.available) {
+    return tauri.value;
+  }
   const row = await getByKey(APP_STATE_STORE, namespace);
   return row ?? null;
 }
 
 async function appStateSave(envelope) {
   if (!envelope || typeof envelope !== 'object') fail('Invalid app-state envelope');
+  const tauri = await tauriInvoke('app_state_save', { envelope });
+  if (tauri.available) {
+    return null;
+  }
   const existing = await getByKey(APP_STATE_STORE, envelope.namespace);
   if (existing && typeof existing.updated_at_unix_ms === 'number') {
-    const incomingTs = Number(envelope.updated_at_unix_ms ?? 0);
-    const existingTs = Number(existing.updated_at_unix_ms ?? 0);
-    if (existingTs >= incomingTs) {
-      return null;
-    }
+const incomingTs = Number(envelope.updated_at_unix_ms ?? 0);
+const existingTs = Number(existing.updated_at_unix_ms ?? 0);
+if (existingTs >= incomingTs) {
+  return null;
+}
   }
   await putRecord(APP_STATE_STORE, envelope);
   return null;
 }
 
 async function appStateDelete(namespace) {
+  const tauri = await tauriInvoke('app_state_delete', { namespace });
+  if (tauri.available) {
+    return null;
+  }
   await deleteByKey(APP_STATE_STORE, namespace);
   return null;
 }
 
 async function appStateNamespaces() {
+  const tauri = await tauriInvoke('app_state_namespaces', {});
+  if (tauri.available) {
+    return (tauri.value || []).map(String).sort();
+  }
   const keys = await getAllKeys(APP_STATE_STORE);
   return (keys || []).map(String).sort();
 }
 
+async function prefsLoad(key) {
+  const tauri = await tauriInvoke('prefs_load', { key });
+  if (tauri.available) {
+    return tauri.value ?? null;
+  }
+  const storage = (typeof window !== 'undefined') ? window.localStorage : null;
+  return storage ? storage.getItem(key) : null;
+}
+
+async function prefsSave(key, rawJson) {
+  const tauri = await tauriInvoke('prefs_save', { key, rawJson, raw_json: rawJson });
+  if (tauri.available) {
+    return null;
+  }
+  const storage = (typeof window !== 'undefined') ? window.localStorage : null;
+  if (!storage) fail('localStorage unavailable');
+  storage.setItem(key, rawJson);
+  return null;
+}
+
+async function prefsDelete(key) {
+  const tauri = await tauriInvoke('prefs_delete', { key });
+  if (tauri.available) {
+    return null;
+  }
+  const storage = (typeof window !== 'undefined') ? window.localStorage : null;
+  if (!storage) return null;
+  storage.removeItem(key);
+  return null;
+}
+
 async function explorerStatus() {
+  const tauri = await tauriInvoke('explorer_status', {});
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   return await nativeStatus();
 }
 
 async function explorerPickNativeDirectory() {
+  const tauri = await tauriInvoke('explorer_pick_root', {});
+  if (tauri.available) {
+return tauri.value;
+  }
   if (typeof window === 'undefined' || typeof window.showDirectoryPicker !== 'function') {
-    fail('File System Access API is not supported in this browser');
+fail('File System Access API is not supported in this browser');
   }
   const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
   await setNativeRootHandle(handle);
@@ -578,64 +676,76 @@ async function explorerPickNativeDirectory() {
 }
 
 async function explorerRequestPermission(mode) {
+  const tauri = await tauriInvoke('explorer_request_permission', { mode });
+  if (tauri.available) {
+return tauri.value;
+  }
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
-    return 'virtual';
+return 'virtual';
   }
   const root = await getNativeRootHandle();
   return await requestHandlePermission(root, mode === 'readwrite' ? 'readwrite' : 'read');
 }
 
 async function explorerListDir(path) {
+  const tauri = await tauriInvoke('explorer_list_dir', { path });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
-    return await vfsListDir(path);
+return await vfsListDir(path);
   }
   const root = await getNativeRootHandle();
   const permission = await queryHandlePermission(root, 'read');
   if (permission === 'denied') {
-    fail('Native folder permission denied');
+fail('Native folder permission denied');
   }
   const dir = await resolveNativeDirectoryHandle(path, { create: false });
   const entries = [];
   for await (const [name, handle] of dir.entries()) {
-    const entryPath = normalizePath(`${normalizePath(path)}/${name}`);
-    if (handle.kind === 'directory') {
-      entries.push({
-        name,
-        path: entryPath,
-        kind: 'directory',
-        size: null,
-        modified_at_unix_ms: null,
-      });
-    } else {
-      const file = await handle.getFile();
-      entries.push({
-        name,
-        path: entryPath,
-        kind: 'file',
-        size: file.size,
-        modified_at_unix_ms: file.lastModified ?? null,
-      });
-    }
+const entryPath = normalizePath(`${normalizePath(path)}/${name}`);
+if (handle.kind === 'directory') {
+  entries.push({
+    name,
+    path: entryPath,
+    kind: 'directory',
+    size: null,
+    modified_at_unix_ms: null,
+  });
+} else {
+  const file = await handle.getFile();
+  entries.push({
+    name,
+    path: entryPath,
+    kind: 'file',
+    size: file.size,
+    modified_at_unix_ms: file.lastModified ?? null,
+  });
+}
   }
   sortEntries(entries);
   return {
-    cwd: normalizePath(path),
-    backend: 'native-fs-access',
-    permission,
-    entries,
+cwd: normalizePath(path),
+backend: 'native-fs-access',
+permission,
+entries,
   };
 }
 
 async function explorerReadTextFile(path) {
+  const tauri = await tauriInvoke('explorer_read_text_file', { path });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
-    const result = await vfsReadText(path);
-    await cachePutTextInternal('retrodesk-explorer-cache-v1', result.cached_preview_key, result.text);
-    return result;
+const result = await vfsReadText(path);
+await cachePutTextInternal('retrodesk-explorer-cache-v1', result.cached_preview_key, result.text);
+return result;
   }
   const root = await getNativeRootHandle();
   const permission = await queryHandlePermission(root, 'read');
@@ -648,21 +758,25 @@ async function explorerReadTextFile(path) {
   const cached_preview_key = `file-preview:${normalized}`;
   await cachePutTextInternal('retrodesk-explorer-cache-v1', cached_preview_key, text);
   return {
-    backend: 'native-fs-access',
-    path: normalized,
-    text,
-    metadata,
-    cached_preview_key,
+backend: 'native-fs-access',
+path: normalized,
+text,
+metadata,
+cached_preview_key,
   };
 }
 
 async function explorerWriteTextFile(path, text) {
+  const tauri = await tauriInvoke('explorer_write_text_file', { path, text });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
-    const meta = await vfsWriteText(path, text ?? '');
-    await cachePutTextInternal('retrodesk-explorer-cache-v1', `file-preview:${meta.path}`, text ?? '');
-    return meta;
+const meta = await vfsWriteText(path, text ?? '');
+await cachePutTextInternal('retrodesk-explorer-cache-v1', `file-preview:${meta.path}`, text ?? '');
+return meta;
   }
   const root = await getNativeRootHandle();
   const permission = await requestHandlePermission(root, 'readwrite');
@@ -679,37 +793,49 @@ async function explorerWriteTextFile(path, text) {
 }
 
 async function explorerCreateDir(path) {
+  const tauri = await tauriInvoke('explorer_create_dir', { path });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
-    return await vfsCreateDir(path);
+return await vfsCreateDir(path);
   }
   const root = await getNativeRootHandle();
   const permission = await requestHandlePermission(root, 'readwrite');
   if (permission !== 'granted') fail('Write permission is required to create folders');
   const normalized = normalizePath(path);
   if (normalized === '/') {
-    const rootHandle = await getNativeRootHandle();
-    return await nativeEntryMetadata('/', rootHandle, permission);
+const rootHandle = await getNativeRootHandle();
+return await nativeEntryMetadata('/', rootHandle, permission);
   }
   const segments = splitSegments(normalized);
   let current = await getNativeRootHandle();
   for (const segment of segments) {
-    current = await current.getDirectoryHandle(segment, { create: true });
+current = await current.getDirectoryHandle(segment, { create: true });
   }
   return await nativeEntryMetadata(normalized, current, permission);
 }
 
 async function explorerCreateFile(path, text) {
+  const tauri = await tauriInvoke('explorer_create_file', { path, text: text ?? '' });
+  if (tauri.available) {
+return tauri.value;
+  }
   return await explorerWriteTextFile(path, text ?? '');
 }
 
 async function explorerDelete(path, recursive) {
+  const tauri = await tauriInvoke('explorer_delete', { path, recursive: !!recursive });
+  if (tauri.available) {
+return null;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
-    await vfsDelete(path, !!recursive);
-    return null;
+await vfsDelete(path, !!recursive);
+return null;
   }
   const root = await getNativeRootHandle();
   const permission = await requestHandlePermission(root, 'readwrite');
@@ -722,10 +848,14 @@ async function explorerDelete(path, recursive) {
 }
 
 async function explorerStat(path) {
+  const tauri = await tauriInvoke('explorer_stat', { path });
+  if (tauri.available) {
+return tauri.value;
+  }
   await ensureVfsSeed();
   const status = await nativeStatus();
   if (status.backend !== 'native-fs-access') {
-    return await vfsStat(path);
+return await vfsStat(path);
   }
   const root = await getNativeRootHandle();
   const permission = await queryHandlePermission(root, 'read');
@@ -738,6 +868,9 @@ export async function jsAppStateLoad(namespace) { return await appStateLoad(name
 export async function jsAppStateSave(envelope) { return await appStateSave(envelope); }
 export async function jsAppStateDelete(namespace) { return await appStateDelete(namespace); }
 export async function jsAppStateNamespaces() { return await appStateNamespaces(); }
+export async function jsPrefsLoad(key) { return await prefsLoad(key); }
+export async function jsPrefsSave(key, rawJson) { return await prefsSave(key, rawJson); }
+export async function jsPrefsDelete(key) { return await prefsDelete(key); }
 
 export async function jsCachePutText(cacheName, key, value) { return await cachePutTextInternal(cacheName, key, value); }
 export async function jsCacheGetText(cacheName, key) { return await cacheGetTextInternal(cacheName, key); }
