@@ -6,9 +6,9 @@ use thiserror::Error;
 
 use crate::apps;
 use crate::model::{
-    AppId, DeepLinkOpenTarget, DeepLinkState, DesktopSnapshot, DesktopState, InteractionState,
-    OpenWindowRequest, PointerPosition, ResizeEdge, ResizeSession, WindowId, WindowRecord,
-    WindowRect, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
+    AppId, DeepLinkOpenTarget, DeepLinkState, DesktopSkin, DesktopSnapshot, DesktopState,
+    InteractionState, OpenWindowRequest, PointerPosition, ResizeEdge, ResizeSession, WindowId,
+    WindowRecord, WindowRect, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
 };
 use crate::window_manager::{
     focus_window_internal, normalize_window_stack, resize_rect, snap_window_to_viewport_edge,
@@ -116,10 +116,10 @@ pub enum DesktopAction {
         /// App command payload.
         command: AppCommand,
     },
-    /// Set the desktop theme display name.
-    SetThemeName {
-        /// New theme name.
-        theme_name: String,
+    /// Set the active desktop skin preset.
+    SetSkin {
+        /// New typed skin id.
+        skin: DesktopSkin,
     },
     /// Set the active wallpaper preset id.
     SetWallpaper {
@@ -647,8 +647,8 @@ pub fn reduce_desktop(
                 }
             }
         },
-        DesktopAction::SetThemeName { theme_name } => {
-            state.theme.name = theme_name;
+        DesktopAction::SetSkin { skin } => {
+            state.theme.skin = skin;
             effects.push(RuntimeEffect::PersistTheme);
         }
         DesktopAction::SetWallpaper { wallpaper_id } => {
@@ -1118,6 +1118,24 @@ mod tests {
         .expect("set high contrast");
 
         assert!(state.theme.high_contrast);
+        assert_eq!(effects, vec![RuntimeEffect::PersistTheme]);
+    }
+
+    #[test]
+    fn set_skin_updates_theme_and_persists() {
+        let mut state = DesktopState::default();
+        let mut interaction = InteractionState::default();
+
+        let effects = reduce_desktop(
+            &mut state,
+            &mut interaction,
+            DesktopAction::SetSkin {
+                skin: DesktopSkin::Classic95,
+            },
+        )
+        .expect("set skin");
+
+        assert_eq!(state.theme.skin, DesktopSkin::Classic95);
         assert_eq!(effects, vec![RuntimeEffect::PersistTheme]);
     }
 

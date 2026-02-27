@@ -69,7 +69,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 | ID | Status | Acceptance criteria (objective) | Current evidence / gap |
 | --- | --- | --- | --- |
 | `TOK-01` | Complete | Fluent-modern theme defines named token layers for typography, spacing, radius, icon sizes, and motion durations in dedicated token files. | `crates/site/src/theme_shell/30-theme-fluent-modern-tokens-core.css` and `crates/site/src/theme_shell/32-theme-fluent-modern-theme-tokens.css` define `--fluent-font-*`, `--fluent-space-*`, `--fluent-radius-*`, `--fluent-icon-*`, `--fluent-motion-*`, and shell semantic tokens. |
-| `TOK-02` | Complete | Fluent-modern tokens are scoped via theme attribute and do not replace legacy themes globally. | Fluent theme values are applied under `.desktop-shell[data-theme="Fluent Modern"]` in `32-theme-fluent-modern-theme-tokens.css` and `33-theme-fluent-modern-overrides.css`. |
+| `TOK-02` | Complete | Skin token layers are scoped via typed `data-skin` attributes and do not replace other skins globally. | Skin scopes are applied under `.desktop-shell[data-skin="modern-adaptive"]`, `.desktop-shell[data-skin="classic-xp"]`, and `.desktop-shell[data-skin="classic-95"]` across split theme files; `cargo xtask docs ui-conformance` rejects deprecated `data-theme` selectors and unscoped skin overrides. |
 | `TOK-03` | Complete | Interactive state colors (hover/active/focus/selection) use semantic tokens rather than repeated color literals, except documented visual-only overlays/gradients. | Fluent interactive and component surface colors are tokenized across shell/taskbar/menu/tray/clock/titlebar/display-properties/desktop-icon surfaces. Remaining raw color literals in `33-theme-fluent-modern-overrides.css` are limited to transparent gradient stops (`rgba(..., 0)`) used in decorative/overlay gradients, which are accepted visual-only exceptions. |
 | `TOK-04` | Complete | Layout spacing/radius values in Fluent overrides use spacing/radius tokens for new work; raw `px` values require documented exceptions. | Fluent shell/taskbar/menu/tray/titlebar/display-properties/desktop-icon layout metrics and radii now use shared spacing/radius and component metric tokens. Remaining raw `px` literals in `33-theme-fluent-modern-overrides.css` are limited to documented effect geometry exceptions (hairline borders, shadow kernels, outline widths/offsets, transform nudges, and decorative gradient dimensions). |
 | `TOK-05` | Complete | Typography hierarchy is tokenized beyond font family (minimum: body, caption/dense, title/chrome weights/sizes) or an explicit exception policy documents remaining fixed sizes. | Fluent shell typography tokens now define body/chrome/title/caption sizes plus body/chrome/title/caption emphasis weights (and body line-height) and are applied across shell root text, titlebar chrome, taskbar/start/menu labels, and tray/clock text in Fluent overrides. |
@@ -89,8 +89,8 @@ This project is not attempting a literal macOS clone. Conformance means:
 
 | ID | Status | Acceptance criteria (objective) | Current evidence / gap |
 | --- | --- | --- | --- |
-| `STA-01` | Complete | Theme-affecting shell preferences are modeled in runtime state and serialized for persistence. | `DesktopTheme` (`name`, `wallpaper_id`, `high_contrast`, `reduced_motion`, `audio_enabled`) in `crates/desktop_runtime/src/model.rs`; persisted via `persist_theme()` in `persistence.rs`. |
-| `STA-02` | Complete | Shell root exposes theme state to CSS through stable `data-*` attributes. | `DesktopShell` sets `data-theme`, `data-high-contrast`, `data-reduced-motion` in `crates/desktop_runtime/src/components.rs`. |
+| `STA-01` | Complete | Theme-affecting shell preferences are modeled in runtime state and serialized for persistence. | `DesktopTheme` (`skin`, `wallpaper_id`, `high_contrast`, `reduced_motion`, `audio_enabled`) in `crates/desktop_runtime/src/model.rs`; persisted via `persist_theme()` in `persistence.rs`. |
+| `STA-02` | Complete | Shell root exposes theme state to CSS through stable `data-*` attributes. | `DesktopShell` sets `data-skin`, `data-high-contrast`, `data-reduced-motion` in `crates/desktop_runtime/src/components.rs`. |
 | `STA-03` | Complete | Every user-visible theme accessibility toggle (at minimum reduced motion + high contrast) has a reducer action, UI trigger, persistence, and CSS effect. | Reduced motion and high contrast now both have reducer actions (`SetReducedMotion`, `SetHighContrast`), taskbar tray toggle triggers, persisted theme writes, and CSS/data-attribute effects. |
 | `STA-04` | Complete | Theme changes persist without bypassing reducer/runtime effect flow. | Reducer emits `RuntimeEffect::PersistTheme`; host persists theme via `DesktopHostContext` effect handler. |
 | `STA-05` | Partial | Theme variant behavior (light/dark/high-contrast) has documented validation coverage criteria and recorded results per release/review. | Light/dark/high-contrast CSS branches exist, but no repeatable validation evidence workflow existed prior to this checklist/SOP. |
@@ -155,7 +155,7 @@ The desktop shell implementation demonstrates a principled and technically coher
 
 - strong semantic icon standardization (`FluentIcon`, `IconName`, `IconSize`)
 - solid keyboard/focus/menu/dialog accessibility mechanics
-- state-driven theming hooks (`data-theme`, `data-reduced-motion`, `data-high-contrast`)
+- state-driven theming hooks (`data-skin`, `data-reduced-motion`, `data-high-contrast`)
 - responsive shell adaptations and adaptive light/dark variants
 - tokenized Fluent theme layers with scoped overrides and compatibility strategy
 

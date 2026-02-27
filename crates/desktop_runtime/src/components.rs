@@ -29,7 +29,8 @@ use crate::{
     host::DesktopHostContext,
     icons::{app_icon_name, FluentIcon, IconName, IconSize},
     model::{
-        AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
+        AppId, DesktopSkin, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId,
+        WindowRecord,
     },
     reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
 };
@@ -53,6 +54,12 @@ struct WallpaperPreset {
     id: &'static str,
     label: &'static str,
     kind: WallpaperPresetKind,
+    note: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SkinPreset {
+    skin: DesktopSkin,
     note: &'static str,
 }
 
@@ -98,11 +105,33 @@ fn desktop_wallpaper_presets() -> &'static [WallpaperPreset] {
     PRESETS
 }
 
+fn desktop_skin_presets() -> &'static [SkinPreset] {
+    const PRESETS: &[SkinPreset] = &[
+        SkinPreset {
+            skin: DesktopSkin::ModernAdaptive,
+            note: "Dark-first modern skin with adaptive light/dark mapping",
+        },
+        SkinPreset {
+            skin: DesktopSkin::ClassicXp,
+            note: "Nostalgic XP-inspired shell palette and controls",
+        },
+        SkinPreset {
+            skin: DesktopSkin::Classic95,
+            note: "Nostalgic Windows 95-inspired shell palette and controls",
+        },
+    ];
+    PRESETS
+}
+
 fn wallpaper_preset_kind_label(kind: WallpaperPresetKind) -> &'static str {
     match kind {
         WallpaperPresetKind::Pattern => "Pattern",
         WallpaperPresetKind::Picture => "Picture",
     }
+}
+
+fn skin_option_dom_id(skin: DesktopSkin) -> String {
+    format!("skin-option-{}", skin.css_id())
 }
 
 fn wallpaper_preset_by_id(id: &str) -> WallpaperPreset {
@@ -222,7 +251,9 @@ pub fn DesktopShell() -> impl IntoView {
             .id
             .to_string(),
     );
+    let skin_selection = create_rw_signal(state.get_untracked().theme.skin);
     let display_properties_original_wallpaper = create_rw_signal(None::<String>);
+    let display_properties_original_skin = create_rw_signal(None::<DesktopSkin>);
     let display_properties_last_focused = create_rw_signal(None::<web_sys::HtmlElement>);
     let display_properties_was_open = create_rw_signal(false);
     provide_context(DesktopShellUiContext {
@@ -233,6 +264,13 @@ pub fn DesktopShell() -> impl IntoView {
         let active_wallpaper = wallpaper_preset_by_id(&state.get().theme.wallpaper_id);
         if !display_properties_open.get() {
             wallpaper_selection.set(active_wallpaper.id.to_string());
+        }
+    });
+
+    create_effect(move |_| {
+        let active_skin = state.get().theme.skin;
+        if !display_properties_open.get() {
+            skin_selection.set(active_skin);
         }
     });
 
@@ -285,8 +323,18 @@ pub fn DesktopShell() -> impl IntoView {
             }
             wallpaper_selection.set(original);
         }
+        if let Some(original_skin) = display_properties_original_skin.get_untracked() {
+            let current_skin = runtime.state.get_untracked().theme.skin;
+            if current_skin != original_skin {
+                runtime.dispatch_action(DesktopAction::SetSkin {
+                    skin: original_skin,
+                });
+            }
+            skin_selection.set(original_skin);
+        }
 
         display_properties_original_wallpaper.set(None);
+        display_properties_original_skin.set(None);
         display_properties_open.set(false);
     });
 
@@ -339,11 +387,14 @@ pub fn DesktopShell() -> impl IntoView {
     });
 
     let open_display_properties = Callback::new(move |_| {
-        let active = wallpaper_preset_by_id(&runtime.state.get_untracked().theme.wallpaper_id);
+        let theme = runtime.state.get_untracked().theme;
+        let active = wallpaper_preset_by_id(&theme.wallpaper_id);
         desktop_context_menu.set(None);
         runtime.dispatch_action(DesktopAction::CloseStartMenu);
         wallpaper_selection.set(active.id.to_string());
+        skin_selection.set(theme.skin);
         display_properties_original_wallpaper.set(Some(active.id.to_string()));
+        display_properties_original_skin.set(Some(theme.skin));
         display_properties_open.set(true);
     });
 
@@ -360,6 +411,16 @@ pub fn DesktopShell() -> impl IntoView {
             wallpaper_id: selected.id.to_string(),
         });
         display_properties_original_wallpaper.set(Some(selected.id.to_string()));
+    });
+    let preview_selected_skin = Callback::new(move |_| {
+        let selected = skin_selection.get_untracked();
+        runtime.dispatch_action(DesktopAction::SetSkin { skin: selected });
+    });
+
+    let apply_selected_skin = Callback::new(move |_| {
+        let selected = skin_selection.get_untracked();
+        runtime.dispatch_action(DesktopAction::SetSkin { skin: selected });
+        display_properties_original_skin.set(Some(selected));
     });
     let on_wallpaper_listbox_keydown = Callback::new(move |ev: web_sys::KeyboardEvent| {
         let presets = desktop_wallpaper_presets();
@@ -391,13 +452,47 @@ pub fn DesktopShell() -> impl IntoView {
             wallpaper_selection.set(presets[index].id.to_string());
         }
     });
+    let on_skin_listbox_keydown = Callback::new(move |ev: web_sys::KeyboardEvent| {
+        let presets = desktop_skin_presets();
+        if presets.is_empty() {
+            return;
+        }
+
+        let selected_skin = skin_selection.get_untracked();
+        let current_index = presets
+            .iter()
+            .position(|preset| preset.skin == selected_skin)
+            .unwrap_or(0);
+        let last_index = presets.len().saturating_sub(1);
+        let next_index = match ev.key().as_str() {
+            "ArrowUp" => Some(current_index.saturating_sub(1)),
+            "ArrowDown" => Some((current_index + 1).min(last_index)),
+            "Home" => Some(0),
+            "End" => Some(last_index),
+            "Enter" | " " | "Spacebar" => {
+                ev.prevent_default();
+                preview_selected_skin.call(());
+                None
+            }
+            _ => None,
+        };
+
+        if let Some(index) = next_index {
+            ev.prevent_default();
+            skin_selection.set(presets[index].skin);
+        }
+    });
 
     let close_display_properties_ok = Callback::new(move |_| {
         let selected = wallpaper_preset_by_id(&wallpaper_selection.get_untracked());
         runtime.dispatch_action(DesktopAction::SetWallpaper {
             wallpaper_id: selected.id.to_string(),
         });
+        runtime.dispatch_action(DesktopAction::SetSkin {
+            skin: skin_selection.get_untracked(),
+        });
         display_properties_original_wallpaper.set(None);
+        display_properties_original_skin.set(None);
         display_properties_open.set(false);
     });
 
@@ -406,7 +501,7 @@ pub fn DesktopShell() -> impl IntoView {
             id="desktop-shell-root"
             class="desktop-shell"
             tabindex="-1"
-            data-theme=move || state.get().theme.name
+            data-skin=move || state.get().theme.skin.css_id()
             data-high-contrast=move || state.get().theme.high_contrast.to_string()
             data-reduced-motion=move || state.get().theme.reduced_motion.to_string()
             on:click=move |_| {
@@ -482,9 +577,13 @@ pub fn DesktopShell() -> impl IntoView {
                     state
                     display_properties_open
                     wallpaper_selection
+                    skin_selection
                     on_wallpaper_listbox_keydown
+                    on_skin_listbox_keydown
                     preview_selected_wallpaper
                     apply_selected_wallpaper
+                    preview_selected_skin
+                    apply_selected_skin
                     close_display_properties_ok
                     close_display_properties_cancel
                 />

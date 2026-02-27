@@ -1,5 +1,5 @@
 /* XP/Luna theme override */
-:root {
+.desktop-shell[data-skin="classic-xp"] {
   --ui-bg: #ece9d8;
   --ui-panel: #ece9d8;
   --ui-panel-alt: #f5f3ea;

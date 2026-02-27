@@ -167,11 +167,54 @@ pub struct WindowRecord {
     pub last_lifecycle_event: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Typed desktop skin variants rendered by the shell root `data-skin` attribute.
+pub enum DesktopSkin {
+    /// Modern adaptive skin with dark-first token language and light/dark remapping.
+    #[serde(rename = "modern-adaptive")]
+    ModernAdaptive,
+    /// Classic XP-inspired nostalgic skin.
+    #[serde(rename = "classic-xp")]
+    ClassicXp,
+    /// Classic Windows 95-inspired nostalgic skin.
+    #[serde(rename = "classic-95")]
+    Classic95,
+}
+
+impl DesktopSkin {
+    /// Stable CSS skin id exposed on the shell root `data-skin` attribute.
+    pub const fn css_id(&self) -> &'static str {
+        match self {
+            Self::ModernAdaptive => "modern-adaptive",
+            Self::ClassicXp => "classic-xp",
+            Self::Classic95 => "classic-95",
+        }
+    }
+
+    /// Human-readable label used by UI skin pickers.
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::ModernAdaptive => "Modern Adaptive",
+            Self::ClassicXp => "Classic XP",
+            Self::Classic95 => "Classic 95",
+        }
+    }
+}
+
+impl Default for DesktopSkin {
+    fn default() -> Self {
+        Self::ModernAdaptive
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// User-configurable desktop theme preferences.
 pub struct DesktopTheme {
-    /// Human-readable theme preset name rendered as the shell root `data-theme`.
-    pub name: String,
+    /// Typed skin preset rendered as the shell root `data-skin`.
+    ///
+    /// This defaults to [`DesktopSkin::ModernAdaptive`] for legacy persisted payloads.
+    #[serde(default)]
+    pub skin: DesktopSkin,
     /// Wallpaper preset id.
     pub wallpaper_id: String,
     /// Whether high contrast rendering is enabled.
@@ -185,7 +228,7 @@ pub struct DesktopTheme {
 impl Default for DesktopTheme {
     fn default() -> Self {
         Self {
-            name: "Fluent Modern".to_string(),
+            skin: DesktopSkin::default(),
             wallpaper_id: "cloud-bands".to_string(),
             high_contrast: false,
             reduced_motion: false,
@@ -455,7 +498,7 @@ mod tests {
         let payload = serde_json::json!({
             "schema_version": 1,
             "theme": {
-                "name": "Fluent Modern",
+                "skin": "modern-adaptive",
                 "wallpaper_id": "cloud-bands",
                 "high_contrast": false,
                 "reduced_motion": false,
@@ -497,6 +540,41 @@ mod tests {
         let window = snapshot.windows.first().expect("window");
         assert!(!window.suspended);
         assert!(window.last_lifecycle_event.is_none());
+    }
+
+    #[test]
+    fn legacy_theme_name_defaults_skin_to_modern_adaptive() {
+        let payload = serde_json::json!({
+            "wallpaper_id": "teal-grid",
+            "high_contrast": true,
+            "reduced_motion": true,
+            "audio_enabled": false,
+            "name": "Fluent Modern"
+        });
+
+        let theme: DesktopTheme =
+            serde_json::from_value(payload).expect("legacy theme payload should deserialize");
+        assert_eq!(theme.skin, DesktopSkin::ModernAdaptive);
+        assert_eq!(theme.wallpaper_id, "teal-grid");
+        assert!(theme.high_contrast);
+        assert!(theme.reduced_motion);
+    }
+
+    #[test]
+    fn desktop_theme_roundtrip_preserves_skin() {
+        let theme = DesktopTheme {
+            skin: DesktopSkin::ClassicXp,
+            wallpaper_id: "green-hills".to_string(),
+            high_contrast: false,
+            reduced_motion: true,
+            audio_enabled: true,
+        };
+        let encoded = serde_json::to_value(&theme).expect("serialize theme");
+        let decoded: DesktopTheme = serde_json::from_value(encoded).expect("deserialize theme");
+        assert_eq!(decoded.skin, DesktopSkin::ClassicXp);
+        assert_eq!(decoded.wallpaper_id, "green-hills");
+        assert!(decoded.reduced_motion);
+        assert!(decoded.audio_enabled);
     }
 
     #[test]

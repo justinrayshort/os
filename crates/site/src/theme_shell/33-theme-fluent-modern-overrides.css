@@ -1,5 +1,5 @@
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-wallpaper {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-wallpaper {
   position: relative;
   background:
     radial-gradient(1200px 680px at 10% -10%, var(--fluent-shell-wallpaper-glow-1), transparent 60%),
@@ -7,7 +7,7 @@
     radial-gradient(760px 560px at 50% 120%, var(--fluent-shell-wallpaper-glow-3), transparent 64%);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-wallpaper::before {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-wallpaper::before {
   background:
     radial-gradient(circle 220px at 12% 18%, var(--fluent-shell-wallpaper-mist-1), transparent 72%),
     radial-gradient(circle 280px at 86% 14%, var(--fluent-shell-wallpaper-mist-2), transparent 70%),
@@ -15,7 +15,7 @@
   opacity: 1;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-wallpaper::after {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-wallpaper::after {
   background:
     linear-gradient(var(--fluent-shell-wallpaper-grid-line) 1px, transparent 1px) 0 0 / 100% 3px,
     linear-gradient(90deg, var(--fluent-shell-wallpaper-grid-line-vertical) 1px, transparent 1px) 0 0 / 3px 100%,
@@ -24,14 +24,14 @@
   filter: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-icons {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-icons {
   left: var(--fluent-space-3);
   top: var(--fluent-space-3);
   gap: var(--fluent-space-2);
   width: var(--fluent-shell-desktop-icons-column-width);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-icon {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-icon {
   width: var(--fluent-shell-desktop-icon-card-width);
   min-height: var(--fluent-shell-desktop-icon-card-min-height);
   padding: var(--fluent-space-2) var(--fluent-space-1);
@@ -46,7 +46,7 @@
     transform var(--fluent-motion-fast) ease;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-icon .icon {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-icon .icon {
   width: var(--fluent-shell-desktop-icon-chip-size);
   height: var(--fluent-shell-desktop-icon-chip-size);
   display: grid;
@@ -67,19 +67,19 @@
   filter: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-icon .icon::before,
-.desktop-shell[data-theme="Fluent Modern"] .desktop-icon .icon::after {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-icon .icon::before,
+.desktop-shell[data-skin="modern-adaptive"] .desktop-icon .icon::after {
   display: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-icon:hover,
-.desktop-shell[data-theme="Fluent Modern"] .desktop-icon:focus-visible {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-icon:hover,
+.desktop-shell[data-skin="modern-adaptive"] .desktop-icon:focus-visible {
   background: var(--fluent-shell-desktop-icon-card-hover-surface);
   border-color: var(--fluent-shell-desktop-icon-card-hover-stroke);
   transform: translateY(-1px);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-window {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-window {
   border: 1px solid var(--fluent-shell-stroke-1);
   border-radius: var(--fluent-radius-lg);
   background: var(--fluent-shell-surface-2);
@@ -92,14 +92,14 @@
     transform var(--fluent-motion-fast) ease;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-window.focused {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-window.focused {
   box-shadow:
     0 0 0 1px var(--fluent-shell-window-focused-inset-stroke) inset,
     0 0 0 1px var(--fluent-shell-window-focused-accent-ring),
     var(--fluent-shell-shadow-3);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-window .titlebar {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-window .titlebar {
   min-height: var(--fluent-shell-titlebar-min-height);
   padding:
     var(--fluent-shell-titlebar-padding-block)
@@ -115,11 +115,11 @@
   text-shadow: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-window .titlebar::after {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-window .titlebar::after {
   display: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-window:not(.focused) .titlebar {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-window:not(.focused) .titlebar {
   background:
     linear-gradient(
       180deg,
@@ -130,7 +130,7 @@
   color: var(--fluent-shell-titlebar-unfocused-text);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .titlebar-title {
+.desktop-shell[data-skin="modern-adaptive"] .titlebar-title {
   display: flex;
   align-items: center;
   gap: var(--fluent-space-2);
@@ -139,7 +139,7 @@
   letter-spacing: 0.01em;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .titlebar-app-icon {
+.desktop-shell[data-skin="modern-adaptive"] .titlebar-app-icon {
   display: inline-grid;
   place-items: center;
   width: var(--fluent-shell-titlebar-app-icon-size);
@@ -148,11 +148,11 @@
   opacity: 0.95;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .titlebar-controls {
+.desktop-shell[data-skin="modern-adaptive"] .titlebar-controls {
   gap: var(--fluent-shell-titlebar-controls-gap);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .titlebar-controls button {
+.desktop-shell[data-skin="modern-adaptive"] .titlebar-controls button {
   width: var(--fluent-shell-titlebar-control-width);
   height: var(--fluent-shell-titlebar-control-height);
   display: grid;
@@ -164,27 +164,27 @@
   box-shadow: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .titlebar-controls button:hover:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .titlebar-controls button:hover:not(:disabled) {
   background: var(--fluent-shell-titlebar-control-hover-surface);
   color: var(--fluent-shell-text-1);
   filter: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .titlebar-controls button:active:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .titlebar-controls button:active:not(:disabled) {
   background: var(--fluent-shell-titlebar-control-active-surface);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .titlebar-controls button:last-child:hover:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .titlebar-controls button:last-child:hover:not(:disabled) {
   background: var(--fluent-shell-titlebar-close-hover-surface);
   color: var(--fluent-shell-danger-text);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .window-body,
-.desktop-shell[data-theme="Fluent Modern"] .window-body-content {
+.desktop-shell[data-skin="modern-adaptive"] .window-body,
+.desktop-shell[data-skin="modern-adaptive"] .window-body-content {
   background: var(--fluent-shell-window-body-surface);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar {
   gap: var(--fluent-space-2);
   padding:
     var(--fluent-shell-taskbar-padding-block)
@@ -199,23 +199,23 @@
 }
 
 @supports (backdrop-filter: blur(8px)) {
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar,
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar-menu,
-  .desktop-shell[data-theme="Fluent Modern"] .start-menu,
-  .desktop-shell[data-theme="Fluent Modern"] .desktop-context-menu,
-  .desktop-shell[data-theme="Fluent Modern"] .display-properties-dialog {
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar,
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar-menu,
+  .desktop-shell[data-skin="modern-adaptive"] .start-menu,
+  .desktop-shell[data-skin="modern-adaptive"] .desktop-context-menu,
+  .desktop-shell[data-skin="modern-adaptive"] .display-properties-dialog {
     backdrop-filter:
       blur(var(--fluent-shell-shell-surface-backdrop-blur))
       saturate(var(--fluent-shell-shell-surface-backdrop-saturate));
   }
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-left,
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-right {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-left,
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-right {
   gap: var(--fluent-shell-taskbar-cluster-gap);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .start-button {
+.desktop-shell[data-skin="modern-adaptive"] .start-button {
   min-width: var(--fluent-shell-start-button-min-width);
   padding:
     var(--fluent-shell-start-button-padding-block)
@@ -237,7 +237,7 @@
     0 1px 2px var(--fluent-shell-start-button-shadow);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .start-button:hover:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .start-button:hover:not(:disabled) {
   background:
     linear-gradient(
       180deg,
@@ -252,7 +252,7 @@
   filter: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .start-button:active:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .start-button:active:not(:disabled) {
   background:
     linear-gradient(
       180deg,
@@ -266,7 +266,7 @@
     );
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-glyph {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-glyph {
   min-width: var(--fluent-shell-taskbar-glyph-size);
   min-height: var(--fluent-shell-taskbar-glyph-size);
   padding: 0;
@@ -277,8 +277,8 @@
   color: currentColor;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app,
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app,
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-overflow-button {
   min-height: var(--fluent-shell-taskbar-button-min-height);
   border-radius: var(--fluent-shell-taskbar-button-radius);
   border: 1px solid transparent;
@@ -292,7 +292,7 @@
     box-shadow var(--fluent-motion-fast) ease;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-overflow-button {
   min-width: var(--fluent-shell-overflow-button-min-width);
   display: inline-flex;
   align-items: center;
@@ -303,20 +303,20 @@
     var(--fluent-shell-overflow-button-padding-inline);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-icon {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-overflow-icon {
   display: inline-grid;
   place-items: center;
   color: var(--fluent-shell-text-2);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app:hover:not(:disabled),
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button:hover:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app:hover:not(:disabled),
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-overflow-button:hover:not(:disabled) {
   border-color: var(--fluent-shell-taskbar-button-hover-stroke);
   background: var(--fluent-shell-taskbar-button-hover-surface);
   filter: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app.focused {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app.focused {
   font-weight: var(--fluent-shell-font-weight-chrome);
   border-color: var(--fluent-shell-taskbar-button-focused-stroke);
   background:
@@ -329,12 +329,12 @@
   box-shadow: 0 1px 8px var(--fluent-shell-taskbar-button-focused-shadow);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app.minimized {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app.minimized {
   color: var(--fluent-shell-text-2);
   opacity: 1;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app.active::after {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app.active::after {
   left: var(--fluent-shell-taskbar-active-indicator-inset-inline);
   right: var(--fluent-shell-taskbar-active-indicator-inset-inline);
   bottom: var(--fluent-shell-taskbar-active-indicator-offset-bottom);
@@ -343,14 +343,14 @@
   background: var(--fluent-shell-accent);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app-icon,
-.desktop-shell[data-theme="Fluent Modern"] .tray-widget-glyph {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app-icon,
+.desktop-shell[data-skin="modern-adaptive"] .tray-widget-glyph {
   display: inline-grid;
   place-items: center;
   line-height: 0;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app-icon {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app-icon {
   min-width: var(--fluent-shell-taskbar-app-icon-size);
   width: var(--fluent-shell-taskbar-app-icon-size);
   height: var(--fluent-shell-taskbar-app-icon-size);
@@ -362,27 +362,27 @@
   color: currentColor;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-pinned {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-pinned {
   width: var(--fluent-shell-taskbar-pinned-width);
   min-width: var(--fluent-shell-taskbar-pinned-width);
   max-width: var(--fluent-shell-taskbar-pinned-width);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-pinned .taskbar-app-icon {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-pinned .taskbar-app-icon {
   width: var(--fluent-shell-taskbar-pinned-icon-size);
   height: var(--fluent-shell-taskbar-pinned-icon-size);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app.compact {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app.compact {
   width: var(--fluent-shell-taskbar-compact-width);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app.keyboard-selected {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app.keyboard-selected {
   outline: 2px solid var(--fluent-shell-focus);
   outline-offset: -2px;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-tray {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-tray {
   min-height: var(--fluent-shell-tray-min-height);
   padding: var(--fluent-shell-tray-padding);
   gap: var(--fluent-shell-tray-gap);
@@ -392,8 +392,8 @@
   box-shadow: inset 0 1px 0 var(--fluent-shell-tray-inset-stroke);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .tray-widget,
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-clock {
+.desktop-shell[data-skin="modern-adaptive"] .tray-widget,
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-clock {
   min-height: var(--fluent-shell-tray-item-min-height);
   border-radius: var(--fluent-radius-sm);
   border: 1px solid transparent;
@@ -403,7 +403,7 @@
   box-shadow: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .tray-widget {
+.desktop-shell[data-skin="modern-adaptive"] .tray-widget {
   min-width: var(--fluent-shell-tray-item-min-width);
   gap: var(--fluent-shell-tray-item-gap);
   padding:
@@ -411,29 +411,29 @@
     var(--fluent-shell-tray-item-padding-inline);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .tray-widget:hover:not(:disabled),
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-clock:hover:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .tray-widget:hover:not(:disabled),
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-clock:hover:not(:disabled) {
   background: var(--fluent-shell-tray-item-hover-surface);
   border-color: var(--fluent-shell-tray-item-hover-stroke);
   filter: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .tray-widget.pressed {
+.desktop-shell[data-skin="modern-adaptive"] .tray-widget.pressed {
   background: var(--fluent-shell-tray-item-pressed-surface);
   border-color: var(--fluent-shell-tray-item-pressed-stroke);
   box-shadow: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .tray-widget-glyph {
+.desktop-shell[data-skin="modern-adaptive"] .tray-widget-glyph {
   color: var(--fluent-shell-text-2);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .tray-widget-value {
+.desktop-shell[data-skin="modern-adaptive"] .tray-widget-value {
   font-size: var(--fluent-shell-font-size-caption);
   font-weight: var(--fluent-shell-font-weight-caption);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-clock {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-clock {
   min-width: var(--fluent-shell-clock-min-width);
   padding:
     var(--fluent-shell-clock-padding-block)
@@ -441,36 +441,36 @@
   gap: var(--fluent-shell-tray-gap);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-clock-time {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-clock-time {
   font-family: var(--fluent-font-family-mono);
   font-size: var(--fluent-shell-font-size-chrome);
   font-weight: var(--fluent-shell-font-weight-chrome-strong);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-clock-date,
-.desktop-shell[data-theme="Fluent Modern"] .start-button,
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app,
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button,
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item,
-.desktop-shell[data-theme="Fluent Modern"] .start-menu button {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-clock-date,
+.desktop-shell[data-skin="modern-adaptive"] .start-button,
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app,
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-overflow-button,
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-menu-item,
+.desktop-shell[data-skin="modern-adaptive"] .start-menu button {
   font-size: var(--fluent-shell-font-size-chrome);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-clock-date {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-clock-date {
   color: var(--fluent-shell-text-2);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-menu,
-.desktop-shell[data-theme="Fluent Modern"] .start-menu,
-.desktop-shell[data-theme="Fluent Modern"] .desktop-context-menu {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-menu,
+.desktop-shell[data-skin="modern-adaptive"] .start-menu,
+.desktop-shell[data-skin="modern-adaptive"] .desktop-context-menu {
   border: 1px solid var(--fluent-shell-stroke-1);
   border-radius: var(--fluent-radius-md);
   background: var(--fluent-shell-surface-1);
   box-shadow: var(--fluent-shell-shadow-2);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item,
-.desktop-shell[data-theme="Fluent Modern"] .start-menu button {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-menu-item,
+.desktop-shell[data-skin="modern-adaptive"] .start-menu button {
   min-height: var(--fluent-shell-menu-item-min-height);
   border: 1px solid transparent;
   border-radius: var(--fluent-shell-menu-item-radius);
@@ -480,23 +480,23 @@
   text-shadow: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item:hover:not(:disabled),
-.desktop-shell[data-theme="Fluent Modern"] .start-menu button:hover:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-menu-item:hover:not(:disabled),
+.desktop-shell[data-skin="modern-adaptive"] .start-menu button:hover:not(:disabled) {
   border-color: var(--fluent-shell-menu-item-hover-stroke);
   background: var(--fluent-shell-menu-item-hover-surface);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item:active:not(:disabled),
-.desktop-shell[data-theme="Fluent Modern"] .start-menu button:active:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-menu-item:active:not(:disabled),
+.desktop-shell[data-skin="modern-adaptive"] .start-menu button:active:not(:disabled) {
   background: var(--fluent-shell-menu-item-active-surface);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item.danger:hover:not(:disabled) {
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-menu-item.danger:hover:not(:disabled) {
   background: var(--fluent-shell-danger-hover-surface);
   color: var(--fluent-shell-danger-text);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .start-menu {
+.desktop-shell[data-skin="modern-adaptive"] .start-menu {
   width: min(
     var(--fluent-shell-start-menu-max-width),
     calc(100vw - var(--fluent-shell-start-menu-viewport-inset))
@@ -504,11 +504,11 @@
   padding: var(--fluent-shell-start-menu-padding);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .start-menu::before {
+.desktop-shell[data-skin="modern-adaptive"] .start-menu::before {
   display: none;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-context-wallpaper-check {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-context-wallpaper-check {
   width: var(--fluent-shell-menu-check-icon-size);
   min-width: var(--fluent-shell-menu-check-icon-size);
   display: inline-grid;
@@ -516,28 +516,28 @@
   color: var(--fluent-shell-accent);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .display-properties-overlay {
+.desktop-shell[data-skin="modern-adaptive"] .display-properties-overlay {
   background: var(--fluent-shell-display-overlay-surface);
   backdrop-filter: blur(var(--fluent-shell-display-overlay-blur));
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .display-properties-dialog {
+.desktop-shell[data-skin="modern-adaptive"] .display-properties-dialog {
   border-radius: var(--fluent-radius-lg);
   border: 1px solid var(--fluent-shell-stroke-1);
   background: var(--fluent-shell-display-dialog-surface);
   box-shadow: var(--fluent-shell-shadow-3);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .display-properties-titlebar {
+.desktop-shell[data-skin="modern-adaptive"] .display-properties-titlebar {
   border-bottom: 1px solid var(--fluent-shell-stroke-2);
   background: transparent;
   color: var(--fluent-shell-text-1);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .display-properties-close,
-.desktop-shell[data-theme="Fluent Modern"] .display-action-button,
-.desktop-shell[data-theme="Fluent Modern"] .display-footer-button,
-.desktop-shell[data-theme="Fluent Modern"] .display-properties-tab {
+.desktop-shell[data-skin="modern-adaptive"] .display-properties-close,
+.desktop-shell[data-skin="modern-adaptive"] .display-action-button,
+.desktop-shell[data-skin="modern-adaptive"] .display-footer-button,
+.desktop-shell[data-skin="modern-adaptive"] .display-properties-tab {
   border-radius: var(--fluent-shell-display-control-radius);
   border: 1px solid var(--fluent-shell-display-control-stroke);
   background: var(--fluent-shell-display-control-surface);
@@ -545,7 +545,7 @@
   color: var(--fluent-shell-text-1);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .display-properties-close {
+.desktop-shell[data-skin="modern-adaptive"] .display-properties-close {
   width: var(--fluent-shell-display-close-size);
   min-width: var(--fluent-shell-display-close-size);
   height: var(--fluent-shell-display-close-size);
@@ -554,45 +554,45 @@
   padding: 0;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .display-properties-tab.active {
+.desktop-shell[data-skin="modern-adaptive"] .display-properties-tab.active {
   border-color: var(--fluent-shell-accent-border-soft);
   background: var(--fluent-shell-display-tab-active-surface);
   box-shadow: 0 1px 8px var(--fluent-shell-display-tab-active-shadow);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .wallpaper-picker-item {
+.desktop-shell[data-skin="modern-adaptive"] .wallpaper-picker-item {
   border-radius: var(--fluent-shell-wallpaper-picker-radius);
   border-color: transparent;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .wallpaper-picker-item.selected {
+.desktop-shell[data-skin="modern-adaptive"] .wallpaper-picker-item.selected {
   border-color: var(--fluent-shell-accent-border-strong);
   background: var(--fluent-shell-accent-subtle-soft);
 }
 
-.desktop-shell[data-theme="Fluent Modern"] button:focus-visible,
-.desktop-shell[data-theme="Fluent Modern"] input:focus-visible,
-.desktop-shell[data-theme="Fluent Modern"] textarea:focus-visible,
-.desktop-shell[data-theme="Fluent Modern"] select:focus-visible {
+.desktop-shell[data-skin="modern-adaptive"] button:focus-visible,
+.desktop-shell[data-skin="modern-adaptive"] input:focus-visible,
+.desktop-shell[data-skin="modern-adaptive"] textarea:focus-visible,
+.desktop-shell[data-skin="modern-adaptive"] select:focus-visible {
   outline: 2px solid var(--fluent-shell-focus);
   outline-offset: 2px;
 }
 
-.desktop-shell[data-theme="Fluent Modern"] .desktop-icon:focus-visible,
-.desktop-shell[data-theme="Fluent Modern"] .taskbar-app.keyboard-selected {
+.desktop-shell[data-skin="modern-adaptive"] .desktop-icon:focus-visible,
+.desktop-shell[data-skin="modern-adaptive"] .taskbar-app.keyboard-selected {
   outline-offset: -2px;
 }
 
-.desktop-shell[data-theme="Fluent Modern"][data-reduced-motion="true"] *,
-.desktop-shell[data-theme="Fluent Modern"][data-reduced-motion="true"] *::before,
-.desktop-shell[data-theme="Fluent Modern"][data-reduced-motion="true"] *::after {
+.desktop-shell[data-skin="modern-adaptive"][data-reduced-motion="true"] *,
+.desktop-shell[data-skin="modern-adaptive"][data-reduced-motion="true"] *::before,
+.desktop-shell[data-skin="modern-adaptive"][data-reduced-motion="true"] *::after {
   animation: none !important;
   transition-duration: 0.01ms !important;
   transition-delay: 0ms !important;
   scroll-behavior: auto !important;
 }
 
-.desktop-shell[data-theme="Fluent Modern"][data-high-contrast="true"] {
+.desktop-shell[data-skin="modern-adaptive"][data-high-contrast="true"] {
   --fluent-shell-surface-1: #ffffff;
   --fluent-shell-surface-2: #ffffff;
   --fluent-shell-stroke-1: rgba(0, 0, 0, 0.65);
@@ -604,7 +604,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .desktop-shell[data-theme="Fluent Modern"] {
+  .desktop-shell[data-skin="modern-adaptive"] {
     --ui-bg: #0f1116;
     --ui-panel: #1b1f27;
     --ui-panel-alt: #141821;
@@ -682,14 +682,14 @@
     color-scheme: dark;
   }
 
-  .desktop-shell[data-theme="Fluent Modern"] .desktop-wallpaper {
+  .desktop-shell[data-skin="modern-adaptive"] .desktop-wallpaper {
     background:
       radial-gradient(1100px 620px at 10% -10%, var(--fluent-shell-wallpaper-glow-1), transparent 60%),
       radial-gradient(900px 520px at 100% 8%, var(--fluent-shell-wallpaper-glow-2), transparent 62%),
       radial-gradient(760px 560px at 50% 120%, var(--fluent-shell-wallpaper-glow-3), transparent 64%);
   }
 
-  .desktop-shell[data-theme="Fluent Modern"] .desktop-icon .icon {
+  .desktop-shell[data-skin="modern-adaptive"] .desktop-icon .icon {
     background:
       linear-gradient(
         180deg,
@@ -704,47 +704,47 @@
       0 2px 8px var(--fluent-shell-desktop-icon-chip-shadow);
   }
 
-  .desktop-shell[data-theme="Fluent Modern"] .desktop-window .titlebar,
-  .desktop-shell[data-theme="Fluent Modern"] .desktop-window:not(.focused) .titlebar {
+  .desktop-shell[data-skin="modern-adaptive"] .desktop-window .titlebar,
+  .desktop-shell[data-skin="modern-adaptive"] .desktop-window:not(.focused) .titlebar {
     background:
       linear-gradient(180deg, var(--fluent-shell-titlebar-sheen), rgba(255, 255, 255, 0)),
       var(--fluent-shell-titlebar-surface);
   }
 
-  .desktop-shell[data-theme="Fluent Modern"] .window-body,
-  .desktop-shell[data-theme="Fluent Modern"] .window-body-content {
+  .desktop-shell[data-skin="modern-adaptive"] .window-body,
+  .desktop-shell[data-skin="modern-adaptive"] .window-body-content {
     background: var(--fluent-shell-window-body-surface);
   }
 
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar {
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar {
     background:
       linear-gradient(180deg, var(--fluent-shell-taskbar-sheen), rgba(255, 255, 255, 0)),
       var(--fluent-shell-taskbar-surface);
     border-top-color: var(--fluent-shell-taskbar-top-stroke);
   }
 
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar-app,
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button,
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar-tray,
-  .desktop-shell[data-theme="Fluent Modern"] .tray-widget,
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock,
-  .desktop-shell[data-theme="Fluent Modern"] .display-properties-close,
-  .desktop-shell[data-theme="Fluent Modern"] .display-action-button,
-  .desktop-shell[data-theme="Fluent Modern"] .display-footer-button,
-  .desktop-shell[data-theme="Fluent Modern"] .display-properties-tab {
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar-app,
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar-overflow-button,
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar-tray,
+  .desktop-shell[data-skin="modern-adaptive"] .tray-widget,
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar-clock,
+  .desktop-shell[data-skin="modern-adaptive"] .display-properties-close,
+  .desktop-shell[data-skin="modern-adaptive"] .display-action-button,
+  .desktop-shell[data-skin="modern-adaptive"] .display-footer-button,
+  .desktop-shell[data-skin="modern-adaptive"] .display-properties-tab {
     border-color: var(--fluent-shell-control-neutral-stroke);
     background: var(--fluent-shell-control-neutral-surface);
   }
 
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar-app:hover:not(:disabled),
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar-overflow-button:hover:not(:disabled),
-  .desktop-shell[data-theme="Fluent Modern"] .tray-widget:hover:not(:disabled),
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar-clock:hover:not(:disabled) {
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar-app:hover:not(:disabled),
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar-overflow-button:hover:not(:disabled),
+  .desktop-shell[data-skin="modern-adaptive"] .tray-widget:hover:not(:disabled),
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar-clock:hover:not(:disabled) {
     background: var(--fluent-shell-taskbar-button-hover-surface);
   }
 
-  .desktop-shell[data-theme="Fluent Modern"] .taskbar-menu-item:hover:not(:disabled),
-  .desktop-shell[data-theme="Fluent Modern"] .start-menu button:hover:not(:disabled) {
+  .desktop-shell[data-skin="modern-adaptive"] .taskbar-menu-item:hover:not(:disabled),
+  .desktop-shell[data-skin="modern-adaptive"] .start-menu button:hover:not(:disabled) {
     background: var(--fluent-shell-menu-item-hover-surface);
     border-color: var(--fluent-shell-menu-item-hover-stroke);
   }

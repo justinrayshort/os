@@ -62,7 +62,7 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    - Command:
 
    ```bash
-   rg -n "FluentIcon|IconName|IconSize|data-theme|data-reduced-motion|data-high-contrast" crates/desktop_runtime/src
+   rg -n "FluentIcon|IconName|IconSize|data-skin|data-reduced-motion|data-high-contrast" crates/desktop_runtime/src
    ```
 
    - Expected output: existing primitives and theming hooks are easy to reuse

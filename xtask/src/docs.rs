@@ -1887,6 +1887,55 @@ fn write_audit_report(
 
 const FLUENT_OVERRIDES_PATH: &str =
     "crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css";
+const XP_TOKENS_PATH: &str = "crates/site/src/theme_shell/10-theme-xp-tokens.css";
+const XP_OVERRIDES_PATH: &str = "crates/site/src/theme_shell/11-theme-xp-overrides.css";
+const LEGACY95_TOKENS_PATH: &str = "crates/site/src/theme_shell/20-theme-legacy95-tokens.css";
+const LEGACY95_OVERRIDES_PATH: &str = "crates/site/src/theme_shell/21-theme-legacy95-overrides.css";
+const MODERN_TOKENS_PATH: &str =
+    "crates/site/src/theme_shell/32-theme-fluent-modern-theme-tokens.css";
+const ACTIVE_THEME_SHELL_CSS_FILES: &[&str] = &[
+    "crates/site/src/theme_shell/00-tokens-reset.css",
+    "crates/site/src/theme_shell/01-components-shell.css",
+    "crates/site/src/theme_shell/02-interactions-hover.css",
+    "crates/site/src/theme_shell/03-responsive-base.css",
+    "crates/site/src/theme_shell/04-motion-base.css",
+    XP_TOKENS_PATH,
+    XP_OVERRIDES_PATH,
+    LEGACY95_TOKENS_PATH,
+    LEGACY95_OVERRIDES_PATH,
+    "crates/site/src/theme_shell/30-theme-fluent-modern-tokens-core.css",
+    "crates/site/src/theme_shell/31-theme-fluent-modern-primitives.css",
+    MODERN_TOKENS_PATH,
+    FLUENT_OVERRIDES_PATH,
+];
+const REQUIRED_SKIN_SCOPES: &[&str] = &[
+    ".desktop-shell[data-skin=\"modern-adaptive\"]",
+    ".desktop-shell[data-skin=\"classic-xp\"]",
+    ".desktop-shell[data-skin=\"classic-95\"]",
+];
+const SKIN_SCOPED_FILES: &[(&str, &str)] = &[
+    (XP_TOKENS_PATH, ".desktop-shell[data-skin=\"classic-xp\"]"),
+    (
+        XP_OVERRIDES_PATH,
+        ".desktop-shell[data-skin=\"classic-xp\"]",
+    ),
+    (
+        LEGACY95_TOKENS_PATH,
+        ".desktop-shell[data-skin=\"classic-95\"]",
+    ),
+    (
+        LEGACY95_OVERRIDES_PATH,
+        ".desktop-shell[data-skin=\"classic-95\"]",
+    ),
+    (
+        MODERN_TOKENS_PATH,
+        ".desktop-shell[data-skin=\"modern-adaptive\"]",
+    ),
+    (
+        FLUENT_OVERRIDES_PATH,
+        ".desktop-shell[data-skin=\"modern-adaptive\"]",
+    ),
+];
 const TYPED_PERSISTENCE_BOUNDARY_DIRS: &[&str] =
     &["crates/apps", "crates/desktop_runtime", "crates/site"];
 const SHELL_ICON_COMPONENT_FILES: &[&str] = &[
@@ -1898,17 +1947,24 @@ const SHELL_ICON_COMPONENT_FILES: &[&str] = &[
 ];
 
 fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    problems.extend(validate_no_data_theme_selectors(root));
+    problems.extend(validate_required_skin_scopes(root));
+    problems.extend(validate_skin_file_scope_presence(root));
+    problems.extend(validate_skin_selector_scoping(root));
+
     let path = root.join(FLUENT_OVERRIDES_PATH);
     let Ok(text) = fs::read_to_string(&path) else {
-        return vec![Problem::new(
+        problems.push(Problem::new(
             "ui-conformance",
             FLUENT_OVERRIDES_PATH,
             "failed to read Fluent overrides CSS for UI conformance checks",
             None,
-        )];
+        ));
+        problems.extend(validate_shell_icon_standardization(root));
+        return problems;
     };
 
-    let mut problems = Vec::new();
     for (idx, line) in text.lines().enumerate() {
         let line_no = idx + 1;
         let trimmed = line.trim();
@@ -1940,6 +1996,156 @@ fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
     }
 
     problems.extend(validate_shell_icon_standardization(root));
+
+    problems
+}
+
+fn validate_no_data_theme_selectors(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    for rel_path in ACTIVE_THEME_SHELL_CSS_FILES {
+        let path = root.join(rel_path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            problems.push(Problem::new(
+                "ui-conformance",
+                *rel_path,
+                "failed to read active split CSS source while scanning for deprecated data-theme selectors",
+                None,
+            ));
+            continue;
+        };
+        for (idx, line) in text.lines().enumerate() {
+            if line.contains("data-theme") {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    *rel_path,
+                    "deprecated `data-theme` selector detected; use `data-skin` scopes",
+                    Some(idx + 1),
+                ));
+            }
+        }
+    }
+    problems
+}
+
+fn validate_required_skin_scopes(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    let mut joined = String::new();
+
+    for rel_path in ACTIVE_THEME_SHELL_CSS_FILES {
+        let path = root.join(rel_path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            continue;
+        };
+        joined.push_str(&text);
+        joined.push('\n');
+    }
+
+    for scope in REQUIRED_SKIN_SCOPES {
+        if !joined.contains(scope) {
+            problems.push(Problem::new(
+                "ui-conformance",
+                "crates/site/src/theme_shell",
+                format!("missing required skin scope `{scope}` in active split CSS"),
+                None,
+            ));
+        }
+    }
+
+    problems
+}
+
+fn validate_skin_file_scope_presence(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+
+    for (rel_path, scope) in SKIN_SCOPED_FILES {
+        let path = root.join(rel_path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            problems.push(Problem::new(
+                "ui-conformance",
+                *rel_path,
+                "failed to read skin CSS file for scope validation",
+                None,
+            ));
+            continue;
+        };
+
+        if !text.contains(scope) {
+            problems.push(Problem::new(
+                "ui-conformance",
+                *rel_path,
+                format!("skin CSS file is missing required scope prefix `{scope}`"),
+                None,
+            ));
+        }
+    }
+
+    problems
+}
+
+fn validate_skin_selector_scoping(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+
+    for (rel_path, scope_prefix) in SKIN_SCOPED_FILES {
+        let path = root.join(rel_path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            continue;
+        };
+        for (idx, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.is_empty()
+                || trimmed.starts_with("/*")
+                || trimmed.starts_with('*')
+                || trimmed.starts_with("*/")
+            {
+                continue;
+            }
+
+            if trimmed.starts_with('@') || trimmed.starts_with('}') || !trimmed.contains('{') {
+                continue;
+            }
+
+            let selector_chunk = trimmed
+                .split_once('{')
+                .map(|(selector, _)| selector.trim())
+                .unwrap_or("");
+
+            if selector_chunk.is_empty()
+                || selector_chunk.starts_with(':')
+                || selector_chunk.starts_with("--")
+            {
+                continue;
+            }
+
+            // Skip keyframe selectors and declaration-like lines.
+            if selector_chunk == "from"
+                || selector_chunk == "to"
+                || selector_chunk.ends_with('%')
+                || (selector_chunk.contains(':') && !selector_chunk.contains(','))
+            {
+                continue;
+            }
+
+            for selector in selector_chunk.split(',') {
+                let selector = selector.trim();
+                if selector.is_empty()
+                    || selector.starts_with(':')
+                    || selector == "from"
+                    || selector == "to"
+                    || selector.ends_with('%')
+                {
+                    continue;
+                }
+                if !selector.starts_with(scope_prefix) {
+                    problems.push(Problem::new(
+                        "ui-conformance",
+                        *rel_path,
+                        format!("unscoped selector in skin file; expected prefix `{scope_prefix}`"),
+                        Some(idx + 1),
+                    ));
+                }
+            }
+        }
+    }
 
     problems
 }

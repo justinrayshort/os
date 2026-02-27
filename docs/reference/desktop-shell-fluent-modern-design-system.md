@@ -7,7 +7,7 @@ last_reviewed: "2026-02-26"
 audience: ["engineering", "design"]
 invariants:
   - "Shell icon usage flows through the centralized `desktop_runtime::icons` abstraction instead of ad-hoc text glyphs or inline per-component SVG markup."
-  - "Theme-specific visual changes are applied via `data-theme` scoped CSS overrides to preserve incremental rollout and backward compatibility for legacy themes."
+  - "Theme-specific visual changes are applied via `data-skin` scoped CSS overrides with shared shell structure to preserve behavior parity across skins."
   - "Accessibility behaviors (focus visibility, keyboard navigation, high contrast, reduced motion) remain functional during visual refinements."
 tags: ["reference", "design-system", "desktop-shell", "fluent", "icons", "accessibility"]
 domain: "frontend"
@@ -30,7 +30,7 @@ The Fluent Modern redesign currently covers the desktop shell chrome and shared 
 - desktop context menu wallpaper selection affordances
 - display properties dialog shell controls
 
-App content areas (Calculator, Explorer, Notepad, Terminal) continue to use existing layouts and inherit shell typography/tokens where compatible.
+App content areas (Calculator, Explorer, Notepad, Terminal) share the same tokenized spacing/typography/surface system with no domain behavior changes.
 
 ## Iconography Standard (Fluent UI System Icons)
 
@@ -53,13 +53,25 @@ Implementation notes:
 
 ## Theme and Token Model
 
-The Fluent redesign is intentionally incremental and scoped by the shell root attribute:
+The Fluent redesign is intentionally incremental and scoped by the shell root skin attribute:
 
-- `data-theme="Fluent Modern"` on `.desktop-shell`
+- `data-skin="modern-adaptive"` on `.desktop-shell`
 
 Primary theme and component tokens are defined/overridden in:
 
-- [`crates/site/src/theme_shell.css`](../../crates/site/src/theme_shell.css)
+- [`crates/site/src/theme_shell/00-tokens-reset.css`](../../crates/site/src/theme_shell/00-tokens-reset.css)
+- [`crates/site/src/theme_shell/01-components-shell.css`](../../crates/site/src/theme_shell/01-components-shell.css)
+- [`crates/site/src/theme_shell/02-interactions-hover.css`](../../crates/site/src/theme_shell/02-interactions-hover.css)
+- [`crates/site/src/theme_shell/03-responsive-base.css`](../../crates/site/src/theme_shell/03-responsive-base.css)
+- [`crates/site/src/theme_shell/04-motion-base.css`](../../crates/site/src/theme_shell/04-motion-base.css)
+- [`crates/site/src/theme_shell/10-theme-xp-tokens.css`](../../crates/site/src/theme_shell/10-theme-xp-tokens.css)
+- [`crates/site/src/theme_shell/11-theme-xp-overrides.css`](../../crates/site/src/theme_shell/11-theme-xp-overrides.css)
+- [`crates/site/src/theme_shell/20-theme-legacy95-tokens.css`](../../crates/site/src/theme_shell/20-theme-legacy95-tokens.css)
+- [`crates/site/src/theme_shell/21-theme-legacy95-overrides.css`](../../crates/site/src/theme_shell/21-theme-legacy95-overrides.css)
+- [`crates/site/src/theme_shell/30-theme-fluent-modern-tokens-core.css`](../../crates/site/src/theme_shell/30-theme-fluent-modern-tokens-core.css)
+- [`crates/site/src/theme_shell/31-theme-fluent-modern-primitives.css`](../../crates/site/src/theme_shell/31-theme-fluent-modern-primitives.css)
+- [`crates/site/src/theme_shell/32-theme-fluent-modern-theme-tokens.css`](../../crates/site/src/theme_shell/32-theme-fluent-modern-theme-tokens.css)
+- [`crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css`](../../crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css)
 
 Token categories introduced:
 
@@ -113,7 +125,7 @@ Contrast guidance for future refinements:
 
 ## Adaptive Theming and Performance Notes
 
-Fluent Modern supports adaptive theming through `prefers-color-scheme` token overrides while preserving the explicit runtime theme preset (`data-theme`).
+Fluent Modern supports adaptive theming through `prefers-color-scheme` token overrides while preserving the explicit runtime skin preset (`data-skin`).
 
 Performance safeguards:
 
@@ -127,7 +139,7 @@ When extending the redesign to more shell or app surfaces:
 
 1. Reuse `IconName` and `FluentIcon` instead of introducing new icon markup per component.
 2. Prefer token additions (`--fluent-shell-*`) over one-off color literals in component rules.
-3. Scope visual changes under `.desktop-shell[data-theme="Fluent Modern"]` unless the change is intended for all themes.
+3. Scope visual changes under `.desktop-shell[data-skin="modern-adaptive"]` unless the change is intended for all skins.
 4. Preserve keyboard, focus, and screen-reader semantics before adjusting appearance.
 5. Validate on standard and high-DPI displays (especially icon alignment and small text in tray/taskbar regions).
 
@@ -136,7 +148,8 @@ When extending the redesign to more shell or app surfaces:
 - [`crates/desktop_runtime/src/components.rs`](../../crates/desktop_runtime/src/components.rs)
 - [`crates/desktop_runtime/src/model.rs`](../../crates/desktop_runtime/src/model.rs)
 - [`crates/desktop_runtime/src/reducer.rs`](../../crates/desktop_runtime/src/reducer.rs)
-- [`crates/site/src/theme_shell.css`](../../crates/site/src/theme_shell.css)
+- [`crates/site/src/theme_shell/01-components-shell.css`](../../crates/site/src/theme_shell/01-components-shell.css)
+- [`crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css`](../../crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css)
 - [`docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`](desktop-shell-hig-fluent-conformance-checklist.md)
 - [`docs/sop/ui-design-conformance-review-sop.md`](../sop/ui-design-conformance-review-sop.md)
 - [`wiki/Reference-Design-Materials-and-Artifacts.md`](../../wiki/Reference-Design-Materials-and-Artifacts.md)

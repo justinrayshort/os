@@ -1,5 +1,5 @@
 /* De-branded Windows 95-inspired desktop restore */
-:root {
+.desktop-shell[data-skin="classic-95"] {
   --ui-bg: #c0c0c0;
   --ui-panel: #d4d0c8;
   --ui-panel-alt: #c6c2ba;

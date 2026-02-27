@@ -44,6 +44,28 @@
   .taskbar-clock-date {
     display: none;
   }
+
+  .display-properties-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - var(--taskbar-h) - 16px);
+  }
+
+  .display-properties-content {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .display-preview-frame {
+    max-width: 320px;
+  }
+
+  .display-properties-actions-row {
+    justify-content: stretch;
+  }
+
+  .display-action-button {
+    flex: 1;
+  }
 }
 
 @media (max-width: 640px) {
@@ -87,6 +109,10 @@
     width: min(260px, calc(100vw - 12px));
   }
 
+  .desktop-context-menu {
+    width: min(300px, calc(100vw - 12px));
+  }
+
   .calc-keypad {
     gap: 3px;
   }
@@ -101,4 +127,3 @@
     width: 100%;
   }
 }
-

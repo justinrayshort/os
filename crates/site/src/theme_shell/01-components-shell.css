@@ -280,7 +280,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  min-height: 24px;
+  min-height: 32px
   padding: 2px 4px;
   background: linear-gradient(90deg, var(--ui-title), #1d2d8f);
   color: #fff;
@@ -546,7 +546,7 @@
 
 .taskbar-app,
 .taskbar-overflow-button {
-  min-height: 28px;
+  min-height: 32px;
   position: relative;
 }
 
@@ -646,7 +646,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  min-height: 30px;
+  min-height: 32px
   padding: 1px 2px;
   border: 1px solid #000;
   box-shadow: var(--bevel-in);
@@ -654,7 +654,7 @@
 }
 
 .tray-widget {
-  min-height: 24px;
+  min-height: 32px
   min-width: 46px;
   display: inline-flex;
   align-items: center;
@@ -689,7 +689,7 @@
 
 .taskbar-clock {
   min-width: 92px;
-  min-height: 30px;
+  min-height: 32px
   display: grid;
   justify-items: end;
   align-content: center;
@@ -723,7 +723,7 @@
 }
 
 .taskbar-menu-item {
-  min-height: 26px;
+  min-height: 32px;
   width: 100%;
   text-align: left;
   padding: 4px 8px;
@@ -789,6 +789,281 @@
   gap: 8px;
 }
 
+.desktop-context-menu {
+  position: fixed;
+  width: min(320px, calc(100vw - 12px));
+  max-height: calc(100vh - 12px);
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  z-index: 1100;
+}
+
+.desktop-menu-separator {
+  height: 0;
+  margin: 3px 2px;
+  border-top: 1px solid var(--ui-shadow);
+  border-bottom: 1px solid var(--ui-highlight);
+}
+
+.desktop-context-group-label {
+  padding: 4px 8px;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+}
+
+.desktop-context-wallpaper-item {
+  min-height: 32px;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.desktop-context-wallpaper-item.active {
+  font-weight: 700;
+}
+
+.desktop-context-wallpaper-check {
+  width: 12px;
+  text-align: center;
+  line-height: 1;
+}
+
+.desktop-context-wallpaper-text {
+  display: grid;
+  min-width: 0;
+}
+
+.desktop-context-wallpaper-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desktop-context-wallpaper-meta {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+}
+
+.display-properties-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1050;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.display-properties-dialog {
+  width: min(620px, calc(100vw - 24px));
+  max-height: min(460px, calc(100vh - var(--taskbar-h) - 24px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.display-properties-titlebar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
+}
+
+.display-properties-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.display-properties-close,
+.display-properties-tab,
+.display-action-button,
+.display-footer-button {
+  min-height: 32px;
+  font: inherit;
+  cursor: default;
+}
+
+.display-properties-close {
+  width: 32px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+.display-properties-body {
+  min-height: 0;
+  padding: 10px 10px 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.display-properties-tabs {
+  display: flex;
+  align-items: end;
+  gap: 4px;
+}
+
+.display-properties-tab {
+  padding: 4px 12px;
+}
+
+.display-properties-content {
+  min-height: 0;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.display-preview-column {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.display-preview-frame {
+  padding: 10px;
+}
+
+.display-preview-monitor {
+  padding: 8px;
+}
+
+.display-preview-screen {
+  height: 120px;
+  position: relative;
+  overflow: hidden;
+}
+
+.display-preview-desktop-icon {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  max-width: 80px;
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.display-preview-taskbar {
+  margin-top: 4px;
+  min-height: 18px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 2px;
+}
+
+.display-preview-start,
+.display-preview-clock {
+  min-height: 16px;
+  line-height: 1.2;
+}
+
+.display-preview-clock {
+  grid-column: 3;
+}
+
+.display-preview-caption {
+  font-weight: 700;
+}
+
+.display-preview-note {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.display-options-column {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.display-list-label {
+  font-weight: 700;
+}
+
+.wallpaper-picker-list {
+  min-height: 0;
+  overflow: auto;
+  padding: 2px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+
+.wallpaper-picker-item {
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 6px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: default;
+}
+
+.wallpaper-preview-thumb {
+  width: 56px;
+  height: 34px;
+  display: block;
+}
+
+.wallpaper-picker-item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.wallpaper-picker-item-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wallpaper-picker-item-meta {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+}
+
+.display-properties-actions-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.display-action-button {
+  min-width: 96px;
+  padding: 4px 10px;
+}
+
+.display-properties-current {
+  min-height: 32px;
+  padding: 6px 8px;
+}
+
+.display-properties-footer {
+  padding: 8px 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.display-footer-button {
+  min-width: 90px;
+  padding: 4px 10px;
+}
+
 .app-shell {
   height: 100%;
   min-height: 0;
@@ -815,7 +1090,7 @@
 .app-toolbar button,
 .terminal-toolbar button {
   padding: 2px 8px;
-  min-height: 22px;
+  min-height: 32px
 }
 
 .app-toolbar,
@@ -835,7 +1110,7 @@
 }
 
 .app-statusbar > span {
-  min-height: 20px;
+  min-height: 32px
   padding: 2px 6px;
   border: 1px solid #000;
   box-shadow: var(--bevel-in);
@@ -955,7 +1230,7 @@
 .explorer-create-name {
   min-width: 0;
   flex: 1 1 220px;
-  min-height: 22px;
+  min-height: 32px
   border: 1px solid #000;
   box-shadow: var(--bevel-in);
   background: #fff;
@@ -1102,7 +1377,7 @@
 .terminal-input {
   width: 100%;
   min-width: 0;
-  min-height: 24px;
+  min-height: 32px
   padding: 2px 6px;
   border: 1px solid #000;
   background: #fff;
@@ -1110,7 +1385,7 @@
 }
 
 .terminal-run {
-  min-height: 24px;
+  min-height: 32px
   padding: 2px 8px;
 }
 
@@ -1243,7 +1518,7 @@
 }
 
 .calc-key {
-  min-height: 30px;
+  min-height: 32px
   padding: 4px 6px;
   font-weight: 700;
 }
@@ -1318,7 +1593,7 @@
 }
 
 .calc-tape-header button {
-  min-height: 24px;
+  min-height: 32px
   padding: 2px 8px;
 }
 
@@ -1365,4 +1640,3 @@
   color: var(--ui-text-muted);
   line-height: 1.35;
 }
-
