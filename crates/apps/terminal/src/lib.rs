@@ -10,7 +10,7 @@ use std::{
 
 use leptos::ev::KeyboardEvent;
 use leptos::*;
-use platform_storage::{self, AppStateEnvelope, TERMINAL_STATE_NAMESPACE};
+use platform_storage::{self, AppStateSchemaPolicy, TERMINAL_STATE_NAMESPACE};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -45,23 +45,14 @@ fn normalize_terminal_lines(lines: &mut Vec<String>) {
 }
 
 fn restore_terminal_state(
-    envelope: AppStateEnvelope,
+    mut restored: TerminalPersistedState,
     launch_cwd: &str,
-) -> Option<TerminalPersistedState> {
-    if envelope.envelope_version != platform_storage::APP_STATE_ENVELOPE_VERSION {
-        return None;
-    }
-
-    if envelope.schema_version > TERMINAL_STATE_SCHEMA_VERSION {
-        return None;
-    }
-
-    let mut restored = serde_json::from_value::<TerminalPersistedState>(envelope.payload).ok()?;
+) -> TerminalPersistedState {
     if restored.cwd.trim().is_empty() {
         restored.cwd = launch_cwd.to_string();
     }
     normalize_terminal_lines(&mut restored.lines);
-    Some(restored)
+    restored
 }
 
 #[component]
@@ -102,18 +93,22 @@ pub fn TerminalApp(
         let hydrate_alive = hydrate_alive.clone();
         let launch_cwd = launch_cwd.clone();
         spawn_local(async move {
-            match platform_storage::load_app_state_envelope(TERMINAL_STATE_NAMESPACE).await {
-                Ok(Some(envelope)) => {
-                    if let Some(restored) = restore_terminal_state(envelope, &launch_cwd) {
-                        if !hydrate_alive.get() {
-                            return;
-                        }
-                        let serialized = serde_json::to_string(&restored).ok();
-                        cwd.set(restored.cwd);
-                        input.set(restored.input);
-                        lines.set(restored.lines);
-                        last_saved.set(serialized);
+            match platform_storage::load_app_state_typed::<TerminalPersistedState>(
+                TERMINAL_STATE_NAMESPACE,
+                AppStateSchemaPolicy::UpTo(TERMINAL_STATE_SCHEMA_VERSION),
+            )
+            .await
+            {
+                Ok(Some(restored)) => {
+                    let restored = restore_terminal_state(restored, &launch_cwd);
+                    if !hydrate_alive.get() {
+                        return;
                     }
+                    let serialized = serde_json::to_string(&restored).ok();
+                    cwd.set(restored.cwd);
+                    input.set(restored.input);
+                    lines.set(restored.lines);
+                    last_saved.set(serialized);
                 }
                 Ok(None) => {}
                 Err(err) => logging::warn!("terminal hydrate failed: {err}"),
@@ -150,20 +145,14 @@ pub fn TerminalApp(
         }
         last_saved.set(Some(serialized));
 
-        let envelope = match platform_storage::build_app_state_envelope(
-            TERMINAL_STATE_NAMESPACE,
-            TERMINAL_STATE_SCHEMA_VERSION,
-            &snapshot,
-        ) {
-            Ok(envelope) => envelope,
-            Err(err) => {
-                logging::warn!("terminal envelope build failed: {err}");
-                return;
-            }
-        };
-
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state_envelope(&envelope).await {
+            if let Err(err) = platform_storage::save_app_state(
+                TERMINAL_STATE_NAMESPACE,
+                TERMINAL_STATE_SCHEMA_VERSION,
+                &snapshot,
+            )
+            .await
+            {
                 logging::warn!("terminal persist failed: {err}");
             }
         });

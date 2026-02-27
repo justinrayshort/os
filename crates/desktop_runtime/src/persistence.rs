@@ -74,43 +74,29 @@ pub fn load_boot_snapshot() -> Option<DesktopSnapshot> {
 
 /// Loads the durable boot snapshot from [`platform_storage`] (IndexedDB-backed).
 pub async fn load_durable_boot_snapshot() -> Option<DesktopSnapshot> {
-    let envelope =
-        match platform_storage::load_app_state_envelope(platform_storage::DESKTOP_STATE_NAMESPACE)
-            .await
-        {
-            Ok(value) => value?,
-            Err(err) => {
-                leptos::logging::warn!("durable boot snapshot load failed: {err}");
-                return None;
-            }
-        };
-
-    serde_json::from_value::<DesktopSnapshot>(envelope.payload).ok()
+    match platform_storage::load_app_state_typed::<DesktopSnapshot>(
+        platform_storage::DESKTOP_STATE_NAMESPACE,
+        platform_storage::AppStateSchemaPolicy::UpTo(crate::model::DESKTOP_LAYOUT_SCHEMA_VERSION),
+    )
+    .await
+    {
+        Ok(snapshot) => snapshot,
+        Err(err) => {
+            leptos::logging::warn!("durable boot snapshot load failed: {err}");
+            None
+        }
+    }
 }
 
 /// Persists a durable desktop layout snapshot through [`platform_storage`].
 pub async fn persist_durable_layout_snapshot(state: &DesktopState) -> Result<(), String> {
-    let envelope = build_durable_layout_snapshot_envelope(state)?;
-    persist_durable_layout_snapshot_envelope(&envelope).await
-}
-
-/// Builds a durable app-state envelope for the current desktop layout snapshot.
-pub fn build_durable_layout_snapshot_envelope(
-    state: &DesktopState,
-) -> Result<platform_storage::AppStateEnvelope, String> {
     let snapshot = state.snapshot();
-    platform_storage::build_app_state_envelope(
+    platform_storage::save_app_state(
         platform_storage::DESKTOP_STATE_NAMESPACE,
         crate::model::DESKTOP_LAYOUT_SCHEMA_VERSION,
         &snapshot,
     )
-}
-
-/// Persists a prebuilt durable desktop layout envelope.
-pub async fn persist_durable_layout_snapshot_envelope(
-    envelope: &platform_storage::AppStateEnvelope,
-) -> Result<(), String> {
-    platform_storage::save_app_state_envelope(envelope).await
+    .await
 }
 
 /// Persists compatibility layout state.

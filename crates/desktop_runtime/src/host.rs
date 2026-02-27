@@ -106,20 +106,12 @@ impl DesktopHostContext {
     }
 
     fn persist_durable_snapshot(self, state: crate::model::DesktopState, cause: &str) {
-        let durable_envelope = persistence::build_durable_layout_snapshot_envelope(&state);
-        match durable_envelope {
-            Ok(envelope) => {
-                let cause = cause.to_string();
-                spawn_local(async move {
-                    if let Err(err) =
-                        persistence::persist_durable_layout_snapshot_envelope(&envelope).await
-                    {
-                        logging::warn!("persist durable {cause} snapshot failed: {err}");
-                    }
-                });
+        let cause = cause.to_string();
+        spawn_local(async move {
+            if let Err(err) = persistence::persist_durable_layout_snapshot(&state).await {
+                logging::warn!("persist durable {cause} snapshot failed: {err}");
             }
-            Err(err) => logging::warn!("build durable {cause} envelope failed: {err}"),
-        }
+        });
     }
 
     /// Returns the current desktop viewport rect available to the shell window manager.

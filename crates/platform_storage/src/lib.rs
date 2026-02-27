@@ -94,6 +94,63 @@ pub async fn save_app_state<T: Serialize>(
     save_app_state_envelope(&envelope).await
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Schema compatibility policy used by [`load_app_state_typed`].
+pub enum AppStateSchemaPolicy {
+    /// Accept only an exact schema version.
+    Exact(u32),
+    /// Accept any schema version up to and including this maximum.
+    UpTo(u32),
+    /// Accept any schema version.
+    Any,
+}
+
+impl AppStateSchemaPolicy {
+    const fn allows(self, schema_version: u32) -> bool {
+        match self {
+            Self::Exact(expected) => schema_version == expected,
+            Self::UpTo(max_supported) => schema_version <= max_supported,
+            Self::Any => true,
+        }
+    }
+}
+
+/// Loads and deserializes typed app-state data from an envelope namespace.
+///
+/// This helper enforces envelope-version compatibility and caller-selected schema policy before
+/// deserializing payloads.
+///
+/// Returns `Ok(None)` when:
+/// - the namespace is not present
+/// - envelope metadata version is incompatible
+/// - the persisted schema version does not satisfy `schema_policy`
+///
+/// # Errors
+///
+/// Returns an error when the underlying storage load fails or payload deserialization fails.
+pub async fn load_app_state_typed<T: DeserializeOwned>(
+    namespace: &str,
+    schema_policy: AppStateSchemaPolicy,
+) -> Result<Option<T>, String> {
+    let Some(envelope) = load_app_state_envelope(namespace).await? else {
+        return Ok(None);
+    };
+    decode_typed_app_state_envelope(&envelope, schema_policy)
+}
+
+fn decode_typed_app_state_envelope<T: DeserializeOwned>(
+    envelope: &AppStateEnvelope,
+    schema_policy: AppStateSchemaPolicy,
+) -> Result<Option<T>, String> {
+    if envelope.envelope_version != APP_STATE_ENVELOPE_VERSION {
+        return Ok(None);
+    }
+    if !schema_policy.allows(envelope.schema_version) {
+        return Ok(None);
+    }
+    migrate_envelope_payload(envelope).map(Some)
+}
+
 /// Deletes persisted app state for a namespace.
 ///
 /// # Errors
@@ -112,6 +169,69 @@ pub async fn delete_app_state(namespace: &str) -> Result<(), String> {
 pub async fn list_app_state_namespaces() -> Result<Vec<String>, String> {
     let store = host_adapters::app_state_store();
     store.list_app_state_namespaces().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_app_state_envelope, decode_typed_app_state_envelope, AppStateSchemaPolicy};
+
+    #[test]
+    fn app_state_schema_policy_matching_is_consistent() {
+        assert!(AppStateSchemaPolicy::Exact(3).allows(3));
+        assert!(!AppStateSchemaPolicy::Exact(3).allows(2));
+        assert!(!AppStateSchemaPolicy::Exact(3).allows(4));
+
+        assert!(AppStateSchemaPolicy::UpTo(3).allows(1));
+        assert!(AppStateSchemaPolicy::UpTo(3).allows(3));
+        assert!(!AppStateSchemaPolicy::UpTo(3).allows(4));
+
+        assert!(AppStateSchemaPolicy::Any.allows(0));
+        assert!(AppStateSchemaPolicy::Any.allows(42));
+    }
+
+    #[test]
+    fn typed_envelope_decode_returns_none_for_incompatible_envelope_version() {
+        let mut envelope =
+            build_app_state_envelope("app.example", 1, &42_u32).expect("build envelope");
+        envelope.envelope_version = super::APP_STATE_ENVELOPE_VERSION + 1;
+
+        let decoded =
+            decode_typed_app_state_envelope::<u32>(&envelope, AppStateSchemaPolicy::UpTo(1))
+                .expect("decode should not fail");
+        assert_eq!(decoded, None);
+    }
+
+    #[test]
+    fn typed_envelope_decode_returns_none_for_incompatible_schema() {
+        let envelope = build_app_state_envelope("app.example", 2, &42_u32).expect("build envelope");
+
+        let decoded =
+            decode_typed_app_state_envelope::<u32>(&envelope, AppStateSchemaPolicy::Exact(1))
+                .expect("decode should not fail");
+        assert_eq!(decoded, None);
+    }
+
+    #[test]
+    fn typed_envelope_decode_deserializes_compatible_payload() {
+        let envelope = build_app_state_envelope("app.example", 2, &42_u32).expect("build envelope");
+
+        let decoded =
+            decode_typed_app_state_envelope::<u32>(&envelope, AppStateSchemaPolicy::UpTo(2))
+                .expect("decode should succeed");
+        assert_eq!(decoded, Some(42));
+    }
+
+    #[test]
+    fn typed_envelope_decode_surfaces_payload_type_errors() {
+        let envelope = build_app_state_envelope("app.example", 1, &"text").expect("build envelope");
+
+        let err = decode_typed_app_state_envelope::<u32>(&envelope, AppStateSchemaPolicy::Any)
+            .expect_err("decode should fail for incompatible payload type");
+        assert!(
+            err.contains("invalid type"),
+            "error should include type-mismatch context: {err}"
+        );
+    }
 }
 
 /// Stores text content in the Cache API under `cache_name` and `key`.

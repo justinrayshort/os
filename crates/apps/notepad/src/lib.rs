@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use leptos::*;
-use platform_storage::{self, AppStateEnvelope, NOTEPAD_STATE_NAMESPACE};
+use platform_storage::{self, AppStateSchemaPolicy, NOTEPAD_STATE_NAMESPACE};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -138,18 +138,6 @@ fn tab_dom_id(slug: &str) -> String {
     id
 }
 
-fn restore_notepad_state(
-    envelope: AppStateEnvelope,
-    requested_slug: &str,
-) -> Option<NotepadWorkspaceState> {
-    let mut state: NotepadWorkspaceState = match envelope.schema_version {
-        NOTEPAD_STATE_SCHEMA_VERSION => serde_json::from_value(envelope.payload).ok()?,
-        _ => serde_json::from_value(envelope.payload).ok()?,
-    };
-    state.ensure_document(requested_slug);
-    Some(state)
-}
-
 #[component]
 /// Notepad app window contents.
 ///
@@ -176,13 +164,17 @@ pub fn NotepadApp(
         let last_saved = last_saved;
         let requested_slug = requested_slug.clone();
         spawn_local(async move {
-            match platform_storage::load_app_state_envelope(NOTEPAD_STATE_NAMESPACE).await {
-                Ok(Some(envelope)) => {
-                    if let Some(restored) = restore_notepad_state(envelope, &requested_slug) {
-                        let serialized = serde_json::to_string(&restored).ok();
-                        workspace.set(restored);
-                        last_saved.set(serialized);
-                    }
+            match platform_storage::load_app_state_typed::<NotepadWorkspaceState>(
+                NOTEPAD_STATE_NAMESPACE,
+                AppStateSchemaPolicy::UpTo(NOTEPAD_STATE_SCHEMA_VERSION),
+            )
+            .await
+            {
+                Ok(Some(mut restored)) => {
+                    restored.ensure_document(&requested_slug);
+                    let serialized = serde_json::to_string(&restored).ok();
+                    workspace.set(restored);
+                    last_saved.set(serialized);
                 }
                 Ok(None) => {}
                 Err(err) => logging::warn!("notepad hydrate failed: {err}"),
@@ -210,20 +202,14 @@ pub fn NotepadApp(
         }
         last_saved.set(Some(serialized));
 
-        let envelope = match platform_storage::build_app_state_envelope(
-            NOTEPAD_STATE_NAMESPACE,
-            NOTEPAD_STATE_SCHEMA_VERSION,
-            &snapshot,
-        ) {
-            Ok(envelope) => envelope,
-            Err(err) => {
-                logging::warn!("notepad envelope build failed: {err}");
-                return;
-            }
-        };
-
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state_envelope(&envelope).await {
+            if let Err(err) = platform_storage::save_app_state(
+                NOTEPAD_STATE_NAMESPACE,
+                NOTEPAD_STATE_SCHEMA_VERSION,
+                &snapshot,
+            )
+            .await
+            {
                 logging::warn!("notepad persist failed: {err}");
             }
         });

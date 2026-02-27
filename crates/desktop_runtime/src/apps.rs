@@ -8,7 +8,7 @@ use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
 use desktop_app_terminal::TerminalApp;
 use leptos::*;
-use platform_storage::{self, AppStateEnvelope};
+use platform_storage::{self, AppStateSchemaPolicy};
 use serde::{Deserialize, Serialize};
 
 const PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION: u32 = 1;
@@ -188,15 +188,7 @@ impl Default for PaintPlaceholderState {
     }
 }
 
-fn restore_paint_placeholder_state(envelope: AppStateEnvelope) -> Option<PaintPlaceholderState> {
-    if envelope.envelope_version != platform_storage::APP_STATE_ENVELOPE_VERSION {
-        return None;
-    }
-    if envelope.schema_version > PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION {
-        return None;
-    }
-
-    let mut restored = serde_json::from_value::<PaintPlaceholderState>(envelope.payload).ok()?;
+fn restore_paint_placeholder_state(mut restored: PaintPlaceholderState) -> PaintPlaceholderState {
     if restored.tool.trim().is_empty() {
         restored.tool = "brush".to_string();
     }
@@ -210,7 +202,7 @@ fn restore_paint_placeholder_state(envelope: AppStateEnvelope) -> Option<PaintPl
     if restored.status.trim().is_empty() {
         restored.status = "Canvas placeholder ready".to_string();
     }
-    Some(restored)
+    restored
 }
 
 #[component]
@@ -230,18 +222,20 @@ fn PaintPlaceholderApp() -> impl IntoView {
         let last_saved = last_saved;
         let hydrate_alive = hydrate_alive.clone();
         spawn_local(async move {
-            match platform_storage::load_app_state_envelope(platform_storage::PAINT_STATE_NAMESPACE)
-                .await
+            match platform_storage::load_app_state_typed::<PaintPlaceholderState>(
+                platform_storage::PAINT_STATE_NAMESPACE,
+                AppStateSchemaPolicy::UpTo(PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION),
+            )
+            .await
             {
-                Ok(Some(envelope)) => {
-                    if let Some(restored) = restore_paint_placeholder_state(envelope) {
-                        if !hydrate_alive.get() {
-                            return;
-                        }
-                        let serialized = serde_json::to_string(&restored).ok();
-                        state.set(restored);
-                        last_saved.set(serialized);
+                Ok(Some(restored)) => {
+                    let restored = restore_paint_placeholder_state(restored);
+                    if !hydrate_alive.get() {
+                        return;
                     }
+                    let serialized = serde_json::to_string(&restored).ok();
+                    state.set(restored);
+                    last_saved.set(serialized);
                 }
                 Ok(None) => {}
                 Err(err) => logging::warn!("paint placeholder hydrate failed: {err}"),
@@ -272,20 +266,14 @@ fn PaintPlaceholderApp() -> impl IntoView {
         }
         last_saved.set(Some(serialized));
 
-        let envelope = match platform_storage::build_app_state_envelope(
-            platform_storage::PAINT_STATE_NAMESPACE,
-            PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION,
-            &snapshot,
-        ) {
-            Ok(envelope) => envelope,
-            Err(err) => {
-                logging::warn!("paint placeholder envelope build failed: {err}");
-                return;
-            }
-        };
-
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state_envelope(&envelope).await {
+            if let Err(err) = platform_storage::save_app_state(
+                platform_storage::PAINT_STATE_NAMESPACE,
+                PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION,
+                &snapshot,
+            )
+            .await
+            {
                 logging::warn!("paint placeholder persist failed: {err}");
             }
         });

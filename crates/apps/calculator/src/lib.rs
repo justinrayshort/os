@@ -9,7 +9,7 @@ use crate::engine::{
 };
 use leptos::ev::KeyboardEvent;
 use leptos::*;
-use platform_storage::{self, AppStateEnvelope, CALCULATOR_STATE_NAMESPACE};
+use platform_storage::{self, AppStateSchemaPolicy, CALCULATOR_STATE_NAMESPACE};
 use serde_json::Value;
 
 #[derive(Clone, Copy)]
@@ -236,14 +236,6 @@ const CALC_KEYS: [CalcKeySpec; 30] = [
 
 const CALCULATOR_STATE_SCHEMA_VERSION: u32 = 1;
 
-fn restore_calculator_state(envelope: AppStateEnvelope) -> Option<CalculatorState> {
-    match envelope.schema_version {
-        CALCULATOR_STATE_SCHEMA_VERSION => serde_json::from_value(envelope.payload).ok(),
-        // Migration fallback for any pre-envelope experiments that stored the state directly.
-        _ => serde_json::from_value(envelope.payload).ok(),
-    }
-}
-
 #[component]
 /// Calculator app window contents.
 ///
@@ -262,13 +254,16 @@ pub fn CalculatorApp(
         let hydrated = hydrated;
         let last_saved = last_saved;
         spawn_local(async move {
-            match platform_storage::load_app_state_envelope(CALCULATOR_STATE_NAMESPACE).await {
-                Ok(Some(envelope)) => {
-                    if let Some(restored) = restore_calculator_state(envelope) {
-                        let serialized = serde_json::to_string(&restored).ok();
-                        calc.set(restored);
-                        last_saved.set(serialized);
-                    }
+            match platform_storage::load_app_state_typed::<CalculatorState>(
+                CALCULATOR_STATE_NAMESPACE,
+                AppStateSchemaPolicy::UpTo(CALCULATOR_STATE_SCHEMA_VERSION),
+            )
+            .await
+            {
+                Ok(Some(restored)) => {
+                    let serialized = serde_json::to_string(&restored).ok();
+                    calc.set(restored);
+                    last_saved.set(serialized);
                 }
                 Ok(None) => {}
                 Err(err) => logging::warn!("calculator state hydrate failed: {err}"),
@@ -296,20 +291,14 @@ pub fn CalculatorApp(
         }
         last_saved.set(Some(serialized));
 
-        let envelope = match platform_storage::build_app_state_envelope(
-            CALCULATOR_STATE_NAMESPACE,
-            CALCULATOR_STATE_SCHEMA_VERSION,
-            &snapshot,
-        ) {
-            Ok(envelope) => envelope,
-            Err(err) => {
-                logging::warn!("calculator state envelope build failed: {err}");
-                return;
-            }
-        };
-
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state_envelope(&envelope).await {
+            if let Err(err) = platform_storage::save_app_state(
+                CALCULATOR_STATE_NAMESPACE,
+                CALCULATOR_STATE_SCHEMA_VERSION,
+                &snapshot,
+            )
+            .await
+            {
                 logging::warn!("calculator state persist failed: {err}");
             }
         });

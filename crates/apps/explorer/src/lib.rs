@@ -4,7 +4,7 @@
 
 use leptos::*;
 use platform_storage::{
-    self, AppStateEnvelope, ExplorerBackend, ExplorerBackendStatus, ExplorerEntry,
+    self, AppStateSchemaPolicy, ExplorerBackend, ExplorerBackendStatus, ExplorerEntry,
     ExplorerEntryKind, ExplorerMetadata, ExplorerPermissionMode, ExplorerPrefs,
     EXPLORER_CACHE_NAME, EXPLORER_PREFS_KEY, EXPLORER_STATE_NAMESPACE,
 };
@@ -122,13 +122,6 @@ fn explorer_row_dom_id(path: &str) -> String {
         }
     }
     id
-}
-
-fn restore_explorer_state(envelope: AppStateEnvelope) -> Option<ExplorerPersistedState> {
-    match envelope.schema_version {
-        EXPLORER_STATE_SCHEMA_VERSION => serde_json::from_value(envelope.payload).ok(),
-        _ => serde_json::from_value(envelope.payload).ok(),
-    }
 }
 
 fn persisted_snapshot(signals: ExplorerSignals) -> ExplorerPersistedState {
@@ -440,18 +433,21 @@ pub fn ExplorerApp(
         let requested_path = cwd.get_untracked();
         let last_saved = last_saved;
         spawn_local(async move {
-            match platform_storage::load_app_state_envelope(EXPLORER_STATE_NAMESPACE).await {
-                Ok(Some(envelope)) => {
-                    if let Some(restored) = restore_explorer_state(envelope) {
-                        let serialized = serde_json::to_string(&restored).ok();
-                        signals.cwd.set(normalize_path(&restored.cwd));
-                        signals.selected_path.set(restored.selected_path);
-                        signals.selected_metadata.set(restored.selected_metadata);
-                        signals.editor_path.set(restored.editor_path.clone());
-                        signals.editor_text.set(restored.editor_text);
-                        signals.editor_dirty.set(restored.editor_dirty);
-                        last_saved.set(serialized);
-                    }
+            match platform_storage::load_app_state_typed::<ExplorerPersistedState>(
+                EXPLORER_STATE_NAMESPACE,
+                AppStateSchemaPolicy::UpTo(EXPLORER_STATE_SCHEMA_VERSION),
+            )
+            .await
+            {
+                Ok(Some(restored)) => {
+                    let serialized = serde_json::to_string(&restored).ok();
+                    signals.cwd.set(normalize_path(&restored.cwd));
+                    signals.selected_path.set(restored.selected_path);
+                    signals.selected_metadata.set(restored.selected_metadata);
+                    signals.editor_path.set(restored.editor_path.clone());
+                    signals.editor_text.set(restored.editor_text);
+                    signals.editor_dirty.set(restored.editor_dirty);
+                    last_saved.set(serialized);
                 }
                 Ok(None) => {
                     signals.cwd.set(normalize_path(&requested_path));
@@ -496,20 +492,14 @@ pub fn ExplorerApp(
             return;
         }
         last_saved.set(Some(serialized));
-        let envelope = match platform_storage::build_app_state_envelope(
-            EXPLORER_STATE_NAMESPACE,
-            EXPLORER_STATE_SCHEMA_VERSION,
-            &snapshot,
-        ) {
-            Ok(envelope) => envelope,
-            Err(err) => {
-                logging::warn!("explorer envelope build failed: {err}");
-                return;
-            }
-        };
-
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state_envelope(&envelope).await {
+            if let Err(err) = platform_storage::save_app_state(
+                EXPLORER_STATE_NAMESPACE,
+                EXPLORER_STATE_SCHEMA_VERSION,
+                &snapshot,
+            )
+            .await
+            {
                 logging::warn!("explorer persist failed: {err}");
             }
         });
