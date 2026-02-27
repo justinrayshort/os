@@ -33,8 +33,10 @@ This page documents the supported top-level commands for local development, veri
 - `cargo dev start`: Start the prototype dev server in the background (managed PID/state/logs under `.artifacts/dev-server/`).
 - `cargo dev stop`: Stop the managed background dev server.
 - `cargo dev status`: Show managed background dev server status.
+- `cargo dev logs [--lines <N>]`: Show recent managed dev server logs without ad-hoc `tail` commands.
 - `cargo dev restart`: Restart the managed background dev server.
 - `cargo dev build`: Build a development static bundle via `trunk` (non-release).
+- `cargo dev` serve/build defaults include `--filehash=false` and `--no-sri=true` unless explicitly provided, improving local rebuild reliability.
 - `cargo web-check`: Run prototype compile checks (CSR native and WASM when target is installed).
 - `cargo web-build`: Build the production-style static bundle via `trunk`.
 
@@ -47,11 +49,14 @@ This page documents the supported top-level commands for local development, veri
 ### Verification Workflow
 
 - `cargo flow`: Run scoped inner-loop validation (`xtask flow`) using changed files (`git status --porcelain`) to target affected workspace crates.
+- `cargo doctor` / `cargo doctor --fix`: Validate local automation prerequisites (tooling, wiki wiring, managed state) and optionally apply safe fixes.
 - `cargo verify-fast`: Run fast workspace verification (`xtask verify fast`) with explicit handling for mutually-exclusive `platform_storage` host feature sets and conditional desktop host checks.
   - `cargo verify-fast --with-desktop`: Force include desktop host checks.
   - `cargo verify-fast --without-desktop`: Force skip desktop host checks.
-- `cargo verify`: Run full project verification (`xtask verify full`) including prototype compile checks, optional clippy, and always-on desktop host coverage.
+- `cargo verify`: Run full project verification (`xtask verify`, default mode `full`) including prototype compile checks, optional clippy, and always-on desktop host coverage.
+- `cargo verify --profile <name>`: Run profile-driven verification from `tools/automation/verify_profiles.toml` (`dev`, `ci-fast`, `ci-full`, `release`).
 - `cargo verify-fast` / `cargo verify`: print per-stage duration for measurable feedback-loop latency.
+- `cargo flow`, `cargo verify*`, and `cargo doctor` emit structured run artifacts under `.artifacts/automation/runs/<run-id>/` (`manifest.json`, `events.jsonl`).
 - `cargo check-all`: Explicit full-workspace compile check alias (`cargo check --workspace`).
 - `cargo test-all`: Explicit full-workspace test alias (`cargo test --workspace`).
 
@@ -87,6 +92,7 @@ These targets exist for operator convenience and local muscle memory. They deleg
 - `make verify-fast` -> `cargo verify-fast`
 - `make verify` -> `cargo verify`
 - `make flow` -> `cargo flow`
+- `make doctor` -> `cargo doctor`
 - `make wiki-init` -> `git submodule sync --recursive && git submodule update --init --recursive`
 - `make rustdoc-check` -> `cargo doc --workspace --no-deps && cargo test --workspace --doc`
 - `make docs-check` -> `cargo xtask docs all` + `make rustdoc-check`
@@ -105,6 +111,7 @@ These targets exist for operator convenience and local muscle memory. They deleg
 - `make proto-start` -> `cargo dev start`
 - `make proto-stop` -> `cargo dev stop`
 - `make proto-status` -> `cargo dev status`
+- `make proto-logs` -> `cargo dev logs`
 - `make proto-restart` -> `cargo dev restart`
 - `make tauri-check` -> `cargo xtask tauri check`
 - `make tauri-dev` -> `cargo tauri-dev`

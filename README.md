@@ -58,6 +58,7 @@ Start/stop a managed background dev server (Rust-managed lifecycle; logs/state u
 ```bash
 cargo dev start
 cargo dev status
+cargo dev logs --lines 80
 cargo dev stop
 ```
 
@@ -89,6 +90,8 @@ cargo tauri-build
 
 `cargo tauri-dev` / `cargo tauri-build` use Tauri hooks that delegate frontend serve/build work to `cargo dev` (`xtask`) and normalize `NO_COLOR=1` to `NO_COLOR=true` for Trunk compatibility in environments that export numeric `NO_COLOR`.
 
+`cargo dev` serve/build defaults disable Trunk SRI and file hashing (`--no-sri=true`, `--filehash=false`) unless explicitly overridden, which keeps the local prototype loop stable when assets are rebuilt frequently.
+
 Run prototype-specific compile checks (CSR native + WASM):
 
 ```bash
@@ -116,6 +119,24 @@ cargo verify-fast --with-desktop
 cargo verify-fast --without-desktop
 ```
 
+Profile-driven verification is also available:
+
+```bash
+cargo verify --profile dev
+cargo verify --profile ci-fast
+cargo verify --profile ci-full
+cargo verify --profile release
+```
+
+Profile definitions live in `tools/automation/verify_profiles.toml`.
+
+Run local automation/tooling diagnostics and safe auto-remediation:
+
+```bash
+cargo doctor
+cargo doctor --fix
+```
+
 Full verification (fast verification + prototype checks + optional clippy/trunk build):
 
 ```bash
@@ -128,14 +149,17 @@ Compatibility `make` targets still work (delegating to Cargo aliases):
 
 ```bash
 make flow
+make doctor
 make verify-fast
 make verify
 make proto-serve
 make proto-start
 make proto-stop
+make proto-logs
 ```
 
 Direct commands remain available if you prefer (`cargo run -p xtask -- ...`, `trunk ...`).
+Workflow run artifacts are emitted to `.artifacts/automation/runs/<run-id>/` with `manifest.json` and `events.jsonl` for postmortem/debug tooling.
 
 Useful ad-hoc full-workspace aliases:
 

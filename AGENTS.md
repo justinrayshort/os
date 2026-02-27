@@ -121,13 +121,24 @@ Primary entry points:
 - `cargo verify-fast`
 - `cargo verify-fast --with-desktop`
 - `cargo verify-fast --without-desktop`
+- `cargo verify --profile <name>`
 - `cargo verify`
+- `cargo doctor`
 - `cargo perf doctor`
 - `cargo perf check`
 - `cargo perf bench`
 - `cargo perf dev-loop-baseline --output .artifacts/perf/reports/dev-loop-baseline.json`
 
-Stages (local verification order):
+Stages (automation-backed verification order):
+
+1. Rust format + default test matrix (`cargo verify-fast` / `cargo verify`)
+2. Rust all-features matrix (`cargo verify-fast` / `cargo verify`)
+3. Rustdoc build + doctests (`cargo verify-fast` / `cargo verify`)
+4. Documentation validation + docs audit artifact (`cargo verify-fast` / `cargo verify`)
+5. Prototype compile checks (`cargo verify` only)
+6. Clippy lint checks (`cargo verify` only; skipped with warning when unavailable)
+
+Docs-focused verification order (`cargo xtask docs all` internals):
 
 1. Docs + wiki validation (`cargo xtask docs all`, which includes wiki structure/template checks)
 2. Docs contract validation (`structure`, `frontmatter`, `sop`)
@@ -265,6 +276,7 @@ cargo setup-web
 cargo web-check
 cargo web-build
 cargo flow
+cargo doctor
 cargo docs-check
 cargo docs-audit
 cargo perf <subcommand>
@@ -278,6 +290,7 @@ Common `make` wrappers (delegating to Cargo aliases / `xtask` docs commands):
 
 ```bash
 make flow
+make doctor
 make verify-fast
 make verify
 make wiki-init
@@ -296,6 +309,7 @@ make proto-serve
 make proto-start
 make proto-stop
 make proto-status
+make proto-logs
 make proto-restart
 ```
 
@@ -377,6 +391,7 @@ When changing `platform_host`, `platform_host_web`, or `platform_storage` contra
 - `docs/reference/rustdoc-and-github-wiki-documentation-strategy.md` (documentation surface split policy)
 - `docs/reference/documentation-toolchain-and-ci.md` (docs tooling/validation pipeline reference)
 - `docs/reference/project-command-entrypoints.md` (command catalog / entrypoint reference)
+- `tools/automation/verify_profiles.toml` (profile-driven verification policy surface used by `cargo verify --profile`)
 - `docs/reference/performance-engineering-and-benchmarking.md` (performance workflow reference)
 - `docs/reference/desktop-shell-fluent-modern-design-system.md` (shell Fluent design-system reference and invariants)
 - `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md` (objective HIG + Fluent conformance status checklist)

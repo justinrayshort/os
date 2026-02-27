@@ -1,9 +1,12 @@
 SHELL := /bin/bash
 
-.PHONY: flow verify verify-fast wiki-init rustdoc-check docs-check docs-audit perf-doctor perf-check perf-bench perf-baseline perf-compare perf-flamegraph perf-heaptrack proto-check proto-build proto-build-dev proto-serve proto-start proto-stop proto-status proto-restart tauri-check tauri-dev tauri-build
+.PHONY: flow doctor verify verify-fast wiki-init rustdoc-check docs-check docs-audit perf-doctor perf-check perf-bench perf-baseline perf-compare perf-flamegraph perf-heaptrack proto-check proto-build proto-build-dev proto-serve proto-start proto-stop proto-status proto-logs proto-restart tauri-check tauri-dev tauri-build
 
 flow:
 	cargo flow
+
+doctor:
+	cargo doctor
 
 verify:
 	cargo verify
@@ -73,6 +76,9 @@ proto-stop:
 
 proto-status:
 	cargo dev status
+
+proto-logs:
+	cargo dev logs
 
 proto-restart:
 	cargo dev restart

@@ -6,7 +6,7 @@
 mod docs;
 mod perf;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashSet};
 use std::env;
 use std::fs::{self, OpenOptions};
@@ -14,6 +14,7 @@ use std::io;
 use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Child, Command, ExitCode, Stdio};
+use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -27,6 +28,8 @@ const DEV_SERVER_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 const SITE_CARGO_FEATURE: &str = "csr";
 const PLATFORM_STORAGE_PACKAGE: &str = "platform_storage";
 const DESKTOP_TAURI_PACKAGE: &str = "desktop_tauri";
+const AUTOMATION_RUNS_DIR: &str = ".artifacts/automation/runs";
+const VERIFY_PROFILES_FILE: &str = "tools/automation/verify_profiles.toml";
 
 fn main() -> ExitCode {
     let root = workspace_root();
@@ -46,6 +49,7 @@ fn main() -> ExitCode {
         "check-web" => check_web(&root),
         "tauri" => tauri_command(&root, rest),
         "flow" => flow_command(&root, rest),
+        "doctor" => doctor_command(&root, rest),
         "docs" => docs::run_docs_command(&root, rest),
         "perf" => perf::run_perf_command(&root, rest),
         "verify" => verify(&root, rest),
@@ -81,11 +85,12 @@ fn print_usage() {
            dev [...]           Prototype dev workflow (serve/start/stop/status/restart/build)\n\
            build-web [args]    Build static web bundle with trunk\n\
            check-web           Run site compile checks (CSR native + wasm)\n\
-           tauri [...]         Tauri desktop workflow (dev/build/check)\n\
-           flow [...]          Run scoped inner-loop checks for changed packages/docs\n\
-           docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
-           perf <subcommand>   Performance benchmarks/profiling workflows\n\
-           verify [fast|full] [--with-desktop|--without-desktop]\n\
+            tauri [...]         Tauri desktop workflow (dev/build/check)\n\
+            flow [...]          Run scoped inner-loop checks for changed packages/docs\n\
+            doctor [--fix]      Validate local automation/tooling prerequisites\n\
+            docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
+            perf <subcommand>   Performance benchmarks/profiling workflows\n\
+            verify [fast|full] [--with-desktop|--without-desktop] [--profile <name>]\n\
                               Run standardized local verification workflow (default: full)\n"
     );
 }
@@ -112,6 +117,7 @@ fn dev_command(root: &Path, args: Vec<String>) -> Result<(), String> {
         Some("start") => dev_server_start(root, args[1..].to_vec()),
         Some("stop") => dev_server_stop(root, false),
         Some("status") => dev_server_status(root),
+        Some("logs") => dev_server_logs(root, args[1..].to_vec()),
         Some("restart") => {
             dev_server_stop(root, true)?;
             dev_server_start(root, args[1..].to_vec())
@@ -127,7 +133,7 @@ fn dev_command(root: &Path, args: Vec<String>) -> Result<(), String> {
 
 fn print_dev_usage() {
     eprintln!(
-        "Usage: cargo dev [serve|start|stop|status|restart|build] [args]\n\
+        "Usage: cargo dev [serve|start|stop|status|logs|restart|build] [args]\n\
          \n\
          Subcommands:\n\
            (default)           Start trunk dev server in foreground (defaults to --open)\n\
@@ -135,11 +141,13 @@ fn print_dev_usage() {
            start [trunk args]  Start trunk dev server in background (no browser open by default)\n\
            stop                Stop the managed background dev server\n\
            status              Show managed dev server status\n\
+           logs [--lines N]    Print recent managed dev server log output\n\
            restart [args]      Restart the managed background dev server\n\
            build [args]        Build a dev static bundle via trunk (non-release)\n\
          \n\
          Notes:\n\
            - `cargo dev stop` only manages servers started with `cargo dev start`.\n\
+           - Development serve/build defaults disable SRI and file hashing unless explicitly set.\n\
            - Logs and state are stored under `.artifacts/dev-server/`.\n"
     );
 }
@@ -163,18 +171,28 @@ fn dev_server_start(root: &Path, args: Vec<String>) -> Result<(), String> {
     let parsed = parse_trunk_serve_args(args, false)?;
 
     if let Some(state) = read_dev_server_state(root)? {
-        if process_exists(state.pid)? {
-            return Err(format!(
-                "managed dev server already running (pid {}). Use `cargo dev stop` or `cargo dev restart`.",
-                state.pid
-            ));
+        match inspect_managed_pid(state.pid)? {
+            ManagedPidStatus::Managed => {
+                return Err(format!(
+                    "managed dev server already running (pid {}). Use `cargo dev stop` or `cargo dev restart`.",
+                    state.pid
+                ));
+            }
+            ManagedPidStatus::NotRunning => {
+                eprintln!(
+                    "warn: removing stale dev server state (pid {} not running)",
+                    state.pid
+                );
+                remove_dev_server_state(root)?;
+            }
+            ManagedPidStatus::Unmanaged(command) => {
+                eprintln!(
+                    "warn: state pid {} belongs to a different process; cleaning managed state without signaling\n  command: {}",
+                    state.pid, command
+                );
+                remove_dev_server_state(root)?;
+            }
         }
-
-        eprintln!(
-            "warn: removing stale dev server state (pid {} not running)",
-            state.pid
-        );
-        remove_dev_server_state(root)?;
     }
 
     let log_path = dev_server_log_path(root);
@@ -220,31 +238,44 @@ fn dev_server_status(root: &Path) -> Result<(), String> {
         return Ok(());
     };
 
-    let running = process_exists(state.pid)?;
-    let listening = running && is_port_open(&state.host, state.port);
-
-    if running {
-        let phase = if listening {
-            "listening"
-        } else {
-            "running (starting or not reachable yet)"
-        };
-        println!(
-            "managed dev server: {} | pid {} | {} | log {}",
-            phase,
-            state.pid,
-            state.url(),
-            state.log_path.display()
-        );
-        return Ok(());
+    match inspect_managed_pid(state.pid)? {
+        ManagedPidStatus::Managed => {
+            let listening = is_port_open(&state.host, state.port);
+            let phase = if listening {
+                "listening"
+            } else {
+                "running (starting or not reachable yet)"
+            };
+            println!(
+                "managed dev server: {} | pid {} | {} | log {}",
+                phase,
+                state.pid,
+                state.url(),
+                state.log_path.display()
+            );
+        }
+        ManagedPidStatus::NotRunning => {
+            println!(
+                "managed dev server: stale state (pid {} not running) | last url {} | log {}",
+                state.pid,
+                state.url(),
+                state.log_path.display()
+            );
+            remove_dev_server_state(root)?;
+            println!("managed dev server: stale state removed");
+        }
+        ManagedPidStatus::Unmanaged(command) => {
+            println!(
+                "managed dev server: stale state (pid {} belongs to another process) | last url {} | log {}",
+                state.pid,
+                state.url(),
+                state.log_path.display()
+            );
+            println!("  command: {command}");
+            remove_dev_server_state(root)?;
+            println!("managed dev server: stale state removed");
+        }
     }
-
-    println!(
-        "managed dev server: stale state (pid {} not running) | last url {} | log {}",
-        state.pid,
-        state.url(),
-        state.log_path.display()
-    );
     Ok(())
 }
 
@@ -256,13 +287,25 @@ fn dev_server_stop(root: &Path, quiet_if_missing: bool) -> Result<(), String> {
         return Ok(());
     };
 
-    if !process_exists(state.pid)? {
-        println!(
-            "managed dev server: stale state (pid {} not running); cleaning up state",
-            state.pid
-        );
-        remove_dev_server_state(root)?;
-        return Ok(());
+    match inspect_managed_pid(state.pid)? {
+        ManagedPidStatus::NotRunning => {
+            println!(
+                "managed dev server: stale state (pid {} not running); cleaning up state",
+                state.pid
+            );
+            remove_dev_server_state(root)?;
+            return Ok(());
+        }
+        ManagedPidStatus::Unmanaged(command) => {
+            println!(
+                "managed dev server: stale state (pid {} now belongs to another process); refusing to signal and cleaning state",
+                state.pid
+            );
+            println!("  command: {command}");
+            remove_dev_server_state(root)?;
+            return Ok(());
+        }
+        ManagedPidStatus::Managed => {}
     }
 
     println!("stopping managed dev server pid {}...", state.pid);
@@ -308,6 +351,77 @@ fn build_web(root: &Path, args: Vec<String>) -> Result<(), String> {
     trunk_build(root, args, BuildProfile::Release)
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+struct DevLogsOptions {
+    lines: usize,
+}
+
+fn dev_server_logs(root: &Path, args: Vec<String>) -> Result<(), String> {
+    let options = parse_dev_logs_options(args)?;
+    let path = read_dev_server_state(root)?
+        .map(|state| state.log_path)
+        .unwrap_or_else(|| dev_server_log_path(root));
+
+    if !path.exists() {
+        return Err(format!(
+            "no managed dev server log file found at {}",
+            path.display()
+        ));
+    }
+
+    let tail = read_log_tail_with_limit(&path, options.lines)?;
+    println!(
+        "managed dev server log tail ({} lines) from {}",
+        options.lines,
+        path.display()
+    );
+    if tail.trim().is_empty() {
+        println!("(log is empty)");
+    } else {
+        println!("{tail}");
+    }
+    Ok(())
+}
+
+fn parse_dev_logs_options(args: Vec<String>) -> Result<DevLogsOptions, String> {
+    let mut lines = 40usize;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--lines" | "-n" => {
+                let Some(value) = args.get(i + 1) else {
+                    return Err("missing value for `--lines`".to_string());
+                };
+                lines = parse_positive_usize(value, "--lines")?;
+                i += 2;
+            }
+            "help" | "--help" | "-h" => {
+                return Err(
+                    "usage: cargo dev logs [--lines <N>]\nexample: cargo dev logs --lines 80"
+                        .to_string(),
+                );
+            }
+            other => {
+                return Err(format!(
+                    "unsupported `cargo dev logs` argument `{other}` (expected `--lines <N>`)"
+                ));
+            }
+        }
+    }
+
+    Ok(DevLogsOptions { lines })
+}
+
+fn parse_positive_usize(value: &str, flag: &str) -> Result<usize, String> {
+    let parsed = value
+        .parse::<usize>()
+        .map_err(|_| format!("invalid numeric value for `{flag}`: `{value}`"))?;
+    if parsed == 0 {
+        return Err(format!("`{flag}` must be greater than zero"));
+    }
+    Ok(parsed)
+}
+
 fn trunk_build(root: &Path, args: Vec<String>, profile: BuildProfile) -> Result<(), String> {
     ensure_command(
         "trunk",
@@ -327,6 +441,14 @@ fn trunk_build(root: &Path, args: Vec<String>, profile: BuildProfile) -> Result<
             }
             .to_string(),
         );
+    }
+    if profile == BuildProfile::Dev {
+        if !args_specify_filehash(&args) {
+            trunk_args.push("--filehash=false".to_string());
+        }
+        if !args_specify_no_sri(&args) {
+            trunk_args.push("--no-sri=true".to_string());
+        }
     }
     trunk_args.extend(args);
 
@@ -429,6 +551,157 @@ fn tauri_dir(root: &Path) -> PathBuf {
     root.join("crates/desktop_tauri")
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+struct DoctorOptions {
+    fix: bool,
+    show_help: bool,
+}
+
+fn doctor_command(root: &Path, args: Vec<String>) -> Result<(), String> {
+    let options = parse_doctor_options(args)?;
+    if options.show_help {
+        print_doctor_usage();
+        return Ok(());
+    }
+
+    with_workflow_run(root, "doctor", None, || run_doctor(root, options))
+}
+
+fn parse_doctor_options(args: Vec<String>) -> Result<DoctorOptions, String> {
+    let mut options = DoctorOptions {
+        fix: false,
+        show_help: false,
+    };
+
+    for arg in args {
+        match arg.as_str() {
+            "--fix" => options.fix = true,
+            "help" | "--help" | "-h" => options.show_help = true,
+            other => {
+                return Err(format!(
+                    "unsupported `cargo doctor` argument `{other}` (expected `--fix`)"
+                ));
+            }
+        }
+    }
+    Ok(options)
+}
+
+fn print_doctor_usage() {
+    eprintln!(
+        "Usage: cargo doctor [--fix]\n\
+         \n\
+         Purpose:\n\
+           Validate local prerequisites for automated workflows and optionally repair safe issues.\n\
+         \n\
+         Options:\n\
+           --fix                Attempt safe automatic remediation (stale state cleanup, wiki init, wasm target)\n"
+    );
+}
+
+fn run_doctor(root: &Path, options: DoctorOptions) -> Result<(), String> {
+    let mut failures = Vec::new();
+
+    run_timed_stage("Tooling prerequisite: trunk", || {
+        if command_available("trunk") {
+            println!("    trunk is available");
+            return Ok(());
+        }
+        if options.fix {
+            println!("    trunk missing; running `cargo setup-web`");
+            setup_web(root)?;
+            if command_available("trunk") {
+                println!("    trunk installed");
+                return Ok(());
+            }
+        }
+        Err("`trunk` is not available (run `cargo setup-web`)".to_string())
+    })
+    .map_err(|err| failures.push(err))
+    .ok();
+
+    run_timed_stage("Tooling prerequisite: wasm target", || {
+        if wasm_target_installed() {
+            println!("    wasm32-unknown-unknown target installed");
+            return Ok(());
+        }
+        if options.fix {
+            run(
+                root,
+                "rustup",
+                vec!["target", "add", "wasm32-unknown-unknown"],
+            )?;
+            if wasm_target_installed() {
+                println!("    wasm target installed");
+                return Ok(());
+            }
+        }
+        Err("wasm32-unknown-unknown target missing".to_string())
+    })
+    .map_err(|err| failures.push(err))
+    .ok();
+
+    run_timed_stage("Docs prerequisite: wiki submodule", || {
+        let wiki_dot_git = root.join("wiki/.git");
+        if wiki_dot_git.exists() {
+            println!("    wiki submodule initialized");
+            return Ok(());
+        }
+        if options.fix {
+            run(
+                root,
+                "git",
+                vec!["submodule", "update", "--init", "--recursive", "wiki"],
+            )?;
+            if wiki_dot_git.exists() {
+                println!("    wiki submodule initialized");
+                return Ok(());
+            }
+        }
+        Err(
+            "wiki submodule is not initialized (`git submodule update --init --recursive`)"
+                .to_string(),
+        )
+    })
+    .map_err(|err| failures.push(err))
+    .ok();
+
+    run_timed_stage("Dev server state hygiene", || {
+        let Some(state) = read_dev_server_state(root)? else {
+            println!("    no managed dev server state file");
+            return Ok(());
+        };
+        match inspect_managed_pid(state.pid)? {
+            ManagedPidStatus::Managed => {
+                println!("    managed dev server state is healthy");
+                Ok(())
+            }
+            ManagedPidStatus::NotRunning | ManagedPidStatus::Unmanaged(_) => {
+                if options.fix {
+                    remove_dev_server_state(root)?;
+                    println!("    removed stale managed dev server state");
+                    Ok(())
+                } else {
+                    Err("managed dev server state is stale (run `cargo dev stop` or `cargo doctor --fix`)".to_string())
+                }
+            }
+        }
+    })
+    .map_err(|err| failures.push(err))
+    .ok();
+
+    if failures.is_empty() {
+        println!("\n==> Doctor checks passed");
+        return Ok(());
+    }
+
+    Err(format!(
+        "doctor reported {} issue(s):\n- {}",
+        failures.len(),
+        failures.join("\n- ")
+    ))
+}
+
 #[derive(Debug, Default)]
 struct FlowOptions {
     packages: BTreeSet<String>,
@@ -463,7 +736,10 @@ fn flow_command(root: &Path, args: Vec<String>) -> Result<(), String> {
         print_flow_usage();
         return Ok(());
     }
+    with_workflow_run(root, "flow", None, || flow_command_inner(root, options))
+}
 
+fn flow_command_inner(root: &Path, options: FlowOptions) -> Result<(), String> {
     let started = Instant::now();
     let changed_paths = if options.run_workspace || !options.packages.is_empty() {
         Vec::new()
@@ -778,7 +1054,7 @@ fn looks_like_workspace_wide_change(path: &str) -> bool {
     matches!(
         path,
         "Cargo.toml" | "Cargo.lock" | ".cargo/config.toml" | "Makefile"
-    )
+    ) || path == VERIFY_PROFILES_FILE
 }
 
 fn cargo_check_package_args(packages: &[String]) -> Vec<String> {
@@ -809,11 +1085,222 @@ fn format_package_list(packages: &[String]) -> String {
 }
 
 fn verify(root: &Path, args: Vec<String>) -> Result<(), String> {
-    let options = parse_verify_options(args)?;
-    match options.mode {
+    let mut options = parse_verify_options(args)?;
+    if options.show_help {
+        let profiles = load_verify_profiles(root).ok();
+        print_verify_usage(profiles.as_ref());
+        return Ok(());
+    }
+
+    let profiles = load_verify_profiles(root)?;
+    options = resolve_verify_options_from_profile(options, &profiles)?;
+    if options.mode == VerifyMode::Full && options.desktop_mode != VerifyFastDesktopMode::Auto {
+        return Err(
+            "`--with-desktop` and `--without-desktop` are only valid with `cargo verify-fast`"
+                .to_string(),
+        );
+    }
+
+    let run_profile = options.profile.clone();
+    with_workflow_run(root, "verify", run_profile, || match options.mode {
         VerifyMode::Fast => verify_fast(root, options.desktop_mode),
         VerifyMode::Full => verify_full(root),
+    })
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct VerifyProfilesFile {
+    profile: BTreeSetProfileMap,
+}
+
+type BTreeSetProfileMap = std::collections::BTreeMap<String, VerifyProfileSpec>;
+
+#[derive(Clone, Debug, Deserialize)]
+struct VerifyProfileSpec {
+    mode: String,
+    desktop_mode: Option<String>,
+}
+
+fn load_verify_profiles(root: &Path) -> Result<BTreeSetProfileMap, String> {
+    let path = root.join(VERIFY_PROFILES_FILE);
+    let body = fs::read_to_string(&path)
+        .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+    let parsed: VerifyProfilesFile = toml::from_str(&body)
+        .map_err(|err| format!("failed to parse {}: {err}", path.display()))?;
+    if parsed.profile.is_empty() {
+        return Err(format!("{} does not define any profiles", path.display()));
     }
+    Ok(parsed.profile)
+}
+
+fn resolve_verify_profile(
+    profile_name: &str,
+    profiles: &BTreeSetProfileMap,
+) -> Result<(VerifyMode, VerifyFastDesktopMode), String> {
+    let Some(profile) = profiles.get(profile_name) else {
+        let known = profiles.keys().cloned().collect::<Vec<_>>().join(", ");
+        return Err(format!(
+            "unknown verify profile `{profile_name}` (known: {known})"
+        ));
+    };
+
+    let mode = match profile.mode.as_str() {
+        "fast" => VerifyMode::Fast,
+        "full" => VerifyMode::Full,
+        other => {
+            return Err(format!(
+                "verify profile `{profile_name}` has invalid mode `{other}` (expected `fast` or `full`)"
+            ))
+        }
+    };
+
+    let desktop_mode = match profile.desktop_mode.as_deref().unwrap_or("auto") {
+        "auto" => VerifyFastDesktopMode::Auto,
+        "with-desktop" => VerifyFastDesktopMode::WithDesktop,
+        "without-desktop" => VerifyFastDesktopMode::WithoutDesktop,
+        other => {
+            return Err(format!(
+                "verify profile `{profile_name}` has invalid desktop_mode `{other}` (expected `auto`, `with-desktop`, `without-desktop`)"
+            ))
+        }
+    };
+
+    Ok((mode, desktop_mode))
+}
+
+fn print_verify_profile_selection(
+    name: &str,
+    mode: VerifyMode,
+    desktop_mode: VerifyFastDesktopMode,
+) {
+    let mode_text = match mode {
+        VerifyMode::Fast => "fast",
+        VerifyMode::Full => "full",
+    };
+    let desktop_text = match desktop_mode {
+        VerifyFastDesktopMode::Auto => "auto",
+        VerifyFastDesktopMode::WithDesktop => "with-desktop",
+        VerifyFastDesktopMode::WithoutDesktop => "without-desktop",
+    };
+    println!(
+        "\n==> Verify profile selected: `{name}` (mode={mode_text}, desktop_mode={desktop_text})"
+    );
+}
+
+fn resolve_verify_options_from_profile(
+    mut options: VerifyOptions,
+    profiles: &BTreeSetProfileMap,
+) -> Result<VerifyOptions, String> {
+    let Some(profile_name) = options.profile.clone() else {
+        return Ok(options);
+    };
+    if options.explicit_mode {
+        return Err(
+            "`--profile` cannot be combined with `fast`/`full` positional mode".to_string(),
+        );
+    }
+    if options.explicit_desktop_mode {
+        return Err(
+            "`--profile` cannot be combined with `--with-desktop`/`--without-desktop`".to_string(),
+        );
+    }
+    let (mode, desktop_mode) = resolve_verify_profile(&profile_name, profiles)?;
+    options.mode = mode;
+    options.desktop_mode = desktop_mode;
+    print_verify_profile_selection(&profile_name, mode, desktop_mode);
+    Ok(options)
+}
+
+fn verify_profile_names(profiles: &BTreeSetProfileMap) -> String {
+    profiles.keys().cloned().collect::<Vec<_>>().join(", ")
+}
+
+fn print_verify_usage(profiles: Option<&BTreeSetProfileMap>) {
+    let profile_list = profiles
+        .map(verify_profile_names)
+        .unwrap_or_else(|| "<unavailable>".to_string());
+    eprintln!(
+        "Usage: cargo verify [fast|full] [--with-desktop|--without-desktop] [--profile <name>]\n\
+         \n\
+         Profiles:\n\
+           {}\n\
+         \n\
+         Notes:\n\
+           - `--profile` cannot be combined with explicit `fast`/`full` or desktop flags.\n\
+           - desktop flags are only valid with `fast` mode.\n",
+        profile_list
+    );
+}
+
+fn parse_verify_options(args: Vec<String>) -> Result<VerifyOptions, String> {
+    let mut options = VerifyOptions {
+        mode: VerifyMode::Full,
+        desktop_mode: VerifyFastDesktopMode::Auto,
+        explicit_mode: false,
+        explicit_desktop_mode: false,
+        profile: None,
+        show_help: false,
+    };
+    let mut i = 0usize;
+
+    if let Some(first) = args.first().map(String::as_str) {
+        match first {
+            "fast" => {
+                options.mode = VerifyMode::Fast;
+                options.explicit_mode = true;
+                i = 1;
+            }
+            "full" => {
+                options.mode = VerifyMode::Full;
+                options.explicit_mode = true;
+                i = 1;
+            }
+            _ => {}
+        }
+    }
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--with-desktop" => {
+                if options.desktop_mode == VerifyFastDesktopMode::WithoutDesktop {
+                    return Err(
+                        "`--with-desktop` cannot be combined with `--without-desktop`".to_string(),
+                    );
+                }
+                options.desktop_mode = VerifyFastDesktopMode::WithDesktop;
+                options.explicit_desktop_mode = true;
+                i += 1;
+            }
+            "--without-desktop" => {
+                if options.desktop_mode == VerifyFastDesktopMode::WithDesktop {
+                    return Err(
+                        "`--with-desktop` cannot be combined with `--without-desktop`".to_string(),
+                    );
+                }
+                options.desktop_mode = VerifyFastDesktopMode::WithoutDesktop;
+                options.explicit_desktop_mode = true;
+                i += 1;
+            }
+            "--profile" => {
+                let Some(profile) = args.get(i + 1) else {
+                    return Err("missing value for `--profile`".to_string());
+                };
+                options.profile = Some(profile.clone());
+                i += 2;
+            }
+            "help" | "--help" | "-h" => {
+                options.show_help = true;
+                i += 1;
+            }
+            other => {
+                return Err(format!(
+                    "unsupported `cargo verify` argument `{other}` (expected `fast`, `full`, `--with-desktop`, `--without-desktop`, `--profile`)"
+                ));
+            }
+        }
+    }
+
+    Ok(options)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -829,67 +1316,14 @@ enum VerifyFastDesktopMode {
     WithoutDesktop,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct VerifyOptions {
     mode: VerifyMode,
     desktop_mode: VerifyFastDesktopMode,
-}
-
-fn parse_verify_options(args: Vec<String>) -> Result<VerifyOptions, String> {
-    let mut mode = VerifyMode::Full;
-    let mut desktop_mode = VerifyFastDesktopMode::Auto;
-    let mut i = 0usize;
-
-    if let Some(first) = args.first().map(String::as_str) {
-        match first {
-            "fast" => {
-                mode = VerifyMode::Fast;
-                i = 1;
-            }
-            "full" => {
-                mode = VerifyMode::Full;
-                i = 1;
-            }
-            _ => {}
-        }
-    }
-
-    while i < args.len() {
-        match args[i].as_str() {
-            "--with-desktop" => {
-                if desktop_mode == VerifyFastDesktopMode::WithoutDesktop {
-                    return Err(
-                        "`--with-desktop` cannot be combined with `--without-desktop`".to_string(),
-                    );
-                }
-                desktop_mode = VerifyFastDesktopMode::WithDesktop;
-                i += 1;
-            }
-            "--without-desktop" => {
-                if desktop_mode == VerifyFastDesktopMode::WithDesktop {
-                    return Err(
-                        "`--with-desktop` cannot be combined with `--without-desktop`".to_string(),
-                    );
-                }
-                desktop_mode = VerifyFastDesktopMode::WithoutDesktop;
-                i += 1;
-            }
-            other => {
-                return Err(format!(
-                    "unsupported `cargo verify` argument `{other}` (expected `fast`, `full`, `--with-desktop`, `--without-desktop`)"
-                ));
-            }
-        }
-    }
-
-    if mode == VerifyMode::Full && desktop_mode != VerifyFastDesktopMode::Auto {
-        return Err(
-            "`--with-desktop` and `--without-desktop` are only valid with `cargo verify-fast`"
-                .to_string(),
-        );
-    }
-
-    Ok(VerifyOptions { mode, desktop_mode })
+    explicit_mode: bool,
+    explicit_desktop_mode: bool,
+    profile: Option<String>,
+    show_help: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -1288,6 +1722,198 @@ fn run_prototype_compile_checks(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct AutomationStageRecord {
+    name: String,
+    started_unix_ms: u64,
+    duration_ms: u128,
+    status: String,
+    error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AutomationRunManifest {
+    workflow: String,
+    profile: Option<String>,
+    started_unix_ms: u64,
+    finished_unix_ms: u64,
+    duration_ms: u128,
+    status: String,
+    error: Option<String>,
+    run_dir: String,
+    command: String,
+    stages: Vec<AutomationStageRecord>,
+}
+
+#[derive(Debug)]
+struct AutomationRunRecorder {
+    workflow: String,
+    profile: Option<String>,
+    started_unix_ms: u64,
+    started_instant: Instant,
+    run_dir: PathBuf,
+    manifest_path: PathBuf,
+    events_path: PathBuf,
+    command: String,
+    stages: Vec<AutomationStageRecord>,
+}
+
+static ACTIVE_RUN_RECORDER: OnceLock<Mutex<Option<AutomationRunRecorder>>> = OnceLock::new();
+
+fn active_run_recorder() -> &'static Mutex<Option<AutomationRunRecorder>> {
+    ACTIVE_RUN_RECORDER.get_or_init(|| Mutex::new(None))
+}
+
+fn with_workflow_run<F>(
+    root: &Path,
+    workflow: &str,
+    profile: Option<String>,
+    action: F,
+) -> Result<(), String>
+where
+    F: FnOnce() -> Result<(), String>,
+{
+    let recorder = begin_workflow_run(root, workflow, profile)?;
+    {
+        let mut guard = active_run_recorder()
+            .lock()
+            .map_err(|_| "failed to lock workflow recorder".to_string())?;
+        *guard = Some(recorder);
+    }
+
+    let result = action();
+    finish_workflow_run(result.as_ref().err().cloned())?;
+    result
+}
+
+fn begin_workflow_run(
+    root: &Path,
+    workflow: &str,
+    profile: Option<String>,
+) -> Result<AutomationRunRecorder, String> {
+    let started_unix_ms = unix_timestamp_millis();
+    let run_id = format!("{started_unix_ms}-{workflow}");
+    let run_dir = root.join(AUTOMATION_RUNS_DIR).join(run_id);
+    fs::create_dir_all(&run_dir)
+        .map_err(|err| format!("failed to create {}: {err}", run_dir.display()))?;
+
+    let events_path = run_dir.join("events.jsonl");
+    let manifest_path = run_dir.join("manifest.json");
+    fs::write(&events_path, "")
+        .map_err(|err| format!("failed to initialize {}: {err}", events_path.display()))?;
+
+    append_run_event(
+        &events_path,
+        serde_json::json!({
+            "type": "run_started",
+            "workflow": workflow,
+            "profile": profile,
+            "timestamp_unix_ms": started_unix_ms
+        }),
+    )?;
+
+    Ok(AutomationRunRecorder {
+        workflow: workflow.to_string(),
+        profile,
+        started_unix_ms,
+        started_instant: Instant::now(),
+        run_dir,
+        manifest_path,
+        events_path,
+        command: env::args().collect::<Vec<_>>().join(" "),
+        stages: Vec::new(),
+    })
+}
+
+fn finish_workflow_run(error: Option<String>) -> Result<(), String> {
+    let mut guard = active_run_recorder()
+        .lock()
+        .map_err(|_| "failed to lock workflow recorder".to_string())?;
+    let Some(recorder) = guard.take() else {
+        return Ok(());
+    };
+
+    let finished_unix_ms = unix_timestamp_millis();
+    let status = if error.is_none() { "ok" } else { "failed" }.to_string();
+    let manifest = AutomationRunManifest {
+        workflow: recorder.workflow.clone(),
+        profile: recorder.profile.clone(),
+        started_unix_ms: recorder.started_unix_ms,
+        finished_unix_ms,
+        duration_ms: recorder.started_instant.elapsed().as_millis(),
+        status: status.clone(),
+        error: error.clone(),
+        run_dir: recorder.run_dir.display().to_string(),
+        command: recorder.command.clone(),
+        stages: recorder.stages,
+    };
+
+    append_run_event(
+        &recorder.events_path,
+        serde_json::json!({
+            "type": "run_finished",
+            "workflow": recorder.workflow,
+            "timestamp_unix_ms": finished_unix_ms,
+            "status": status,
+            "error": error
+        }),
+    )?;
+
+    let manifest_json = serde_json::to_string_pretty(&manifest)
+        .map_err(|err| format!("failed to serialize automation manifest: {err}"))?;
+    fs::write(&recorder.manifest_path, manifest_json).map_err(|err| {
+        format!(
+            "failed to write {}: {err}",
+            recorder.manifest_path.display()
+        )
+    })?;
+    println!(
+        "    automation run artifact: {}",
+        recorder.manifest_path.display()
+    );
+
+    Ok(())
+}
+
+fn append_run_event(path: &Path, event: serde_json::Value) -> Result<(), String> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|err| format!("failed to open {}: {err}", path.display()))?;
+    let line = serde_json::to_string(&event)
+        .map_err(|err| format!("failed to serialize run event: {err}"))?;
+    use std::io::Write as _;
+    writeln!(&mut file, "{line}")
+        .map_err(|err| format!("failed to append {}: {err}", path.display()))
+}
+
+fn record_stage_event(
+    stage: AutomationStageRecord,
+    end_timestamp_unix_ms: u64,
+) -> Result<(), String> {
+    let mut guard = active_run_recorder()
+        .lock()
+        .map_err(|_| "failed to lock workflow recorder".to_string())?;
+    let Some(recorder) = guard.as_mut() else {
+        return Ok(());
+    };
+    append_run_event(
+        &recorder.events_path,
+        serde_json::json!({
+            "type": "stage_finished",
+            "name": stage.name,
+            "started_unix_ms": stage.started_unix_ms,
+            "finished_unix_ms": end_timestamp_unix_ms,
+            "duration_ms": stage.duration_ms,
+            "status": stage.status,
+            "error": stage.error
+        }),
+    )?;
+    recorder.stages.push(stage);
+    Ok(())
+}
+
 fn warn_stage(message: &str) {
     println!("\n[warn] {message}");
 }
@@ -1298,9 +1924,35 @@ where
 {
     println!("\n==> {message}");
     let started = Instant::now();
-    action()?;
-    println!("    done in {}", format_duration(started.elapsed()));
-    Ok(())
+    let started_unix_ms = unix_timestamp_millis();
+    match action() {
+        Ok(()) => {
+            let elapsed = started.elapsed();
+            let stage = AutomationStageRecord {
+                name: message.to_string(),
+                started_unix_ms,
+                duration_ms: elapsed.as_millis(),
+                status: "ok".to_string(),
+                error: None,
+            };
+            record_stage_event(stage, unix_timestamp_millis())?;
+            println!("    done in {}", format_duration(elapsed));
+            Ok(())
+        }
+        Err(err) => {
+            let elapsed = started.elapsed();
+            let stage = AutomationStageRecord {
+                name: message.to_string(),
+                started_unix_ms,
+                duration_ms: elapsed.as_millis(),
+                status: "failed".to_string(),
+                error: Some(err.clone()),
+            };
+            record_stage_event(stage, unix_timestamp_millis())?;
+            println!("    failed in {}", format_duration(elapsed));
+            Err(err)
+        }
+    }
 }
 
 fn format_duration(duration: Duration) -> String {
@@ -1444,6 +2096,12 @@ fn trunk_serve_args(spec: &TrunkServeSpec) -> Vec<String> {
     if spec.open {
         trunk_args.push("--open".to_string());
     }
+    if !args_specify_filehash(&spec.passthrough) {
+        trunk_args.push("--filehash=false".to_string());
+    }
+    if !args_specify_no_sri(&spec.passthrough) {
+        trunk_args.push("--no-sri=true".to_string());
+    }
     trunk_args.extend(spec.passthrough.clone());
     trunk_args
 }
@@ -1451,6 +2109,16 @@ fn trunk_serve_args(spec: &TrunkServeSpec) -> Vec<String> {
 fn args_specify_dist(args: &[String]) -> bool {
     args.iter()
         .any(|arg| arg == "--dist" || arg.starts_with("--dist="))
+}
+
+fn args_specify_filehash(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| arg == "--filehash" || arg.starts_with("--filehash="))
+}
+
+fn args_specify_no_sri(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| arg == "--no-sri" || arg.starts_with("--no-sri="))
 }
 
 fn dev_server_state_path(root: &Path) -> PathBuf {
@@ -1616,14 +2284,15 @@ fn is_port_open(host: &str, port: u16) -> bool {
 }
 
 fn read_log_tail(path: &Path, max_lines: usize) -> String {
-    let contents = match fs::read_to_string(path) {
-        Ok(contents) => contents,
-        Err(_) => return String::new(),
-    };
+    read_log_tail_with_limit(path, max_lines).unwrap_or_default()
+}
 
+fn read_log_tail_with_limit(path: &Path, max_lines: usize) -> Result<String, String> {
+    let contents = fs::read_to_string(path)
+        .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
     let lines: Vec<&str> = contents.lines().collect();
     let start = lines.len().saturating_sub(max_lines);
-    lines[start..].join("\n")
+    Ok(lines[start..].join("\n"))
 }
 
 fn unix_timestamp_secs() -> u64 {
@@ -1631,6 +2300,13 @@ fn unix_timestamp_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+fn unix_timestamp_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 fn wasm_target_installed() -> bool {
@@ -1713,6 +2389,61 @@ fn process_exists(pid: u32) -> Result<bool, String> {
     {
         let _ = pid;
         Err("managed dev server status/stop is only supported on unix hosts".to_string())
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ManagedPidStatus {
+    NotRunning,
+    Managed,
+    Unmanaged(String),
+}
+
+fn inspect_managed_pid(pid: u32) -> Result<ManagedPidStatus, String> {
+    if !process_exists(pid)? {
+        return Ok(ManagedPidStatus::NotRunning);
+    }
+
+    #[cfg(unix)]
+    {
+        let Some(command_line) = process_command_line(pid)? else {
+            return Ok(ManagedPidStatus::NotRunning);
+        };
+        if looks_like_trunk_serve_command(&command_line) {
+            Ok(ManagedPidStatus::Managed)
+        } else {
+            Ok(ManagedPidStatus::Unmanaged(command_line))
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        Ok(ManagedPidStatus::Managed)
+    }
+}
+
+fn looks_like_trunk_serve_command(command: &str) -> bool {
+    command.contains("trunk") && command.contains("serve")
+}
+
+#[cfg(unix)]
+fn process_command_line(pid: u32) -> Result<Option<String>, String> {
+    let output = Command::new("ps")
+        .args(["-o", "command=", "-p", &pid.to_string()])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|err| format!("failed to inspect pid {pid} with `ps`: {err}"))?;
+
+    if !output.status.success() {
+        return Ok(None);
+    }
+
+    let command_line = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if command_line.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(command_line))
     }
 }
 
@@ -1871,6 +2602,25 @@ fn print_command(program: &str, args: &[String]) {
 mod tests {
     use super::*;
 
+    fn test_profiles() -> BTreeSetProfileMap {
+        let mut profiles = std::collections::BTreeMap::new();
+        profiles.insert(
+            "dev".to_string(),
+            VerifyProfileSpec {
+                mode: "fast".to_string(),
+                desktop_mode: Some("auto".to_string()),
+            },
+        );
+        profiles.insert(
+            "ci-full".to_string(),
+            VerifyProfileSpec {
+                mode: "full".to_string(),
+                desktop_mode: Some("auto".to_string()),
+            },
+        );
+        profiles
+    }
+
     #[test]
     fn parse_foreground_dev_args_defaults_to_open() {
         let spec = parse_trunk_serve_args(Vec::new(), true).expect("parse");
@@ -1899,10 +2649,46 @@ mod tests {
     }
 
     #[test]
+    fn trunk_serve_args_default_to_no_sri_and_no_filehash() {
+        let spec = parse_trunk_serve_args(Vec::new(), false).expect("parse");
+        let args = trunk_serve_args(&spec);
+        assert!(args.contains(&"--filehash=false".to_string()));
+        assert!(args.contains(&"--no-sri=true".to_string()));
+    }
+
+    #[test]
+    fn trunk_serve_args_respect_explicit_hash_and_sri_settings() {
+        let spec = parse_trunk_serve_args(
+            vec!["--filehash=true".into(), "--no-sri=false".into()],
+            false,
+        )
+        .expect("parse");
+        let args = trunk_serve_args(&spec);
+        assert!(!args.contains(&"--filehash=false".to_string()));
+        assert!(!args.contains(&"--no-sri=true".to_string()));
+        assert!(args.contains(&"--filehash=true".to_string()));
+        assert!(args.contains(&"--no-sri=false".to_string()));
+    }
+
+    #[test]
     fn dist_detection_handles_split_and_inline_forms() {
         assert!(args_specify_dist(&["--dist".into(), "x".into()]));
         assert!(args_specify_dist(&["--dist=target/custom".into()]));
         assert!(!args_specify_dist(&["--release".into()]));
+    }
+
+    #[test]
+    fn logs_option_parser_defaults_and_rejects_zero() {
+        let options = parse_dev_logs_options(Vec::new()).expect("parse");
+        assert_eq!(options, DevLogsOptions { lines: 40 });
+
+        let options =
+            parse_dev_logs_options(vec!["--lines".into(), "80".into()]).expect("parse lines");
+        assert_eq!(options, DevLogsOptions { lines: 80 });
+
+        let err = parse_dev_logs_options(vec!["--lines".into(), "0".into()])
+            .expect_err("zero should be rejected");
+        assert!(err.contains("greater than zero"));
     }
 
     #[test]
@@ -1954,13 +2740,26 @@ mod tests {
     }
 
     #[test]
+    fn trunk_command_detection_identifies_serve_processes() {
+        assert!(looks_like_trunk_serve_command("trunk serve index.html"));
+        assert!(looks_like_trunk_serve_command(
+            "/usr/local/bin/trunk serve --port 8080"
+        ));
+        assert!(!looks_like_trunk_serve_command("cargo check --workspace"));
+    }
+
+    #[test]
     fn verify_option_parser_defaults_to_full_mode() {
         let options = parse_verify_options(Vec::new()).expect("parse");
         assert_eq!(
             options,
             VerifyOptions {
                 mode: VerifyMode::Full,
-                desktop_mode: VerifyFastDesktopMode::Auto
+                desktop_mode: VerifyFastDesktopMode::Auto,
+                explicit_mode: false,
+                explicit_desktop_mode: false,
+                profile: None,
+                show_help: false
             }
         );
     }
@@ -1973,7 +2772,11 @@ mod tests {
             options,
             VerifyOptions {
                 mode: VerifyMode::Fast,
-                desktop_mode: VerifyFastDesktopMode::WithDesktop
+                desktop_mode: VerifyFastDesktopMode::WithDesktop,
+                explicit_mode: true,
+                explicit_desktop_mode: true,
+                profile: None,
+                show_help: false
             }
         );
 
@@ -1983,7 +2786,11 @@ mod tests {
             options,
             VerifyOptions {
                 mode: VerifyMode::Fast,
-                desktop_mode: VerifyFastDesktopMode::WithoutDesktop
+                desktop_mode: VerifyFastDesktopMode::WithoutDesktop,
+                explicit_mode: true,
+                explicit_desktop_mode: true,
+                profile: None,
+                show_help: false
             }
         );
     }
@@ -1997,6 +2804,29 @@ mod tests {
         ])
         .expect_err("must reject conflicting desktop flags");
         assert!(err.contains("cannot be combined"));
+    }
+
+    #[test]
+    fn verify_option_parser_supports_profiles() {
+        let parsed =
+            parse_verify_options(vec!["--profile".into(), "dev".into()]).expect("parse options");
+        let options =
+            resolve_verify_options_from_profile(parsed, &test_profiles()).expect("resolve profile");
+        assert_eq!(options.mode, VerifyMode::Fast);
+        assert_eq!(options.desktop_mode, VerifyFastDesktopMode::Auto);
+        assert_eq!(options.profile.as_deref(), Some("dev"));
+    }
+
+    #[test]
+    fn doctor_option_parser_accepts_fix() {
+        let options = parse_doctor_options(vec!["--fix".to_string()]).expect("parse");
+        assert_eq!(
+            options,
+            DoctorOptions {
+                fix: true,
+                show_help: false
+            }
+        );
     }
 
     #[test]

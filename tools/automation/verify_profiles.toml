@@ -1,0 +1,15 @@
+[profile.dev]
+mode = "fast"
+desktop_mode = "auto"
+
+[profile.ci-fast]
+mode = "fast"
+desktop_mode = "with-desktop"
+
+[profile.ci-full]
+mode = "full"
+desktop_mode = "auto"
+
+[profile.release]
+mode = "full"
+desktop_mode = "auto"
