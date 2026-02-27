@@ -37,7 +37,7 @@ Prerequisites:
 
 - Rust toolchain
 - `wasm32-unknown-unknown` target
-- [`trunk`](https://trunkrs.dev/)
+- trunk
 
 Install prerequisites (one-time):
 
