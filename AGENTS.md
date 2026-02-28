@@ -182,7 +182,7 @@ Minimum local review expectations for material UI changes:
 
 ### 4.4 `xtask` / Validator Changes (Local)
 
-When changing `xtask/src/docs.rs`, `xtask/src/docs/`, `xtask/src/commands/docs/`, `xtask/src/commands/perf.rs`, `xtask/src/runtime/`, or command/workflow semantics:
+When changing `xtask/src/docs.rs`, `xtask/src/docs/`, `xtask/src/commands/docs/`, `xtask/src/commands/perf/`, `xtask/src/runtime/`, or command/workflow semantics:
 
 1. Run `cargo fmt --all`.
 2. Run `cargo test -p xtask`.
@@ -373,7 +373,7 @@ When changing `platform_host`, `platform_host_web`, or `desktop_tauri` contracts
 - `xtask/src/docs.rs` (docs validator module root / command dispatch)
 - `xtask/src/docs/` (docs contract/integrity/audit validation surfaces, including wiki instructional template validation)
 - `xtask/src/commands/docs/` (docs command-family façade over the shared xtask runtime and validator modules)
-- `xtask/src/commands/perf.rs` (performance benchmarking/profiling workflow CLI implementation)
+- `xtask/src/commands/perf/` (performance benchmarking/profiling command family and cohesive workflow submodules)
 - `xtask/src/runtime/` (shared xtask automation runtime: process execution, workflow recording, typed config, artifact policy)
 - `tools/docs/doc_contracts.json` (docs schema/contract rules)
 - `.gitmodules` (wiki submodule declaration)

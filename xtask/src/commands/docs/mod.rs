@@ -46,7 +46,7 @@ impl XtaskCommand for DocsCommand {
                 };
                 audit::write_report(ctx, path)
             }
-            _ => crate::docs::run_docs_command(ctx.root(), args).map_err(Into::into),
+            _ => crate::docs::run_docs_command(ctx.root(), args),
         }
     }
 }
@@ -60,7 +60,7 @@ pub(crate) fn write_report(ctx: &CommandContext, output: PathBuf) -> XtaskResult
 }
 
 fn run_subcommand(ctx: &CommandContext, args: Vec<String>) -> XtaskResult<()> {
-    crate::docs::run_docs_command(ctx.root(), args).map_err(Into::into)
+    crate::docs::run_docs_command(ctx.root(), args)
 }
 
 fn output_args(output: impl Into<PathBuf>) -> Vec<String> {

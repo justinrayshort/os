@@ -93,7 +93,7 @@ pub(crate) fn validate_openapi(root: &Path, require_validator: bool) -> (Vec<Pro
     (problems, count)
 }
 
-fn collect_openapi_specs(root: &Path) -> Result<Vec<PathBuf>, String> {
+fn collect_openapi_specs(root: &Path) -> XtaskResult<Vec<PathBuf>> {
     let mut files = Vec::new();
     if !root.exists() {
         return Ok(files);
@@ -103,11 +103,19 @@ fn collect_openapi_specs(root: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(files)
 }
 
-fn collect_openapi_specs_inner(root: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
+fn collect_openapi_specs_inner(root: &Path, out: &mut Vec<PathBuf>) -> XtaskResult<()> {
     let mut entries: Vec<_> = fs::read_dir(root)
-        .map_err(|err| format!("failed to read {}: {err}", root.display()))?
+        .map_err(|err| {
+            XtaskError::io(format!("failed to read {}: {err}", root.display()))
+                .with_operation("collect OpenAPI specs")
+                .with_path(root)
+        })?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|err| format!("failed to read {}: {err}", root.display()))?;
+        .map_err(|err| {
+            XtaskError::io(format!("failed to read {}: {err}", root.display()))
+                .with_operation("collect OpenAPI specs")
+                .with_path(root)
+        })?;
     entries.sort_by_key(|e| e.path());
 
     for entry in entries {

@@ -40,6 +40,17 @@ impl ProcessRunner {
             .unwrap_or(false)
     }
 
+    /// Return whether a command succeeds with the provided arguments.
+    pub fn command_succeeds(&self, program: &str, args: &[&str]) -> bool {
+        Command::new(program)
+            .args(args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
+
     /// Require a command to exist.
     pub fn ensure_command(&self, program: &str, hint: &str) -> XtaskResult<()> {
         if self.command_available(program) {
@@ -153,5 +164,26 @@ impl ProcessRunner {
         } else {
             println!("+ {program} {}", args.join(" "));
         }
+    }
+
+    /// Capture the first stdout line from a simple probe command.
+    pub fn capture_stdout_line(&self, program: &str, args: &[&str]) -> String {
+        let Ok(output) = Command::new(program)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+        else {
+            return "unavailable".into();
+        };
+        if !output.status.success() {
+            return "unavailable".into();
+        }
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .unwrap_or("unavailable")
+            .trim()
+            .to_string()
     }
 }

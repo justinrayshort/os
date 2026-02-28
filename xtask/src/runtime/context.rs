@@ -4,6 +4,7 @@ use crate::runtime::artifacts::ArtifactManager;
 use crate::runtime::error::{XtaskError, XtaskResult};
 use crate::runtime::process::ProcessRunner;
 use crate::runtime::workflow::WorkflowRecorder;
+use crate::runtime::workspace::WorkspaceState;
 use std::path::{Path, PathBuf};
 
 /// Shared execution context for xtask command families.
@@ -12,6 +13,7 @@ pub struct CommandContext {
     root: PathBuf,
     artifacts: ArtifactManager,
     process: ProcessRunner,
+    workspace: WorkspaceState,
     workflow: WorkflowRecorder,
 }
 
@@ -21,11 +23,13 @@ impl CommandContext {
         let root = workspace_root()?;
         let artifacts = ArtifactManager::new(root.clone());
         let process = ProcessRunner::new();
+        let workspace = WorkspaceState::new(root.clone());
         let workflow = WorkflowRecorder::new(artifacts.clone());
         Ok(Self {
             root,
             artifacts,
             process,
+            workspace,
             workflow,
         })
     }
@@ -43,6 +47,11 @@ impl CommandContext {
     /// Shared process runner.
     pub fn process(&self) -> &ProcessRunner {
         &self.process
+    }
+
+    /// Shared workspace-state inspector.
+    pub fn workspace(&self) -> &WorkspaceState {
+        &self.workspace
     }
 
     /// Shared workflow recorder.

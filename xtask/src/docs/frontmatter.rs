@@ -219,20 +219,22 @@ pub(crate) fn parse_review_date(value: &str) -> Option<NaiveDate> {
     NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()
 }
 
-pub(crate) fn current_date() -> Result<NaiveDate, String> {
+pub(crate) fn current_date() -> XtaskResult<NaiveDate> {
     if let Ok(override_date) = env::var("DOCS_TODAY") {
         return parse_review_date(&override_date).ok_or_else(|| {
-            format!("invalid DOCS_TODAY date `{override_date}` (expected YYYY-MM-DD)")
+            XtaskError::validation(format!(
+                "invalid DOCS_TODAY date `{override_date}` (expected YYYY-MM-DD)"
+            ))
         });
     }
     Ok(Local::now().date_naive())
 }
 
-pub(crate) fn env_or_contract_stale_days(contracts: &Contracts) -> Result<i64, String> {
+pub(crate) fn env_or_contract_stale_days(contracts: &Contracts) -> XtaskResult<i64> {
     if let Ok(value) = env::var("DOCS_STALE_REVIEW_DAYS") {
-        let parsed = value
-            .parse::<i64>()
-            .map_err(|_| format!("invalid DOCS_STALE_REVIEW_DAYS `{value}`"))?;
+        let parsed = value.parse::<i64>().map_err(|_| {
+            XtaskError::validation(format!("invalid DOCS_STALE_REVIEW_DAYS `{value}`"))
+        })?;
         return Ok(parsed);
     }
     Ok(contracts.stale_review_days as i64)

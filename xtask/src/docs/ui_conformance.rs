@@ -692,22 +692,28 @@ fn validate_app_runtime_layout_contracts(root: &Path) -> Vec<Problem> {
     problems
 }
 
-pub(crate) fn write_ui_inventory(root: &Path, output: &Path) -> Result<(), String> {
+pub(crate) fn write_ui_inventory(root: &Path, output: &Path) -> XtaskResult<()> {
     let entries = collect_ui_inventory(root)?;
     if let Some(parent) = output.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("failed to create {}: {err}", parent.display()))?;
+        fs::create_dir_all(parent).map_err(|err| {
+            XtaskError::io(format!("failed to create {}: {err}", parent.display()))
+                .with_operation("write UI inventory")
+                .with_path(parent)
+        })?;
     }
     let json = serde_json::to_string_pretty(&entries)
-        .map_err(|err| format!("failed to serialize UI inventory: {err}"))?;
-    fs::write(output, json)
-        .map_err(|err| format!("failed to write {}: {err}", output.display()))?;
+        .map_err(|err| XtaskError::io(format!("failed to serialize UI inventory: {err}")))?;
+    fs::write(output, json).map_err(|err| {
+        XtaskError::io(format!("failed to write {}: {err}", output.display()))
+            .with_operation("write UI inventory")
+            .with_path(output)
+    })?;
     println!("UI inventory entries: {}", entries.len());
     println!("Wrote {}", output.display());
     Ok(())
 }
 
-fn collect_ui_inventory(root: &Path) -> Result<Vec<UiInventoryEntry>, String> {
+fn collect_ui_inventory(root: &Path) -> XtaskResult<Vec<UiInventoryEntry>> {
     let mut entries = Vec::new();
     let consumed_css_classes = collect_consumed_css_classes(root)?;
     for rel_dir in [
@@ -720,8 +726,11 @@ fn collect_ui_inventory(root: &Path) -> Result<Vec<UiInventoryEntry>, String> {
         files.sort();
         for path in files {
             let rel_path = rel_posix(root, &path);
-            let text = fs::read_to_string(&path)
-                .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+            let text = fs::read_to_string(&path).map_err(|err| {
+                XtaskError::io(format!("failed to read {}: {err}", path.display()))
+                    .with_operation("collect UI inventory")
+                    .with_path(&path)
+            })?;
             let owner_layer = rust_owner_layer(&rel_path).to_string();
             for (idx, line) in text.lines().enumerate() {
                 if let Some(token) = extract_attr_literal(line, "class=\"") {
@@ -755,8 +764,11 @@ fn collect_ui_inventory(root: &Path) -> Result<Vec<UiInventoryEntry>, String> {
     css_files.sort();
     for path in css_files {
         let rel_path = rel_posix(root, &path);
-        let text = fs::read_to_string(&path)
-            .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+        let text = fs::read_to_string(&path).map_err(|err| {
+            XtaskError::io(format!("failed to read {}: {err}", path.display()))
+                .with_operation("collect UI inventory")
+                .with_path(&path)
+        })?;
         for (idx, line) in text.lines().enumerate() {
             let trimmed = line.trim();
             if trimmed.starts_with("--") {
@@ -817,14 +829,17 @@ pub(crate) fn extract_attr_literal(line: &str, needle: &str) -> Option<String> {
     None
 }
 
-fn collect_consumed_css_classes(root: &Path) -> Result<HashSet<String>, String> {
+fn collect_consumed_css_classes(root: &Path) -> XtaskResult<HashSet<String>> {
     let mut classes = HashSet::new();
     let css_dir = root.join("crates/site/src/theme_shell");
     let mut css_files = collect_files_with_suffix(&css_dir, ".css")?;
     css_files.sort();
     for path in css_files {
-        let text = fs::read_to_string(&path)
-            .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+        let text = fs::read_to_string(&path).map_err(|err| {
+            XtaskError::io(format!("failed to read {}: {err}", path.display()))
+                .with_operation("collect consumed CSS classes")
+                .with_path(&path)
+        })?;
         for line in text.lines() {
             let trimmed = line.trim();
             if trimmed.starts_with("/*")

@@ -1,3 +1,4 @@
+use crate::runtime::error::{XtaskError, XtaskResult};
 use chrono::{Local, NaiveDate, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -151,7 +152,7 @@ pub(crate) fn print_docs_usage() {
     );
 }
 
-pub(crate) fn run_docs_command(root: &Path, args: Vec<String>) -> Result<(), String> {
+pub(crate) fn run_docs_command(root: &Path, args: Vec<String>) -> XtaskResult<()> {
     let Some(command) = args.first().map(String::as_str) else {
         print_docs_usage();
         return Ok(());
@@ -199,7 +200,8 @@ pub(crate) fn run_docs_command(root: &Path, args: Vec<String>) -> Result<(), Str
             audit::fail_if_problems(ui_conformance::validate_ui_conformance(root))
         }
         DocsCommand::UiInventory => {
-            let output = audit_output.ok_or_else(|| "missing `--output <path>`".to_string())?;
+            let output =
+                audit_output.ok_or_else(|| XtaskError::validation("missing `--output <path>`"))?;
             ui_conformance::write_ui_inventory(root, &output)
         }
         DocsCommand::StorageBoundary => {
@@ -213,15 +215,14 @@ pub(crate) fn run_docs_command(root: &Path, args: Vec<String>) -> Result<(), Str
             audit::fail_if_problems(problems)
         }
         DocsCommand::AuditReport => {
-            let output = audit_output.ok_or_else(|| "missing `--output <path>`".to_string())?;
+            let output =
+                audit_output.ok_or_else(|| XtaskError::validation("missing `--output <path>`"))?;
             audit::write_audit_report(root, &records, parse_problems, &contracts, &output)
         }
     }
 }
 
-fn parse_docs_command(
-    args: &[String],
-) -> Result<(DocsCommand, DocsFlags, Option<PathBuf>), String> {
+fn parse_docs_command(args: &[String]) -> XtaskResult<(DocsCommand, DocsFlags, Option<PathBuf>)> {
     let mut flags = DocsFlags::default();
     let mut output: Option<PathBuf> = None;
 
@@ -239,7 +240,11 @@ fn parse_docs_command(
         "app-contract" => DocsCommand::AppContract,
         "all" => DocsCommand::All,
         "audit-report" => DocsCommand::AuditReport,
-        other => return Err(format!("unsupported docs command: {other}")),
+        other => {
+            return Err(XtaskError::validation(format!(
+                "unsupported docs command: {other}"
+            )))
+        }
     };
 
     let mut i = 1usize;
@@ -255,12 +260,16 @@ fn parse_docs_command(
             }
             "--output" => {
                 let Some(path) = args.get(i + 1) else {
-                    return Err("missing value for `--output`".to_string());
+                    return Err(XtaskError::validation("missing value for `--output`"));
                 };
                 output = Some(PathBuf::from(path));
                 i += 2;
             }
-            other => return Err(format!("unsupported docs argument: {other}")),
+            other => {
+                return Err(XtaskError::validation(format!(
+                    "unsupported docs argument: {other}"
+                )))
+            }
         }
     }
 
@@ -273,41 +282,55 @@ fn parse_docs_command(
         | DocsCommand::StorageBoundary
         | DocsCommand::AppContract => {
             if flags.require_renderer || flags.require_openapi_validator || output.is_some() {
-                return Err(format!(
+                return Err(XtaskError::validation(format!(
                     "extra arguments are not supported for `{}`",
                     args[0]
-                ));
+                )));
             }
         }
         DocsCommand::Mermaid => {
             if flags.require_openapi_validator || output.is_some() {
-                return Err("`mermaid` only supports `--require-renderer`".to_string());
+                return Err(XtaskError::validation(
+                    "`mermaid` only supports `--require-renderer`",
+                ));
             }
         }
         DocsCommand::OpenApi => {
             if flags.require_renderer || output.is_some() {
-                return Err("`openapi` only supports `--require-validator`".to_string());
+                return Err(XtaskError::validation(
+                    "`openapi` only supports `--require-validator`",
+                ));
             }
         }
         DocsCommand::UiConformance => {
             if flags.require_renderer || flags.require_openapi_validator || output.is_some() {
-                return Err("`ui-conformance` does not accept extra arguments".to_string());
+                return Err(XtaskError::validation(
+                    "`ui-conformance` does not accept extra arguments",
+                ));
             }
         }
         DocsCommand::UiInventory => {
             if flags.require_renderer || flags.require_openapi_validator {
-                return Err("`ui-inventory` does not accept validator flags".to_string());
+                return Err(XtaskError::validation(
+                    "`ui-inventory` does not accept validator flags",
+                ));
             }
             if output.is_none() {
-                return Err("`ui-inventory` requires `--output <path>`".to_string());
+                return Err(XtaskError::validation(
+                    "`ui-inventory` requires `--output <path>`",
+                ));
             }
         }
         DocsCommand::AuditReport => {
             if flags.require_renderer || flags.require_openapi_validator {
-                return Err("`audit-report` does not accept validator flags".to_string());
+                return Err(XtaskError::validation(
+                    "`audit-report` does not accept validator flags",
+                ));
             }
             if output.is_none() {
-                return Err("`audit-report` requires `--output <path>`".to_string());
+                return Err(XtaskError::validation(
+                    "`audit-report` requires `--output <path>`",
+                ));
             }
         }
         DocsCommand::All => {}
@@ -320,22 +343,32 @@ pub(crate) fn docs_root(root: &Path) -> PathBuf {
     root.join("docs")
 }
 
-fn load_contracts(root: &Path) -> Result<Contracts, String> {
+fn load_contracts(root: &Path) -> XtaskResult<Contracts> {
     let path = root.join("tools/docs/doc_contracts.json");
-    let text = fs::read_to_string(&path)
-        .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
-    serde_json::from_str(&text).map_err(|err| format!("failed to parse {}: {err}", path.display()))
+    let text = fs::read_to_string(&path).map_err(|err| {
+        XtaskError::io(format!("failed to read {}: {err}", path.display()))
+            .with_operation("load docs contracts")
+            .with_path(&path)
+    })?;
+    serde_json::from_str(&text).map_err(|err| {
+        XtaskError::config(format!("failed to parse {}: {err}", path.display()))
+            .with_operation("parse docs contracts")
+            .with_path(&path)
+    })
 }
 
-fn collect_docs(root: &Path) -> Result<(Vec<DocRecord>, Vec<Problem>), String> {
+fn collect_docs(root: &Path) -> XtaskResult<(Vec<DocRecord>, Vec<Problem>)> {
     let mut records = Vec::new();
     let mut problems = Vec::new();
     let mut files = collect_files_with_suffix(&docs_root(root), ".md")?;
     files.sort();
 
     for path in files {
-        let text = fs::read_to_string(&path)
-            .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+        let text = fs::read_to_string(&path).map_err(|err| {
+            XtaskError::io(format!("failed to read {}: {err}", path.display()))
+                .with_operation("collect docs")
+                .with_path(&path)
+        })?;
         let (frontmatter, body, fm_errors) = split_frontmatter(&text);
         let rel = rel_posix(root, &path);
         for err in fm_errors {
@@ -357,7 +390,7 @@ fn collect_docs(root: &Path) -> Result<(Vec<DocRecord>, Vec<Problem>), String> {
     Ok((records, problems))
 }
 
-pub(crate) fn collect_files_with_suffix(root: &Path, suffix: &str) -> Result<Vec<PathBuf>, String> {
+pub(crate) fn collect_files_with_suffix(root: &Path, suffix: &str) -> XtaskResult<Vec<PathBuf>> {
     let mut out = Vec::new();
     if !root.exists() {
         return Ok(out);
@@ -370,11 +403,19 @@ fn collect_files_with_suffix_inner(
     root: &Path,
     suffix: &str,
     out: &mut Vec<PathBuf>,
-) -> Result<(), String> {
+) -> XtaskResult<()> {
     let mut entries: Vec<_> = fs::read_dir(root)
-        .map_err(|err| format!("failed to read {}: {err}", root.display()))?
+        .map_err(|err| {
+            XtaskError::io(format!("failed to read {}: {err}", root.display()))
+                .with_operation("collect files")
+                .with_path(root)
+        })?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|err| format!("failed to read {}: {err}", root.display()))?;
+        .map_err(|err| {
+            XtaskError::io(format!("failed to read {}: {err}", root.display()))
+                .with_operation("collect files")
+                .with_path(root)
+        })?;
     entries.sort_by_key(|e| e.path());
 
     for entry in entries {

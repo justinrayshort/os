@@ -32,7 +32,7 @@ pub(crate) fn write_audit_report(
     parse_problems: Vec<Problem>,
     contracts: &Contracts,
     output: &Path,
-) -> Result<(), String> {
+) -> XtaskResult<()> {
     let structure_problems = structure::validate_structure(root, contracts);
     let wiki_problems = wiki::validate_wiki_submodule(root);
     let frontmatter_problems = frontmatter::validate_frontmatter(root, records, contracts);
@@ -77,13 +77,19 @@ pub(crate) fn write_audit_report(
     });
 
     if let Some(parent) = output.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("failed to create {}: {err}", parent.display()))?;
+        fs::create_dir_all(parent).map_err(|err| {
+            XtaskError::io(format!("failed to create {}: {err}", parent.display()))
+                .with_operation("write docs audit report")
+                .with_path(parent)
+        })?;
     }
     let body = serde_json::to_string_pretty(&report)
-        .map_err(|err| format!("failed to serialize report: {err}"))?;
-    fs::write(output, format!("{body}\n"))
-        .map_err(|err| format!("failed to write {}: {err}", output.display()))?;
+        .map_err(|err| XtaskError::io(format!("failed to serialize report: {err}")))?;
+    fs::write(output, format!("{body}\n")).map_err(|err| {
+        XtaskError::io(format!("failed to write {}: {err}", output.display()))
+            .with_operation("write docs audit report")
+            .with_path(output)
+    })?;
     println!("Wrote audit report: {}", output.display());
 
     let mut all_problems = Vec::new();
@@ -148,7 +154,7 @@ fn counts_by_category(records: &[DocRecord]) -> BTreeMap<String, usize> {
     counter
 }
 
-pub(crate) fn fail_if_problems(mut problems: Vec<Problem>) -> Result<(), String> {
+pub(crate) fn fail_if_problems(mut problems: Vec<Problem>) -> XtaskResult<()> {
     if problems.is_empty() {
         println!("OK");
         return Ok(());
@@ -163,7 +169,7 @@ pub(crate) fn fail_if_problems(mut problems: Vec<Problem>) -> Result<(), String>
     });
     print_problems(&problems);
     println!("\nFAILED: {} issue(s)", problems.len());
-    Err("docs validation failed".to_string())
+    Err(XtaskError::validation("docs validation failed"))
 }
 
 fn print_problems(problems: &[Problem]) {

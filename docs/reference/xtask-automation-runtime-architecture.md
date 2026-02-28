@@ -41,6 +41,8 @@ Non-responsibilities:
 
 - [`xtask/src/runtime/context.rs`](../../xtask/src/runtime/context.rs): shared `CommandContext`
 - [`xtask/src/runtime/process.rs`](../../xtask/src/runtime/process.rs): `ProcessRunner`
+- [`xtask/src/runtime/lifecycle.rs`](../../xtask/src/runtime/lifecycle.rs): shared process lifecycle, signaling, and port-readiness helpers
+- [`xtask/src/runtime/workspace.rs`](../../xtask/src/runtime/workspace.rs): `WorkspaceState` for git/cargo workspace inspection
 - [`xtask/src/runtime/workflow.rs`](../../xtask/src/runtime/workflow.rs): `WorkflowRecorder`, stage timing, structured automation manifests
 - [`xtask/src/runtime/artifacts.rs`](../../xtask/src/runtime/artifacts.rs): `ArtifactManager`
 - [`xtask/src/runtime/env.rs`](../../xtask/src/runtime/env.rs): environment normalization (`NO_COLOR`)
@@ -51,6 +53,8 @@ Responsibilities:
 
 - workspace-root resolution
 - child-process execution
+- managed process lifecycle and port readiness
+- git/cargo workspace inspection
 - environment normalization
 - workflow manifests and stage/event recording
 - artifact path policy
@@ -59,9 +63,11 @@ Responsibilities:
 
 ### Command Domains
 
-- [`xtask/src/commands/dev.rs`](../../xtask/src/commands/dev.rs): prototype, web, Tauri, and environment-health commands
-- [`xtask/src/commands/verify.rs`](../../xtask/src/commands/verify.rs): verify profiles, changed-scope flow, verification orchestration
-- [`xtask/src/commands/perf.rs`](../../xtask/src/commands/perf.rs): benchmarking and profiling workflows
+- [`xtask/src/commands/dev.rs`](../../xtask/src/commands/dev.rs): dev command-family façade and shared command structs
+- [`xtask/src/commands/dev/`](../../xtask/src/commands/dev/): cohesive dev submodules for typed config, doctor checks, managed dev-server lifecycle, and web/Tauri entrypoints
+- [`xtask/src/commands/verify.rs`](../../xtask/src/commands/verify.rs): verify command-family façade and shared command structs
+- [`xtask/src/commands/verify/`](../../xtask/src/commands/verify/): cohesive verify submodules for profile/config handling, changed-scope detection, flow execution, and verification stage orchestration
+- [`xtask/src/commands/perf/`](../../xtask/src/commands/perf/): cohesive perf submodules for CLI args, tooling checks, benchmark/profiling execution, and report generation
 - [`xtask/src/commands/docs/`](../../xtask/src/commands/docs/): docs command family façade and runtime integration
 - [`xtask/src/docs.rs`](../../xtask/src/docs.rs): docs validator module root and command dispatch
 - [`xtask/src/docs/`](../../xtask/src/docs/): split docs validation surfaces (`structure`, `wiki`, `frontmatter`, `sop`, `links`, `mermaid`, `openapi`, `storage_boundary`, `app_contract`, `ui_conformance`, `audit`)
@@ -79,6 +85,7 @@ The refactor established these extension points for future workflows:
 - `xtask::XtaskCommand`
 - `CommandContext`
 - `ProcessRunner`
+- `WorkspaceState`
 - `WorkflowRecorder`
 - `ArtifactManager`
 - `ConfigLoader<T>`
