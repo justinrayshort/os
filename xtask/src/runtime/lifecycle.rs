@@ -142,3 +142,37 @@ fn signal(pid: u32, sig: i32) -> Result<(), io::Error> {
         Err(io::Error::last_os_error())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::TcpListener;
+
+    #[test]
+    fn port_is_open_detects_bound_listener() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let port = listener.local_addr().expect("addr").port();
+        assert!(port_is_open("127.0.0.1", port));
+    }
+
+    #[test]
+    fn port_is_open_returns_false_for_unbound_port() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
+        let port = listener.local_addr().expect("addr").port();
+        drop(listener);
+        assert!(!port_is_open("127.0.0.1", port));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn process_exists_reports_current_process() {
+        assert!(process_exists(std::process::id()).expect("process exists"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn process_command_line_reports_current_process() {
+        let command = process_command_line(std::process::id()).expect("command line");
+        assert!(command.is_some());
+    }
+}

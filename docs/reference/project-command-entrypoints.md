@@ -63,7 +63,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo verify --profile <name>`: Run profile-driven verification from `tools/automation/verify_profiles.toml` (`dev`, `ci-fast`, `ci-full`, `release`).
 - `cargo verify-fast` / `cargo verify`: print per-stage duration for measurable feedback-loop latency.
 - `cargo flow`, `cargo verify*`, and `cargo doctor` emit structured run artifacts under `.artifacts/automation/runs/<run-id>/` (`manifest.json`, `events.jsonl`).
-- `cargo doctor`, `cargo flow`, `cargo verify*`, `cargo perf *`, and `cargo xtask docs *` now execute through a shared library-backed xtask runtime (`CommandContext`, `ProcessRunner`, `WorkflowRecorder`, `ArtifactManager`) instead of a monolithic binary entry file.
+- `cargo doctor`, `cargo flow`, `cargo verify*`, `cargo perf *`, and `cargo xtask docs *` now execute through a shared library-backed xtask runtime (`CommandContext`, `ProcessRunner`, `WorkspaceState`, lifecycle helpers, `WorkflowRecorder`, `ArtifactManager`) instead of a monolithic binary entry file.
 - `cargo check-all`: Explicit full-workspace compile check alias (`cargo check --workspace`).
 - `cargo test-all`: Explicit full-workspace test alias (`cargo test --workspace`).
 

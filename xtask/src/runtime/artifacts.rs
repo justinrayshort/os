@@ -29,6 +29,15 @@ impl ArtifactManager {
         self.root.join(relative)
     }
 
+    /// Resolve a possibly-relative workspace path.
+    pub fn resolve_path(&self, path: &Path) -> PathBuf {
+        if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            self.root.join(path)
+        }
+    }
+
     /// Automation run manifest root.
     pub fn automation_runs_dir(&self) -> PathBuf {
         self.path(AUTOMATION_RUNS_DIR)
@@ -43,5 +52,59 @@ impl ArtifactManager {
     pub fn ensure_dir(&self, path: &Path) -> XtaskResult<()> {
         fs::create_dir_all(path)
             .map_err(|err| XtaskError::io(format!("failed to create {}: {err}", path.display())))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_root() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "xtask-artifacts-test-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("time")
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn artifact_paths_are_root_relative() {
+        let root = PathBuf::from("/tmp/xtask-artifacts-root");
+        let manager = ArtifactManager::new(root.clone());
+        assert_eq!(
+            manager.automation_runs_dir(),
+            root.join(".artifacts/automation/runs")
+        );
+        assert_eq!(
+            manager.docs_audit_report(),
+            root.join(".artifacts/docs-audit.json")
+        );
+    }
+
+    #[test]
+    fn ensure_dir_creates_missing_directory() {
+        let root = unique_temp_root();
+        let manager = ArtifactManager::new(root.clone());
+        let target = root.join("nested/output");
+        manager.ensure_dir(&target).expect("ensure dir");
+        assert!(target.is_dir());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn resolve_path_keeps_absolute_and_expands_relative() {
+        let root = PathBuf::from("/tmp/xtask-artifacts-root");
+        let manager = ArtifactManager::new(root.clone());
+        assert_eq!(
+            manager.resolve_path(Path::new("nested/output.json")),
+            root.join("nested/output.json")
+        );
+        assert_eq!(
+            manager.resolve_path(Path::new("/tmp/already-absolute.json")),
+            PathBuf::from("/tmp/already-absolute.json")
+        );
     }
 }

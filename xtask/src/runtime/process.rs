@@ -187,3 +187,37 @@ impl ProcessRunner {
             .to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_available_reports_missing_binary() {
+        let runner = ProcessRunner::new();
+        assert!(!runner.command_available("definitely-not-a-real-command-binary"));
+    }
+
+    #[test]
+    fn command_succeeds_distinguishes_success_and_failure() {
+        let runner = ProcessRunner::new();
+        assert!(runner.command_succeeds("cargo", &["--version"]));
+        assert!(!runner.command_succeeds("cargo", &["__definitely_invalid_subcommand__"]));
+    }
+
+    #[test]
+    fn capture_stdout_line_returns_unavailable_for_failure() {
+        let runner = ProcessRunner::new();
+        assert_eq!(
+            runner.capture_stdout_line("cargo", &["__definitely_invalid_subcommand__"]),
+            "unavailable"
+        );
+    }
+
+    #[test]
+    fn capture_stdout_line_returns_first_stdout_line() {
+        let runner = ProcessRunner::new();
+        let line = runner.capture_stdout_line("cargo", &["--version"]);
+        assert!(line.starts_with("cargo "));
+    }
+}

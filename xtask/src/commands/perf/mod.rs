@@ -11,7 +11,6 @@ use crate::XtaskCommand;
 use doctor::perf_doctor;
 use report::perf_dev_loop_baseline;
 use run::{perf_baseline, perf_bench, perf_check, perf_compare, perf_flamegraph, perf_heaptrack};
-use std::path::{Path, PathBuf};
 
 const PERF_DIR: &str = ".artifacts/perf";
 const PERF_FLAMEGRAPH_DIR: &str = ".artifacts/perf/flamegraphs";
@@ -77,12 +76,4 @@ fn ensure_perf_dirs(ctx: &CommandContext) -> XtaskResult<()> {
         .ensure_dir(&ctx.root().join(PERF_FLAMEGRAPH_DIR))?;
     ctx.artifacts()
         .ensure_dir(&ctx.root().join(PERF_REPORT_DIR))
-}
-
-fn resolve_output_path(root: &Path, output: PathBuf) -> PathBuf {
-    if output.is_absolute() {
-        output
-    } else {
-        root.join(output)
-    }
 }

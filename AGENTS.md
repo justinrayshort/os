@@ -374,7 +374,7 @@ When changing `platform_host`, `platform_host_web`, or `desktop_tauri` contracts
 - `xtask/src/docs/` (docs contract/integrity/audit validation surfaces, including wiki instructional template validation)
 - `xtask/src/commands/docs/` (docs command-family façade over the shared xtask runtime and validator modules)
 - `xtask/src/commands/perf/` (performance benchmarking/profiling command family and cohesive workflow submodules)
-- `xtask/src/runtime/` (shared xtask automation runtime: process execution, workflow recording, typed config, artifact policy)
+- `xtask/src/runtime/` (shared xtask automation runtime: process execution, workspace inspection, lifecycle helpers, workflow recording, typed config, artifact policy)
 - `tools/docs/doc_contracts.json` (docs schema/contract rules)
 - `.gitmodules` (wiki submodule declaration)
 - `wiki/` (GitHub Wiki submodule checkout; canonical navigation + Diataxis narrative)

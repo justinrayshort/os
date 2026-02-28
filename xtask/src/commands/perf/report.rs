@@ -1,5 +1,5 @@
 use super::args::parse_dev_loop_baseline_output_arg;
-use super::{ensure_perf_dirs, resolve_output_path};
+use super::ensure_perf_dirs;
 use crate::runtime::context::CommandContext;
 use crate::runtime::error::{XtaskError, XtaskResult};
 use crate::runtime::workflow::unix_timestamp_secs;
@@ -10,7 +10,7 @@ use std::time::Instant;
 pub(super) fn perf_dev_loop_baseline(ctx: &CommandContext, args: Vec<String>) -> XtaskResult<()> {
     ensure_perf_dirs(ctx)?;
     let output = parse_dev_loop_baseline_output_arg(args)?;
-    let output_path = resolve_output_path(ctx.root(), output);
+    let output_path = ctx.artifacts().resolve_path(&output);
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).map_err(|err| {
             XtaskError::io(format!("failed to create {}: {err}", parent.display()))

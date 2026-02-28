@@ -3,9 +3,8 @@ use super::web::site_dir;
 use crate::runtime::context::CommandContext;
 use crate::runtime::env::EnvHelper;
 use crate::runtime::error::{XtaskError, XtaskResult};
-use crate::runtime::lifecycle::{
-    kill_pid, port_is_open, process_command_line, terminate_pid,
-};
+use crate::runtime::fs::read_file_tail;
+use crate::runtime::lifecycle::{kill_pid, port_is_open, process_command_line, terminate_pid};
 use crate::runtime::workflow::unix_timestamp_secs;
 use std::fs::{self, OpenOptions};
 use std::io;
@@ -226,7 +225,7 @@ pub(crate) fn dev_server_stop(ctx: &CommandContext, quiet_if_missing: bool) -> X
     let deadline = Instant::now() + config.stop_timeout();
 
     while Instant::now() < deadline {
-        if !process_exists(state.pid)? {
+        if !crate::runtime::lifecycle::process_exists(state.pid)? {
             remove_dev_server_state(ctx, &config)?;
             println!("managed dev server stopped");
             return Ok(());
@@ -235,7 +234,7 @@ pub(crate) fn dev_server_stop(ctx: &CommandContext, quiet_if_missing: bool) -> X
     }
 
     kill_pid(state.pid)?;
-    if !process_exists(state.pid)? {
+    if !crate::runtime::lifecycle::process_exists(state.pid)? {
         remove_dev_server_state(ctx, &config)?;
         println!("managed dev server stopped");
         return Ok(());
@@ -263,7 +262,7 @@ pub(crate) fn dev_server_logs(ctx: &CommandContext, args: Vec<String>) -> XtaskR
         options.lines,
         log_path.display()
     );
-    let tail = read_log_tail_with_limit(&log_path, options.lines)?;
+    let tail = read_file_tail(&log_path, options.lines)?;
     if tail.is_empty() {
         println!("(log is currently empty)");
     } else {
@@ -639,15 +638,7 @@ fn wait_for_startup(
 }
 
 fn read_log_tail(path: &Path, max_lines: usize) -> String {
-    read_log_tail_with_limit(path, max_lines).unwrap_or_default()
-}
-
-fn read_log_tail_with_limit(path: &Path, max_lines: usize) -> XtaskResult<String> {
-    let contents = fs::read_to_string(path)
-        .map_err(|err| XtaskError::io(format!("failed to read {}: {err}", path.display())))?;
-    let lines: Vec<&str> = contents.lines().collect();
-    let start = lines.len().saturating_sub(max_lines);
-    Ok(lines[start..].join("\n"))
+    read_file_tail(path, max_lines).unwrap_or_default()
 }
 
 pub(crate) fn wasm_target_installed() -> bool {
@@ -669,10 +660,6 @@ pub(crate) fn wasm_target_installed() -> bool {
         .any(|line| line.trim() == "wasm32-unknown-unknown")
 }
 
-pub(crate) fn process_exists(pid: u32) -> XtaskResult<bool> {
-    crate::runtime::lifecycle::process_exists(pid)
-}
-
 #[derive(Debug, Clone)]
 pub(crate) enum ManagedPidStatus {
     NotRunning,
@@ -681,7 +668,7 @@ pub(crate) enum ManagedPidStatus {
 }
 
 pub(crate) fn inspect_managed_pid(pid: u32) -> XtaskResult<ManagedPidStatus> {
-    if !process_exists(pid)? {
+    if !crate::runtime::lifecycle::process_exists(pid)? {
         return Ok(ManagedPidStatus::NotRunning);
     }
 

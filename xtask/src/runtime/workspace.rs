@@ -153,6 +153,17 @@ fn path_to_posix(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_test_root() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "xtask-workspace-test-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("time")
+                .as_nanos()
+        ))
+    }
 
     #[test]
     fn porcelain_parser_handles_rename_records() {
@@ -160,5 +171,14 @@ mod tests {
             parse_porcelain_status_path("R  old/path -> new/path"),
             Some("new/path".into())
         );
+    }
+
+    #[test]
+    fn git_head_sha_is_unavailable_outside_git_repo() {
+        let root = unique_test_root();
+        std::fs::create_dir_all(&root).expect("create temp root");
+        let state = WorkspaceState::new(root.clone());
+        assert_eq!(state.git_head_sha(), "unavailable");
+        let _ = std::fs::remove_dir_all(root);
     }
 }
