@@ -1,3 +1,5 @@
+#![allow(clippy::clone_on_copy)]
+
 use super::*;
 use crate::app_runtime::ensure_window_session;
 use crate::apps;

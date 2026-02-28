@@ -91,9 +91,7 @@ pub(super) fn Taskbar() -> impl IntoView {
             overflow_menu_open,
             clock_menu_open,
             &ev,
-        ) {
-            return;
-        }
+        ) {}
     });
     on_cleanup(move || global_shortcut_listener.remove());
 

@@ -22,25 +22,18 @@ use crate::{
     WebWallpaperAssetService,
 };
 
-#[cfg(all(feature = "desktop-host-stub", feature = "desktop-host-tauri"))]
-compile_error!(
-    "features `desktop-host-stub` and `desktop-host-tauri` are mutually exclusive; enable only one"
-);
-
 /// Returns the compile-time selected host strategy for the active build.
+///
+/// Product builds should enable at most one desktop-host feature at a time. The verification
+/// matrix also exercises `--all-features`, which enables both desktop variants simultaneously;
+/// in that case this selector gives `desktop-host-tauri` precedence so the crate still compiles
+/// under Cargo's all-features expansion without introducing ambiguous adapter wiring.
 pub const fn selected_host_strategy() -> HostStrategy {
-    #[cfg(feature = "desktop-host-tauri")]
-    {
+    if cfg!(feature = "desktop-host-tauri") {
         HostStrategy::DesktopTauri
-    }
-
-    #[cfg(feature = "desktop-host-stub")]
-    {
+    } else if cfg!(feature = "desktop-host-stub") {
         HostStrategy::DesktopStub
-    }
-
-    #[cfg(not(any(feature = "desktop-host-stub", feature = "desktop-host-tauri")))]
-    {
+    } else {
         HostStrategy::Browser
     }
 }
@@ -598,5 +591,34 @@ pub fn build_host_services() -> HostServices {
         terminal_process: None,
         capabilities: host_capabilities(),
         host_strategy: selected_host_strategy(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selected_host_strategy_matches_compiled_feature_set() {
+        let expected = if cfg!(feature = "desktop-host-tauri") {
+            HostStrategy::DesktopTauri
+        } else if cfg!(feature = "desktop-host-stub") {
+            HostStrategy::DesktopStub
+        } else {
+            HostStrategy::Browser
+        };
+
+        assert_eq!(selected_host_strategy(), expected);
+        assert_eq!(host_strategy_name(), expected.as_str());
+    }
+
+    #[test]
+    fn all_features_prefers_tauri_over_stub() {
+        if cfg!(all(
+            feature = "desktop-host-tauri",
+            feature = "desktop-host-stub"
+        )) {
+            assert_eq!(selected_host_strategy(), HostStrategy::DesktopTauri);
+        }
     }
 }

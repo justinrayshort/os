@@ -1189,9 +1189,7 @@ fn command_allowed_for_app(app_id: &ApplicationId, required: AppCapability) -> b
     if apps::app_is_privileged_by_id(app_id) {
         return true;
     }
-    apps::app_requested_capabilities_by_id(app_id)
-        .iter()
-        .any(|cap| *cap == required)
+    apps::app_requested_capabilities_by_id(app_id).contains(&required)
 }
 
 #[cfg(test)]

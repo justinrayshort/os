@@ -668,7 +668,63 @@ fn validate_raw_interactive_markup(root: &Path) -> Vec<Problem> {
         "statusbar-item",
         "checkbox",
     ];
-    for (scan_dir, message) in [("crates/apps","raw interactive element detected in app crate; use approved `system_ui` primitives"),("crates/desktop_runtime/src/components","raw interactive element detected in runtime shell surface; compose through shared `system_ui` primitives")] { let dir = root.join(scan_dir); let mut files = match collect_files_with_suffix(&dir, ".rs") { Ok(files) => files, Err(_) => continue }; files.sort(); for path in files { let rel_path = rel_posix(root, &path); let Ok(text) = fs::read_to_string(&path) else { continue; }; for (idx, line) in text.lines().enumerate() { let trimmed = line.trim(); if trimmed.starts_with("//") { continue; } let forbidden = trimmed.contains("<button") || trimmed.contains("<input") || trimmed.contains("<textarea") || trimmed.contains("<table") || trimmed.contains("<select"); if forbidden { problems.push(Problem::new("ui-conformance", rel_path.clone(), message, Some(idx + 1))); } if let Some(kind) = forbidden_primitive_kinds.iter().find(|kind| trimmed.contains(&format!("data-ui-kind=\"{kind}\""))) { problems.push(Problem::new("ui-conformance", rel_path.clone(), format!("direct `data-ui-kind=\"{kind}\"` composition detected outside `system_ui`; use the approved primitive component instead"), Some(idx + 1))); } } } }
+    for (scan_dir, message) in [
+        (
+            "crates/apps",
+            "raw interactive element detected in app crate; use approved `system_ui` primitives",
+        ),
+        (
+            "crates/desktop_runtime/src/components",
+            "raw interactive element detected in runtime shell surface; compose through shared `system_ui` primitives",
+        ),
+    ] {
+        let dir = root.join(scan_dir);
+        let mut files = match collect_files_with_suffix(&dir, ".rs") {
+            Ok(files) => files,
+            Err(_) => continue,
+        };
+        files.sort();
+        for path in files {
+            let rel_path = rel_posix(root, &path);
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
+            for (idx, line) in text.lines().enumerate() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("//") {
+                    continue;
+                }
+
+                let forbidden = trimmed.contains("<button")
+                    || trimmed.contains("<input")
+                    || trimmed.contains("<textarea")
+                    || trimmed.contains("<table")
+                    || trimmed.contains("<select");
+                if forbidden {
+                    problems.push(Problem::new(
+                        "ui-conformance",
+                        rel_path.clone(),
+                        message,
+                        Some(idx + 1),
+                    ));
+                }
+
+                if let Some(kind) = forbidden_primitive_kinds
+                    .iter()
+                    .find(|kind| trimmed.contains(&format!("data-ui-kind=\"{kind}\"")))
+                {
+                    problems.push(Problem::new(
+                        "ui-conformance",
+                        rel_path.clone(),
+                        format!(
+                            "direct `data-ui-kind=\"{kind}\"` composition detected outside `system_ui`; use the approved primitive component instead"
+                        ),
+                        Some(idx + 1),
+                    ));
+                }
+            }
+        }
+    }
     problems
 }
 

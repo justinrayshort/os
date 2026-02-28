@@ -16,8 +16,7 @@ rustdoc-check:
 	cargo test --workspace --doc
 
 wiki-init:
-	git submodule sync --recursive
-	git submodule update --init --recursive
+	cargo wiki sync
 
 proto-serve:
 	cargo dev serve

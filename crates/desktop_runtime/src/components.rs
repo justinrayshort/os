@@ -310,19 +310,10 @@ pub fn DesktopShell() -> impl IntoView {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct TaskbarClockConfig {
     use_24_hour: bool,
     show_date: bool,
-}
-
-impl Default for TaskbarClockConfig {
-    fn default() -> Self {
-        Self {
-            use_24_hour: false,
-            show_date: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

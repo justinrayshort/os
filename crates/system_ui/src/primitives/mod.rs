@@ -35,21 +35,16 @@ pub use shell::{
     WindowFrame, WindowTitle, WindowTitleBar,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Semantic surface variants for structural primitives.
 pub enum SurfaceVariant {
     /// Primary surface.
+    #[default]
     Standard,
     /// Secondary or muted surface.
     Muted,
     /// Inset surface.
     Inset,
-}
-
-impl Default for SurfaceVariant {
-    fn default() -> Self {
-        Self::Standard
-    }
 }
 
 impl SurfaceVariant {
@@ -62,10 +57,11 @@ impl SurfaceVariant {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Semantic elevation levels for shared primitives.
 pub enum Elevation {
     /// Flat surface.
+    #[default]
     Flat,
     /// Raised surface.
     Raised,
@@ -75,12 +71,6 @@ pub enum Elevation {
     Inset,
     /// Pressed control surface.
     Pressed,
-}
-
-impl Default for Elevation {
-    fn default() -> Self {
-        Self::Flat
-    }
 }
 
 impl Elevation {
@@ -95,10 +85,11 @@ impl Elevation {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared button variants.
 pub enum ButtonVariant {
     /// Standard action button.
+    #[default]
     Standard,
     /// Secondary neutral action button.
     Secondary,
@@ -116,12 +107,6 @@ pub enum ButtonVariant {
     Danger,
 }
 
-impl Default for ButtonVariant {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
-
 impl ButtonVariant {
     pub(crate) fn token(self) -> &'static str {
         match self {
@@ -137,21 +122,16 @@ impl ButtonVariant {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared button shape tokens.
 pub enum ButtonShape {
     /// Standard rounded rectangle.
+    #[default]
     Standard,
     /// Pill-shaped control.
     Pill,
     /// Circular control.
     Circle,
-}
-
-impl Default for ButtonShape {
-    fn default() -> Self {
-        Self::Standard
-    }
 }
 
 impl ButtonShape {
@@ -164,21 +144,16 @@ impl ButtonShape {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared button sizing tokens.
 pub enum ButtonSize {
     /// Dense button.
     Sm,
     /// Default button.
+    #[default]
     Md,
     /// Large button.
     Lg,
-}
-
-impl Default for ButtonSize {
-    fn default() -> Self {
-        Self::Md
-    }
 }
 
 impl ButtonSize {
@@ -191,19 +166,14 @@ impl ButtonSize {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared input-field variants.
 pub enum FieldVariant {
     /// Standard input.
+    #[default]
     Standard,
     /// Inset/editor input.
     Inset,
-}
-
-impl Default for FieldVariant {
-    fn default() -> Self {
-        Self::Standard
-    }
 }
 
 impl FieldVariant {
@@ -215,10 +185,11 @@ impl FieldVariant {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared text roles.
 pub enum TextRole {
     /// Body text.
+    #[default]
     Body,
     /// Label text.
     Label,
@@ -228,12 +199,6 @@ pub enum TextRole {
     Title,
     /// Monospace/code text.
     Code,
-}
-
-impl Default for TextRole {
-    fn default() -> Self {
-        Self::Body
-    }
 }
 
 impl TextRole {
@@ -248,10 +213,11 @@ impl TextRole {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared text tone.
 pub enum TextTone {
     /// Primary text.
+    #[default]
     Primary,
     /// Secondary text.
     Secondary,
@@ -263,12 +229,6 @@ pub enum TextTone {
     Warning,
     /// Danger tone.
     Danger,
-}
-
-impl Default for TextTone {
-    fn default() -> Self {
-        Self::Primary
-    }
 }
 
 impl TextTone {
@@ -284,20 +244,15 @@ impl TextTone {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared progress variants.
 pub enum ProgressVariant {
     /// Standard progress indicator.
+    #[default]
     Standard,
 }
 
-impl Default for ProgressVariant {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared layout gap tokens.
 pub enum LayoutGap {
     /// No gap.
@@ -305,15 +260,10 @@ pub enum LayoutGap {
     /// Small gap.
     Sm,
     /// Default gap.
+    #[default]
     Md,
     /// Large gap.
     Lg,
-}
-
-impl Default for LayoutGap {
-    fn default() -> Self {
-        Self::Md
-    }
 }
 
 impl LayoutGap {
@@ -327,7 +277,7 @@ impl LayoutGap {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared layout padding tokens.
 pub enum LayoutPadding {
     /// No padding.
@@ -335,15 +285,10 @@ pub enum LayoutPadding {
     /// Compact padding.
     Sm,
     /// Default padding.
+    #[default]
     Md,
     /// Spacious padding.
     Lg,
-}
-
-impl Default for LayoutPadding {
-    fn default() -> Self {
-        Self::Md
-    }
 }
 
 impl LayoutPadding {
@@ -357,10 +302,11 @@ impl LayoutPadding {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared layout alignment tokens.
 pub enum LayoutAlign {
     /// Stretch/fill alignment.
+    #[default]
     Stretch,
     /// Start alignment.
     Start,
@@ -368,12 +314,6 @@ pub enum LayoutAlign {
     Center,
     /// End alignment.
     End,
-}
-
-impl Default for LayoutAlign {
-    fn default() -> Self {
-        Self::Stretch
-    }
 }
 
 impl LayoutAlign {
@@ -387,10 +327,11 @@ impl LayoutAlign {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Shared layout justification tokens.
 pub enum LayoutJustify {
     /// Start justification.
+    #[default]
     Start,
     /// Center justification.
     Center,
@@ -398,12 +339,6 @@ pub enum LayoutJustify {
     Between,
     /// End justification.
     End,
-}
-
-impl Default for LayoutJustify {
-    fn default() -> Self {
-        Self::Start
-    }
 }
 
 impl LayoutJustify {

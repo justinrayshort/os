@@ -202,7 +202,7 @@ cargo build -p xtask
 Run the standard local docs validation entry point:
 
 ```bash
-git submodule update --init --recursive
+cargo wiki sync
 cargo xtask docs all
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
@@ -213,7 +213,7 @@ cargo test --workspace --doc
 ### 5.3 Docs Commands (explicit)
 
 ```bash
-git submodule update --init --recursive
+cargo wiki sync
 cargo xtask docs structure
 cargo xtask docs wiki
 cargo xtask docs frontmatter
@@ -278,6 +278,7 @@ cargo web-check
 cargo web-build
 cargo flow
 cargo doctor
+cargo wiki
 cargo docs-check
 cargo docs-audit
 cargo perf <subcommand>
@@ -317,7 +318,7 @@ Run `cargo xtask docs wiki` in addition when validating staged wiki-only diagnos
 1. Classify the change surface: rustdoc (`crates/**` comments), wiki (`wiki/*.md`), or repo docs (`docs/`).
    - For Wiki changes, classify the page explicitly as Tutorial / How-to Guide / Reference / Explanation and keep content scoped to that intent.
    - For rustdoc changes, treat the content as Reference documentation.
-2. Initialize/update the wiki submodule if touching wiki content (`git submodule update --init --recursive`).
+2. Initialize/update the wiki submodule if touching wiki content (`cargo wiki sync`).
 3. Keep docs frontmatter complete and valid for `docs/*.md` changes.
 4. If editing `wiki/Tutorial-*.md` or `wiki/How-to-*.md`, preserve the shared instructional template (`Outcome`, `Entry Criteria`, `Procedure`, `Validation`, `Next Steps` + required `Entry Criteria` subsections).
 5. If ADRs, SOPs, diagrams, or other formal artifacts changed in `docs/`, update the relevant Wiki reference/index pages in the same change.

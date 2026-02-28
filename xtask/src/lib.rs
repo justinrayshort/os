@@ -16,6 +16,7 @@ use crate::commands::dev::{
 use crate::commands::docs::DocsCommand;
 use crate::commands::perf::PerfCommand;
 use crate::commands::verify::{FlowCommand, VerifyCommand};
+use crate::commands::wiki::WikiCommand;
 use crate::runtime::context::CommandContext;
 use crate::runtime::error::{XtaskError, XtaskResult};
 
@@ -53,6 +54,7 @@ pub fn execute_from_env() -> XtaskResult<()> {
         TopLevelCommand::Docs(args) => DocsCommand::run(&ctx, DocsCommand::parse(&args)?),
         TopLevelCommand::Perf(args) => PerfCommand::run(&ctx, PerfCommand::parse(&args)?),
         TopLevelCommand::Verify(args) => VerifyCommand::run(&ctx, VerifyCommand::parse(&args)?),
+        TopLevelCommand::Wiki(args) => WikiCommand::run(&ctx, WikiCommand::parse(&args)?),
         TopLevelCommand::Help => {
             cli::print_usage();
             Ok(())

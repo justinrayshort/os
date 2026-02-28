@@ -81,7 +81,9 @@ This page documents the supported top-level commands for local development, veri
 
 ### Documentation Workflow (Rustdoc + Wiki)
 
-- `git submodule sync --recursive && git submodule update --init --recursive`: Refresh submodule wiring and initialize/update the `wiki/` submodule.
+- `cargo wiki status`: Show whether the `wiki/` submodule is initialized, which branch/HEAD it is on, and whether it has local changes.
+- `cargo wiki sync`: Refresh submodule wiring and initialize/update the `wiki/` submodule.
+  - Refuses to run when `wiki/` has local modifications, so scripted refreshes do not trample in-progress wiki edits.
 - `cargo docs-check`: Run `cargo xtask docs all` (Cargo alias convenience wrapper).
 - `cargo docs-audit`: Generate `.artifacts/docs-audit.json` via `cargo xtask docs audit-report`.
 - `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages (useful for staged/isolated wiki diagnostics).
@@ -100,7 +102,7 @@ These targets exist only as a small compatibility shell for operator convenience
 
 - `make verify-fast` -> `cargo verify-fast`
 - `make verify` -> `cargo verify`
-- `make wiki-init` -> `git submodule sync --recursive && git submodule update --init --recursive`
+- `make wiki-init` -> `cargo wiki sync`
 - `make docs-check` -> `cargo docs-check`
 - `make rustdoc-check` -> `cargo doc --workspace --no-deps && cargo test --workspace --doc`
 - `make proto-serve` -> `cargo dev serve`

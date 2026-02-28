@@ -479,18 +479,15 @@ pub fn TerminalApp(
         });
     }
 
-    create_effect({
-        let terminal_screen = terminal_screen.clone();
-        move |_| {
-            let _transcript_len = transcript.get().len();
-            let hydrated = hydrated.get();
-            let should_follow_output = should_follow_output.get();
-            if !hydrated || !should_follow_output {
-                return;
-            }
-
-            scroll_terminal_to_bottom(&terminal_screen);
+    create_effect(move |_| {
+        let _transcript_len = transcript.get().len();
+        let hydrated = hydrated.get();
+        let should_follow_output = should_follow_output.get();
+        if !hydrated || !should_follow_output {
+            return;
         }
+
+        scroll_terminal_to_bottom(&terminal_screen);
     });
 
     let submit_command: Rc<dyn Fn(String)> = Rc::new({

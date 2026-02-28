@@ -1,4 +1,5 @@
 //! Shell runtime integration for the browser-native system terminal.
+#![allow(clippy::clone_on_copy)]
 
 use std::{cmp::Ordering, rc::Rc};
 
@@ -171,6 +172,7 @@ fn unavailable(message: impl Into<String>) -> ShellError {
     ShellError::new(ShellErrorCode::Unavailable, message)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn descriptor(
     path: &str,
     aliases: &[&str],
@@ -205,6 +207,7 @@ fn descriptor(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn root_descriptor(
     path: &str,
     aliases: &[&str],
@@ -228,6 +231,7 @@ fn root_descriptor(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn namespaced_descriptor(
     path: &str,
     aliases: &[&str],

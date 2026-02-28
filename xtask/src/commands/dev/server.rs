@@ -595,7 +595,7 @@ fn spawn_trunk_background(
         .stdin(Stdio::null())
         .stdout(Stdio::from(log_out))
         .stderr(Stdio::from(log));
-    EnvHelper::default().apply_no_color_override(&mut cmd);
+    EnvHelper.apply_no_color_override(&mut cmd);
 
     cmd.spawn().map_err(|err| {
         XtaskError::process_launch(format!("failed to start `trunk` in background: {err}"))

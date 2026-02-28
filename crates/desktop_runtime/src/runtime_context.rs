@@ -3,6 +3,7 @@
 //! This module owns the long-lived reducer container, runtime effect queue, app-session state,
 //! host bootstrap wiring, and built-in shell registration. UI composition stays in
 //! [`crate::components`].
+#![allow(clippy::clone_on_copy)]
 
 use leptos::*;
 use platform_host::HostServices;

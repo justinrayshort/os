@@ -77,9 +77,7 @@ fn emit_shell_event(context: &CommandExecutionContext, event: ShellStreamEvent) 
 
 fn app_can_register_commands(app_id: &ApplicationId) -> bool {
     apps::app_is_privileged_by_id(app_id)
-        || apps::app_requested_capabilities_by_id(app_id)
-            .iter()
-            .any(|cap| *cap == AppCapability::Commands)
+        || apps::app_requested_capabilities_by_id(app_id).contains(&AppCapability::Commands)
 }
 
 fn validate_scope(

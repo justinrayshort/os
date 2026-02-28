@@ -3,7 +3,7 @@ title: "SOP: Documentation System Operation and Governance"
 category: "sop"
 owner: "architecture-owner"
 status: "active"
-last_reviewed: "2026-02-26"
+last_reviewed: "2026-02-28"
 audience: ["engineering", "platform"]
 invariants:
   - "Documentation is reviewed and versioned with code."
@@ -47,13 +47,12 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
    - Command:
 
    ```bash
-   git submodule sync --recursive
-   git submodule update --init --recursive
+   cargo wiki sync
    ```
 
    - Expected output: `wiki/` submodule is present and up to date
    - Failure condition: wiki submodule missing or detached workflow not updated
-   - If editing wiki content: run `git -C wiki status --short && git -C wiki fetch origin`, then fast-forward the local wiki branch (or switch off detached HEAD before committing).
+   - If editing wiki content: run `cargo wiki status` and `git -C wiki fetch origin`, then fast-forward the local wiki branch (or switch off detached HEAD before committing).
 2. Create or update the documentation in the correct place.
    - Command:
 
@@ -135,6 +134,7 @@ sequenceDiagram
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.2.2 | 2026-02-28 | Codex | Standardized wiki submodule bootstrap/inspection on `cargo wiki sync` and `cargo wiki status` |
 | 1.2.1 | 2026-02-26 | Codex | Added explicit wiki submodule sync/refresh procedure and clarified wiki pointer update failure mode |
 | 1.2.0 | 2026-02-26 | Codex | Migrated documentation validation/audit workflow to Rust-only `xtask`; removed hosted CI/MkDocs runtime dependency |
 | 1.1.0 | 2026-02-26 | Codex | Added rustdoc + GitHub Wiki split workflow, validation, and review requirements |

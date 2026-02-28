@@ -170,7 +170,7 @@ pub fn featured_builtin_wallpapers() -> Vec<WallpaperAssetRecord> {
         .collect();
     builtin_wallpaper_records()
         .into_iter()
-        .filter(|asset| featured_ids.iter().any(|id| *id == asset.asset_id))
+        .filter(|asset| featured_ids.contains(&asset.asset_id))
         .collect()
 }
 

@@ -455,7 +455,7 @@ pub fn SettingsApp(
                                                 on_toggle=Callback::new(move |collection_id: String| {
                                                     if let Some(asset) = selected_asset.get_untracked() {
                                                         let mut collection_ids = asset.collection_ids.clone();
-                                                        if collection_ids.iter().any(|id| *id == collection_id)
+                                                        if collection_ids.contains(&collection_id)
                                                         {
                                                             collection_ids.retain(|id| *id != collection_id);
                                                         } else {
@@ -880,7 +880,7 @@ fn WallpaperCollectionItem(
             selected=Signal::derive(move || {
                 selected_asset
                     .get()
-                    .map(|asset| asset.collection_ids.iter().any(|id| *id == collection_id))
+                    .map(|asset| asset.collection_ids.contains(&collection_id))
                     .unwrap_or(false)
             })
             on_click=Callback::new(move |_| on_toggle.call(collection.collection_id.clone()))

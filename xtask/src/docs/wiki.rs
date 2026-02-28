@@ -77,7 +77,7 @@ pub(crate) fn validate_wiki_submodule(root: &Path) -> Vec<Problem> {
         problems.push(Problem::new(
             "wiki",
             WIKI_SUBMODULE_PATH,
-            "wiki submodule is not initialized; run `git submodule update --init --recursive`",
+            "wiki submodule is not initialized; run `cargo wiki sync`",
             None,
         ));
         return problems;

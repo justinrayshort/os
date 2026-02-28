@@ -92,7 +92,7 @@ pub(super) fn run_doctor(ctx: &CommandContext, options: DoctorOptions) -> XtaskR
                     Ok(())
                 } else {
                     Err(XtaskError::environment(
-                        "wiki submodule missing (run `git submodule update --init --recursive`)",
+                        "wiki submodule missing (run `cargo wiki sync`)",
                     ))
                 }
             })?;

@@ -15,6 +15,7 @@ pub enum TopLevelCommand {
     Docs(Vec<String>),
     Perf(Vec<String>),
     Verify(Vec<String>),
+    Wiki(Vec<String>),
     Help,
 }
 
@@ -36,6 +37,7 @@ pub fn parse(args: Vec<String>) -> XtaskResult<TopLevelCommand> {
         "docs" => Ok(TopLevelCommand::Docs(rest)),
         "perf" => Ok(TopLevelCommand::Perf(rest)),
         "verify" => Ok(TopLevelCommand::Verify(rest)),
+        "wiki" => Ok(TopLevelCommand::Wiki(rest)),
         "help" | "--help" | "-h" => Ok(TopLevelCommand::Help),
         other => Err(XtaskError::validation(format!(
             "unknown xtask command: {other}"
@@ -58,6 +60,7 @@ pub fn print_usage() {
            doctor [--fix]      Validate local automation/tooling prerequisites\n\
            docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
            perf <subcommand>   Performance benchmarks/profiling workflows\n\
+           wiki <subcommand>   Wiki submodule status/sync workflows\n\
            verify [fast|full] [--with-desktop|--without-desktop] [--profile <name>]\n\
                               Run standardized local verification workflow (default: full)\n"
     );

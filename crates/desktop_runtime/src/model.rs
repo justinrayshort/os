@@ -145,11 +145,12 @@ pub struct WindowRecord {
     pub last_lifecycle_event: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 /// Typed desktop skin variants rendered by the shell root `data-skin` attribute.
 pub enum DesktopSkin {
     /// Soft neumorphic skin with restrained depth cues and adaptive light/dark parity.
     #[serde(rename = "soft-neumorphic")]
+    #[default]
     SoftNeumorphic,
     /// Modern adaptive skin with dark-first token language and light/dark remapping.
     #[serde(rename = "modern-adaptive")]
@@ -192,13 +193,7 @@ impl DesktopSkin {
     ];
 }
 
-impl Default for DesktopSkin {
-    fn default() -> Self {
-        Self::SoftNeumorphic
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 /// User-configurable desktop theme preferences.
 pub struct DesktopTheme {
     /// Typed skin preset rendered as the shell root `data-skin`.
@@ -213,17 +208,6 @@ pub struct DesktopTheme {
     pub reduced_motion: bool,
     /// Whether desktop sound effects are enabled.
     pub audio_enabled: bool,
-}
-
-impl Default for DesktopTheme {
-    fn default() -> Self {
-        Self {
-            skin: DesktopSkin::default(),
-            high_contrast: false,
-            reduced_motion: false,
-            audio_enabled: false,
-        }
-    }
 }
 
 /// Current committed desktop wallpaper configuration.

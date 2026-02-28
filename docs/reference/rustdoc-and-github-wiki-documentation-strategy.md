@@ -3,7 +3,7 @@ title: "Rustdoc and GitHub Wiki Documentation Strategy"
 category: "reference"
 owner: "architecture-owner"
 status: "active"
-last_reviewed: "2026-02-26"
+last_reviewed: "2026-02-28"
 audience: ["engineering", "platform"]
 invariants:
   - "Rust API reference is generated from rustdoc and not maintained manually in Markdown."
@@ -87,19 +87,19 @@ When wiki content changes:
 Use a consistent submodule refresh flow before authoring or validating wiki content:
 
 ```bash
-git submodule sync --recursive
-git submodule update --init --recursive
+cargo wiki sync
 ```
 
 Before editing wiki pages:
 
 ```bash
-git -C wiki status --short
+cargo wiki status
 git -C wiki fetch origin
 ```
 
 - If `wiki/` is on a local branch, fast-forward with `git -C wiki pull --ff-only`.
 - If `wiki/` is detached (common after submodule updates), switch to a local branch tracking the wiki default branch before committing wiki edits.
+- `cargo wiki sync` refuses to run when `wiki/` has local modifications so the submodule refresh flow does not overwrite in-progress wiki edits.
 
 Commit and review workflow for wiki edits:
 
@@ -144,6 +144,5 @@ The local Rust toolchain validates both documentation layers:
 Local bootstrap for the wiki submodule:
 
 ```bash
-git submodule sync --recursive
-git submodule update --init --recursive
+cargo wiki sync
 ```

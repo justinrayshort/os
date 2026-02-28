@@ -1,3 +1,5 @@
+#![allow(clippy::clone_on_copy)]
+
 use std::rc::Rc;
 
 use desktop_app_contract::AppCommandRegistration;

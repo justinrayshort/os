@@ -686,7 +686,7 @@ impl RegistrySnapshot {
 
         if let Some((registered, matched_len, _)) = best_match {
             return Ok(ResolvedStage::Leaf {
-                registered,
+                registered: Box::new(registered),
                 matched_len,
             });
         }
@@ -715,7 +715,7 @@ enum ResolvedStage {
         path: CommandPath,
     },
     Leaf {
-        registered: RegisteredCommand,
+        registered: Box<RegisteredCommand>,
         matched_len: usize,
     },
 }

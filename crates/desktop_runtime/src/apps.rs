@@ -191,8 +191,8 @@ pub fn app_registry() -> &'static [AppDescriptor] {
 pub fn launcher_apps() -> Vec<AppDescriptor> {
     app_registry()
         .iter()
-        .cloned()
         .filter(|entry| entry.show_in_launcher)
+        .cloned()
         .collect()
 }
 
@@ -200,8 +200,8 @@ pub fn launcher_apps() -> Vec<AppDescriptor> {
 pub fn desktop_icon_apps() -> Vec<AppDescriptor> {
     app_registry()
         .iter()
-        .cloned()
         .filter(|entry| entry.show_on_desktop)
+        .cloned()
         .collect()
 }
 
@@ -407,6 +407,7 @@ fn default_window_rect_for_app(
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod default_open_request_tests {
     use super::*;
 

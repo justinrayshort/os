@@ -68,6 +68,7 @@ Responsibilities:
 - [`xtask/src/commands/verify.rs`](../../xtask/src/commands/verify.rs): verify command-family façade and shared command structs
 - [`xtask/src/commands/verify/`](../../xtask/src/commands/verify/): cohesive verify submodules for profile/config handling, changed-scope detection, flow execution, and verification stage orchestration
 - [`xtask/src/commands/perf/`](../../xtask/src/commands/perf/): cohesive perf submodules for CLI args, tooling checks, benchmark/profiling execution, and report generation
+- [`xtask/src/commands/wiki.rs`](../../xtask/src/commands/wiki.rs): wiki submodule status/sync workflow management
 - [`xtask/src/commands/docs/`](../../xtask/src/commands/docs/): docs command family façade and runtime integration
 - [`xtask/src/docs.rs`](../../xtask/src/docs.rs): docs validator module root and command dispatch
 - [`xtask/src/docs/`](../../xtask/src/docs/): split docs validation surfaces (`structure`, `wiki`, `frontmatter`, `sop`, `links`, `mermaid`, `openapi`, `storage_boundary`, `app_contract`, `ui_conformance`, `audit`)

@@ -78,9 +78,8 @@ fn is_valid_application_id(raw: &str) -> bool {
         return false;
     }
 
-    let mut parts = raw.split('.');
     let mut count = 0usize;
-    while let Some(part) = parts.next() {
+    for part in raw.split('.') {
         count += 1;
         if part.is_empty() || part.len() > 32 {
             return false;
@@ -155,7 +154,7 @@ impl CapabilitySet {
 
     /// Returns whether the runtime granted `capability` to the mounted app.
     pub fn is_granted(&self, capability: AppCapability) -> bool {
-        self.granted.iter().any(|granted| *granted == capability)
+        self.granted.contains(&capability)
     }
 
     /// Returns host availability for a capability after runtime grant evaluation.
@@ -916,6 +915,15 @@ pub struct AppCommandContext {
     is_cancelled: Rc<dyn Fn() -> bool>,
 }
 
+type ShellEventEmitter = Rc<dyn Fn(ShellStreamEvent)>;
+type ShellCwdSetter = Rc<dyn Fn(String)>;
+type CancellationProbe = Rc<dyn Fn() -> bool>;
+type ShellSessionFactory = Rc<dyn Fn(String) -> Result<ShellSessionHandle, String>>;
+type CommandRegistrar =
+    Rc<dyn Fn(AppCommandRegistration) -> Result<CommandRegistrationHandle, String>>;
+type ProviderRegistrar =
+    Rc<dyn Fn(Rc<dyn AppCommandProvider>) -> Result<CommandRegistrationHandle, String>>;
+
 impl AppCommandContext {
     /// Emits an informational notice for the current execution.
     pub fn info(&self, message: impl Into<String>) {
@@ -977,6 +985,7 @@ impl AppCommandContext {
     }
 
     /// Creates a new command context from runtime-provided callbacks.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         execution_id: ExecutionId,
         invocation: ParsedInvocation,
@@ -985,9 +994,9 @@ impl AppCommandContext {
         cwd: String,
         input: StructuredData,
         source_window_id: Option<WindowRuntimeId>,
-        emit: Rc<dyn Fn(ShellStreamEvent)>,
-        set_cwd: Rc<dyn Fn(String)>,
-        is_cancelled: Rc<dyn Fn() -> bool>,
+        emit: ShellEventEmitter,
+        set_cwd: ShellCwdSetter,
+        is_cancelled: CancellationProbe,
     ) -> Self {
         Self {
             execution_id,
@@ -1114,24 +1123,18 @@ impl ShellSessionHandle {
 pub struct CommandService {
     /// Reactive global terminal history maintained by the desktop runtime.
     pub history: ReadSignal<Vec<String>>,
-    create_session: Rc<dyn Fn(String) -> Result<ShellSessionHandle, String>>,
-    register_command:
-        Rc<dyn Fn(AppCommandRegistration) -> Result<CommandRegistrationHandle, String>>,
-    register_provider:
-        Rc<dyn Fn(Rc<dyn AppCommandProvider>) -> Result<CommandRegistrationHandle, String>>,
+    create_session: ShellSessionFactory,
+    register_command: CommandRegistrar,
+    register_provider: ProviderRegistrar,
 }
 
 impl CommandService {
     /// Creates a command service from runtime-provided callbacks.
     pub fn new(
         history: ReadSignal<Vec<String>>,
-        create_session: Rc<dyn Fn(String) -> Result<ShellSessionHandle, String>>,
-        register_command: Rc<
-            dyn Fn(AppCommandRegistration) -> Result<CommandRegistrationHandle, String>,
-        >,
-        register_provider: Rc<
-            dyn Fn(Rc<dyn AppCommandProvider>) -> Result<CommandRegistrationHandle, String>,
-        >,
+        create_session: ShellSessionFactory,
+        register_command: CommandRegistrar,
+        register_provider: ProviderRegistrar,
     ) -> Self {
         Self {
             history,
@@ -1205,6 +1208,7 @@ pub struct AppServices {
 
 impl AppServices {
     /// Creates service handles from the runtime command callback.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         sender: Callback<AppCommand>,
         capabilities: CapabilitySet,

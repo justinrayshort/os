@@ -4,3 +4,4 @@ pub mod dev;
 pub mod docs;
 pub mod perf;
 pub mod verify;
+pub mod wiki;

@@ -48,7 +48,7 @@ cargo setup-web
 Initialize the GitHub Wiki submodule (required for wiki/docs updates):
 
 ```bash
-git submodule update --init --recursive
+cargo wiki sync
 ```
 
 Start local prototype server:
@@ -246,6 +246,7 @@ cargo xtask docs all
 ```
 
 `cargo xtask docs all` already includes wiki validation. Use `cargo xtask docs wiki` separately when you want isolated wiki diagnostics.
+Use `cargo wiki status` to inspect the submodule state and `cargo wiki sync` to initialize or refresh it through the same Cargo-managed workflow surface.
 
 ## Project Layout (Current)
 

@@ -28,8 +28,13 @@ impl WorkspaceState {
 
     /// Return changed paths from `git status --porcelain`.
     pub fn changed_paths(&self) -> XtaskResult<Vec<String>> {
+        self.git_changed_paths_at(&self.root)
+    }
+
+    /// Return changed paths from `git status --porcelain` for a specific git worktree.
+    pub fn git_changed_paths_at(&self, repo_root: &Path) -> XtaskResult<Vec<String>> {
         let output = Command::new("git")
-            .current_dir(&self.root)
+            .current_dir(repo_root)
             .args(["status", "--porcelain"])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -98,8 +103,13 @@ impl WorkspaceState {
 
     /// Return the current `HEAD` commit SHA, or `"unavailable"` when not resolvable.
     pub fn git_head_sha(&self) -> String {
+        self.git_head_sha_at(&self.root)
+    }
+
+    /// Return the current `HEAD` commit SHA for a specific git worktree, or `"unavailable"`.
+    pub fn git_head_sha_at(&self, repo_root: &Path) -> String {
         let Ok(output) = Command::new("git")
-            .current_dir(&self.root)
+            .current_dir(repo_root)
             .args(["rev-parse", "HEAD"])
             .output()
         else {
@@ -109,6 +119,28 @@ impl WorkspaceState {
             return "unavailable".into();
         }
         String::from_utf8_lossy(&output.stdout).trim().to_string()
+    }
+
+    /// Return the current branch name for a specific git worktree, or `None` when detached.
+    pub fn git_current_branch_at(&self, repo_root: &Path) -> Option<String> {
+        let Ok(output) = Command::new("git")
+            .current_dir(repo_root)
+            .args(["symbolic-ref", "--short", "-q", "HEAD"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+        else {
+            return None;
+        };
+        if !output.status.success() {
+            return None;
+        }
+        let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if branch.is_empty() {
+            None
+        } else {
+            Some(branch)
+        }
     }
 }
 
@@ -179,6 +211,15 @@ mod tests {
         std::fs::create_dir_all(&root).expect("create temp root");
         let state = WorkspaceState::new(root.clone());
         assert_eq!(state.git_head_sha(), "unavailable");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn git_current_branch_is_none_outside_git_repo() {
+        let root = unique_test_root();
+        std::fs::create_dir_all(&root).expect("create temp root");
+        let state = WorkspaceState::new(root.clone());
+        assert_eq!(state.git_current_branch_at(&root), None);
         let _ = std::fs::remove_dir_all(root);
     }
 }
