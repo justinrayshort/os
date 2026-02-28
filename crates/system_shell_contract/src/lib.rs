@@ -65,9 +65,7 @@ impl CommandPath {
     }
 
     /// Creates a command path from explicit segments.
-    pub fn from_segments(
-        segments: impl IntoIterator<Item = CommandSegment>,
-    ) -> Self {
+    pub fn from_segments(segments: impl IntoIterator<Item = CommandSegment>) -> Self {
         Self {
             segments: segments.into_iter().collect(),
         }

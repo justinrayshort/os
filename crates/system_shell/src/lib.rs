@@ -9,7 +9,7 @@ use std::{
 };
 
 use futures::future::LocalBoxFuture;
-use leptos::{ReadSignal, RwSignal, SignalGetUntracked, SignalSet, SignalUpdate, create_rw_signal};
+use leptos::{create_rw_signal, ReadSignal, RwSignal, SignalGetUntracked, SignalSet, SignalUpdate};
 use system_shell_contract::{
     CommandDataShape, CommandDescriptor, CommandInputShape, CommandNotice, CommandNoticeLevel,
     CommandPath, CommandRegistrationToken, CommandResult, CommandScope, CommandVisibility,
@@ -25,8 +25,9 @@ pub type CompletionHandler = Rc<
 >;
 
 /// Async command handler.
-pub type CommandHandler =
-    Rc<dyn Fn(CommandExecutionContext) -> LocalBoxFuture<'static, Result<CommandResult, ShellError>>>;
+pub type CommandHandler = Rc<
+    dyn Fn(CommandExecutionContext) -> LocalBoxFuture<'static, Result<CommandResult, ShellError>>,
+>;
 
 /// Shared command execution context for handlers.
 #[derive(Clone)]
@@ -348,7 +349,10 @@ impl ShellSessionHandle {
                         final_summary.command_path = Some(path);
                         final_summary.exit = result.exit;
                     }
-                    Ok(ResolvedStage::Leaf { registered, matched_len }) => {
+                    Ok(ResolvedStage::Leaf {
+                        registered,
+                        matched_len,
+                    }) => {
                         let (options, values, args) =
                             parse_invocation_arguments(&stage.tokens[matched_len..]);
                         let invocation = ParsedInvocation {
@@ -478,7 +482,10 @@ impl RegistrySnapshot {
         Self { commands }
     }
 
-    async fn complete(&self, request: CompletionRequest) -> Result<Vec<CompletionItem>, ShellError> {
+    async fn complete(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<Vec<CompletionItem>, ShellError> {
         let parsed = tokenize_line(&request.line)?;
         let stages = split_pipeline_tokens(parsed)?;
         let current_stage = stages.last().cloned().unwrap_or_default();
@@ -499,7 +506,11 @@ impl RegistrySnapshot {
             (Vec::new(), String::new())
         };
 
-        if let Ok(ResolvedStage::Leaf { registered, matched_len }) = self.resolve_stage(&base_tokens) {
+        if let Ok(ResolvedStage::Leaf {
+            registered,
+            matched_len,
+        }) = self.resolve_stage(&base_tokens)
+        {
             if base_tokens.len() >= matched_len {
                 if let Some(completion) = registered.completion {
                     return completion(request).await;
@@ -648,7 +659,8 @@ impl RegistrySnapshot {
                 let score = (candidate.len(), scope_rank(&registered.descriptor.scope));
                 match best_match.as_ref() {
                     Some((_, best_len, best_scope))
-                        if score.0 < *best_len || (score.0 == *best_len && score.1 < *best_scope) =>
+                        if score.0 < *best_len
+                            || (score.0 == *best_len && score.1 < *best_scope) =>
                     {
                         continue;
                     }
@@ -681,7 +693,12 @@ impl RegistrySnapshot {
 
         if prefix_exists(&self.descriptors(), tokens) {
             return Ok(ResolvedStage::Namespace {
-                path: CommandPath::from_segments(tokens.iter().cloned().map(system_shell_contract::CommandSegment::new)),
+                path: CommandPath::from_segments(
+                    tokens
+                        .iter()
+                        .cloned()
+                        .map(system_shell_contract::CommandSegment::new),
+                ),
             });
         }
 
@@ -694,8 +711,13 @@ impl RegistrySnapshot {
 
 #[derive(Clone)]
 enum ResolvedStage {
-    Namespace { path: CommandPath },
-    Leaf { registered: RegisteredCommand, matched_len: usize },
+    Namespace {
+        path: CommandPath,
+    },
+    Leaf {
+        registered: RegisteredCommand,
+        matched_len: usize,
+    },
 }
 
 fn scope_rank(scope: &CommandScope) -> u8 {
@@ -735,12 +757,16 @@ fn prefix_exists(descriptors: &[CommandDescriptor], prefix: &[String]) -> bool {
 }
 
 fn wants_help(invocation: &ParsedInvocation) -> bool {
-    invocation.options.iter().any(|option| {
-        option.name == "help" || option.short == Some('h')
-    })
+    invocation
+        .options
+        .iter()
+        .any(|option| option.name == "help" || option.short == Some('h'))
 }
 
-fn validate_input_shape(input: &StructuredData, shape: &CommandInputShape) -> Result<(), ShellError> {
+fn validate_input_shape(
+    input: &StructuredData,
+    shape: &CommandInputShape,
+) -> Result<(), ShellError> {
     if !shape.accepts_pipeline_input {
         if matches!(input, StructuredData::Empty) {
             return Ok(());
@@ -954,8 +980,11 @@ enum Token {
 }
 
 fn field_string(name: &str, value: String) -> system_shell_contract::StructuredField {
-    StructuredFieldBuilder::new(name, StructuredValue::Scalar(StructuredScalar::String(value)))
-        .build()
+    StructuredFieldBuilder::new(
+        name,
+        StructuredValue::Scalar(StructuredScalar::String(value)),
+    )
+    .build()
 }
 
 struct StructuredFieldBuilder {
@@ -1037,8 +1066,8 @@ impl ShellEngine {
 mod tests {
     use super::*;
     use system_shell_contract::{
-        CommandArgSpec, CommandExample, CommandId, CommandInteractionKind, CommandOutputShape,
-        CommandOptionSpec, HelpDoc,
+        CommandArgSpec, CommandExample, CommandId, CommandInteractionKind, CommandOptionSpec,
+        CommandOutputShape, HelpDoc,
     };
 
     fn descriptor(path: &str, aliases: &[&str], scope: CommandScope) -> CommandDescriptor {

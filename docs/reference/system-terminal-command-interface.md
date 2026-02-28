@@ -127,10 +127,10 @@ The shell stack uses:
 
 ## UI Structure
 
-The terminal UI uses a minimal two-zone layout:
+The terminal UI now uses a single terminal-surface layout:
 
-- transcript viewport (`.terminal-screen` -> `.terminal-transcript`)
-- prompt composer (`.terminal-composer-shell` -> `.terminal-composer`)
+- transcript viewport and active prompt share the same `.terminal-screen`
+- the active input line is rendered as the final row inside `.terminal-transcript`
 
 Persistent toolbar buttons, run buttons, and status chrome are intentionally absent. Command discovery and utility actions remain command- and shortcut-driven (`help`, `clear`, `Ctrl+L`, `Ctrl+C`).
 
@@ -143,7 +143,7 @@ Transcript rendering is semantic rather than decorative:
 - `Table` -> `.terminal-data-table` / `.terminal-table`
 - `System` -> `.terminal-line-system`
 
-The prompt is rendered as a structured current-working-directory segment plus a separator glyph and a native text input, preserving browser caret/input behavior.
+The prompt is rendered inline as part of the terminal buffer rather than as a separate form composer. It includes structured context segments such as the current working directory and current prompt mode (`ready` / `running`) plus a separator glyph and a native text input, preserving browser caret/input behavior without placeholder-driven hints.
 
 The command input uses `desktop_app_contract::window_primary_input_dom_id(window_id)` as its DOM id so the runtime host can restore keyboard focus when the terminal window opens or regains focus.
 
@@ -151,7 +151,7 @@ The command input uses `desktop_app_contract::window_primary_input_dom_id(window
 
 - `Tab` requests completions from the existing shell session contract.
 - Single matches fill the input immediately.
-- Multiple matches render in a compact overlay (`.terminal-completions`) anchored above the composer.
+- Multiple matches render in a compact overlay (`.terminal-completions`) inside the terminal surface so they visually read as part of the buffer.
 - `Escape` dismisses the completion overlay.
 - `ls` and `cd` completions prefer path-like candidates from the explorer backend.
 - Transcript scrolling auto-follows new output only while the viewport is already at or near the bottom; manual review scroll position is preserved when the user scrolls upward.

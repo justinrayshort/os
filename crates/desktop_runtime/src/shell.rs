@@ -16,10 +16,10 @@ use serde_json::Value;
 use system_shell::{CommandExecutionContext, CommandRegistryHandle};
 use system_shell_contract::{
     CommandArgSpec, CommandDataShape, CommandDescriptor, CommandExample, CommandId,
-    CommandInputShape, CommandInteractionKind, CommandNotice, CommandNoticeLevel, CommandOutputShape,
-    CommandPath, CommandResult, CommandScope, CommandVisibility, CompletionItem,
-    CompletionRequest, DisplayPreference, HelpDoc, ParsedLiteral, ParsedValue, ShellError,
-    ShellErrorCode, ShellRequest, ShellStreamEvent, StructuredData, StructuredField,
+    CommandInputShape, CommandInteractionKind, CommandNotice, CommandNoticeLevel,
+    CommandOutputShape, CommandPath, CommandResult, CommandScope, CommandVisibility,
+    CompletionItem, CompletionRequest, DisplayPreference, HelpDoc, ParsedLiteral, ParsedValue,
+    ShellError, ShellErrorCode, ShellRequest, ShellStreamEvent, StructuredData, StructuredField,
     StructuredRecord, StructuredScalar, StructuredSchema, StructuredSchemaField, StructuredTable,
     StructuredValue,
 };
@@ -226,7 +226,11 @@ fn builtin_registrations(runtime: DesktopRuntimeContext) -> Vec<AppCommandRegist
         config_get_registration(),
         config_set_registration(),
         inspect_runtime_registration(runtime.clone()),
-        windows_list_registration(runtime.clone(), "inspect windows", "Inspect open window state."),
+        windows_list_registration(
+            runtime.clone(),
+            "inspect windows",
+            "Inspect open window state.",
+        ),
         inspect_storage_registration(),
         pwd_registration(),
         cd_registration(),
@@ -345,7 +349,9 @@ fn info_result(message: impl Into<String>) -> CommandResult {
 }
 
 fn string_data(value: impl Into<String>) -> StructuredData {
-    StructuredData::Value(StructuredValue::Scalar(StructuredScalar::String(value.into())))
+    StructuredData::Value(StructuredValue::Scalar(StructuredScalar::String(
+        value.into(),
+    )))
 }
 
 fn value_field(name: &str, value: StructuredValue) -> StructuredField {
@@ -372,7 +378,10 @@ fn int_field(name: &str, value: i64) -> StructuredField {
 
 fn optional_u64_field(name: &str, value: Option<u64>) -> StructuredField {
     match value {
-        Some(value) => value_field(name, StructuredValue::Scalar(StructuredScalar::Int(value as i64))),
+        Some(value) => value_field(
+            name,
+            StructuredValue::Scalar(StructuredScalar::Int(value as i64)),
+        ),
         None => value_field(name, StructuredValue::Scalar(StructuredScalar::Null)),
     }
 }
@@ -452,9 +461,15 @@ fn render_table_fallback(columns: &[String], rows: &[StructuredRecord]) -> Optio
 fn structured_value_to_nu(value: &StructuredValue) -> NuValue {
     match value {
         StructuredValue::Scalar(StructuredScalar::Null) => NuValue::nothing(NuSpan::unknown()),
-        StructuredValue::Scalar(StructuredScalar::Bool(value)) => NuValue::bool(*value, NuSpan::unknown()),
-        StructuredValue::Scalar(StructuredScalar::Int(value)) => NuValue::int(*value, NuSpan::unknown()),
-        StructuredValue::Scalar(StructuredScalar::Float(value)) => NuValue::float(*value, NuSpan::unknown()),
+        StructuredValue::Scalar(StructuredScalar::Bool(value)) => {
+            NuValue::bool(*value, NuSpan::unknown())
+        }
+        StructuredValue::Scalar(StructuredScalar::Int(value)) => {
+            NuValue::int(*value, NuSpan::unknown())
+        }
+        StructuredValue::Scalar(StructuredScalar::Float(value)) => {
+            NuValue::float(*value, NuSpan::unknown())
+        }
         StructuredValue::Scalar(StructuredScalar::String(value)) => {
             NuValue::string(value.clone(), NuSpan::unknown())
         }
@@ -488,9 +503,9 @@ fn json_to_structured_value(value: Value) -> StructuredValue {
             }
         }
         Value::String(value) => StructuredValue::Scalar(StructuredScalar::String(value)),
-        Value::Array(values) => StructuredValue::List(
-            values.into_iter().map(json_to_structured_value).collect(),
-        ),
+        Value::Array(values) => {
+            StructuredValue::List(values.into_iter().map(json_to_structured_value).collect())
+        }
         Value::Object(values) => StructuredValue::Record(StructuredRecord {
             fields: values
                 .into_iter()
@@ -516,9 +531,11 @@ fn structured_value_to_json(value: &StructuredValue) -> Value {
         StructuredValue::Scalar(StructuredScalar::Null) => Value::Null,
         StructuredValue::Scalar(StructuredScalar::Bool(value)) => Value::Bool(*value),
         StructuredValue::Scalar(StructuredScalar::Int(value)) => Value::Number((*value).into()),
-        StructuredValue::Scalar(StructuredScalar::Float(value)) => serde_json::Number::from_f64(*value)
-            .map(Value::Number)
-            .unwrap_or(Value::Null),
+        StructuredValue::Scalar(StructuredScalar::Float(value)) => {
+            serde_json::Number::from_f64(*value)
+                .map(Value::Number)
+                .unwrap_or(Value::Null)
+        }
         StructuredValue::Scalar(StructuredScalar::String(value)) => Value::String(value.clone()),
         StructuredValue::Record(record) => Value::Object(
             record
@@ -527,9 +544,9 @@ fn structured_value_to_json(value: &StructuredValue) -> Value {
                 .map(|field| (field.name.clone(), structured_value_to_json(&field.value)))
                 .collect(),
         ),
-        StructuredValue::List(values) => Value::Array(
-            values.iter().map(structured_value_to_json).collect(),
-        ),
+        StructuredValue::List(values) => {
+            Value::Array(values.iter().map(structured_value_to_json).collect())
+        }
     }
 }
 
@@ -539,7 +556,9 @@ fn parsed_value_to_structured(value: &ParsedValue) -> StructuredValue {
         ParsedLiteral::Bool(value) => StructuredValue::Scalar(StructuredScalar::Bool(*value)),
         ParsedLiteral::Int(value) => StructuredValue::Scalar(StructuredScalar::Int(*value)),
         ParsedLiteral::Float(value) => StructuredValue::Scalar(StructuredScalar::Float(*value)),
-        ParsedLiteral::String(value) => StructuredValue::Scalar(StructuredScalar::String(value.clone())),
+        ParsedLiteral::String(value) => {
+            StructuredValue::Scalar(StructuredScalar::String(value.clone()))
+        }
     }
 }
 
@@ -663,31 +682,25 @@ fn descriptor_tokens(descriptor: &CommandDescriptor) -> Vec<String> {
         .collect()
 }
 
-fn help_target<'a>(
-    descriptors: &'a [CommandDescriptor],
-    target: &[String],
-) -> HelpTarget<'a> {
+fn help_target<'a>(descriptors: &'a [CommandDescriptor], target: &[String]) -> HelpTarget<'a> {
     for descriptor in descriptors {
         let tokens = descriptor_tokens(descriptor);
         if tokens == target {
             return HelpTarget::Leaf(descriptor);
         }
-        if descriptor
-            .aliases
-            .iter()
-            .any(|alias| alias.split_whitespace().eq(target.iter().map(String::as_str)))
-        {
+        if descriptor.aliases.iter().any(|alias| {
+            alias
+                .split_whitespace()
+                .eq(target.iter().map(String::as_str))
+        }) {
             return HelpTarget::Leaf(descriptor);
         }
     }
 
-    if descriptors
-        .iter()
-        .any(|descriptor| {
-            let tokens = descriptor_tokens(descriptor);
-            tokens.len() > target.len() && tokens.starts_with(target)
-        })
-    {
+    if descriptors.iter().any(|descriptor| {
+        let tokens = descriptor_tokens(descriptor);
+        tokens.len() > target.len() && tokens.starts_with(target)
+    }) {
         return HelpTarget::Namespace;
     }
 
@@ -902,7 +915,9 @@ fn open_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
             CommandInputShape::none(),
             CommandOutputShape::new(CommandDataShape::Empty),
         ),
-        completion: Some(Rc::new(|request| Box::pin(async move { Ok(open_completion(request)) }))),
+        completion: Some(Rc::new(|request| {
+            Box::pin(async move { Ok(open_completion(request)) })
+        })),
         handler: Rc::new(move |context| {
             let runtime = runtime.clone();
             Box::pin(async move {
@@ -981,7 +996,9 @@ fn apps_open_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistrat
             CommandInputShape::none(),
             CommandOutputShape::new(CommandDataShape::Empty),
         ),
-        completion: Some(Rc::new(|request| Box::pin(async move { Ok(open_completion(request)) }))),
+        completion: Some(Rc::new(|request| {
+            Box::pin(async move { Ok(open_completion(request)) })
+        })),
         handler: Rc::new(move |context| {
             let runtime = runtime.clone();
             Box::pin(async move {
@@ -1381,7 +1398,10 @@ fn inspect_runtime_registration(runtime: DesktopRuntimeContext) -> AppCommandReg
                         string_field("skin", desktop.theme.skin.css_id()),
                         bool_field("high_contrast", desktop.theme.high_contrast),
                         bool_field("reduced_motion", desktop.theme.reduced_motion),
-                        int_field("terminal_history_len", desktop.terminal_history.len() as i64),
+                        int_field(
+                            "terminal_history_len",
+                            desktop.terminal_history.len() as i64,
+                        ),
                     ]),
                     display: DisplayPreference::Record,
                     notices: Vec::new(),
@@ -1449,15 +1469,17 @@ fn pwd_registration() -> AppCommandRegistration {
             CommandOutputShape::new(CommandDataShape::Scalar),
         ),
         completion: None,
-        handler: Rc::new(|context| Box::pin(async move {
-            Ok(CommandResult {
-                output: string_data(context.cwd),
-                display: DisplayPreference::Value,
-                notices: Vec::new(),
-                cwd: None,
-                exit: system_shell_contract::ShellExit::success(),
+        handler: Rc::new(|context| {
+            Box::pin(async move {
+                Ok(CommandResult {
+                    output: string_data(context.cwd),
+                    display: DisplayPreference::Value,
+                    notices: Vec::new(),
+                    cwd: None,
+                    exit: system_shell_contract::ShellExit::success(),
+                })
             })
-        })),
+        }),
     }
 }
 
@@ -1639,48 +1661,62 @@ fn data_select_registration() -> AppCommandRegistration {
                                 fields: context
                                     .args
                                     .iter()
-                                    .filter_map(|name| row.fields.iter().find(|field| &field.name == name).cloned())
+                                    .filter_map(|name| {
+                                        row.fields.iter().find(|field| &field.name == name).cloned()
+                                    })
                                     .collect(),
                             })
                             .collect();
                         Ok(CommandResult {
-                            output: table_data(context.args.clone(), rows, Some(CommandPath::new("data select"))),
+                            output: table_data(
+                                context.args.clone(),
+                                rows,
+                                Some(CommandPath::new("data select")),
+                            ),
                             display: DisplayPreference::Table,
                             notices: Vec::new(),
                             cwd: None,
                             exit: system_shell_contract::ShellExit::success(),
                         })
                     }
-                    StructuredData::Record(record) => {
-                        Ok(CommandResult {
-                            output: StructuredData::Record(StructuredRecord {
-                                fields: context
-                                    .args
-                                    .iter()
-                                    .filter_map(|name| record.fields.iter().find(|field| &field.name == name).cloned())
-                                    .collect(),
-                            }),
-                            display: DisplayPreference::Record,
-                            notices: Vec::new(),
-                            cwd: None,
-                            exit: system_shell_contract::ShellExit::success(),
-                        })
-                    }
-                    StructuredData::Value(StructuredValue::Record(record)) => {
-                        Ok(CommandResult {
-                            output: StructuredData::Record(StructuredRecord {
-                                fields: context
-                                    .args
-                                    .iter()
-                                    .filter_map(|name| record.fields.iter().find(|field| &field.name == name).cloned())
-                                    .collect(),
-                            }),
-                            display: DisplayPreference::Record,
-                            notices: Vec::new(),
-                            cwd: None,
-                            exit: system_shell_contract::ShellExit::success(),
-                        })
-                    }
+                    StructuredData::Record(record) => Ok(CommandResult {
+                        output: StructuredData::Record(StructuredRecord {
+                            fields: context
+                                .args
+                                .iter()
+                                .filter_map(|name| {
+                                    record
+                                        .fields
+                                        .iter()
+                                        .find(|field| &field.name == name)
+                                        .cloned()
+                                })
+                                .collect(),
+                        }),
+                        display: DisplayPreference::Record,
+                        notices: Vec::new(),
+                        cwd: None,
+                        exit: system_shell_contract::ShellExit::success(),
+                    }),
+                    StructuredData::Value(StructuredValue::Record(record)) => Ok(CommandResult {
+                        output: StructuredData::Record(StructuredRecord {
+                            fields: context
+                                .args
+                                .iter()
+                                .filter_map(|name| {
+                                    record
+                                        .fields
+                                        .iter()
+                                        .find(|field| &field.name == name)
+                                        .cloned()
+                                })
+                                .collect(),
+                        }),
+                        display: DisplayPreference::Record,
+                        notices: Vec::new(),
+                        cwd: None,
+                        exit: system_shell_contract::ShellExit::success(),
+                    }),
                     _ => Err(usage_error("data select expects record or table input")),
                 }
             })
@@ -1773,9 +1809,15 @@ fn predicate_matches(left: &StructuredValue, op: &str, right: &StructuredValue) 
         "==" => left == right,
         "!=" => left != right,
         ">" => compare_scalar(left, right) == Ordering::Greater,
-        ">=" => matches!(compare_scalar(left, right), Ordering::Greater | Ordering::Equal),
+        ">=" => matches!(
+            compare_scalar(left, right),
+            Ordering::Greater | Ordering::Equal
+        ),
         "<" => compare_scalar(left, right) == Ordering::Less,
-        "<=" => matches!(compare_scalar(left, right), Ordering::Less | Ordering::Equal),
+        "<=" => matches!(
+            compare_scalar(left, right),
+            Ordering::Less | Ordering::Equal
+        ),
         "contains" => display_structured_value(left).contains(&display_structured_value(right)),
         _ => false,
     }
@@ -1825,7 +1867,9 @@ fn data_where_registration() -> AppCommandRegistration {
                     .values
                     .get(2)
                     .map(parsed_value_to_structured)
-                    .unwrap_or_else(|| StructuredValue::Scalar(StructuredScalar::String(context.args[2].clone())));
+                    .unwrap_or_else(|| {
+                        StructuredValue::Scalar(StructuredScalar::String(context.args[2].clone()))
+                    });
                 let table = data_table_input(&context)?;
                 let rows = table
                     .rows
@@ -1837,11 +1881,7 @@ fn data_where_registration() -> AppCommandRegistration {
                     })
                     .collect();
                 Ok(CommandResult {
-                    output: table_data(
-                        table.columns,
-                        rows,
-                        Some(CommandPath::new("data where")),
-                    ),
+                    output: table_data(table.columns, rows, Some(CommandPath::new("data where"))),
                     display: DisplayPreference::Table,
                     notices: Vec::new(),
                     cwd: None,

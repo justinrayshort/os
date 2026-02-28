@@ -4,7 +4,7 @@
 
 use std::{cell::Cell, rc::Rc};
 
-use desktop_app_contract::{AppServices, WindowRuntimeId, window_primary_input_dom_id};
+use desktop_app_contract::{window_primary_input_dom_id, AppServices, WindowRuntimeId};
 use leptos::ev::KeyboardEvent;
 use leptos::html;
 use leptos::*;
@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use system_shell_contract::{
     CommandNotice, CommandNoticeLevel, CompletionItem, CompletionRequest, DisplayPreference,
-    ExecutionId, ShellRequest, ShellStreamEvent, StructuredData, StructuredRecord, StructuredScalar,
-    StructuredTable, StructuredValue,
+    ExecutionId, ShellRequest, ShellStreamEvent, StructuredData, StructuredRecord,
+    StructuredScalar, StructuredTable, StructuredValue,
 };
 
 const TERMINAL_STATE_SCHEMA_VERSION: u32 = 3;
@@ -178,22 +178,25 @@ fn migrate_terminal_state(
                                 execution_id,
                             }
                         }
-                        LegacyTerminalTranscriptEntryV2::Json { value, execution_id } => {
-                            TerminalTranscriptEntry::Data {
-                                data: json_to_structured_data(value),
-                                display: DisplayPreference::Auto,
-                                execution_id,
-                            }
-                        }
+                        LegacyTerminalTranscriptEntryV2::Json {
+                            value,
+                            execution_id,
+                        } => TerminalTranscriptEntry::Data {
+                            data: json_to_structured_data(value),
+                            display: DisplayPreference::Auto,
+                            execution_id,
+                        },
                         LegacyTerminalTranscriptEntryV2::System { text } => {
                             TerminalTranscriptEntry::System { text }
                         }
                     })
                     .collect(),
                 history_cursor: legacy.history_cursor,
-                active_execution: legacy.active_execution.map(|execution| PersistedExecutionState {
-                    execution_id: execution.execution_id,
-                    command: execution.command,
+                active_execution: legacy.active_execution.map(|execution| {
+                    PersistedExecutionState {
+                        execution_id: execution.execution_id,
+                        command: execution.command,
+                    }
                 }),
             }))
         }
@@ -203,7 +206,7 @@ fn migrate_terminal_state(
 
 fn default_terminal_transcript() -> Vec<TerminalTranscriptEntry> {
     vec![TerminalTranscriptEntry::System {
-        text: "Type `help list` for commands.".to_string(),
+        text: "Use `help list` to inspect commands.".to_string(),
     }]
 }
 
@@ -294,9 +297,9 @@ fn json_to_structured_value(value: Value) -> StructuredValue {
             }
         }
         Value::String(value) => StructuredValue::Scalar(StructuredScalar::String(value)),
-        Value::Array(values) => StructuredValue::List(
-            values.into_iter().map(json_to_structured_value).collect(),
-        ),
+        Value::Array(values) => {
+            StructuredValue::List(values.into_iter().map(json_to_structured_value).collect())
+        }
         Value::Object(values) => StructuredValue::Record(StructuredRecord {
             fields: values
                 .into_iter()
@@ -502,6 +505,13 @@ pub fn TerminalApp(
     let last_saved = create_rw_signal::<Option<String>>(None);
     let should_follow_output = create_rw_signal(true);
     let terminal_screen = create_node_ref::<html::Div>();
+    let prompt_mode = move || {
+        if active_execution.get().is_some() {
+            "running"
+        } else {
+            "ready"
+        }
+    };
     let hydrate_alive = Rc::new(Cell::new(true));
     on_cleanup({
         let hydrate_alive = hydrate_alive.clone();
@@ -801,13 +811,7 @@ pub fn TerminalApp(
         }
     });
 
-    let indexed_entries = move || {
-        transcript
-            .get()
-            .into_iter()
-            .enumerate()
-            .collect::<Vec<_>>()
-    };
+    let indexed_entries = move || transcript.get().into_iter().enumerate().collect::<Vec<_>>();
 
     view! {
         <div class="app-shell app-terminal-shell">
@@ -827,14 +831,6 @@ pub fn TerminalApp(
                     }
                 }
             >
-                <div class="terminal-transcript">
-                    <For each=indexed_entries key=|(idx, _)| *idx let:entry>
-                        {render_entry(entry.1)}
-                    </For>
-                </div>
-            </div>
-
-            <div class="terminal-composer-shell">
                 <Show when=move || !suggestions.get().is_empty() fallback=|| ()>
                     <div class="terminal-completions" role="listbox" aria-label="Completions">
                         <For each=move || suggestions.get() key=|item| item.value.clone() let:item>
@@ -852,57 +848,65 @@ pub fn TerminalApp(
                     </div>
                 </Show>
 
-                <div class="terminal-composer">
-                    <label class="visually-hidden" for=input_id.clone()>
-                        {move || format!("Command input for {}", cwd.get())}
-                    </label>
-                    <div class="terminal-prompt" aria-hidden="true">
-                        <span class="terminal-prompt-cwd">{move || cwd.get()}</span>
-                        <span class="terminal-prompt-separator">"\u{203a}"</span>
-                    </div>
-                    <input
-                        id=input_id.clone()
-                        class="terminal-input terminal-command-input"
-                        type="text"
-                        prop:value=move || input.get()
-                        placeholder="help list"
-                        autocomplete="off"
-                        spellcheck="false"
-                        on:input=move |ev| {
-                            input.set(event_target_value(&ev));
-                        }
-                        on:keydown=move |ev: KeyboardEvent| match ev.key().as_str() {
-                            "Enter" => {
-                                ev.prevent_default();
-                                ev.stop_propagation();
-                                submit_command(input.get_untracked());
+                <div class="terminal-transcript">
+                    <For each=indexed_entries key=|(idx, _)| *idx let:entry>
+                        {render_entry(entry.1)}
+                    </For>
+
+                    <div class="terminal-line terminal-line-prompt terminal-live-prompt">
+                        <label class="visually-hidden" for=input_id.clone()>
+                            {move || format!("Command input for {} in {} mode", cwd.get(), prompt_mode())}
+                        </label>
+                        <div class="terminal-prompt-context" aria-hidden="true">
+                            <span class="terminal-prompt-cwd">{move || cwd.get()}</span>
+                            <span class="terminal-prompt-mode">{move || prompt_mode()}</span>
+                            <span class="terminal-prompt-separator">"\u{203a}"</span>
+                        </div>
+                        <input
+                            id=input_id.clone()
+                            class="terminal-input terminal-command-input terminal-live-input"
+                            type="text"
+                            prop:value=move || input.get()
+                            autocomplete="off"
+                            spellcheck="false"
+                            aria-label=move || format!("Shell prompt at {} in {} mode", cwd.get(), prompt_mode())
+                            on:input=move |ev| {
+                                input.set(event_target_value(&ev));
+                                suggestions.set(Vec::new());
                             }
-                            "ArrowUp" => {
-                                ev.prevent_default();
-                                try_history_navigation(-1);
-                            }
-                            "ArrowDown" => {
-                                ev.prevent_default();
-                                try_history_navigation(1);
-                            }
-                            "Tab" => {
-                                ev.prevent_default();
-                                trigger_completion();
-                            }
-                            "Escape" => suggestions.set(Vec::new()),
-                            "c" | "C" if ev.ctrl_key() => {
-                                if let Some(shell_session) = shell_session.clone() {
+                            on:keydown=move |ev: KeyboardEvent| match ev.key().as_str() {
+                                "Enter" => {
                                     ev.prevent_default();
-                                    shell_session.cancel();
+                                    ev.stop_propagation();
+                                    submit_command(input.get_untracked());
                                 }
+                                "ArrowUp" => {
+                                    ev.prevent_default();
+                                    try_history_navigation(-1);
+                                }
+                                "ArrowDown" => {
+                                    ev.prevent_default();
+                                    try_history_navigation(1);
+                                }
+                                "Tab" => {
+                                    ev.prevent_default();
+                                    trigger_completion();
+                                }
+                                "Escape" => suggestions.set(Vec::new()),
+                                "c" | "C" if ev.ctrl_key() => {
+                                    if let Some(shell_session) = shell_session.clone() {
+                                        ev.prevent_default();
+                                        shell_session.cancel();
+                                    }
+                                }
+                                "l" | "L" if ev.ctrl_key() => {
+                                    ev.prevent_default();
+                                    transcript.set(default_terminal_transcript());
+                                }
+                                _ => {}
                             }
-                            "l" | "L" if ev.ctrl_key() => {
-                                ev.prevent_default();
-                                transcript.set(default_terminal_transcript());
-                            }
-                            _ => {}
-                        }
-                    />
+                        />
+                    </div>
                 </div>
             </div>
         </div>

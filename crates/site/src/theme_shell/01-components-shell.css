@@ -1371,19 +1371,19 @@
 }
 
 .app-terminal-shell {
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: var(--terminal-gap);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
   color: var(--terminal-text);
 }
 
-.terminal-screen,
-.terminal-composer-shell {
+.terminal-screen {
   border: 1px solid var(--terminal-border);
   background: var(--terminal-surface);
   box-shadow: none;
 }
 
 .terminal-screen {
+  position: relative;
   min-height: 0;
   overflow: auto;
   border-radius: 0;
@@ -1398,6 +1398,8 @@
 .terminal-transcript {
   display: grid;
   gap: 0.35rem;
+  min-height: 100%;
+  align-content: start;
 }
 
 .terminal-line {
@@ -1480,37 +1482,38 @@
   border-bottom: 1px solid color-mix(in srgb, var(--terminal-border) 45%, transparent);
 }
 
-.terminal-composer-shell {
-  position: relative;
-  min-width: 0;
-  border-radius: 0;
-  padding: 0;
+.terminal-live-prompt,
+.terminal-prompt-context {
+  display: flex;
+  align-items: baseline;
 }
 
-.terminal-composer {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+.terminal-live-prompt {
   gap: 10px;
-  align-items: center;
   min-width: 0;
-  padding: 12px var(--terminal-padding);
-  font-family: var(--terminal-font-family);
-  font-size: var(--terminal-font-size);
-  line-height: var(--terminal-line-height);
-  color: var(--terminal-text);
+  min-height: 1.5em;
+  padding-bottom: 2px;
 }
 
-.terminal-prompt {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
+.terminal-prompt-context {
+  flex: 0 0 auto;
   gap: 8px;
-  min-height: 1.5em;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .terminal-prompt-cwd {
   color: var(--terminal-prompt-text);
-  white-space: nowrap;
+  max-width: min(42vw, 26rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-prompt-mode {
+  color: var(--terminal-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.88em;
 }
 
 .terminal-prompt-separator {
@@ -1530,8 +1533,9 @@
   caret-color: var(--terminal-caret);
 }
 
-.terminal-input::placeholder {
-  color: var(--terminal-text-muted);
+.terminal-live-input {
+  flex: 1 1 auto;
+  align-self: stretch;
 }
 
 .terminal-input:focus-visible {
@@ -1548,7 +1552,7 @@
   position: absolute;
   left: var(--terminal-padding);
   right: var(--terminal-padding);
-  bottom: calc(100% + 8px);
+  bottom: var(--terminal-padding);
   display: grid;
   gap: 4px;
   max-height: min(220px, 45vh);
