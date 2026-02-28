@@ -3,7 +3,13 @@ use crate::app_runtime::ensure_window_session;
 use crate::apps;
 use crate::shell;
 use desktop_app_contract::{AppMountContext, AppServices, ApplicationId, CapabilitySet};
-use system_ui::{Icon, IconName, IconSize};
+use leptos::ev::MouseEvent;
+use system_ui::{
+    Icon, IconName, IconSize, WindowBody as SystemWindowBody,
+    WindowControlButton as SystemWindowControlButton, WindowControls as SystemWindowControls,
+    WindowFrame as SystemWindowFrame, WindowTitle as SystemWindowTitle,
+    WindowTitleBar as SystemWindowTitleBar,
+};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
@@ -98,48 +104,38 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
 
     view! {
         <Show when=move || window.get().is_some() fallback=|| ()>
-            <section
-                class=move || {
-                    let win = window.get().expect("window exists while shown");
-                    let focused_class = if win.is_focused { " focused" } else { "" };
-                    let minimized_class = if win.minimized { " minimized" } else { "" };
-                    let maximized_class = if win.maximized { " maximized" } else { "" };
-                    format!(
-                        "desktop-window{}{}{}",
-                        focused_class,
-                        minimized_class,
-                        maximized_class
-                    )
-                }
-                style=move || {
+            <SystemWindowFrame
+                layout_class="desktop-window"
+                style=Signal::derive(move || {
                     let win = window.get().expect("window exists while shown");
                     format!(
                         "left:{}px;top:{}px;width:{}px;height:{}px;z-index:{};",
                         win.rect.x, win.rect.y, win.rect.w, win.rect.h, win.z_index
                     )
-                }
-                on:pointerdown=focus
-                role="dialog"
-                data-ui-primitive="true"
-                data-ui-kind="window-frame"
-                data-ui-focused=move || if window.get().map(|win| win.is_focused).unwrap_or(false) { "true" } else { "false" }
-                data-ui-minimized=move || if window.get().map(|win| win.minimized).unwrap_or(false) { "true" } else { "false" }
-                data-ui-maximized=move || if window.get().map(|win| win.maximized).unwrap_or(false) { "true" } else { "false" }
-                aria-label=move || {
+                })
+                on_pointerdown=Callback::new(focus)
+                focused=Signal::derive(move || {
+                    window.get().map(|win| win.is_focused).unwrap_or(false)
+                })
+                minimized=Signal::derive(move || {
+                    window.get().map(|win| win.minimized).unwrap_or(false)
+                })
+                maximized=Signal::derive(move || {
+                    window.get().map(|win| win.maximized).unwrap_or(false)
+                })
+                aria_label=Signal::derive(move || {
                     window
                         .get()
                         .map(|win| win.title)
                         .unwrap_or_default()
-                }
+                })
             >
-                <header
-                    class="titlebar"
-                    data-ui-primitive="true"
-                    data-ui-kind="window-titlebar"
-                    on:pointerdown=begin_move
-                    on:dblclick=titlebar_double_click
+                <SystemWindowTitleBar
+                    layout_class="desktop-window-titlebar"
+                    on_pointerdown=Callback::new(begin_move)
+                    on_dblclick=Callback::new(titlebar_double_click)
                 >
-                    <div class="titlebar-title" data-ui-primitive="true" data-ui-kind="window-title">
+                    <SystemWindowTitle layout_class="desktop-window-title">
                         <span class="titlebar-app-icon" aria-hidden="true">
                             <Icon
                                 icon={{
@@ -157,66 +153,60 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                                 window
                                     .get()
                                     .map(|win| win.title)
-                                    .unwrap_or_default()
+                                .unwrap_or_default()
                             }}
                         </span>
-                    </div>
-                    <div class="titlebar-controls" data-ui-primitive="true" data-ui-kind="window-controls">
-                        <button
-                            data-ui-primitive="true"
-                            data-ui-kind="button"
-                            data-ui-slot="window-control"
-                            disabled=move || {
+                    </SystemWindowTitle>
+                    <SystemWindowControls layout_class="desktop-window-controls">
+                        <SystemWindowControlButton
+                            disabled=Signal::derive(move || {
                                 !window
                                     .get()
                                     .expect("window exists while shown")
                                     .flags
                                     .minimizable
-                            }
-                            aria-label="Minimize window"
-                            on:pointerdown=move |ev: web_sys::PointerEvent| {
+                            })
+                            aria_label="Minimize window"
+                            on_pointerdown=Callback::new(move |ev: web_sys::PointerEvent| {
                                 ev.prevent_default();
                                 ev.stop_propagation();
-                            }
-                            on:mousedown=move |ev| stop_mouse_event(&ev)
-                            on:click=move |ev| {
+                            })
+                            on_mousedown=Callback::new(move |ev: MouseEvent| stop_mouse_event(&ev))
+                            on_click=Callback::new(move |ev| {
                                 stop_mouse_event(&ev);
                                 minimize(ev);
-                            }
+                            })
                         >
                             <Icon icon=IconName::WindowMinimize size=IconSize::Xs />
-                        </button>
-                        <button
-                            data-ui-primitive="true"
-                            data-ui-kind="button"
-                            data-ui-slot="window-control"
-                            disabled=move || {
+                        </SystemWindowControlButton>
+                        <SystemWindowControlButton
+                            disabled=Signal::derive(move || {
                                 !window
                                     .get()
                                     .expect("window exists while shown")
                                     .flags
                                     .maximizable
-                            }
-                            aria-label=move || {
+                            })
+                            aria_label=Signal::derive(move || {
                                 if window
                                     .get()
                                     .expect("window exists while shown")
                                     .maximized
                                 {
-                                    "Restore window"
+                                    "Restore window".to_string()
                                 } else {
-                                    "Maximize window"
+                                    "Maximize window".to_string()
                                 }
-                            }
-                            on:pointerdown=move |ev: web_sys::PointerEvent| {
+                            })
+                            on_pointerdown=Callback::new(move |ev: web_sys::PointerEvent| {
                                 ev.prevent_default();
                                 ev.stop_propagation();
-                            }
-                            on:mousedown=move |ev| stop_mouse_event(&ev)
-                            on:click=move |ev| {
+                            })
+                            on_mousedown=Callback::new(move |ev: MouseEvent| stop_mouse_event(&ev))
+                            on_click=Callback::new(move |ev| {
                                 stop_mouse_event(&ev);
                                 toggle_maximize(ev);
-                            }
+                            })
                         >
                             {move || {
                                 if window
@@ -229,29 +219,26 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                                     view! { <Icon icon=IconName::WindowMaximize size=IconSize::Xs /> }
                                 }
                             }}
-                        </button>
-                        <button
-                            data-ui-primitive="true"
-                            data-ui-kind="button"
-                            data-ui-slot="window-control"
-                            aria-label="Close window"
-                            on:pointerdown=move |ev: web_sys::PointerEvent| {
+                        </SystemWindowControlButton>
+                        <SystemWindowControlButton
+                            aria_label="Close window"
+                            on_pointerdown=Callback::new(move |ev: web_sys::PointerEvent| {
                                 ev.prevent_default();
                                 ev.stop_propagation();
-                            }
-                            on:mousedown=move |ev| stop_mouse_event(&ev)
-                            on:click=move |ev| {
+                            })
+                            on_mousedown=Callback::new(move |ev: MouseEvent| stop_mouse_event(&ev))
+                            on_click=Callback::new(move |ev| {
                                 stop_mouse_event(&ev);
                                 close(ev);
-                            }
+                            })
                         >
                             <Icon icon=IconName::Dismiss size=IconSize::Xs />
-                        </button>
-                    </div>
-                </header>
-                <div class="window-body" data-ui-primitive="true" data-ui-kind="window-body">
-                    <WindowBody window_id=window_id />
-                </div>
+                        </SystemWindowControlButton>
+                    </SystemWindowControls>
+                </SystemWindowTitleBar>
+                <SystemWindowBody layout_class="desktop-window-body">
+                    <ManagedWindowBody window_id=window_id />
+                </SystemWindowBody>
                 <Show
                     when=move || {
                         window
@@ -270,7 +257,7 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                     <WindowResizeHandle window_id=window_id edge=ResizeEdge::SouthEast />
                     <WindowResizeHandle window_id=window_id edge=ResizeEdge::SouthWest />
                 </Show>
-            </section>
+            </SystemWindowFrame>
         </Show>
     }
 }
@@ -314,7 +301,7 @@ fn WindowResizeHandle(window_id: WindowId, edge: ResizeEdge) -> impl IntoView {
 }
 
 #[component]
-fn WindowBody(window_id: WindowId) -> impl IntoView {
+fn ManagedWindowBody(window_id: WindowId) -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
     let session = ensure_window_session(runtime.app_runtime, window_id);

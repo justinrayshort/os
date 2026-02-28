@@ -1,18 +1,29 @@
 .desktop-shell[data-skin="soft-neumorphic"] {
+  --sys-light-azimuth: 315deg;
+  --sys-light-elevation: 42deg;
   --sys-color-canvas: #d8dfeb;
   --sys-color-desktop: #8fa4c2;
   --sys-color-surface: #dfe6f1;
   --sys-color-surface-muted: #d5dde9;
   --sys-color-surface-inset: #ecf1f7;
   --sys-color-surface-overlay: rgba(223, 230, 241, 0.92);
+  --sys-color-surface-base: var(--sys-color-surface);
+  --sys-color-surface-subtle: var(--sys-color-surface-muted);
+  --sys-color-surface-floating: var(--sys-color-surface-overlay);
+  --sys-color-surface-accent-surface: rgba(84, 120, 184, 0.18);
   --sys-color-border: rgba(112, 127, 153, 0.34);
   --sys-color-border-strong: rgba(90, 103, 127, 0.48);
   --sys-color-text-primary: #233044;
   --sys-color-text-secondary: #56657d;
+  --sys-color-text-inverse: #f7faff;
   --sys-color-accent: #5478b8;
   --sys-color-accent-strong: #395f9a;
   --sys-color-accent-muted: rgba(84, 120, 184, 0.16);
   --sys-color-focus: #395f9a;
+  --sys-depth-raised-highlight: rgba(255, 255, 255, 0.7);
+  --sys-depth-raised-shadow: rgba(122, 137, 162, 0.26);
+  --sys-depth-inset-highlight: rgba(255, 255, 255, 0.68);
+  --sys-depth-inset-shadow: rgba(122, 137, 162, 0.24);
   --sys-shadow-raised:
     -10px -10px 24px rgba(255, 255, 255, 0.7),
     12px 12px 24px rgba(122, 137, 162, 0.26);
@@ -22,7 +33,52 @@
   --sys-shadow-inset:
     inset -4px -4px 8px rgba(255, 255, 255, 0.68),
     inset 4px 4px 10px rgba(122, 137, 162, 0.24);
+  --sys-shadow-geometry-raised: var(--sys-shadow-raised);
+  --sys-shadow-geometry-overlay: var(--sys-shadow-overlay);
+  --sys-shadow-geometry-inset: var(--sys-shadow-inset);
+  --sys-shadow-geometry-pressed:
+    inset -3px -3px 6px rgba(255, 255, 255, 0.4),
+    inset 3px 3px 8px rgba(122, 137, 162, 0.28);
+  --sys-elevation-raised: var(--sys-shadow-geometry-raised);
+  --sys-elevation-overlay: var(--sys-shadow-geometry-overlay);
+  --sys-elevation-inset: var(--sys-shadow-geometry-inset);
+  --sys-elevation-pressed: var(--sys-shadow-geometry-pressed);
+  --sys-surface-depth-muted: var(--sys-elevation-raised);
+  --sys-surface-depth-inset: var(--sys-elevation-inset);
+  --sys-surface-depth-overlay: var(--sys-elevation-overlay);
+  --sys-surface-depth-floating: var(--sys-elevation-overlay);
   --sys-radius-1: 12px;
   --sys-radius-2: 18px;
   --sys-radius-3: 24px;
+  --sys-radius-control: var(--sys-radius-1);
+  --sys-radius-panel: var(--sys-radius-2);
+  --sys-radius-card: 22px;
+  --sys-radius-window: 26px;
+  --sys-radius-pill: 999px;
+  --sys-space-control-x: 16px;
+  --sys-space-control-y: 9px;
+  --sys-space-panel: 18px;
+  --sys-space-section: 14px;
+  --sys-space-workspace: 14px;
+  --sys-state-hover: rgba(84, 120, 184, 0.12);
+  --sys-state-active: rgba(57, 95, 154, 0.12);
+  --sys-state-selected: rgba(84, 120, 184, 0.18);
+  --sys-state-disabled: rgba(86, 101, 125, 0.22);
+  --sys-state-focus-ring: var(--sys-color-focus);
+  --sys-gradient-control-standard: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.72),
+    rgba(214, 223, 236, 0.96)
+  );
+  --sys-gradient-control-primary: linear-gradient(
+    145deg,
+    #698bca,
+    #395f9a
+  );
+  --sys-gradient-control-danger: linear-gradient(
+    145deg,
+    #c36b6b,
+    #a34646
+  );
+  --sys-border-subtle: rgba(112, 127, 153, 0.24);
 }

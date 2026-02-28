@@ -59,6 +59,31 @@ pub fn Panel(
 }
 
 #[component]
+/// Shared card surface for option tiles, summaries, and document-like regions.
+pub fn Card(
+    #[prop(default = SurfaceVariant::Standard)] variant: SurfaceVariant,
+    #[prop(default = Elevation::Raised)] elevation: Elevation,
+    #[prop(default = LayoutPadding::Md)] padding: LayoutPadding,
+    #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional)] ui_slot: Option<&'static str>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <article
+            class=merge_layout_class("ui-card", layout_class)
+            data-ui-primitive="true"
+            data-ui-kind="card"
+            data-ui-slot=ui_slot
+            data-ui-variant=variant.token()
+            data-ui-elevation=elevation.token()
+            data-ui-padding=padding.token()
+        >
+            {children()}
+        </article>
+    }
+}
+
+#[component]
 /// Visual elevation layer wrapper.
 pub fn ElevationLayer(
     #[prop(default = Elevation::Raised)] elevation: Elevation,
@@ -168,6 +193,9 @@ pub fn EmptyState(
 pub fn Pane(
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(default = SurfaceVariant::Standard)] variant: SurfaceVariant,
+    #[prop(optional)] ui_slot: Option<&'static str>,
+    #[prop(optional, into)] role: Option<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -175,7 +203,10 @@ pub fn Pane(
             class=merge_layout_class("ui-pane", layout_class)
             data-ui-primitive="true"
             data-ui-kind="pane"
+            data-ui-slot=ui_slot
             data-ui-variant=variant.token()
+            role=role
+            aria-label=move || aria_label.get()
         >
             {children()}
         </section>
@@ -186,10 +217,12 @@ pub fn Pane(
 /// Shared pane header with title and optional supporting copy/actions.
 pub fn PaneHeader(
     #[prop(optional)] layout_class: Option<&'static str>,
-    #[prop(optional)] title: Option<&'static str>,
-    #[prop(optional)] meta: Option<&'static str>,
+    #[prop(optional, into)] title: MaybeSignal<String>,
+    #[prop(optional, into)] meta: MaybeSignal<String>,
     children: Children,
 ) -> impl IntoView {
+    let title_signal = Signal::derive(move || title.get());
+    let meta_signal = Signal::derive(move || meta.get());
     view! {
         <header
             class=merge_layout_class("ui-pane-header", layout_class)
@@ -197,11 +230,32 @@ pub fn PaneHeader(
             data-ui-kind="pane-header"
         >
             <div data-ui-slot="copy">
-                {title.map(|title| view! { <div data-ui-slot="title">{title}</div> })}
-                {meta.map(|meta| view! { <div data-ui-slot="meta">{meta}</div> })}
+                <Show when=move || !title_signal.get().is_empty() fallback=|| ()>
+                    <div data-ui-slot="title">{move || title_signal.get()}</div>
+                </Show>
+                <Show when=move || !meta_signal.get().is_empty() fallback=|| ()>
+                    <div data-ui-slot="meta">{move || meta_signal.get()}</div>
+                </Show>
             </div>
             <div data-ui-slot="actions">{children()}</div>
         </header>
+    }
+}
+
+#[component]
+/// Shared inline statusbar item wrapper.
+pub fn StatusBarItem(
+    #[prop(optional)] layout_class: Option<&'static str>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <span
+            class=merge_layout_class("ui-statusbar-item", layout_class)
+            data-ui-primitive="true"
+            data-ui-kind="statusbar-item"
+        >
+            {children()}
+        </span>
     }
 }
 
@@ -210,6 +264,7 @@ pub fn PaneHeader(
 pub fn ListSurface(
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional, into)] role: Option<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -218,6 +273,7 @@ pub fn ListSurface(
             data-ui-primitive="true"
             data-ui-kind="list-surface"
             role=role
+            aria-label=move || aria_label.get()
         >
             {children()}
         </div>
@@ -349,6 +405,9 @@ pub fn PreviewFrame(
 pub fn TerminalSurface(
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional)] node_ref: NodeRef<html::Div>,
+    #[prop(optional, into)] role: Option<String>,
+    #[prop(optional, into)] aria_live: Option<&'static str>,
+    #[prop(optional)] on_scroll: Option<Callback<web_sys::Event>>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -357,6 +416,13 @@ pub fn TerminalSurface(
             data-ui-primitive="true"
             data-ui-kind="terminal-surface"
             node_ref=node_ref
+            role=role
+            aria-live=aria_live
+            on:scroll=move |ev| {
+                if let Some(on_scroll) = on_scroll.as_ref() {
+                    on_scroll.call(ev);
+                }
+            }
         >
             {children()}
         </div>
@@ -367,6 +433,8 @@ pub fn TerminalSurface(
 /// Shared terminal transcript container.
 pub fn TerminalTranscript(
     #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] role: Option<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -374,6 +442,8 @@ pub fn TerminalTranscript(
             class=merge_layout_class("ui-terminal-transcript", layout_class)
             data-ui-primitive="true"
             data-ui-kind="terminal-transcript"
+            role=role
+            aria-label=move || aria_label.get()
         >
             {children()}
         </div>
@@ -403,6 +473,7 @@ pub fn TerminalLine(
 /// Shared terminal prompt row.
 pub fn TerminalPrompt(
     #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] role: Option<String>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -410,6 +481,7 @@ pub fn TerminalPrompt(
             class=merge_layout_class("ui-terminal-prompt", layout_class)
             data-ui-primitive="true"
             data-ui-kind="terminal-prompt"
+            role=role
         >
             {children()}
         </div>

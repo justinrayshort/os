@@ -81,6 +81,8 @@ pub fn SplitLayout(
     #[prop(default = LayoutGap::Md)] gap: LayoutGap,
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional)] ui_slot: Option<&'static str>,
+    #[prop(optional)] tabindex: Option<i32>,
+    #[prop(optional)] on_keydown: Option<Callback<KeyboardEvent>>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -90,6 +92,12 @@ pub fn SplitLayout(
             data-ui-kind="split-layout"
             data-ui-slot=ui_slot
             data-ui-gap=gap.token()
+            tabindex=tabindex
+            on:keydown=move |ev| {
+                if let Some(on_keydown) = on_keydown.as_ref() {
+                    on_keydown.call(ev);
+                }
+            }
         >
             {children()}
         </div>

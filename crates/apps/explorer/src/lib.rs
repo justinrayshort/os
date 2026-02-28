@@ -986,36 +986,38 @@ pub fn ExplorerApp(
                                 </Panel>
                             </Show>
 
-                            <div class="explorer-workspace explorer-workspace--three-pane" data-ui-kind="split-layout" data-ui-slot="workspace">
-                                <aside class="explorer-tree" data-ui-kind="pane" data-ui-slot="sidebar-pane" aria-label="Explorer status and path">
-                                    <div class="tree-header" data-ui-kind="pane-header">"Workspace"</div>
-                                    <div class="explorer-status-card">
-                                        <div><strong>"Backend"</strong></div>
-                                        <div>{move || {
+                            <SplitLayout layout_class="explorer-workspace explorer-workspace--three-pane" ui_slot="workspace">
+                                <Pane layout_class="explorer-tree" ui_slot="sidebar-pane" aria_label="Explorer status and path">
+                                    <PaneHeader title="Workspace"><span></span></PaneHeader>
+                                    <Card layout_class="explorer-status-card" variant=SurfaceVariant::Muted>
+                                        <InspectorGrid layout_class="details-grid">
+                                            <Text role=TextRole::Label>"Backend"</Text>
+                                            <Text>{move || {
                                             status
                                                 .get()
                                                 .map(|s| format!("{:?}", s.backend))
                                                 .unwrap_or_else(|| "Unknown".to_string())
-                                        }}</div>
-                                        <div><strong>"Permission"</strong></div>
-                                        <div>{move || {
+                                            }}</Text>
+                                            <Text role=TextRole::Label>"Permission"</Text>
+                                            <Text>{move || {
                                             status
                                                 .get()
                                                 .map(|s| format!("{:?}", s.permission))
                                                 .unwrap_or_else(|| "Unknown".to_string())
-                                        }}</div>
-                                        <div><strong>"Root"</strong></div>
-                                        <div>{move || {
+                                            }}</Text>
+                                            <Text role=TextRole::Label>"Root"</Text>
+                                            <Text>{move || {
                                             status
                                                 .get()
                                                 .and_then(|s| s.root_path_hint)
                                                 .unwrap_or_else(|| "(virtual root)".to_string())
-                                        }}</div>
-                                    </div>
+                                            }}</Text>
+                                        </InspectorGrid>
+                                    </Card>
 
-                                    <div class="tree-header" data-ui-kind="pane-header">"Path Segments"</div>
-                                    <ul class="tree-list">
-                                        <li>
+                                    <PaneHeader title="Path Segments"><span></span></PaneHeader>
+                                    <Tree layout_class="tree-list">
+                                        <TreeItem>
                                             <Button
                                                 layout_class="tree-node"
                                                 variant=ButtonVariant::Quiet
@@ -1030,7 +1032,7 @@ pub fn ExplorerApp(
                                                 <span class="tree-glyph">"[]"</span>
                                                 <span>"/"</span>
                                             </Button>
-                                        </li>
+                                        </TreeItem>
                                         <For
                                             each=move || {
                                                 let current = cwd.get();
@@ -1048,7 +1050,7 @@ pub fn ExplorerApp(
                                             key=|(_, path)| path.clone()
                                             let:item
                                         >
-                                            <li>
+                                            <TreeItem>
                                                 <Button
                                                     layout_class="tree-node"
                                                     variant=ButtonVariant::Quiet
@@ -1063,16 +1065,13 @@ pub fn ExplorerApp(
                                                     <span class="tree-glyph">">"</span>
                                                     <span>{item.0.clone()}</span>
                                                 </Button>
-                                            </li>
+                                            </TreeItem>
                                         </For>
-                                    </ul>
-                                </aside>
+                                    </Tree>
+                                </Pane>
 
-                                <section class="explorer-pane" data-ui-kind="pane" data-ui-slot="primary-pane">
-                                    <div class="pane-header" data-ui-kind="pane-header">
-                                        <div class="pane-title" data-ui-slot="title">"Contents"</div>
-                                        <div class="pane-path" data-ui-slot="meta">{move || format!("Path: {}", cwd.get())}</div>
-                                    </div>
+                                <Pane layout_class="explorer-pane" ui_slot="primary-pane" aria_label="Explorer contents">
+                                    <PaneHeader title="Contents" meta=Signal::derive(move || format!("Path: {}", cwd.get()))><span></span></PaneHeader>
 
                                     <div class="explorer-listwrap">
                                         <DataTable
@@ -1168,36 +1167,40 @@ pub fn ExplorerApp(
                                             </tbody>
                                         </DataTable>
                                     </div>
-                                </section>
+                                </Pane>
 
-                                <aside class="explorer-pane explorer-inspector" data-ui-kind="pane" data-ui-slot="secondary-pane">
-                                    <div class="pane-header" data-ui-kind="pane-header">
-                                        <div class="pane-title" data-ui-slot="title">"Inspector"</div>
-                                        <div class="pane-path" data-ui-slot="meta">{move || {
+                                <Pane
+                                    layout_class="explorer-pane explorer-inspector"
+                                    ui_slot="secondary-pane"
+                                    aria_label="Explorer inspector"
+                                >
+                                    <PaneHeader
+                                        title="Inspector"
+                                        meta=Signal::derive(move || {
                                             selected_path
                                                 .get()
                                                 .map(|path| entry_name(&path))
                                                 .unwrap_or_else(|| "No selection".to_string())
-                                        }}</div>
-                                    </div>
+                                        })
+                                    ><span></span></PaneHeader>
 
                                     <Show when=move || editor_path.get().is_some() fallback=|| ()>
                                         <div class="explorer-editor">
-                                            <div class="pane-header">
-                                                <div class="pane-title">{move || {
+                                            <PaneHeader
+                                                title=Signal::derive(move || {
                                                     editor_path
                                                         .get()
                                                         .map(|path| format!("Editor: {}", entry_name(&path)))
                                                         .unwrap_or_else(|| "Editor".to_string())
-                                                }}</div>
-                                                <div class="pane-path">{move || {
+                                                })
+                                                meta=Signal::derive(move || {
                                                     if editor_dirty.get() {
                                                         "Unsaved changes".to_string()
                                                     } else {
                                                         "Saved".to_string()
                                                     }
-                                                }}</div>
-                                            </div>
+                                                })
+                                            ><span></span></PaneHeader>
                                             <TextArea
                                                 layout_class="explorer-file-editor"
                                                 value=Signal::derive(move || editor_text.get())
@@ -1214,36 +1217,36 @@ pub fn ExplorerApp(
                                             {move || {
                                                 if let Some(meta) = selected_metadata.get() {
                                                     view! {
-                                                        <div class="details-grid">
-                                                            <div>"Name"</div><div>{meta.name.clone()}</div>
-                                                            <div>"Path"</div><div>{meta.path.clone()}</div>
-                                                            <div>"Kind"</div><div>{format!("{:?}", meta.kind)}</div>
-                                                            <div>"Backend"</div><div>{format!("{:?}", meta.backend)}</div>
-                                                            <div>"Permission"</div><div>{format!("{:?}", meta.permission)}</div>
-                                                            <div>"Modified"</div><div>{meta
+                                                        <InspectorGrid layout_class="details-grid">
+                                                            <Text role=TextRole::Label>"Name"</Text><Text>{meta.name.clone()}</Text>
+                                                            <Text role=TextRole::Label>"Path"</Text><Text>{meta.path.clone()}</Text>
+                                                            <Text role=TextRole::Label>"Kind"</Text><Text>{format!("{:?}", meta.kind)}</Text>
+                                                            <Text role=TextRole::Label>"Backend"</Text><Text>{format!("{:?}", meta.backend)}</Text>
+                                                            <Text role=TextRole::Label>"Permission"</Text><Text>{format!("{:?}", meta.permission)}</Text>
+                                                            <Text role=TextRole::Label>"Modified"</Text><Text>{meta
                                                                 .modified_at_unix_ms
                                                                 .map(format_timestamp)
-                                                                .unwrap_or_else(|| "-".to_string())}</div>
-                                                            <div>"Size"</div><div>{meta
+                                                                .unwrap_or_else(|| "-".to_string())}</Text>
+                                                            <Text role=TextRole::Label>"Size"</Text><Text>{meta
                                                                 .size
                                                                 .map(format_bytes)
-                                                                .unwrap_or_else(|| "-".to_string())}</div>
-                                                        </div>
+                                                                .unwrap_or_else(|| "-".to_string())}</Text>
+                                                        </InspectorGrid>
                                                     }
                                                     .into_view()
                                                 } else {
                                                     view! {
-                                                        <div class="details-empty">
+                                                        <EmptyState layout_class="details-empty">
                                                             "Select an item to view metadata."
-                                                        </div>
+                                                        </EmptyState>
                                                     }
                                                     .into_view()
                                                 }
                                             }}
                                         </div>
                                     </Show>
-                                </aside>
-                            </div>
+                                </Pane>
+                            </SplitLayout>
                         </>
                     }
                 }

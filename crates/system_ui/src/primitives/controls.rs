@@ -8,9 +8,15 @@ pub fn Button(
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional, into)] id: Option<String>,
     #[prop(optional, into)] role: Option<String>,
-    #[prop(optional, into)] aria_label: Option<String>,
-    #[prop(optional, into)] aria_controls: Option<String>,
-    #[prop(optional, into)] title: Option<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional, into)] aria_controls: MaybeSignal<String>,
+    #[prop(optional, into)] aria_expanded: MaybeSignal<bool>,
+    #[prop(optional, into)] aria_haspopup: MaybeSignal<String>,
+    #[prop(optional, into)] aria_checked: MaybeSignal<String>,
+    #[prop(optional, into)] aria_pressed: MaybeSignal<bool>,
+    #[prop(optional, into)] aria_keyshortcuts: MaybeSignal<String>,
+    #[prop(optional, into)] title: MaybeSignal<String>,
+    #[prop(optional, into)] data_app: MaybeSignal<String>,
     #[prop(optional)] tabindex: Option<i32>,
     #[prop(optional)] ui_slot: Option<&'static str>,
     #[prop(optional, into)] disabled: MaybeSignal<bool>,
@@ -20,6 +26,10 @@ pub fn Button(
     #[prop(optional)] trailing_icon: Option<IconName>,
     #[prop(optional)] on_click: Option<Callback<MouseEvent>>,
     #[prop(optional)] on_keydown: Option<Callback<KeyboardEvent>>,
+    #[prop(optional)] on_mousedown: Option<Callback<MouseEvent>>,
+    #[prop(optional)] on_dblclick: Option<Callback<MouseEvent>>,
+    #[prop(optional)] on_contextmenu: Option<Callback<MouseEvent>>,
+    #[prop(optional)] on_pointerdown: Option<Callback<web_sys::PointerEvent>>,
     children: Children,
 ) -> impl IntoView {
     let class = merge_layout_class("ui-button", layout_class);
@@ -29,9 +39,15 @@ pub fn Button(
             class=class
             id=id
             role=role
-            aria-label=aria_label
-            aria-controls=aria_controls
-            title=title
+            aria-label=move || aria_label.get()
+            aria-controls=move || aria_controls.get()
+            aria-expanded=move || aria_expanded.get()
+            aria-haspopup=move || aria_haspopup.get()
+            aria-checked=move || aria_checked.get()
+            aria-pressed=move || aria_pressed.get()
+            aria-keyshortcuts=move || aria_keyshortcuts.get()
+            title=move || title.get()
+            data-app=move || data_app.get()
             tabindex=tabindex
             disabled=move || disabled.get()
             data-ui-primitive="true"
@@ -61,11 +77,54 @@ pub fn Button(
                     on_keydown.call(ev);
                 }
             }
+            on:mousedown=move |ev| {
+                if let Some(on_mousedown) = on_mousedown.as_ref() {
+                    on_mousedown.call(ev);
+                }
+            }
+            on:dblclick=move |ev| {
+                if let Some(on_dblclick) = on_dblclick.as_ref() {
+                    on_dblclick.call(ev);
+                }
+            }
+            on:contextmenu=move |ev| {
+                if let Some(on_contextmenu) = on_contextmenu.as_ref() {
+                    on_contextmenu.call(ev);
+                }
+            }
+            on:pointerdown=move |ev| {
+                if let Some(on_pointerdown) = on_pointerdown.as_ref() {
+                    on_pointerdown.call(ev);
+                }
+            }
         >
             {leading_icon.map(|icon| view! { <Icon icon size=IconSize::Sm /> })}
             {children()}
             {trailing_icon.map(|icon| view! { <Icon icon size=IconSize::Sm /> })}
         </button>
+    }
+}
+
+#[component]
+/// Shared labeled field wrapper that keeps copy and control structure on the primitive layer.
+pub fn FieldGroup(
+    #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] title: Option<String>,
+    #[prop(optional, into)] description: Option<String>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <label
+            class=merge_layout_class("ui-field-group", layout_class)
+            data-ui-primitive="true"
+            data-ui-kind="field-group"
+        >
+            <span data-ui-slot="copy">
+                {title.map(|title| view! { <span data-ui-slot="title">{title}</span> })}
+                {description.map(|description| view! { <span data-ui-slot="description">{description}</span> })}
+            </span>
+            <span data-ui-slot="control">{children()}</span>
+        </label>
     }
 }
 
@@ -264,6 +323,32 @@ pub fn ColorField(
 }
 
 #[component]
+/// Shared checkbox input for settings and binary preferences.
+pub fn CheckboxField(
+    #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional, into)] checked: MaybeSignal<bool>,
+    #[prop(optional)] on_change: Option<Callback<web_sys::Event>>,
+) -> impl IntoView {
+    view! {
+        <input
+            class=merge_layout_class("ui-checkbox", layout_class)
+            type="checkbox"
+            aria-label=move || aria_label.get()
+            prop:checked=move || checked.get()
+            data-ui-primitive="true"
+            data-ui-kind="checkbox"
+            data-ui-selected=move || bool_token(checked.get())
+            on:change=move |ev| {
+                if let Some(on_change) = on_change.as_ref() {
+                    on_change.call(ev);
+                }
+            }
+        />
+    }
+}
+
+#[component]
 /// Shared progress indicator primitive.
 pub fn ProgressBar(
     #[prop(optional)] layout_class: Option<&'static str>,
@@ -312,6 +397,8 @@ pub fn CompletionItem(
 /// Shared completion list surface.
 pub fn CompletionList(
     #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] role: Option<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -319,6 +406,8 @@ pub fn CompletionList(
             class=merge_layout_class("ui-completion-list", layout_class)
             data-ui-primitive="true"
             data-ui-kind="completion-list"
+            role=role
+            aria-label=move || aria_label.get()
         >
             {children()}
         </div>

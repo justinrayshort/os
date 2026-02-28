@@ -574,44 +574,6 @@ fn compute_taskbar_layout(
     }
 }
 
-fn taskbar_window_button_class(
-    focused: bool,
-    minimized: bool,
-    compact: bool,
-    keyboard_selected: bool,
-) -> String {
-    let mut class_name = String::from("taskbar-app");
-    if focused {
-        class_name.push_str(" focused");
-    }
-    if minimized {
-        class_name.push_str(" minimized");
-    } else {
-        class_name.push_str(" active");
-    }
-    if compact {
-        class_name.push_str(" compact");
-    }
-    if keyboard_selected {
-        class_name.push_str(" keyboard-selected");
-    }
-    class_name
-}
-
-fn taskbar_pinned_button_class(status: PinnedTaskbarAppState) -> String {
-    let mut class_name = String::from("taskbar-app taskbar-pinned");
-    if status.running_count > 0 {
-        class_name.push_str(" active");
-    }
-    if status.focused {
-        class_name.push_str(" focused");
-    }
-    if status.all_minimized {
-        class_name.push_str(" minimized");
-    }
-    class_name
-}
-
 fn taskbar_window_aria_label(win: &WindowRecord) -> String {
     let mut parts = vec![win.title.clone()];
     if win.is_focused && !win.minimized {

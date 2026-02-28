@@ -13,20 +13,20 @@ mod overlays;
 mod shell;
 
 pub use controls::{
-    Button, ColorField, CompletionItem, CompletionList, ProgressBar, RangeField, SelectField,
-    TextArea, TextField, ToggleRow,
+    Button, CheckboxField, ColorField, CompletionItem, CompletionList, FieldGroup, ProgressBar,
+    RangeField, SelectField, TextArea, TextField, ToggleRow,
 };
 pub use data_display::{
-    Badge, DataTable, ElevationLayer, EmptyState, Heading, InspectorGrid, ListSurface, OptionCard,
-    Pane, PaneHeader, Panel, PreviewFrame, Surface, TerminalLine, TerminalPrompt, TerminalSurface,
-    TerminalTranscript, Text,
+    Badge, Card, DataTable, ElevationLayer, EmptyState, Heading, InspectorGrid, ListSurface,
+    OptionCard, Pane, PaneHeader, Panel, PreviewFrame, StatusBarItem, Surface, TerminalLine,
+    TerminalPrompt, TerminalSurface, TerminalTranscript, Text, Tree, TreeItem,
 };
 pub use layout::{Cluster, Grid, SplitLayout, Stack};
 pub use navigation::{
     DisclosurePanel, LauncherMenu, MenuBar, StatusBar, StepFlow, StepFlowActions, StepFlowHeader,
     StepFlowStep, Tab, TabList, ToolBar,
 };
-pub use overlays::{MenuItem, MenuSeparator, MenuSurface};
+pub use overlays::{MenuItem, MenuSeparator, MenuSurface, Modal};
 pub use shell::{
     AppShell, ClockButton, DesktopBackdrop, DesktopIconButton, DesktopIconGrid, DesktopRoot,
     DesktopWindowLayer, ResizeHandle, Taskbar, TaskbarButton, TaskbarOverflowButton,

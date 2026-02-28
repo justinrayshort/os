@@ -274,20 +274,21 @@ pub fn NotepadApp(
                 </Button>
             </ToolBar>
 
-            <div class="notepad-document" data-ui-kind="pane" data-ui-slot="document">
-                <div class="notepad-document-header" data-ui-kind="pane-header">
-                    <div class="doc-title" data-ui-slot="title">{move || format!("{}.txt", workspace.get().active_slug)}</div>
-                    <div class="doc-meta" data-ui-slot="meta">
-                        {move || {
-                            let w = workspace.get();
-                            format!(
-                                "{} open doc(s) | {}",
-                                w.open_order.len(),
-                                if hydrated.get() { "hydrated" } else { "hydrating" }
-                            )
-                        }}
-                    </div>
-                </div>
+            <Pane layout_class="notepad-document" ui_slot="document">
+                <PaneHeader
+                    layout_class="notepad-document-header"
+                    title=Signal::derive(move || format!("{}.txt", workspace.get().active_slug))
+                    meta=Signal::derive(move || {
+                        let w = workspace.get();
+                        format!(
+                            "{} open doc(s) | {}",
+                            w.open_order.len(),
+                            if hydrated.get() { "hydrated" } else { "hydrating" }
+                        )
+                    })
+                >
+                    <span></span>
+                </PaneHeader>
 
                 <TabList
                     layout_class="notepad-tabstrip"
@@ -344,16 +345,16 @@ pub fn NotepadApp(
                         aria_label="Notepad document editor"
                     />
                 </div>
-            </div>
+            </Pane>
 
             <StatusBar>
-                <span class="ui-statusbar-item">{move || format!("Lines: {}", line_count.get())}</span>
-                <span class="ui-statusbar-item">{move || format!("Chars: {}", char_count.get())}</span>
-                <span class="ui-statusbar-item">{move || {
+                <StatusBarItem>{move || format!("Lines: {}", line_count.get())}</StatusBarItem>
+                <StatusBarItem>{move || format!("Chars: {}", char_count.get())}</StatusBarItem>
+                <StatusBarItem>{move || {
                     transient_notice
                         .get()
                         .unwrap_or_else(|| if workspace.get().wrap_lines { "Word Wrap".to_string() } else { "No Wrap".to_string() })
-                }}</span>
+                }}</StatusBarItem>
             </StatusBar>
         </AppShell>
     }

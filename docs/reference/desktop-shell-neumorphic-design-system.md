@@ -65,6 +65,10 @@ Primary token families:
 - `--sys-opacity-*`
 - `--sys-z-*`
 - `--sys-comp-*`
+- `--sys-light-*`
+- `--sys-depth-*`
+- `--sys-shadow-geometry-*`
+- `--sys-surface-depth-*`
 
 The neumorphic theme file is token-only. It remaps the shared `--sys-*` surface, elevation, border, focus, and component-role tokens for `data-skin="soft-neumorphic"` without targeting app-specific DOM contracts.
 
@@ -74,6 +78,7 @@ The neumorphic theme file is token-only. It remaps the shared `--sys-*` surface,
 - Raised controls use low-amplitude outer shadows rather than dramatic extrusion.
 - Pressed, toggled, and input-well states use inset treatments, not color changes alone.
 - Focus indication uses an explicit outline token and must remain visible independently of elevation styling.
+- Primitive selectors consume token aliases such as `--sys-radius-control`, `--sys-space-panel`, `--sys-surface-depth-muted`, and `--sys-state-hover` instead of direct literal geometry or color recipes.
 - High-contrast mode may intentionally flatten surfaces to preserve separation and contrast.
 - Dark mode uses dedicated neumorphic shadow/highlight recipes rather than simple light-theme inversion.
 - Guided flows use the same depth grammar as direct-use tools: setup steps read as raised cards, advanced controls use restrained disclosure surfaces, and primary actions use the accent family sparingly.
@@ -84,6 +89,7 @@ The neumorphic theme file is token-only. It remaps the shared `--sys-*` surface,
 - Reuse `system_ui::Icon`, `IconName`, and `IconSize` for shell iconography.
 - Preserve shared shell structure and reducer-driven state semantics.
 - Prefer semantic token remapping over one-off literals in theme files.
+- Compose runtime shell chrome through `system_ui` primitives (`WindowFrame`, `WindowControlButton`, `TaskbarButton`, `ClockButton`, `MenuSurface`, `MenuItem`) rather than local raw button/menu markup.
 - Keep app-specific classes nonvisual; styling must flow through shared primitives and `data-ui-*` contracts.
 - Preserve terminal transcript readability over tactile styling.
 

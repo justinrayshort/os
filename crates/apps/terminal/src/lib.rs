@@ -187,7 +187,7 @@ fn value_summary(value: &StructuredValue) -> String {
 
 fn render_record(record: StructuredRecord) -> impl IntoView {
     view! {
-        <div class="terminal-data terminal-data-record" data-ui-kind="list-surface">
+        <ListSurface layout_class="terminal-data terminal-data-record">
             {record
                 .fields
                 .into_iter()
@@ -200,20 +200,20 @@ fn render_record(record: StructuredRecord) -> impl IntoView {
                     }
                 })
                 .collect_view()}
-        </div>
+        </ListSurface>
     }
 }
 
 fn render_list(values: Vec<StructuredValue>) -> impl IntoView {
     view! {
-        <div class="terminal-data terminal-data-list" data-ui-kind="list-surface">
+        <ListSurface layout_class="terminal-data terminal-data-list">
             {values
                 .into_iter()
                 .map(|value| {
                     view! { <div class="terminal-list-item">{value_summary(&value)}</div> }
                 })
                 .collect_view()}
-        </div>
+        </ListSurface>
     }
 }
 
@@ -230,7 +230,7 @@ fn render_table(table: StructuredTable) -> impl IntoView {
     let columns = table.columns.clone();
     let rows = table.rows.clone();
     view! {
-        <div class="terminal-data terminal-data-table" data-ui-kind="list-surface">
+        <ListSurface layout_class="terminal-data terminal-data-table">
             <DataTable layout_class="terminal-table" role="table">
                 <thead>
                     <tr>
@@ -257,7 +257,7 @@ fn render_table(table: StructuredTable) -> impl IntoView {
                         .collect_view()}
                 </tbody>
             </DataTable>
-        </div>
+        </ListSurface>
     }
 }
 
@@ -265,7 +265,7 @@ fn render_data(data: StructuredData, _display: DisplayPreference) -> View {
     match data {
         StructuredData::Empty => ().into_view(),
         StructuredData::Value(StructuredValue::Scalar(value)) => {
-            view! { <div class="terminal-line terminal-line-value" data-ui-kind="terminal-line" data-ui-tone="primary">{scalar_text(&value)}</div> }
+            view! { <TerminalLine layout_class="terminal-line terminal-line-value">{scalar_text(&value)}</TerminalLine> }
                 .into_view()
         }
         StructuredData::Value(StructuredValue::Record(record)) | StructuredData::Record(record) => {
@@ -289,11 +289,11 @@ fn notice_class(level: CommandNoticeLevel) -> &'static str {
 fn render_entry(entry: TerminalTranscriptEntry) -> View {
     match entry {
         TerminalTranscriptEntry::Prompt { cwd, command, .. } => view! {
-            <div class="terminal-line terminal-line-prompt" data-ui-kind="terminal-line" data-ui-tone="secondary">{format!("{cwd} \u{203a} {command}")}</div>
+            <TerminalLine layout_class="terminal-line terminal-line-prompt" tone=TextTone::Secondary>{format!("{cwd} \u{203a} {command}")}</TerminalLine>
         }
         .into_view(),
         TerminalTranscriptEntry::Notice { notice, .. } => view! {
-            <div class=notice_class(notice.level)>{notice.message}</div>
+            <TerminalLine layout_class=notice_class(notice.level) tone=TextTone::Accent>{notice.message}</TerminalLine>
         }
         .into_view(),
         TerminalTranscriptEntry::Data { data, display, .. } => render_data(data, display),
@@ -303,12 +303,12 @@ fn render_entry(entry: TerminalTranscriptEntry) -> View {
                 .map(|value| format!(" {:.0}%", value * 100.0))
                 .unwrap_or_default();
             view! {
-                <div class="terminal-line terminal-line-status" data-ui-kind="terminal-line" data-ui-tone="accent">{format!("{label}{suffix}")}</div>
+                <TerminalLine layout_class="terminal-line terminal-line-status" tone=TextTone::Accent>{format!("{label}{suffix}")}</TerminalLine>
             }
             .into_view()
         }
         TerminalTranscriptEntry::System { text } => view! {
-            <div class="terminal-line terminal-line-system" data-ui-kind="terminal-line" data-ui-tone="secondary">{text}</div>
+            <TerminalLine layout_class="terminal-line terminal-line-system" tone=TextTone::Secondary>{text}</TerminalLine>
         }
         .into_view(),
     }
@@ -614,11 +614,10 @@ pub fn TerminalApp(
 
     view! {
         <AppShell layout_class="app-terminal-shell">
-            <div
-                class="terminal-screen"
-                data-ui-kind="terminal-surface"
+            <TerminalSurface
+                layout_class="terminal-screen"
                 role="log"
-                aria-live="polite"
+                aria_live="polite"
                 node_ref=terminal_screen
                 on:scroll=move |_| {
                     if let Some(screen) = terminal_screen.get() {
@@ -632,28 +631,27 @@ pub fn TerminalApp(
                 }
             >
                 <Show when=move || !suggestions.get().is_empty() fallback=|| ()>
-                    <div class="terminal-completions" data-ui-kind="completion-list" role="listbox" aria-label="Completions">
+                    <CompletionList layout_class="terminal-completions" role="listbox" aria_label="Completions">
                         <For each=move || suggestions.get() key=|item| item.value.clone() let:item>
-                            <Button
+                            <CompletionItem
                                 layout_class="terminal-completion"
-                                variant=ButtonVariant::Quiet
                                 on_click=Callback::new(move |_| {
                                     input.set(format!("{} ", item.value));
                                     suggestions.set(Vec::new());
                                 })
                             >
                                 {item.label}
-                            </Button>
+                            </CompletionItem>
                         </For>
-                    </div>
+                    </CompletionList>
                 </Show>
 
-                <div class="terminal-transcript" data-ui-kind="terminal-transcript">
+                <TerminalTranscript layout_class="terminal-transcript">
                     <For each=indexed_entries key=|(idx, _)| *idx let:entry>
                         {render_entry(entry.1)}
                     </For>
 
-                    <div class="terminal-line terminal-line-prompt terminal-live-prompt" data-ui-kind="terminal-prompt">
+                    <TerminalPrompt layout_class="terminal-line terminal-line-prompt terminal-live-prompt">
                         <label class="visually-hidden" for=input_id.clone()>
                             {move || format!("Command input for {} in {} mode", cwd.get(), prompt_mode())}
                         </label>
@@ -706,9 +704,9 @@ pub fn TerminalApp(
                                 _ => {}
                             })
                         />
-                    </div>
-                </div>
-            </div>
+                    </TerminalPrompt>
+                </TerminalTranscript>
+            </TerminalSurface>
         </AppShell>
     }
 }

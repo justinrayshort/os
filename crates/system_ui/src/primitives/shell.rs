@@ -131,24 +131,30 @@ pub fn DesktopWindowLayer(
 /// Shared window frame primitive.
 pub fn WindowFrame(
     #[prop(optional)] layout_class: Option<&'static str>,
-    #[prop(optional, into)] style: Option<String>,
-    #[prop(optional, into)] aria_label: Option<String>,
+    #[prop(optional, into)] style: MaybeSignal<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
     #[prop(optional, into)] focused: MaybeSignal<bool>,
     #[prop(optional, into)] minimized: MaybeSignal<bool>,
     #[prop(optional, into)] maximized: MaybeSignal<bool>,
+    #[prop(optional)] on_pointerdown: Option<Callback<web_sys::PointerEvent>>,
     children: Children,
 ) -> impl IntoView {
     view! {
         <section
             class=merge_layout_class("ui-window-frame", layout_class)
-            style=style
+            style=move || style.get()
             role="dialog"
-            aria-label=aria_label
+            aria-label=move || aria_label.get()
             data-ui-primitive="true"
             data-ui-kind="window-frame"
             data-ui-focused=move || bool_token(focused.get())
             data-ui-minimized=move || bool_token(minimized.get())
             data-ui-maximized=move || bool_token(maximized.get())
+            on:pointerdown=move |ev| {
+                if let Some(on_pointerdown) = on_pointerdown.as_ref() {
+                    on_pointerdown.call(ev);
+                }
+            }
         >
             {children()}
         </section>
@@ -159,6 +165,8 @@ pub fn WindowFrame(
 /// Shared window titlebar primitive.
 pub fn WindowTitleBar(
     #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional)] on_pointerdown: Option<Callback<web_sys::PointerEvent>>,
+    #[prop(optional)] on_dblclick: Option<Callback<MouseEvent>>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -166,6 +174,16 @@ pub fn WindowTitleBar(
             class=merge_layout_class("ui-window-titlebar", layout_class)
             data-ui-primitive="true"
             data-ui-kind="window-titlebar"
+            on:pointerdown=move |ev| {
+                if let Some(on_pointerdown) = on_pointerdown.as_ref() {
+                    on_pointerdown.call(ev);
+                }
+            }
+            on:dblclick=move |ev| {
+                if let Some(on_dblclick) = on_dblclick.as_ref() {
+                    on_dblclick.call(ev);
+                }
+            }
         >
             {children()}
         </header>
@@ -210,19 +228,31 @@ pub fn WindowControls(
 /// Shared titlebar control button.
 pub fn WindowControlButton(
     #[prop(optional)] layout_class: Option<&'static str>,
-    #[prop(optional, into)] aria_label: Option<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
     #[prop(optional, into)] disabled: MaybeSignal<bool>,
+    #[prop(optional)] on_pointerdown: Option<Callback<web_sys::PointerEvent>>,
+    #[prop(optional)] on_mousedown: Option<Callback<MouseEvent>>,
     #[prop(optional)] on_click: Option<Callback<MouseEvent>>,
     children: Children,
 ) -> impl IntoView {
     view! {
         <Button
             layout_class=layout_class.unwrap_or("")
-            aria_label=aria_label.unwrap_or_default()
+            aria_label=aria_label
             disabled=disabled
             ui_slot="window-control"
             variant=ButtonVariant::Quiet
             size=ButtonSize::Sm
+            on_pointerdown=Callback::new(move |ev| {
+                if let Some(on_pointerdown) = on_pointerdown.as_ref() {
+                    on_pointerdown.call(ev);
+                }
+            })
+            on_mousedown=Callback::new(move |ev| {
+                if let Some(on_mousedown) = on_mousedown.as_ref() {
+                    on_mousedown.call(ev);
+                }
+            })
             on_click=Callback::new(move |ev| {
                 if let Some(on_click) = on_click.as_ref() {
                     on_click.call(ev);
@@ -271,6 +301,11 @@ pub fn ResizeHandle(
 /// Shared taskbar root.
 pub fn Taskbar(
     #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] role: Option<String>,
+    #[prop(optional, into)] aria_label: Option<String>,
+    #[prop(optional, into)] aria_keyshortcuts: Option<String>,
+    #[prop(optional)] on_mousedown: Option<Callback<MouseEvent>>,
+    #[prop(optional)] on_keydown: Option<Callback<KeyboardEvent>>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -278,6 +313,19 @@ pub fn Taskbar(
             class=merge_layout_class("ui-taskbar", layout_class)
             data-ui-primitive="true"
             data-ui-kind="taskbar"
+            role=role
+            aria-label=aria_label
+            aria-keyshortcuts=aria_keyshortcuts
+            on:mousedown=move |ev| {
+                if let Some(on_mousedown) = on_mousedown.as_ref() {
+                    on_mousedown.call(ev);
+                }
+            }
+            on:keydown=move |ev| {
+                if let Some(on_keydown) = on_keydown.as_ref() {
+                    on_keydown.call(ev);
+                }
+            }
         >
             {children()}
         </footer>
@@ -289,6 +337,8 @@ pub fn Taskbar(
 pub fn TaskbarSection(
     ui_slot: &'static str,
     #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] role: Option<String>,
+    #[prop(optional, into)] aria_label: Option<String>,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -297,6 +347,8 @@ pub fn TaskbarSection(
             data-ui-primitive="true"
             data-ui-kind="taskbar-section"
             data-ui-slot=ui_slot
+            role=role
+            aria-label=aria_label
         >
             {children()}
         </div>
@@ -307,22 +359,49 @@ pub fn TaskbarSection(
 /// Shared taskbar button.
 pub fn TaskbarButton(
     #[prop(optional)] layout_class: Option<&'static str>,
-    #[prop(optional, into)] aria_label: Option<String>,
-    #[prop(optional, into)] title: Option<String>,
+    #[prop(optional)] ui_slot: Option<&'static str>,
+    #[prop(optional, into)] id: Option<String>,
+    #[prop(optional, into)] aria_controls: MaybeSignal<String>,
+    #[prop(optional, into)] aria_haspopup: MaybeSignal<String>,
+    #[prop(optional, into)] aria_expanded: MaybeSignal<bool>,
+    #[prop(optional, into)] aria_pressed: MaybeSignal<bool>,
+    #[prop(optional, into)] aria_keyshortcuts: MaybeSignal<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional, into)] title: MaybeSignal<String>,
+    #[prop(optional, into)] data_app: MaybeSignal<String>,
     #[prop(optional, into)] selected: MaybeSignal<bool>,
     #[prop(optional, into)] pressed: MaybeSignal<bool>,
+    #[prop(optional)] on_mousedown: Option<Callback<MouseEvent>>,
+    #[prop(optional)] on_contextmenu: Option<Callback<MouseEvent>>,
     #[prop(optional)] on_click: Option<Callback<MouseEvent>>,
     children: Children,
 ) -> impl IntoView {
     view! {
         <Button
             layout_class=layout_class.unwrap_or("")
-            aria_label=aria_label.unwrap_or_default()
-            title=title.unwrap_or_default()
+            id=id.unwrap_or_default()
+            aria_controls=aria_controls
+            aria_haspopup=aria_haspopup
+            aria_expanded=aria_expanded
+            aria_pressed=aria_pressed
+            aria_keyshortcuts=aria_keyshortcuts
+            aria_label=aria_label
+            title=title
+            data_app=data_app
             selected=selected
             pressed=pressed
-            ui_slot="taskbar-button"
+            ui_slot=ui_slot.unwrap_or("taskbar-button")
             variant=ButtonVariant::Quiet
+            on_mousedown=Callback::new(move |ev| {
+                if let Some(on_mousedown) = on_mousedown.as_ref() {
+                    on_mousedown.call(ev);
+                }
+            })
+            on_contextmenu=Callback::new(move |ev| {
+                if let Some(on_contextmenu) = on_contextmenu.as_ref() {
+                    on_contextmenu.call(ev);
+                }
+            })
             on_click=Callback::new(move |ev| {
                 if let Some(on_click) = on_click.as_ref() {
                     on_click.call(ev);
@@ -338,14 +417,25 @@ pub fn TaskbarButton(
 /// Shared taskbar overflow button.
 pub fn TaskbarOverflowButton(
     #[prop(optional)] layout_class: Option<&'static str>,
-    #[prop(optional, into)] aria_label: Option<String>,
+    #[prop(optional, into)] id: Option<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional, into)] aria_controls: MaybeSignal<String>,
+    #[prop(optional, into)] aria_haspopup: MaybeSignal<String>,
+    #[prop(optional, into)] aria_expanded: MaybeSignal<bool>,
+    #[prop(optional, into)] aria_keyshortcuts: MaybeSignal<String>,
     #[prop(optional)] on_click: Option<Callback<MouseEvent>>,
     children: Children,
 ) -> impl IntoView {
     view! {
         <TaskbarButton
             layout_class=layout_class.unwrap_or("")
-            aria_label=aria_label.unwrap_or_default()
+            id=id.unwrap_or_default()
+            aria_label=aria_label
+            aria_controls=aria_controls
+            aria_haspopup=aria_haspopup
+            aria_expanded=aria_expanded
+            aria_keyshortcuts=aria_keyshortcuts
+            ui_slot="taskbar-overflow-button"
             on_click=Callback::new(move |ev| {
                 if let Some(on_click) = on_click.as_ref() {
                     on_click.call(ev);
@@ -378,7 +468,8 @@ pub fn TrayList(
 /// Shared tray button.
 pub fn TrayButton(
     #[prop(optional)] layout_class: Option<&'static str>,
-    #[prop(optional, into)] aria_label: Option<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional, into)] title: MaybeSignal<String>,
     #[prop(optional, into)] pressed: MaybeSignal<bool>,
     #[prop(optional)] on_click: Option<Callback<MouseEvent>>,
     children: Children,
@@ -386,8 +477,10 @@ pub fn TrayButton(
     view! {
         <TaskbarButton
             layout_class=layout_class.unwrap_or("")
-            aria_label=aria_label.unwrap_or_default()
+            aria_label=aria_label
+            title=title
             pressed=pressed
+            ui_slot="tray-button"
             on_click=Callback::new(move |ev| {
                 if let Some(on_click) = on_click.as_ref() {
                     on_click.call(ev);
@@ -403,14 +496,25 @@ pub fn TrayButton(
 /// Shared taskbar clock button.
 pub fn ClockButton(
     #[prop(optional)] layout_class: Option<&'static str>,
-    #[prop(optional, into)] aria_label: Option<String>,
+    #[prop(optional, into)] id: Option<String>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional, into)] aria_controls: MaybeSignal<String>,
+    #[prop(optional, into)] aria_haspopup: MaybeSignal<String>,
+    #[prop(optional, into)] aria_expanded: MaybeSignal<bool>,
+    #[prop(optional, into)] aria_keyshortcuts: MaybeSignal<String>,
     #[prop(optional)] on_click: Option<Callback<MouseEvent>>,
     children: Children,
 ) -> impl IntoView {
     view! {
         <TaskbarButton
             layout_class=layout_class.unwrap_or("")
-            aria_label=aria_label.unwrap_or_default()
+            id=id.unwrap_or_default()
+            aria_label=aria_label
+            aria_controls=aria_controls
+            aria_haspopup=aria_haspopup
+            aria_expanded=aria_expanded
+            aria_keyshortcuts=aria_keyshortcuts
+            ui_slot="clock-button"
             on_click=Callback::new(move |ev| {
                 if let Some(on_click) = on_click.as_ref() {
                     on_click.call(ev);

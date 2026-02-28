@@ -2856,39 +2856,87 @@ fn is_allowed_inline_style(rel_path: &str, line: &str) -> bool {
         "crates/desktop_runtime/src/components.rs"
             | "crates/desktop_runtime/src/components/window.rs"
             | "crates/desktop_runtime/src/components/menus.rs"
+            | "crates/system_ui/src/primitives/overlays.rs"
+            | "crates/system_ui/src/primitives/shell.rs"
     )
 }
 
 fn validate_raw_interactive_markup(root: &Path) -> Vec<Problem> {
     let mut problems = Vec::new();
-    let dir = root.join("crates/apps");
-    let mut files = match collect_files_with_suffix(&dir, ".rs") {
-        Ok(files) => files,
-        Err(_) => return problems,
-    };
-    files.sort();
-
-    for path in files {
-        let rel_path = rel_posix(root, &path);
-        let Ok(text) = fs::read_to_string(&path) else {
-            continue;
+    let forbidden_primitive_kinds = [
+        "pane",
+        "pane-header",
+        "split-layout",
+        "list-surface",
+        "terminal-surface",
+        "terminal-transcript",
+        "terminal-prompt",
+        "completion-list",
+        "completion-item",
+        "empty-state",
+        "panel",
+        "tree",
+        "tree-item",
+        "card",
+        "modal",
+        "field-group",
+        "statusbar-item",
+        "checkbox",
+    ];
+    for (scan_dir, message) in [
+        (
+            "crates/apps",
+            "raw interactive element detected in app crate; use approved `system_ui` primitives",
+        ),
+        (
+            "crates/desktop_runtime/src/components",
+            "raw interactive element detected in runtime shell surface; compose through shared `system_ui` primitives",
+        ),
+    ] {
+        let dir = root.join(scan_dir);
+        let mut files = match collect_files_with_suffix(&dir, ".rs") {
+            Ok(files) => files,
+            Err(_) => continue,
         };
-        for (idx, line) in text.lines().enumerate() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("//") {
+        files.sort();
+
+        for path in files {
+            let rel_path = rel_posix(root, &path);
+            let Ok(text) = fs::read_to_string(&path) else {
                 continue;
-            }
-            let forbidden = trimmed.contains("<button")
-                || trimmed.contains("<textarea")
-                || trimmed.contains("<table")
-                || trimmed.contains("<select");
-            if forbidden {
-                problems.push(Problem::new(
-                    "ui-conformance",
-                    rel_path.clone(),
-                    "raw interactive element detected in app crate; use approved `system_ui` primitives",
-                    Some(idx + 1),
-                ));
+            };
+            for (idx, line) in text.lines().enumerate() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("//") {
+                    continue;
+                }
+                let forbidden = trimmed.contains("<button")
+                    || trimmed.contains("<input")
+                    || trimmed.contains("<textarea")
+                    || trimmed.contains("<table")
+                    || trimmed.contains("<select");
+                if forbidden {
+                    problems.push(Problem::new(
+                        "ui-conformance",
+                        rel_path.clone(),
+                        message,
+                        Some(idx + 1),
+                    ));
+                }
+
+                if let Some(kind) = forbidden_primitive_kinds
+                    .iter()
+                    .find(|kind| trimmed.contains(&format!("data-ui-kind=\"{kind}\"")))
+                {
+                    problems.push(Problem::new(
+                        "ui-conformance",
+                        rel_path.clone(),
+                        format!(
+                            "direct `data-ui-kind=\"{kind}\"` composition detected outside `system_ui`; use the approved primitive component instead"
+                        ),
+                        Some(idx + 1),
+                    ));
+                }
             }
         }
     }
@@ -2913,6 +2961,7 @@ fn write_ui_inventory(root: &Path, output: &Path) -> Result<(), String> {
 
 fn collect_ui_inventory(root: &Path) -> Result<Vec<UiInventoryEntry>, String> {
     let mut entries = Vec::new();
+    let consumed_css_classes = collect_consumed_css_classes(root)?;
 
     for rel_dir in [
         "crates/apps",
@@ -2935,7 +2984,8 @@ fn collect_ui_inventory(root: &Path) -> Result<Vec<UiInventoryEntry>, String> {
                         selector_or_token: token.clone(),
                         file: rel_path.clone(),
                         line: idx + 1,
-                        classification: classify_rust_contract(&token).to_string(),
+                        classification: classify_rust_contract(&token, &consumed_css_classes)
+                            .to_string(),
                         recommended_replacement: "Replace bespoke classes with `data-ui-*` primitives or layout-only hooks.".to_string(),
                     });
                 }
@@ -2946,7 +2996,8 @@ fn collect_ui_inventory(root: &Path) -> Result<Vec<UiInventoryEntry>, String> {
                         selector_or_token: token.clone(),
                         file: rel_path.clone(),
                         line: idx + 1,
-                        classification: classify_rust_contract(&token).to_string(),
+                        classification: classify_rust_contract(&token, &consumed_css_classes)
+                            .to_string(),
                         recommended_replacement: "Keep only layout/test hooks; do not consume layout classes from theme CSS.".to_string(),
                     });
                 }
@@ -3030,6 +3081,61 @@ fn extract_attr_literal(line: &str, needle: &str) -> Option<String> {
     Some(line[start..start + end].to_string())
 }
 
+fn collect_consumed_css_classes(root: &Path) -> Result<HashSet<String>, String> {
+    let mut classes = HashSet::new();
+    let css_dir = root.join("crates/site/src/theme_shell");
+    let mut css_files = collect_files_with_suffix(&css_dir, ".css")?;
+    css_files.sort();
+
+    for path in css_files {
+        let text = fs::read_to_string(&path)
+            .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("/*")
+                || trimmed.starts_with('*')
+                || trimmed.starts_with('@')
+                || !trimmed.contains('{')
+            {
+                continue;
+            }
+
+            let selector_chunk = trimmed
+                .split_once('{')
+                .map(|(selector, _)| selector.trim())
+                .unwrap_or("");
+
+            for selector in selector_chunk.split(',') {
+                let selector = selector.trim();
+                let bytes = selector.as_bytes();
+                let mut idx = 0;
+                while idx < bytes.len() {
+                    if bytes[idx] == b'.' {
+                        let start = idx + 1;
+                        let mut end = start;
+                        while end < bytes.len() {
+                            let ch = bytes[end] as char;
+                            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                                end += 1;
+                            } else {
+                                break;
+                            }
+                        }
+                        if end > start {
+                            classes.insert(selector[start..end].to_string());
+                        }
+                        idx = end;
+                    } else {
+                        idx += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(classes)
+}
+
 fn rust_owner_layer(rel_path: &str) -> &'static str {
     if rel_path.starts_with("crates/system_ui/") {
         "system_ui"
@@ -3040,19 +3146,42 @@ fn rust_owner_layer(rel_path: &str) -> &'static str {
     }
 }
 
-fn classify_rust_contract(token: &str) -> &'static str {
-    if FORBIDDEN_THEME_SELECTOR_PREFIXES
-        .iter()
-        .any(|prefix| token.contains(prefix.trim_start_matches('.')))
-    {
-        "legacy_visual_contract"
-    } else {
-        "layout_only"
+fn classify_rust_contract(token: &str, consumed_css_classes: &HashSet<String>) -> &'static str {
+    let classes = token.split_whitespace();
+
+    for class_name in classes {
+        if ALLOWED_ROOT_CLASS_SELECTORS
+            .iter()
+            .any(|allowed| class_name == allowed.trim_start_matches('.'))
+        {
+            continue;
+        }
+        if FORBIDDEN_THEME_SELECTOR_PREFIXES.iter().any(|prefix| {
+            class_name.contains(prefix.trim_start_matches('.'))
+                && consumed_css_classes.contains(class_name)
+        }) {
+            return "legacy_visual_contract";
+        }
     }
+
+    "layout_only"
 }
 
 fn classify_css_selector(selector: &str) -> &'static str {
-    if FORBIDDEN_THEME_SELECTOR_PREFIXES
+    if ALLOWED_ROOT_CLASS_SELECTORS
+        .iter()
+        .any(|allowed| selector.starts_with(allowed))
+        || selector.starts_with(".desktop-shell[")
+        || selector.starts_with("[data-ui-")
+        || selector.starts_with(":root")
+        || selector.starts_with("body")
+    {
+        if selector.contains(".desktop-shell[data-skin=") {
+            "skin_override"
+        } else {
+            "approved"
+        }
+    } else if FORBIDDEN_THEME_SELECTOR_PREFIXES
         .iter()
         .any(|prefix| selector.contains(prefix))
     {

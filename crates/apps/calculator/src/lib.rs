@@ -321,13 +321,16 @@ pub fn CalculatorApp(
                 </Button>
             </MenuBar>
 
-            <div class="calculator-workspace" data-ui-kind="split-layout" data-ui-slot="workspace" tabindex="0" on:keydown=on_keydown>
-                <section class="calculator-main" data-ui-kind="pane" data-ui-slot="primary-pane" aria-label="Calculator keypad">
-                    <div
-                        class="calc-display-panel"
-                        data-ui-kind="panel"
-                        data-ui-slot="display-panel"
-                        data-memory=move || if calc.get().memory_active() { "on" } else { "off" }
+            <SplitLayout
+                layout_class="calculator-workspace"
+                ui_slot="workspace"
+                tabindex=0
+                on_keydown=Callback::new(on_keydown)
+            >
+                <Pane layout_class="calculator-main" ui_slot="primary-pane" aria_label="Calculator keypad">
+                    <Panel
+                        layout_class="calc-display-panel"
+                        ui_slot="display-panel"
                     >
                         <div class="calc-display-meta" data-ui-slot="meta">
                             <span class="calc-mode" data-ui-slot="badge">"Standard"</span>
@@ -336,7 +339,7 @@ pub fn CalculatorApp(
                         </div>
                         <div class="calc-expression" data-ui-slot="expression" aria-live="off">{move || calc.get().expression_text()}</div>
                         <div class="calc-display" data-ui-slot="display" role="status" aria-live="polite">{move || calc.get().display_text()}</div>
-                    </div>
+                    </Panel>
 
                     <div class="calc-keypad" data-ui-slot="keypad" role="group" aria-label="Calculator keys">
                         <For
@@ -371,30 +374,30 @@ pub fn CalculatorApp(
                             </Button>
                         </For>
                     </div>
-                </section>
+                </Pane>
 
-                <aside class="calc-tape" data-ui-kind="pane" data-ui-slot="secondary-pane" aria-label="Recent calculations">
-                    <div class="calc-tape-header" data-ui-kind="pane-header">
-                        <div>
-                            <strong>"Tape"</strong>
-                            <span>{move || format!("{} item(s)", calc.get().history_count())}</span>
-                        </div>
+                <Pane layout_class="calc-tape" ui_slot="secondary-pane" aria_label="Recent calculations">
+                    <PaneHeader
+                        layout_class="calc-tape-header"
+                        title="Tape"
+                        meta=Signal::derive(move || format!("{} item(s)", calc.get().history_count()))
+                    >
                         <Button
                             variant=ButtonVariant::Quiet
                             on_click=Callback::new(move |_| calc.update(|s| s.clear_history()))
                         >
                             "Clear"
                         </Button>
-                    </div>
+                    </PaneHeader>
 
-                    <div class="calc-tape-list" data-ui-kind="list-surface" role="list">
+                    <ListSurface layout_class="calc-tape-list" role="list">
                         <Show
                             when=move || { calc.get().history_count() > 0 }
                             fallback=|| {
                                 view! {
-                                    <p class="calc-empty-tape" data-ui-kind="empty-state">
+                                    <EmptyState layout_class="calc-empty-tape">
                                         "Recent results appear here. Click a result to reuse it."
-                                    </p>
+                                    </EmptyState>
                                 }
                             }
                         >
@@ -421,13 +424,13 @@ pub fn CalculatorApp(
                                 </Button>
                             </For>
                         </Show>
-                    </div>
-                </aside>
-            </div>
+                    </ListSurface>
+                </Pane>
+            </SplitLayout>
 
             <StatusBar>
-                <span class="ui-statusbar-item">"Keys: 0-9, + - * /, Enter, Backspace, Esc, Del, F9"</span>
-                <span class="ui-statusbar-item">
+                <StatusBarItem>"Keys: 0-9, + - * /, Enter, Backspace, Esc, Del, F9"</StatusBarItem>
+                <StatusBarItem>
                     {move || {
                         let state = calc.get();
                         format!(
@@ -439,8 +442,8 @@ pub fn CalculatorApp(
                             }
                         )
                     }}
-                </span>
-                <span class="ui-statusbar-item">{move || if hydrated.get() { "State: synced" } else { "State: hydrating..." }}</span>
+                </StatusBarItem>
+                <StatusBarItem>{move || if hydrated.get() { "State: synced" } else { "State: hydrating..." }}</StatusBarItem>
             </StatusBar>
         </AppShell>
     }

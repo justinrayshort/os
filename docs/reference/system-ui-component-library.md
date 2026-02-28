@@ -37,8 +37,10 @@ Layout primitives:
 - `MenuBar`
 - `ToolBar`
 - `StatusBar`
+- `StatusBarItem`
 - `Surface`
 - `Panel`
+- `Card`
 - `ElevationLayer`
 - `Stack`
 - `Cluster`
@@ -69,6 +71,7 @@ Shell primitives:
 Control primitives:
 
 - `Button`
+- `FieldGroup`
 - `TextField`
 - `TextArea`
 - `SelectField`
@@ -93,6 +96,7 @@ Navigation and overlay primitives:
 - `MenuSurface`
 - `MenuItem`
 - `MenuSeparator`
+- `Modal`
 - `LauncherMenu`
 - `CompletionList`
 - `CompletionItem`
@@ -159,8 +163,18 @@ Primitive styling consumes the semantic token families below:
 - `--sys-state-*`
 - `--sys-opacity-*`
 - `--sys-z-*`
+- `--sys-light-*`
+- `--sys-depth-*`
+- `--sys-shadow-geometry-*`
+- `--sys-surface-depth-*`
 
 Skin layers may derive values from legacy token families during migration, but primitive consumers only reference `--sys-*`. Skin switching is implemented by remapping `--sys-*` under `data-skin`, `data-high-contrast`, and `data-reduced-motion` scopes.
+
+Additional hard requirements for the soft-neumorphic shell:
+
+- geometry and visual depth decisions must be expressed through semantic token aliases such as `--sys-radius-control`, `--sys-space-panel`, `--sys-surface-depth-*`, and `--sys-state-*`
+- shell/runtime surfaces should consume shared shell primitives (`WindowFrame`, `WindowTitleBar`, `WindowControlButton`, `TaskbarButton`, `ClockButton`, `MenuSurface`, `MenuItem`) instead of emitting raw interactive elements with manual `data-ui-*` roots
+- app/runtime `layout_class` hooks are allowed only for layout/test targeting and must not be required for visual appearance
 
 ## DOM Contract
 
@@ -210,6 +224,8 @@ App-local classes remain acceptable for:
 - token/literal hygiene
 - centralized icon usage
 - shared primitive adoption via rejection of legacy primitive markup and old icon import paths
+- rejection of raw interactive markup in app crates and runtime shell surfaces
+- rejection of direct shared-primitive `data-ui-kind` composition outside `system_ui`
 - token-only skin files
 - restricted inline-style usage outside geometry/media positioning
 - rejection of new app-specific or shell-bespoke visual selector contracts

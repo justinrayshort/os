@@ -704,44 +704,46 @@ pub fn SettingsApp(
                     <Stack gap=LayoutGap::Md>
                         <Panel layout_class="settings-panel" variant=SurfaceVariant::Standard>
                             <Heading role=TextRole::Title>"Visibility"</Heading>
-                            <label class="settings-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked=move || theme_high_contrast.get()
-                                    on:change=move |ev| {
+                            <ToggleRow
+                                layout_class="settings-toggle"
+                                title="High contrast"
+                                description="Increase separation between borders, text, and focus states."
+                                checked=theme_high_contrast
+                            >
+                                <CheckboxField
+                                    aria_label="High contrast"
+                                    checked=theme_high_contrast
+                                    on_change=Callback::new(move |ev| {
                                         services.theme.set_high_contrast(event_target_checked(&ev))
-                                    }
+                                    })
                                 />
-                                <span>
-                                    <strong>"High contrast"</strong>
-                                    <small>"Increase separation between borders, text, and focus states."</small>
-                                </span>
-                            </label>
+                            </ToggleRow>
                         </Panel>
 
                         <Panel layout_class="settings-panel" variant=SurfaceVariant::Standard>
                             <Heading role=TextRole::Title>"Motion"</Heading>
-                            <label class="settings-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked=move || theme_reduced_motion.get()
-                                    on:change=move |ev| {
+                            <ToggleRow
+                                layout_class="settings-toggle"
+                                title="Reduced motion"
+                                description="Replace animated wallpaper playback and shorten non-essential transitions."
+                                checked=theme_reduced_motion
+                            >
+                                <CheckboxField
+                                    aria_label="Reduced motion"
+                                    checked=theme_reduced_motion
+                                    on_change=Callback::new(move |ev| {
                                         services.theme.set_reduced_motion(event_target_checked(&ev))
-                                    }
+                                    })
                                 />
-                                <span>
-                                    <strong>"Reduced motion"</strong>
-                                    <small>"Replace animated wallpaper playback and shorten non-essential transitions."</small>
-                                </span>
-                            </label>
+                            </ToggleRow>
                         </Panel>
                     </Stack>
                 </Surface>
             </Show>
 
             <StatusBar>
-                <span>{move || format!("Skin: {}", theme_skin_id.get())}</span>
-                <span>
+                <StatusBarItem>{move || format!("Skin: {}", theme_skin_id.get())}</StatusBarItem>
+                <StatusBarItem>
                     {move || {
                         let config = active_wallpaper.get();
                         match config.selection {
@@ -753,8 +755,8 @@ pub fn SettingsApp(
                             }
                         }
                     }}
-                </span>
-                <span>{move || format!("Library assets: {}", wallpaper_library.get().assets.len())}</span>
+                </StatusBarItem>
+                <StatusBarItem>{move || format!("Library assets: {}", wallpaper_library.get().assets.len())}</StatusBarItem>
             </StatusBar>
         </AppShell>
     }
