@@ -7,6 +7,24 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 /// Generic TOML-backed config loader.
+///
+/// `ConfigLoader<T>` handles only filesystem access and TOML deserialization. Consuming command
+/// domains are still responsible for semantic validation after the typed value is loaded.
+///
+/// Typical usage:
+///
+/// ```rust
+/// # use serde::Deserialize;
+/// # use std::path::Path;
+/// # use xtask::runtime::config::ConfigLoader;
+/// #[derive(Deserialize)]
+/// struct ExampleConfig {
+///     enabled: bool,
+/// }
+///
+/// let loader = ConfigLoader::<ExampleConfig>::new(Path::new("/workspace"), "tools/example.toml");
+/// let _ = loader.path();
+/// ```
 #[derive(Clone, Debug)]
 pub struct ConfigLoader<T> {
     path: PathBuf,
@@ -26,6 +44,9 @@ where
     }
 
     /// Load and deserialize the configuration file.
+    ///
+    /// Missing files, unreadable files, and TOML parse failures are all surfaced as
+    /// [`XtaskErrorCategory::Config`](crate::runtime::error::XtaskErrorCategory::Config).
     pub fn load(&self) -> XtaskResult<T> {
         let body = fs::read_to_string(&self.path).map_err(|err| {
             XtaskError::config(format!("failed to read {}: {err}", self.path.display()))
@@ -35,7 +56,7 @@ where
         })
     }
 
-    /// Config path on disk.
+    /// Return the config path on disk.
     pub fn path(&self) -> &Path {
         &self.path
     }

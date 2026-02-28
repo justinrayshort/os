@@ -52,6 +52,11 @@ fn active_run_recorder() -> &'static Mutex<Option<AutomationRunRecorder>> {
 }
 
 /// Shared workflow recorder service.
+///
+/// `WorkflowRecorder` provides the stable artifact and event vocabulary for multi-stage xtask
+/// workflows. Command families that want structured run artifacts should execute through
+/// [`with_workflow_run`](Self::with_workflow_run) and nest stage work in
+/// [`run_timed_stage`](Self::run_timed_stage).
 #[derive(Clone, Debug)]
 pub struct WorkflowRecorder {
     artifacts: ArtifactManager,
@@ -64,6 +69,10 @@ impl WorkflowRecorder {
     }
 
     /// Run a workflow with manifest and event recording.
+    ///
+    /// This method creates a run directory under `.artifacts/automation/runs/`, emits the
+    /// `workflow_started` and `workflow_finished` events, and writes a manifest summarizing the
+    /// run outcome.
     pub fn with_workflow_run<F>(
         &self,
         workflow: &str,
@@ -182,6 +191,9 @@ impl WorkflowRecorder {
     }
 
     /// Record a stage with timing and structured events.
+    ///
+    /// The stage result is propagated to the caller unchanged after the corresponding
+    /// `stage_started` and `stage_finished` events are recorded.
     pub fn run_timed_stage<F>(&self, message: &str, action: F) -> XtaskResult<()>
     where
         F: FnOnce() -> XtaskResult<()>,
@@ -290,7 +302,7 @@ pub fn format_duration(duration: Duration) -> String {
     }
 }
 
-/// Current unix timestamp in seconds.
+/// Return the current unix timestamp in seconds.
 pub fn unix_timestamp_secs() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -298,7 +310,7 @@ pub fn unix_timestamp_secs() -> u64 {
         .as_secs()
 }
 
-/// Current unix timestamp in milliseconds.
+/// Return the current unix timestamp in milliseconds.
 pub fn unix_timestamp_millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

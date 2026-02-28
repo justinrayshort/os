@@ -4,18 +4,33 @@ use std::fmt::{self, Display, Formatter};
 use std::path::Path;
 
 /// Stable error categories for xtask workflows.
+///
+/// These categories are intentionally coarse. They are meant to keep user-facing failures
+/// understandable and to support future machine-readable workflow summaries without exposing
+/// command-specific internals in the type itself.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum XtaskErrorCategory {
+    /// Invalid or unreadable configuration.
     Config,
+    /// Missing or mismatched local environment prerequisites.
     Environment,
+    /// Failure to spawn a child process.
     ProcessLaunch,
+    /// Child process exited unsuccessfully.
     ProcessExit,
+    /// Invalid user input or semantically invalid workflow request.
     Validation,
+    /// Filesystem or general I/O failure.
     Io,
+    /// Workflow requested on an unsupported operating system.
     UnsupportedPlatform,
 }
 
 /// Structured xtask error with contextual metadata.
+///
+/// The formatted display output is intentionally CLI-friendly. Optional `operation`, `target`,
+/// and `hint` fields can be attached as the error propagates so failures remain actionable at the
+/// point they are shown to the user.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XtaskError {
     /// High-level error category.

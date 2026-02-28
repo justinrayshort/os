@@ -6,6 +6,15 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 /// Shared process runner used by command modules.
+///
+/// This type centralizes command execution style for xtask workflows:
+/// - print commands in a stable `+ ...` format
+/// - run from a caller-provided workspace-relative root
+/// - normalize error categorization into [`XtaskError`]
+/// - provide lightweight availability/probe helpers for workflow gating
+///
+/// It intentionally does not try to be a general process supervisor. Long-lived child lifecycle
+/// management belongs in the dedicated runtime lifecycle helpers.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ProcessRunner {
     env: EnvHelper,
@@ -17,7 +26,10 @@ impl ProcessRunner {
         Self { env: EnvHelper }
     }
 
-    /// Returns whether the given program is available by checking `--version`.
+    /// Return whether the given program is available by checking `--version`.
+    ///
+    /// Probe failures are treated as `false` instead of surfacing an error so callers can use this
+    /// helper for prerequisite checks and optional-tool reporting.
     pub fn command_available(&self, program: &str) -> bool {
         Command::new(program)
             .arg("--version")
@@ -28,7 +40,7 @@ impl ProcessRunner {
             .unwrap_or(false)
     }
 
-    /// Returns whether the given cargo subcommand is available.
+    /// Return whether the given cargo subcommand is available.
     pub fn cargo_subcommand_available(&self, subcommand: &str) -> bool {
         Command::new("cargo")
             .arg(subcommand)
@@ -41,6 +53,9 @@ impl ProcessRunner {
     }
 
     /// Return whether a command succeeds with the provided arguments.
+    ///
+    /// Stdout and stderr are suppressed. This helper is intended for probe-style checks rather than
+    /// for workflows that should stream or preserve process output.
     pub fn command_succeeds(&self, program: &str, args: &[&str]) -> bool {
         Command::new(program)
             .args(args)
@@ -52,6 +67,8 @@ impl ProcessRunner {
     }
 
     /// Require a command to exist.
+    ///
+    /// Returns an environment error with the supplied hint when the command is unavailable.
     pub fn ensure_command(&self, program: &str, hint: &str) -> XtaskResult<()> {
         if self.command_available(program) {
             Ok(())
@@ -74,12 +91,17 @@ impl ProcessRunner {
     }
 
     /// Run a process with borrowed string arguments.
+    ///
+    /// This is a convenience wrapper over [`run_owned`](Self::run_owned).
     pub fn run(&self, root: &Path, program: &str, args: Vec<&str>) -> XtaskResult<()> {
         let owned = args.into_iter().map(ToString::to_string).collect();
         self.run_owned(root, program, owned)
     }
 
     /// Run a process with owned string arguments.
+    ///
+    /// The process inherits the terminal stdio streams. Non-zero exits are converted into
+    /// [`XtaskError::process_exit`](crate::runtime::error::XtaskError::process_exit).
     pub fn run_owned(&self, root: &Path, program: &str, args: Vec<String>) -> XtaskResult<()> {
         self.print_command(program, &args);
         let status = Command::new(program)
@@ -100,6 +122,8 @@ impl ProcessRunner {
     }
 
     /// Run a process with extra environment variables.
+    ///
+    /// Environment overrides are appended to the child process only for this invocation.
     pub fn run_owned_with_env(
         &self,
         root: &Path,
@@ -127,6 +151,9 @@ impl ProcessRunner {
     }
 
     /// Run trunk in the site directory with normalized environment.
+    ///
+    /// This normalizes `NO_COLOR` handling through [`EnvHelper`] so trunk invocations behave
+    /// consistently across shells that export numeric or boolean values.
     pub fn run_trunk(&self, cwd: PathBuf, args: Vec<String>) -> XtaskResult<()> {
         self.print_command("trunk", &args);
         let mut cmd = Command::new("trunk");
@@ -147,6 +174,9 @@ impl ProcessRunner {
     }
 
     /// Run the Tauri CLI with normalized environment.
+    ///
+    /// Tauri hooks ultimately delegate frontend work back into Cargo-managed commands, so keeping
+    /// environment normalization here reduces drift between the direct and delegated paths.
     pub fn run_tauri_cli(&self, tauri_dir: &Path, args: Vec<String>) -> XtaskResult<()> {
         if let Some(value) =
             EnvHelper::normalized_no_color_value(std::env::var("NO_COLOR").ok().as_deref())
@@ -167,6 +197,9 @@ impl ProcessRunner {
     }
 
     /// Capture the first stdout line from a simple probe command.
+    ///
+    /// Returns `"unavailable"` when the command cannot be executed, exits unsuccessfully, or does
+    /// not emit a first line of stdout.
     pub fn capture_stdout_line(&self, program: &str, args: &[&str]) -> String {
         let Ok(output) = Command::new(program)
             .args(args)

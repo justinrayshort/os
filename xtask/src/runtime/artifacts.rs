@@ -8,6 +8,9 @@ const AUTOMATION_RUNS_DIR: &str = ".artifacts/automation/runs";
 const DOCS_AUDIT_REPORT: &str = ".artifacts/docs-audit.json";
 
 /// Central artifact path policy for xtask.
+///
+/// This service keeps workspace-relative output locations consistent across workflow families.
+/// Command domains should use it instead of hard-coding ad hoc joins from `ctx.root()`.
 #[derive(Clone, Debug)]
 pub struct ArtifactManager {
     root: PathBuf,
@@ -19,7 +22,7 @@ impl ArtifactManager {
         Self { root }
     }
 
-    /// Workspace root path.
+    /// Return the workspace root path used for resolution.
     pub fn root(&self) -> &Path {
         &self.root
     }
@@ -30,6 +33,8 @@ impl ArtifactManager {
     }
 
     /// Resolve a possibly-relative workspace path.
+    ///
+    /// Absolute paths are preserved, while relative paths are anchored to the workspace root.
     pub fn resolve_path(&self, path: &Path) -> PathBuf {
         if path.is_absolute() {
             path.to_path_buf()
@@ -38,17 +43,19 @@ impl ArtifactManager {
         }
     }
 
-    /// Automation run manifest root.
+    /// Return the standard automation run root used by [`WorkflowRecorder`](crate::runtime::workflow::WorkflowRecorder).
     pub fn automation_runs_dir(&self) -> PathBuf {
         self.path(AUTOMATION_RUNS_DIR)
     }
 
-    /// Standard docs audit report location.
+    /// Return the standard docs audit report location.
     pub fn docs_audit_report(&self) -> PathBuf {
         self.path(DOCS_AUDIT_REPORT)
     }
 
     /// Ensure a directory exists.
+    ///
+    /// This helper is idempotent and succeeds when the directory already exists.
     pub fn ensure_dir(&self, path: &Path) -> XtaskResult<()> {
         fs::create_dir_all(path)
             .map_err(|err| XtaskError::io(format!("failed to create {}: {err}", path.display())))
