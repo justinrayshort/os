@@ -4,7 +4,6 @@ mod placeholders;
 
 use std::sync::OnceLock;
 
-use crate::icons::IconName;
 use crate::model::{OpenWindowRequest, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
 use desktop_app_calculator::CalculatorApp;
 use desktop_app_contract::{
@@ -15,6 +14,7 @@ use desktop_app_notepad::NotepadApp;
 use desktop_app_settings::SettingsApp;
 use desktop_app_terminal::TerminalApp;
 use leptos::*;
+use system_ui::IconName;
 const APP_ID_CALCULATOR: &str = "system.calculator";
 const APP_ID_EXPLORER: &str = "system.explorer";
 const APP_ID_NOTEPAD: &str = "system.notepad";

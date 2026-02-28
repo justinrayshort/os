@@ -40,7 +40,7 @@ Evidence snapshot used for this assessment (code inspection, 2026-02-27):
 
 - `crates/desktop_runtime/src/components.rs`
 - `crates/desktop_runtime/src/components/{a11y.rs,taskbar.rs,window.rs,menus.rs}`
-- `crates/desktop_runtime/src/{icons.rs,model.rs,reducer.rs,persistence.rs}`
+- `crates/{system_ui/src/icon.rs,desktop_runtime/src/model.rs,desktop_runtime/src/reducer.rs,desktop_runtime/src/persistence.rs}`
 - `crates/site/src/theme_shell/{00,01,02,03,04,30,31,32,33}-*.css`
 - `docs/reference/desktop-shell-fluent-modern-design-system.md`
 
@@ -80,10 +80,11 @@ This project is not attempting a literal macOS clone. Conformance means:
 
 | ID | Status | Acceptance criteria (objective) | Current evidence / gap |
 | --- | --- | --- | --- |
-| `CMP-01` | Complete | A single reusable icon primitive renders Fluent icons for shell components. | `FluentIcon` component in `crates/desktop_runtime/src/icons.rs`; used across window/taskbar/menu/dialog components. |
+| `CMP-01` | Complete | A single reusable icon primitive renders Fluent icons for shell components. | `Icon` component in `crates/system_ui/src/icon.rs`; used across window/taskbar/menu/dialog components. |
 | `CMP-02` | Complete | Shell chrome surfaces (windows, taskbar, menus, dialogs) share consistent visual rules for radius, borders, and elevation within the Fluent theme scope. | Fluent overrides apply common surface/radius/shadow treatment to `.desktop-window`, `.taskbar`, `.taskbar-menu`, `.start-menu`, `.desktop-context-menu`, `.settings-content`, and inbuilt app shells/panes (`.app-*`, explorer/notepad/terminal/calculator/settings surfaces). Terminal now uses a shared two-zone contract (`.terminal-screen`, `.terminal-composer-shell`, `.terminal-completions`) across all skins instead of one-off toolbar/run-button chrome. |
 | `CMP-03` | Complete | Component states (hover, active, focused, minimized, pressed, selected) are represented via semantic classes/attributes and styled consistently. | Examples: `.taskbar-app.focused`, `.taskbar-app.minimized`, `.tray-widget.pressed`, `.wallpaper-picker-item.selected`, `.desktop-window.focused`. |
-| `CMP-04` | Complete | Shared primitives/components are documented with explicit contracts (purpose, invariants, usage boundaries) in reference docs and code comments. | The design-system reference now includes an explicit app primitive catalog (`app-shell`, `app-menubar`, `app-toolbar`, `app-statusbar`, `app-action`, `app-field`, `app-editor`, `app-progress`) plus usage invariants; shell icon primitives remain documented in `icons.rs`. |
+| `CMP-04` | Complete | Shared primitives/components are documented with explicit contracts (purpose, invariants, usage boundaries) in reference docs and code comments. | The design-system reference plus `docs/reference/system-ui-component-library.md` now document the shared primitive catalog and `system_ui` icon contract. |
+| `CMP-05` | Complete | Shared shell/app surfaces consume the formal `system_ui` primitive library and stable `data-ui-*` roots instead of legacy primitive class contracts in Rust markup. | `crates/system_ui` now owns the reusable primitive API and `cargo xtask docs ui-conformance` rejects new legacy primitive markup or old icon import paths in app/runtime crates. |
 | `CMP-05` | Complete | Fluent icon integration preserves text labels for discoverability/accessibility on controls where labels are meaningful. | Start menu/taskbar labels remain text; icons are decorative (`aria-hidden`) while labels/`aria-label` provide meaning. |
 
 ### C. State Management Patterns and Theming Strategy
@@ -124,11 +125,11 @@ This project is not attempting a literal macOS clone. Conformance means:
 
 | ID | Status | Acceptance criteria (objective) | Current evidence / gap |
 | --- | --- | --- | --- |
-| `ICO-01` | Complete | Shell icon usage is centralized through a semantic icon catalog and renderer (no ad hoc per-component SVG snippets). | `IconName`, `IconSize`, `FluentIcon`, and `app_icon_name()` in `crates/desktop_runtime/src/icons.rs`; used across shell components. |
+| `ICO-01` | Complete | Shell icon usage is centralized through a semantic icon catalog and renderer (no ad hoc per-component SVG snippets). | `IconName`, `IconSize`, and `Icon` in `crates/system_ui/src/icon.rs`; used across shell components. |
 | `ICO-02` | Complete | Icon sizing is standardized through named size tokens/enum values and reused consistently. | `IconSize::{Xs,Sm,Md,Lg}` maps to standard sizes; shell components use those enum values. |
-| `ICO-03` | Complete | Decorative icons are hidden from assistive tech when labels/ARIA carry meaning. | `FluentIcon` renders `aria-hidden="true"`; components provide labels via text or `aria-label`. |
+| `ICO-03` | Complete | Decorative icons are hidden from assistive tech when labels/ARIA carry meaning. | `Icon` renders `aria-hidden="true"`; components provide labels via text or `aria-label`. |
 | `ICO-04` | Partial | Fluent asset provenance, subset policy, and update expectations are documented and linked from design-system governance docs. | Asset subset/provenance is documented in `desktop-shell-fluent-modern-design-system.md`; formal change-control/update procedure is introduced by this SOP but version pin/update checklist remains lightweight. |
-| `ICO-05` | Complete | Static enforcement prevents regressions to legacy text glyphs/inline icon markup in shell components (lint/check/test). | `cargo xtask docs ui-conformance` (and `cargo xtask docs all`) now scans core shell component files for inline SVG/icon markup (`<svg`, `inner_html=`, path data) and legacy text glyph markers (`DIR`, `TXT`, `56K`) and fails on regressions, reinforcing `FluentIcon`/`IconName` usage. |
+| `ICO-05` | Complete | Static enforcement prevents regressions to legacy text glyphs/inline icon markup in shell components (lint/check/test). | `cargo xtask docs ui-conformance` (and `cargo xtask docs all`) now scans core shell component files for inline SVG/icon markup (`<svg`, `inner_html=`, path data) and legacy text glyph markers (`DIR`, `TXT`, `56K`) and fails on regressions, reinforcing `Icon`/`IconName` usage. |
 
 ### G. Responsive and Adaptive Behavior
 
@@ -154,7 +155,7 @@ This project is not attempting a literal macOS clone. Conformance means:
 
 The desktop shell implementation demonstrates a principled and technically coherent foundation for HIG-quality behavior with Fluent-style assets:
 
-- strong semantic icon standardization (`FluentIcon`, `IconName`, `IconSize`)
+- strong semantic icon standardization (`Icon`, `IconName`, `IconSize`)
 - solid keyboard/focus/menu/dialog accessibility mechanics
 - state-driven theming hooks (`data-skin`, `data-reduced-motion`, `data-high-contrast`)
 - responsive shell adaptations and adaptive light/dark variants

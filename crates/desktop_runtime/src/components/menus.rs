@@ -1,6 +1,7 @@
 use super::*;
 use crate::wallpaper;
 use platform_host::{WallpaperConfig, WallpaperMediaKind, WallpaperSelection};
+use system_ui::{Icon, IconName, IconSize};
 
 #[component]
 pub(super) fn DesktopContextMenu(
@@ -114,7 +115,7 @@ pub(super) fn DesktopContextMenu(
                                     >
                                         <span class="desktop-context-wallpaper-check" aria-hidden="true">
                                             {if is_active {
-                                                view! { <FluentIcon icon=IconName::Checkmark size=IconSize::Xs /> }.into_view()
+                                                view! { <Icon icon=IconName::Checkmark size=IconSize::Xs /> }.into_view()
                                             } else {
                                                 ().into_view()
                                             }}
@@ -185,7 +186,7 @@ pub(super) fn StartMenu(
                                 }
                             >
                                 <span class="taskbar-app-icon" aria-hidden="true">
-                                    <FluentIcon icon=app_icon size=IconSize::Sm />
+                                    <Icon icon=app_icon size=IconSize::Sm />
                                 </span>
                                 <span>{format!("Open {}", launcher_label)}</span>
                             </button>
@@ -290,7 +291,7 @@ pub(super) fn OverflowMenu(
                         }
                     >
                         <span class="taskbar-app-icon" aria-hidden="true">
-                            <FluentIcon
+                            <Icon
                                 icon=app_icon_name(&win.app_id)
                                 size=IconSize::Sm
                             />

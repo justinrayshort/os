@@ -6,7 +6,7 @@ status: "active"
 last_reviewed: "2026-02-28"
 audience: ["engineering", "design"]
 invariants:
-  - "Shell icon usage flows through the centralized `desktop_runtime::icons` abstraction instead of ad-hoc text glyphs or inline per-component SVG markup."
+  - "Shell icon usage flows through the centralized `system_ui` icon abstraction instead of ad-hoc text glyphs or inline per-component SVG markup."
   - "Theme-specific visual changes are applied via `data-skin` scoped CSS overrides with shared shell structure to preserve behavior parity across skins."
   - "Accessibility behaviors (focus visibility, keyboard navigation, high contrast, reduced motion) remain functional during visual refinements."
 tags: ["reference", "design-system", "desktop-shell", "neumorphic", "icons", "accessibility"]
@@ -25,7 +25,7 @@ The neumorphic skin covers:
 - desktop wallpaper atmosphere and launcher icons
 - window chrome, titlebar controls, and window bodies
 - taskbar, start button, taskbar app buttons, tray, overflow, and menus
-- built-in app primitives (`app-shell`, `app-menubar`, `app-toolbar`, `app-statusbar`, `app-action`, `app-field`, `app-editor`, `app-progress`)
+- built-in app primitives rendered through `system_ui` (`AppShell`, `MenuBar`, `ToolBar`, `StatusBar`, `Button`, `TextField`, `TextArea`, `ProgressBar`) and `data-ui-*` roots
 - built-in app interiors for Explorer, Notepad, Terminal, Calculator, System Settings, and placeholder apps
 
 Wallpaper asset selection remains a separate subsystem. Skin files may style atmosphere and surface treatment, but they must not choose wallpapers or mutate wallpaper runtime state.
@@ -76,7 +76,7 @@ Terminal readability continues to use the shared `--terminal-*` token family, wi
 
 ## Component Conventions
 
-- Reuse `FluentIcon`, `IconName`, and `IconSize` for shell iconography.
+- Reuse `system_ui::Icon`, `IconName`, and `IconSize` for shell iconography.
 - Preserve shared shell structure and reducer-driven state semantics.
 - Prefer semantic token updates over one-off literals in overrides.
 - Keep app-specific classes compatible with shared primitives instead of reintroducing bespoke controls.

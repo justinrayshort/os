@@ -952,6 +952,7 @@ dependencies = [
  "platform_host",
  "serde",
  "serde_json",
+ "system_ui",
 ]
 
 [[package]]
@@ -975,6 +976,7 @@ dependencies = [
  "platform_host",
  "serde",
  "serde_json",
+ "system_ui",
 ]
 
 [[package]]
@@ -986,6 +988,7 @@ dependencies = [
  "platform_host",
  "serde",
  "serde_json",
+ "system_ui",
 ]
 
 [[package]]
@@ -997,6 +1000,7 @@ dependencies = [
  "platform_host",
  "serde",
  "serde_json",
+ "system_ui",
 ]
 
 [[package]]
@@ -1009,6 +1013,7 @@ dependencies = [
  "serde",
  "serde_json",
  "system_shell_contract",
+ "system_ui",
  "web-sys",
 ]
 
@@ -1034,6 +1039,7 @@ dependencies = [
  "serde_json",
  "system_shell",
  "system_shell_contract",
+ "system_ui",
  "tabled",
  "thiserror 1.0.69",
  "toml 0.8.2",
@@ -5111,6 +5117,13 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "system_ui"
+version = "0.1.0"
+dependencies = [
+ "leptos",
 ]
 
 [[package]]

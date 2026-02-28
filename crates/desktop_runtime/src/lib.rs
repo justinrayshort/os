@@ -6,7 +6,7 @@
 //! - state transitions in [`reduce_desktop`]
 //! - persistence helpers in [`persistence`]
 //! - host-side effect execution helpers in [`host`]
-//! - centralized Fluent icon primitives in [`icons`]
+//! - shared UI/icon primitives re-exported from [`system_ui`]
 //! - runtime provider/context wiring in the internal `runtime_context` module
 //! - Leptos UI primitives in [`components`]
 //! - app integration bridge types re-exported from [`desktop_app_contract`]
@@ -46,8 +46,6 @@ pub mod components;
 mod effect_executor;
 /// Host-side effect execution and viewport helpers used by the shell runtime.
 pub mod host;
-/// Centralized Fluent UI System Icon abstraction used by shell surfaces.
-pub mod icons;
 /// Core runtime state model and serializable snapshot types.
 pub mod model;
 /// Browser/local persistence helpers for desktop runtime state.
@@ -69,8 +67,6 @@ pub use desktop_app_contract::{
 };
 /// Re-exported host-side effect execution context.
 pub use host::DesktopHostContext;
-/// Re-exported centralized shell icon primitives.
-pub use icons::{app_icon_name, FluentIcon, IconName, IconSize};
 /// Re-exported runtime state model types.
 pub use model::*;
 /// Re-exported persistence entrypoints used by the shell runtime.
@@ -86,3 +82,5 @@ pub use platform_host::{
 };
 /// Re-exported reducer entrypoint and core action/effect enums.
 pub use reducer::{reduce_desktop, DesktopAction, RuntimeEffect};
+/// Re-exported shared UI primitives for runtime-owned shell surfaces.
+pub use system_ui::{Icon, IconName, IconSize};

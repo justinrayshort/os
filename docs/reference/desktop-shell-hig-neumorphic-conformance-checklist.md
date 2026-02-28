@@ -22,7 +22,7 @@ It evaluates the implementation against:
 
 - Apple Human Interface Guidelines principles for clarity, hierarchy, feedback, motion discipline, and accessibility
 - project-specific neumorphic constraints for tokenization, consistent depth language, explicit affordances, and controlled contrast
-- existing icon governance that requires centralized `FluentIcon` and `IconName` usage
+- existing icon governance that requires centralized `Icon` and `IconName` usage
 
 ## Scope and Assessment Basis
 
@@ -37,7 +37,7 @@ Current assessed scope:
 Primary evidence sources:
 
 - [`crates/desktop_runtime/src/model.rs`](../../crates/desktop_runtime/src/model.rs)
-- [`crates/desktop_runtime/src/icons.rs`](../../crates/desktop_runtime/src/icons.rs)
+- [`crates/system_ui/src/icon.rs`](../../crates/system_ui/src/icon.rs)
 - [`crates/site/src/theme_shell/34-theme-soft-neumorphic-tokens.css`](../../crates/site/src/theme_shell/34-theme-soft-neumorphic-tokens.css)
 - [`crates/site/src/theme_shell/35-theme-soft-neumorphic-overrides.css`](../../crates/site/src/theme_shell/35-theme-soft-neumorphic-overrides.css)
 - [`scripts/ui/capture-skin-matrix.sh`](../../scripts/ui/capture-skin-matrix.sh)
@@ -69,6 +69,7 @@ Primary evidence sources:
 | `CMP-02` | Complete | Shared built-in app primitives are styled consistently before app-specific extensions. | `app-shell`, `app-menubar`, `app-toolbar`, `app-statusbar`, `app-action`, `app-field`, `app-editor`, and `app-progress` receive skin-scoped overrides. |
 | `CMP-03` | Complete | Pressed, selected, focused, minimized, and active states are visually distinct without relying on shadow-only differences. | The skin uses inset treatments, accent borders, and explicit outlines for state changes. |
 | `CMP-04` | Partial | All built-in app interiors use the shared depth language while preserving domain-specific readability. | Explorer, Notepad, Calculator, Settings, Terminal, and placeholder surfaces are covered; follow-up visual review should verify parity for every app state. |
+| `CMP-05` | Complete | Built-in app and shell surfaces compose from the shared `system_ui` primitive library or equivalent `data-ui-*` roots instead of legacy `.app-*` primitive markup. | `crates/system_ui` now owns the shared primitive catalog and `cargo xtask docs ui-conformance` rejects legacy primitive markup in app/runtime crates. |
 
 ### C. Accessibility and Usability
 

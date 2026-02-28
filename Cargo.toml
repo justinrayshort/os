@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/desktop_app_contract",
+  "crates/system_ui",
   "crates/system_shell_contract",
   "crates/shrs_core_headless",
   "crates/system_shell",
@@ -18,6 +19,7 @@ members = [
 ]
 default-members = [
   "crates/desktop_app_contract",
+  "crates/system_ui",
   "crates/system_shell_contract",
   "crates/shrs_core_headless",
   "crates/system_shell",

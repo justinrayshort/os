@@ -8,6 +8,7 @@ use desktop_app_contract::AppServices;
 use leptos::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use system_ui::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct NotepadWorkspaceState {
@@ -232,38 +233,49 @@ pub fn NotepadApp(
     };
 
     view! {
-        <div class="app-shell app-notepad-shell">
-            <div class="app-menubar">
-                <button type="button" class="app-action">"File"</button>
-                <button type="button" class="app-action">"Edit"</button>
-                <button type="button" class="app-action">"Search"</button>
-                <button type="button" class="app-action">"Help"</button>
-            </div>
+        <AppShell layout_class="app-notepad-shell">
+            <MenuBar>
+                <Button>"File"</Button>
+                <Button>"Edit"</Button>
+                <Button>"Search"</Button>
+                <Button>"Help"</Button>
+            </MenuBar>
 
-            <div class="app-toolbar">
-                <button type="button" class="app-action" on:click=move |_| {
-                    workspace.update(|w| w.wrap_lines = !w.wrap_lines);
-                }>
+            <ToolBar>
+                <Button
+                    variant=ButtonVariant::Quiet
+                    on_click=Callback::new(move |_| {
+                        workspace.update(|w| w.wrap_lines = !w.wrap_lines);
+                    })
+                >
                     {move || if workspace.get().wrap_lines { "Wrap: On" } else { "Wrap: Off" }}
-                </button>
-                <button type="button" class="app-action" on:click=move |_| {
-                    workspace.update(|w| w.add_scratch());
-                    transient_notice.set(Some("Created scratch document".to_string()));
-                }>
+                </Button>
+                <Button
+                    on_click=Callback::new(move |_| {
+                        workspace.update(|w| w.add_scratch());
+                        transient_notice.set(Some("Created scratch document".to_string()));
+                    })
+                >
                     "New Scratch"
-                </button>
-                <button type="button" class="app-action" on:click=move |_| {
-                    transient_notice.set(Some("Auto-save is enabled (IndexedDB)".to_string()));
-                }>
+                </Button>
+                <Button
+                    on_click=Callback::new(move |_| {
+                        transient_notice.set(Some("Auto-save is enabled (IndexedDB)".to_string()));
+                    })
+                >
                     "Save"
-                </button>
-                <button type="button" class="app-action" on:click=move |_| workspace.update(|w| w.move_active_by(-1))>
+                </Button>
+                <Button
+                    on_click=Callback::new(move |_| workspace.update(|w| w.move_active_by(-1)))
+                >
                     "Prev"
-                </button>
-                <button type="button" class="app-action" on:click=move |_| workspace.update(|w| w.move_active_by(1))>
+                </Button>
+                <Button
+                    on_click=Callback::new(move |_| workspace.update(|w| w.move_active_by(1)))
+                >
                     "Next"
-                </button>
-            </div>
+                </Button>
+            </ToolBar>
 
             <div class="notepad-ruler" aria-hidden="true">
                 "1    10   20   30   40   50   60   70"
@@ -305,12 +317,12 @@ pub fn NotepadApp(
                             view! {
                                 <button
                                     type="button"
+                                    class="ui-button notepad-tab"
+                                    data-ui-primitive="true"
+                                    data-ui-kind="button"
+                                    data-ui-selected=move || if workspace.get().active_slug == class_slug { "true" } else { "false" }
                                     id=move || tab_dom_id(&tab_id_slug)
                                     role="tab"
-                                    class=move || {
-                                        let active = workspace.get().active_slug == class_slug;
-                                        if active { "notepad-tab app-action active" } else { "notepad-tab app-action" }
-                                    }
                                     aria-selected=move || workspace.get().active_slug == aria_slug
                                     aria-controls="notepad-tabpanel"
                                     tabindex=move || {
@@ -336,13 +348,13 @@ pub fn NotepadApp(
                     aria-labelledby=move || tab_dom_id(&workspace.get().active_slug)
                 >
                     <textarea
-                        class=move || {
-                            if workspace.get().wrap_lines {
-                                "notepad-page app-field app-editor wrap"
-                            } else {
-                                "notepad-page app-field app-editor nowrap"
-                            }
+                        class=move || if workspace.get().wrap_lines {
+                            "ui-textarea notepad-page wrap"
+                        } else {
+                            "ui-textarea notepad-page nowrap"
                         }
+                        data-ui-primitive="true"
+                        data-ui-kind="text-area"
                         prop:value=move || current_text.get()
                         on:input=move |ev| {
                             let text = event_target_value(&ev);
@@ -356,16 +368,16 @@ pub fn NotepadApp(
                 </div>
             </div>
 
-            <div class="app-statusbar">
-                <span>{move || format!("Lines: {}", line_count.get())}</span>
-                <span>{move || format!("Chars: {}", char_count.get())}</span>
-                <span>{move || {
+            <StatusBar>
+                <span class="ui-statusbar-item">{move || format!("Lines: {}", line_count.get())}</span>
+                <span class="ui-statusbar-item">{move || format!("Chars: {}", char_count.get())}</span>
+                <span class="ui-statusbar-item">{move || {
                     transient_notice
                         .get()
                         .unwrap_or_else(|| if workspace.get().wrap_lines { "Word Wrap".to_string() } else { "No Wrap".to_string() })
                 }}</span>
-            </div>
-        </div>
+            </StatusBar>
+        </AppShell>
     }
 }
 

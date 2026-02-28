@@ -3,6 +3,7 @@ use crate::app_runtime::ensure_window_session;
 use crate::apps;
 use crate::shell;
 use desktop_app_contract::{AppMountContext, AppServices, ApplicationId, CapabilitySet};
+use system_ui::{Icon, IconName, IconSize};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
@@ -133,7 +134,7 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                 >
                     <div class="titlebar-title">
                         <span class="titlebar-app-icon" aria-hidden="true">
-                            <FluentIcon
+                            <Icon
                                 icon={{
                                     let app_id = window
                                         .get_untracked()
@@ -173,7 +174,7 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                                 minimize(ev);
                             }
                         >
-                            <FluentIcon icon=IconName::WindowMinimize size=IconSize::Xs />
+                            <Icon icon=IconName::WindowMinimize size=IconSize::Xs />
                         </button>
                         <button
                             disabled=move || {
@@ -210,9 +211,9 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                                     .expect("window exists while shown")
                                     .maximized
                                 {
-                                    view! { <FluentIcon icon=IconName::WindowRestore size=IconSize::Xs /> }
+                                    view! { <Icon icon=IconName::WindowRestore size=IconSize::Xs /> }
                                 } else {
-                                    view! { <FluentIcon icon=IconName::WindowMaximize size=IconSize::Xs /> }
+                                    view! { <Icon icon=IconName::WindowMaximize size=IconSize::Xs /> }
                                 }
                             }}
                         </button>
@@ -228,7 +229,7 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                                 close(ev);
                             }
                         >
-                            <FluentIcon icon=IconName::Dismiss size=IconSize::Xs />
+                            <Icon icon=IconName::Dismiss size=IconSize::Xs />
                         </button>
                     </div>
                 </header>

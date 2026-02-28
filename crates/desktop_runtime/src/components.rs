@@ -25,14 +25,18 @@ use self::{
 use crate::{
     apps,
     host::DesktopHostContext,
-    icons::{app_icon_name, FluentIcon, IconName, IconSize},
     model::{DesktopState, PointerPosition, ResizeEdge, WindowId, WindowRecord},
     reducer::DesktopAction,
     runtime_context::open_system_settings,
     wallpaper,
 };
+use system_ui::{Icon, IconName, IconSize};
 
 const TASKBAR_HEIGHT_PX: i32 = 38;
+
+fn app_icon_name(app_id: &ApplicationId) -> IconName {
+    apps::app_icon_name_by_id(app_id)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct DesktopContextMenuState {
@@ -270,7 +274,7 @@ pub fn DesktopShell() -> impl IntoView {
                                     }
                                 >
                                     <span class="icon" data-app=app_data_id.clone()>
-                                        <FluentIcon icon=app_icon size=IconSize::Lg />
+                                        <Icon icon=app_icon size=IconSize::Lg />
                                     </span>
                                     <span>{desktop_icon_label}</span>
                                 </button>

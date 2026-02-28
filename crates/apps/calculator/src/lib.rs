@@ -11,6 +11,7 @@ use desktop_app_contract::AppServices;
 use leptos::ev::KeyboardEvent;
 use leptos::*;
 use serde_json::Value;
+use system_ui::prelude::*;
 
 #[derive(Clone, Copy)]
 struct CalcKeySpec {
@@ -300,22 +301,25 @@ pub fn CalculatorApp(
     };
 
     view! {
-        <div class="app-shell app-calculator-shell">
-            <div class="app-menubar calc-toolbar" aria-label="Calculator menu and shortcuts">
-                <button type="button" class="app-action">"Edit"</button>
-                <button type="button" class="app-action">"View"</button>
-                <button type="button" class="app-action">"Help"</button>
+        <AppShell layout_class="app-calculator-shell">
+            <MenuBar layout_class="calc-toolbar" aria_label="Calculator menu and shortcuts">
+                <Button>"Edit"</Button>
+                <Button>"View"</Button>
+                <Button>"Help"</Button>
                 <span class="calc-toolbar-divider" aria-hidden="true"></span>
-                <button type="button" class="app-action" on:click=move |_| calc.update(|s| s.apply(CalcAction::UseLast))>
+                <Button on_click=Callback::new(move |_| calc.update(|s| s.apply(CalcAction::UseLast)))>
                     "Reuse Last"
-                </button>
-                <button type="button" class="app-action" on:click=move |_| calc.update(|s| s.clear_history())>
+                </Button>
+                <Button on_click=Callback::new(move |_| calc.update(|s| s.clear_history()))>
                     "Clear Tape"
-                </button>
-                <button type="button" class="app-action" on:click=move |_| calc.update(|s| s.apply(CalcAction::ClearAll))>
+                </Button>
+                <Button
+                    variant=ButtonVariant::Danger
+                    on_click=Callback::new(move |_| calc.update(|s| s.apply(CalcAction::ClearAll)))
+                >
                     "Reset"
-                </button>
-            </div>
+                </Button>
+            </MenuBar>
 
             <div class="calculator-workspace" tabindex="0" on:keydown=on_keydown>
                 <section class="calculator-main" aria-label="Calculator keypad">
@@ -338,14 +342,31 @@ pub fn CalculatorApp(
                             key=|spec| spec.id
                             let:spec
                         >
-                            <button
-                                type="button"
-                                class=format!("calc-key app-action {}", spec.class_name)
+                            <Button
+                                layout_class=match spec.class_name {
+                                    "memory" => "calc-key memory",
+                                    "util" => "calc-key util",
+                                    "util danger" => "calc-key util danger",
+                                    "operator" => "calc-key operator",
+                                    "operator equals" => "calc-key operator equals",
+                                    "digit" => "calc-key digit",
+                                    "util accent" => "calc-key util accent",
+                                    _ => "calc-key",
+                                }
+                                variant=if spec.class_name.contains("danger") {
+                                    ButtonVariant::Danger
+                                } else if spec.class_name.contains("accent") || spec.class_name.contains("equals") {
+                                    ButtonVariant::Accent
+                                } else if spec.class_name.contains("memory") {
+                                    ButtonVariant::Quiet
+                                } else {
+                                    ButtonVariant::Standard
+                                }
                                 title=spec.title
-                                on:click=move |_| calc.update(|state| state.apply(spec.action))
+                                on_click=Callback::new(move |_| calc.update(|state| state.apply(spec.action)))
                             >
                                 {spec.label}
-                            </button>
+                            </Button>
                         </For>
                     </div>
                 </section>
@@ -356,9 +377,12 @@ pub fn CalculatorApp(
                             <strong>"Tape"</strong>
                             <span>{move || format!("{} item(s)", calc.get().history_count())}</span>
                         </div>
-                        <button type="button" class="app-action" on:click=move |_| calc.update(|s| s.clear_history())>
+                        <Button
+                            variant=ButtonVariant::Quiet
+                            on_click=Callback::new(move |_| calc.update(|s| s.clear_history()))
+                        >
                             "Clear"
-                        </button>
+                        </Button>
                     </div>
 
                     <div class="calc-tape-list" role="list">
@@ -381,26 +405,26 @@ pub fn CalculatorApp(
                                 key=|item| item.id
                                 let:item
                             >
-                                <button
-                                    type="button"
-                                    class="calc-tape-item app-action"
-                                    on:click=move |_| {
+                                <Button
+                                    layout_class="calc-tape-item"
+                                    variant=ButtonVariant::Quiet
+                                    on_click=Callback::new(move |_| {
                                         let value = item.result_value;
                                         calc.update(|state| state.use_value(value));
-                                    }
+                                    })
                                 >
                                     <span class="calc-tape-expr">{item.expression}</span>
                                     <span class="calc-tape-result">{format!("= {}", item.result_text)}</span>
-                                </button>
+                                </Button>
                             </For>
                         </Show>
                     </div>
                 </aside>
             </div>
 
-            <div class="app-statusbar">
-                <span>"Keys: 0-9, + - * /, Enter, Backspace, Esc, Del, F9"</span>
-                <span>
+            <StatusBar>
+                <span class="ui-statusbar-item">"Keys: 0-9, + - * /, Enter, Backspace, Esc, Del, F9"</span>
+                <span class="ui-statusbar-item">
                     {move || {
                         let state = calc.get();
                         format!(
@@ -413,8 +437,8 @@ pub fn CalculatorApp(
                         )
                     }}
                 </span>
-                <span>{move || if hydrated.get() { "State: synced" } else { "State: hydrating..." }}</span>
-            </div>
-        </div>
+                <span class="ui-statusbar-item">{move || if hydrated.get() { "State: synced" } else { "State: hydrating..." }}</span>
+            </StatusBar>
+        </AppShell>
     }
 }

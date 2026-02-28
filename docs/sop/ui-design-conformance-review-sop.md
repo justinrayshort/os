@@ -22,7 +22,7 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
 
 ## 2. Scope
 
-- Covers: shell/theme CSS (`crates/site/src/theme_shell/*`), desktop shell components (`crates/desktop_runtime/src/components*`), shell iconography (`crates/desktop_runtime/src/icons.rs`), and related UI design-system documentation/governance artifacts
+- Covers: shell/theme CSS (`crates/site/src/theme_shell/*`), shared UI primitives (`crates/system_ui/src/*`), desktop shell components (`crates/desktop_runtime/src/components*`), shared iconography (`crates/system_ui/src/icon.rs`), and related UI design-system documentation/governance artifacts
 - Covers: typography, spacing, layout hierarchy, color semantics, motion, accessibility, interaction patterns, iconography integration, responsive behavior, and component consistency
 - Does not cover: app-content feature logic unrelated to shared shell UI, non-shell visual experimentation not intended for merge, or third-party native platform UI certification
 
@@ -62,11 +62,11 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    - Command:
 
    ```bash
-   rg -n "FluentIcon|IconName|IconSize|data-skin|data-reduced-motion|data-high-contrast" crates/desktop_runtime/src
+   rg -n "system_ui|IconName|IconSize|data-ui-kind|data-skin|data-reduced-motion|data-high-contrast" crates/system_ui/src crates/desktop_runtime/src crates/apps
    ```
 
    - Expected output: existing primitives and theming hooks are easy to reuse
-   - Failure condition: new UI work introduces ad hoc icon markup, bypasses theme tokens, or duplicates shell interaction patterns without justification
+   - Failure condition: new UI work introduces ad hoc icon markup, bypasses theme tokens, reintroduces legacy `.app-*` primitives, or duplicates shared interaction patterns without justification
    - Change-control expectation: if a new primitive/state pattern is necessary, document it in the design-system reference in the same change
 
 3. Collect implementation evidence for the conformance checklist (required for material UI changes).
@@ -111,7 +111,7 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    - Expected output: affected checklist items are updated to `Complete`, `Partial`, or `Outstanding` with evidence-based notes
    - Failure condition: UI code changes merge with stale checklist status or no acceptance-criteria mapping
    - Additional required doc updates by change type:
-     - token/primitives/invariants changed -> update `docs/reference/desktop-shell-neumorphic-design-system.md`
+     - token/primitives/invariants changed -> update `docs/reference/system-ui-component-library.md` and the relevant skin reference docs
      - review process/gates changed -> update this SOP and `AGENTS.md`
      - new/changed formal docs -> update relevant wiki registry pages (`wiki/Reference-Design-Materials-and-Artifacts.md`, `wiki/Reference-Operational-Runbooks-and-SOPs.md`, etc.)
 
@@ -160,7 +160,7 @@ flowchart TD
 
 - Material shell UI changes do not claim HIG conformance based only on visual similarity.
 - Apple HIG principles (hierarchy, clarity, feedback, motion discipline, accessibility) take precedence over cosmetic neumorphic styling decisions when conflicts arise.
-- Centralized shell icon assets remain integrated semantically (for example via `FluentIcon`/`IconName`) and not mixed ad hoc per component.
+- Centralized shell icon assets remain integrated semantically (for example via `Icon`/`IconName`) and not mixed ad hoc per component.
 - Theme state remains driven by runtime state + reducer patterns (or documented equivalent), not hidden CSS-only toggles for user preferences.
 - Reduced-motion support must remain functional during visual refinements.
 - Keyboard focus visibility and menu/dialog keyboard behavior must remain functional during visual refinements.

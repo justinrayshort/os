@@ -1,18 +1,9 @@
-//! Centralized Fluent UI System Icon abstraction for the desktop shell.
-//!
-//! This module provides semantic icon identifiers and a single SVG renderer so shell
-//! components do not embed raw icon strings or ad-hoc SVG snippets. The current catalog
-//! uses a subset of Fluent UI System Icons (`@fluentui/svg-icons`, regular 24px) mapped
-//! to desktop-shell semantics.
+//! Centralized icon catalog and renderer for the shared UI primitive library.
 
 use leptos::*;
 
-use desktop_app_contract::ApplicationId;
-
-use crate::apps;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-/// Semantic icon identifiers used by shell components.
+/// Semantic icon identifiers used by shell and app primitives.
 pub enum IconName {
     /// Calculator app icon.
     Calculator,
@@ -84,8 +75,6 @@ impl IconName {
     }
 
     /// Raw SVG body markup for the icon.
-    ///
-    /// The paths are copied from `@fluentui/svg-icons` regular 24px SVG assets.
     fn svg_body(self) -> &'static str {
         match self {
             Self::Calculator => {
@@ -153,16 +142,16 @@ impl IconName {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-/// Standardized shell icon sizes.
+/// Standardized shared icon sizes.
 pub enum IconSize {
-    /// 14px compact icon (dense controls).
+    /// 14px compact icon.
     Xs,
-    /// 16px standard icon (menus/taskbar/tray).
+    /// 16px standard icon.
     #[default]
     Sm,
-    /// 20px medium icon (window chrome / prominent controls).
+    /// 20px medium icon.
     Md,
-    /// 24px large icon (desktop launchers).
+    /// 24px large icon.
     Lg,
 }
 
@@ -188,17 +177,12 @@ impl IconSize {
     }
 }
 
-/// Returns the semantic Fluent icon mapped to an application id.
-pub fn app_icon_name(app_id: &ApplicationId) -> IconName {
-    apps::app_icon_name_by_id(app_id)
-}
-
 #[component]
-/// Renders a Fluent UI System Icon SVG from the centralized shell icon catalog.
-pub fn FluentIcon(
+/// Renders an icon from the centralized system icon catalog.
+pub fn Icon(
     /// Semantic icon identifier.
     icon: IconName,
-    /// Standardized icon size token.
+    /// Standardized size token.
     #[prop(default = IconSize::Sm)]
     size: IconSize,
 ) -> impl IntoView {
@@ -207,6 +191,8 @@ pub fn FluentIcon(
     view! {
         <svg
             class="ui-icon"
+            data-ui-primitive="true"
+            data-ui-kind="icon"
             data-icon=icon.token()
             data-size=size.token()
             xmlns="http://www.w3.org/2000/svg"

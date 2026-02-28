@@ -1972,6 +1972,21 @@ const SHELL_ICON_COMPONENT_FILES: &[&str] = &[
     "crates/desktop_runtime/src/components/taskbar.rs",
     "crates/desktop_runtime/src/components/window.rs",
 ];
+const PRIMITIVE_USAGE_SCAN_DIRS: &[&str] = &["crates/apps", "crates/desktop_runtime/src"];
+const FORBIDDEN_LEGACY_PRIMITIVE_TOKENS: &[&str] = &[
+    "class=\"app-shell",
+    "class=\"app-menubar",
+    "class=\"app-toolbar",
+    "class=\"app-statusbar",
+    "class=\"app-action",
+    "class=\"app-field",
+    "class=\"app-editor",
+    "class=\"app-progress",
+    " app-action ",
+    " app-field ",
+    " app-editor ",
+    " app-progress ",
+];
 
 fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
     let mut problems = Vec::new();
@@ -2024,6 +2039,7 @@ fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
     }
 
     problems.extend(validate_shell_icon_standardization(root));
+    problems.extend(validate_shared_primitive_usage(root));
 
     problems
 }
@@ -2473,6 +2489,83 @@ fn validate_shell_icon_standardization(root: &Path) -> Vec<Problem> {
                     "legacy text glyph icon marker detected in shell component; use semantic `IconName`/`FluentIcon`",
                     Some(line_no),
                 ));
+            }
+        }
+    }
+
+    problems
+}
+
+fn validate_shared_primitive_usage(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+
+    for rel_dir in PRIMITIVE_USAGE_SCAN_DIRS {
+        let dir = root.join(rel_dir);
+        if !dir.exists() {
+            continue;
+        }
+
+        let mut files = match collect_files_with_suffix(&dir, ".rs") {
+            Ok(files) => files,
+            Err(err) => {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    *rel_dir,
+                    format!("failed to scan Rust files for primitive usage checks: {err}"),
+                    None,
+                ));
+                continue;
+            }
+        };
+        files.sort();
+
+        for path in files {
+            let rel_path = rel_posix(root, &path);
+            if rel_path.starts_with("crates/system_ui/") {
+                continue;
+            }
+
+            let Ok(text) = fs::read_to_string(&path) else {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    rel_path,
+                    "failed to read Rust file for primitive usage validation",
+                    None,
+                ));
+                continue;
+            };
+
+            for (idx, line) in text.lines().enumerate() {
+                let line_no = idx + 1;
+                let trimmed = line.trim();
+                if trimmed.starts_with("//") {
+                    continue;
+                }
+
+                for token in FORBIDDEN_LEGACY_PRIMITIVE_TOKENS {
+                    if trimmed.contains(token) {
+                        problems.push(Problem::new(
+                            "ui-conformance",
+                            rel_path.clone(),
+                            format!(
+                                "legacy primitive class usage detected (`{token}`); consume shared `system_ui` primitives or `ui-*`/`data-ui-*` roots"
+                            ),
+                            Some(line_no),
+                        ));
+                    }
+                }
+
+                if trimmed.contains("desktop_runtime::icons")
+                    || trimmed.contains("crate::icons")
+                    || trimmed.contains("use crate::icons")
+                {
+                    problems.push(Problem::new(
+                        "ui-conformance",
+                        rel_path.clone(),
+                        "old icon import path detected; import shared icons from `system_ui`",
+                        Some(line_no),
+                    ));
+                }
             }
         }
     }

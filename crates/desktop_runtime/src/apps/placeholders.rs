@@ -12,18 +12,18 @@ pub(super) fn mount_paint_placeholder_app(context: AppMountContext) -> View {
 /// Mounts the Dial-up placeholder app.
 pub(super) fn mount_dialup_placeholder_app(_: AppMountContext) -> View {
     view! {
-        <div class="app-shell app-dialup-shell">
-            <div class="app-toolbar" role="group" aria-label="Dial-up placeholder controls">
-                <button type="button" class="app-action">"Connect"</button>
-                <button type="button" class="app-action">"Disconnect"</button>
-                <button type="button" class="app-action">"Retry"</button>
+        <div class="ui-app-shell app-dialup-shell" data-ui-primitive="true" data-ui-kind="app-shell">
+            <div class="ui-toolbar" data-ui-primitive="true" data-ui-kind="toolbar" role="group" aria-label="Dial-up placeholder controls">
+                <button type="button" class="ui-button">"Connect"</button>
+                <button type="button" class="ui-button">"Disconnect"</button>
+                <button type="button" class="ui-button">"Retry"</button>
             </div>
             <div class="app-dialup-card">
                 <p><strong>"Dial-up (Placeholder)"</strong></p>
                 <p>"Negotiating connection..."</p>
-                <progress class="app-progress" max="100" value="45"></progress>
+                <progress class="ui-progress" max="100" value="45" data-ui-primitive="true" data-ui-kind="progress"></progress>
             </div>
-            <div class="app-statusbar">
+            <div class="ui-statusbar" data-ui-primitive="true" data-ui-kind="statusbar">
                 <span>"Status: connecting"</span>
                 <span>"Carrier: simulated 56k"</span>
                 <span>"Progress: 45%"</span>
@@ -118,17 +118,17 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
     });
 
     view! {
-        <div class="app-shell app-paint-shell">
-            <div class="app-toolbar app-paint-intro" role="note">
+        <div class="ui-app-shell app-paint-shell" data-ui-primitive="true" data-ui-kind="app-shell">
+            <div class="ui-toolbar app-paint-intro" data-ui-primitive="true" data-ui-kind="toolbar" role="note">
                 <strong>"Paint (Placeholder)"</strong>
                 <span>"Future canvas state persists through the desktop runtime window snapshot."</span>
             </div>
 
-            <div class="app-toolbar" role="group" aria-label="Paint placeholder controls">
+            <div class="ui-toolbar" data-ui-primitive="true" data-ui-kind="toolbar" role="group" aria-label="Paint placeholder controls">
                 <label>
                     "Tool "
                     <select
-                        class="app-field"
+                        class="ui-field"
                         prop:value=move || state.get().tool
                         on:change=move |ev| {
                             let value = event_target_value(&ev);
@@ -145,7 +145,7 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                 <label>
                     "Brush "
                     <input
-                        class="app-field"
+                        class="ui-field"
                         type="range"
                         min="1"
                         max="64"
@@ -163,7 +163,7 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                 <label>
                     "Color "
                     <input
-                        class="app-field"
+                        class="ui-field"
                         type="color"
                         prop:value=move || state.get().color_hex
                         on:input=move |ev| {
@@ -176,7 +176,7 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                 <label>
                     "Canvas "
                     <select
-                        class="app-field"
+                        class="ui-field"
                         prop:value=move || state.get().canvas_preset
                         on:change=move |ev| {
                             let value = event_target_value(&ev);
@@ -189,19 +189,19 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                     </select>
                 </label>
 
-                <button type="button" class="app-action" on:click=move |_| {
+                <button type="button" class="ui-button" on:click=move |_| {
                     state.update(|s| s.status = "Placeholder save slot synced to IndexedDB".to_string());
                 }>
                     "Save Slot"
                 </button>
-                <button type="button" class="app-action" on:click=move |_| {
+                <button type="button" class="ui-button" on:click=move |_| {
                     state.update(|s| s.status = "Placeholder canvas cleared (state preserved)".to_string());
                 }>
                     "Clear"
                 </button>
             </div>
 
-            <div class="app-statusbar">
+            <div class="ui-statusbar" data-ui-primitive="true" data-ui-kind="statusbar">
                 <span>{move || if hydrated.get() { "Hydrated" } else { "Hydrating" }}</span>
                 <span>{move || {
                     let snapshot = state.get();

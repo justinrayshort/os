@@ -1,4 +1,5 @@
 use super::*;
+use system_ui::{Icon, IconName, IconSize};
 
 #[component]
 pub(super) fn Taskbar() -> impl IntoView {
@@ -276,7 +277,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                     }
                 >
                     <span class="taskbar-glyph" aria-hidden="true">
-                        <FluentIcon icon=IconName::Launcher size=IconSize::Sm />
+                        <Icon icon=IconName::Launcher size=IconSize::Sm />
                     </span>
                     <span>"Start"</span>
                 </button>
@@ -324,7 +325,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                                         }
                                     >
                                         <span class="taskbar-app-icon" aria-hidden="true">
-                                            <FluentIcon
+                                            <Icon
                                                 icon=app_icon_name_value
                                                 size=IconSize::Sm
                                             />
@@ -394,7 +395,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                             }
                         >
                             <span class="taskbar-app-icon" aria-hidden="true">
-                                <FluentIcon
+                                <Icon
                                     icon=app_icon_name(&win.app_id)
                                     size=IconSize::Sm
                                 />
@@ -426,7 +427,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                                 }
                             >
                                 <span class="taskbar-overflow-icon" aria-hidden="true">
-                                    <FluentIcon icon=IconName::ChevronDown size=IconSize::Xs />
+                                    <Icon icon=IconName::ChevronDown size=IconSize::Xs />
                                 </span>
                                 {move || {
                                     let desktop = state.get();
@@ -485,7 +486,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                             }
                         >
                             <span class="tray-widget-glyph" aria-hidden="true">
-                                <FluentIcon icon=widget.icon size=IconSize::Xs />
+                                <Icon icon=widget.icon size=IconSize::Xs />
                             </span>
                             <span class="tray-widget-value">{widget.value.clone()}</span>
                         </button>

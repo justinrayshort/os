@@ -133,6 +133,38 @@
   --neuro-app-touch-gap: var(--neuro-space-3);
   --neuro-app-touch-padding-inline: var(--neuro-space-4);
   --neuro-app-interaction-transition: var(--neuro-motion-fast);
+  --sys-color-canvas: var(--ui-bg);
+  --sys-color-surface: var(--neuro-surface-panel-strong);
+  --sys-color-surface-muted: var(--neuro-surface-panel);
+  --sys-color-surface-inset: var(--neuro-surface-root);
+  --sys-color-border: var(--neuro-border-soft);
+  --sys-color-border-strong: var(--neuro-border-strong);
+  --sys-color-text-primary: var(--neuro-text-1);
+  --sys-color-text-secondary: var(--neuro-text-2);
+  --sys-color-text-disabled: var(--neuro-text-2);
+  --sys-color-accent: var(--neuro-accent);
+  --sys-color-accent-contrast: var(--neuro-text-inverse);
+  --sys-color-focus-ring: var(--neuro-focus-ring);
+  --sys-font-sans: var(--neuro-font-family);
+  --sys-font-mono: var(--neuro-font-family-mono);
+  --sys-space-2: var(--neuro-space-1);
+  --sys-space-3: var(--neuro-space-2);
+  --sys-space-4: var(--neuro-space-3);
+  --sys-space-5: var(--neuro-space-4);
+  --sys-radius-3: var(--neuro-radius-sm);
+  --sys-radius-4: var(--neuro-radius-md);
+  --sys-radius-5: var(--neuro-radius-lg);
+  --sys-shadow-raised: var(--neuro-elevation-raised-1);
+  --sys-shadow-overlay: var(--neuro-elevation-raised-2);
+  --sys-shadow-inset: var(--neuro-elevation-inset-1);
+  --sys-shadow-pressed: var(--neuro-elevation-pressed-1);
+  --sys-elevation-raised: var(--sys-shadow-raised);
+  --sys-elevation-overlay: var(--sys-shadow-overlay);
+  --sys-elevation-inset: var(--sys-shadow-inset);
+  --sys-elevation-pressed: var(--sys-shadow-pressed);
+  --sys-motion-fast: var(--neuro-motion-fast);
+  --sys-motion-standard: var(--neuro-motion-normal);
+  --sys-motion-slow: var(--neuro-motion-slow);
   --neuro-wallpaper-base:
     radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.64), transparent 28%),
     radial-gradient(circle at 82% 14%, rgba(201, 215, 233, 0.7), transparent 26%),

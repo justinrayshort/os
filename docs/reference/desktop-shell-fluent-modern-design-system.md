@@ -6,7 +6,7 @@ status: "active"
 last_reviewed: "2026-02-27"
 audience: ["engineering", "design"]
 invariants:
-  - "Shell icon usage flows through the centralized `desktop_runtime::icons` abstraction instead of ad-hoc text glyphs or inline per-component SVG markup."
+  - "Shell icon usage flows through the centralized `system_ui` icon abstraction instead of ad-hoc text glyphs or inline per-component SVG markup."
   - "Theme-specific visual changes are applied via `data-skin` scoped CSS overrides with shared shell structure to preserve behavior parity across skins."
   - "Accessibility behaviors (focus visibility, keyboard navigation, high contrast, reduced motion) remain functional during visual refinements."
 tags: ["reference", "design-system", "desktop-shell", "fluent", "icons", "accessibility"]
@@ -40,13 +40,13 @@ Window manager and taskbar layout now use adaptive sizing heuristics tied to vie
 
 Primary iconography is centralized in:
 
-- [`crates/desktop_runtime/src/icons.rs`](../../crates/desktop_runtime/src/icons.rs)
+- [`crates/system_ui/src/icon.rs`](../../crates/system_ui/src/icon.rs)
 
 The module provides:
 
 - `IconName`: semantic icon identifiers (app icons, window controls, tray/status icons, launcher/overflow icons)
 - `IconSize`: standardized shell icon sizes (`Xs`, `Sm`, `Md`, `Lg`)
-- `FluentIcon`: single SVG rendering component for shell usage
+- `Icon`: single SVG rendering component for shell and app usage
 - `app_icon_name_by_id(ApplicationId)`: semantic app-to-icon mapping for desktop/taskbar/window reuse
 
 Implementation notes:
@@ -104,9 +104,9 @@ Wallpaper boundary rules:
 
 ## Component Primitives and Styling Conventions
 
-The redesign standardizes these shell primitives:
+The redesign standardizes these shell primitives through `crates/system_ui` and `data-ui-*` roots:
 
-- `FluentIcon` for SVG icon rendering
+- `Icon` for SVG icon rendering
 - icon wrapper containers (`.taskbar-app-icon`, `.taskbar-glyph`, `.tray-widget-glyph`, `.titlebar-app-icon`)
 - reducer-backed taskbar tray accessibility toggles (high contrast and reduced motion)
 - consistent shell surfaces for windows, taskbar, menus, and dialogs
@@ -115,12 +115,12 @@ The redesign standardizes these shell primitives:
 
 Shared app-surface primitives (built-in apps + placeholder apps):
 
-- `app-shell`: canonical app layout container and status surface spacing
-- `app-menubar`, `app-toolbar`, `app-statusbar`: shared app chrome rows
-- `app-action`: canonical button/interactive target primitive
-- `app-field`: canonical text/select/range/color input primitive
-- `app-editor`: canonical multiline editor primitive
-- `app-progress`: canonical progress indicator primitive
+- `AppShell` / `data-ui-kind="app-shell"`: canonical app layout container
+- `MenuBar`, `ToolBar`, `StatusBar`: shared app chrome rows
+- `Button`: canonical interactive target primitive
+- `TextField`, `SelectField`, `RangeField`, `ColorField`: canonical input primitives
+- `TextArea`: canonical multiline editor primitive
+- `ProgressBar`: canonical progress indicator primitive
 
 Terminal-specific primitives:
 
@@ -149,7 +149,7 @@ Conventions:
 - Labels remain text-based for discoverability and assistive tech compatibility.
 - Icon color is inherited from component foreground color (`currentColor`) to preserve state styling.
 - Layout and component metrics should use spacing/radius/component metric tokens; remaining raw `px` values in Fluent overrides are limited to effect geometry (for example hairline borders, shadows, outline widths/offsets, transform nudges, and decorative gradient dimensions) unless explicitly documented otherwise.
-- App interaction states are standardized through primitive classes (`app-action` hover/active/focus and `app-field` focus/selection behavior) instead of per-app ad hoc state rules.
+- App interaction states are standardized through shared `system_ui` primitives and `data-ui-*` states instead of per-app ad hoc state rules.
 - Touch/hybrid ergonomics are tokenized via `--fluent-app-touch-*`; coarse-pointer contexts elevate controls to touch target minimums and increase control spacing/gaps.
 
 ## Accessibility and Usability Requirements
@@ -182,7 +182,7 @@ Performance safeguards:
 
 When extending the redesign to more shell or app surfaces:
 
-1. Reuse `IconName` and `FluentIcon` instead of introducing new icon markup per component.
+1. Reuse `IconName` and `Icon` instead of introducing new icon markup per component.
 2. Prefer token additions (`--fluent-shell-*`) over one-off color literals in component rules.
 3. Scope visual changes under `.desktop-shell[data-skin="modern-adaptive"]` unless the change is intended for all skins.
 4. Preserve keyboard, focus, and screen-reader semantics before adjusting appearance.

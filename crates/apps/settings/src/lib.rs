@@ -244,15 +244,15 @@ pub fn SettingsApp(
     };
 
     view! {
-        <div class="app-shell app-settings-shell">
-            <div class="app-menubar settings-tablist" role="tablist" aria-label="Settings sections">
+        <div class="ui-app-shell app-settings-shell" data-ui-primitive="true" data-ui-kind="app-shell">
+            <div class="ui-menubar settings-tablist" data-ui-primitive="true" data-ui-kind="menubar" role="tablist" aria-label="Settings sections">
                 <For each=move || [SettingsTab::Wallpaper, SettingsTab::Theme, SettingsTab::Accessibility] key=|tab| *tab as u8 let:tab>
                     <button
                         type="button"
                         class=move || if settings_state.get().active_tab == tab {
-                            "app-action settings-tab active"
+                            "ui-button settings-tab active"
                         } else {
-                            "app-action settings-tab"
+                            "ui-button settings-tab"
                         }
                         role="tab"
                         aria-selected=move || settings_state.get().active_tab == tab
@@ -267,10 +267,10 @@ pub fn SettingsApp(
                 <Show when=move || settings_state.get().active_tab == SettingsTab::Wallpaper fallback=|| ()>
                     <section class="settings-panel" aria-label="Wallpaper settings">
                         <div class="settings-toolbar">
-                            <button type="button" class="app-action" on:click=import_wallpaper>"Import…"</button>
+                            <button type="button" class="ui-button" on:click=import_wallpaper>"Import…"</button>
                             <button
                                 type="button"
-                                class="app-action"
+                                class="ui-button"
                                 disabled=move || services.wallpaper.preview.get().is_none()
                                 on:click=apply_preview
                             >
@@ -278,7 +278,7 @@ pub fn SettingsApp(
                             </button>
                             <button
                                 type="button"
-                                class="app-action"
+                                class="ui-button"
                                 disabled=move || services.wallpaper.preview.get().is_none()
                                 on:click=revert_preview
                             >
@@ -352,7 +352,7 @@ pub fn SettingsApp(
                                         on:input=move |ev| rename_value.set(event_target_value(&ev))
                                     />
                                 </label>
-                                <button type="button" class="app-action" on:click=save_rename>"Rename"</button>
+                                <button type="button" class="ui-button" on:click=save_rename>"Rename"</button>
 
                                 <label class="settings-field">
                                     <span>"Tags"</span>
@@ -363,9 +363,9 @@ pub fn SettingsApp(
                                         on:input=move |ev| tags_value.set(event_target_value(&ev))
                                     />
                                 </label>
-                                <button type="button" class="app-action" on:click=save_tags>"Save tags"</button>
+                                <button type="button" class="ui-button" on:click=save_tags>"Save tags"</button>
 
-                                <button type="button" class="app-action" on:click=toggle_favorite>
+                                <button type="button" class="ui-button" on:click=toggle_favorite>
                                     {move || if selected_asset.get().map(|asset| asset.favorite).unwrap_or(false) {
                                         "Unfavorite"
                                     } else {
@@ -374,7 +374,7 @@ pub fn SettingsApp(
                                 </button>
 
                                 <Show when=move || selected_asset.get().map(|asset| asset.source_kind == WallpaperSourceKind::Imported).unwrap_or(false) fallback=|| ()>
-                                    <button type="button" class="app-action" on:click=delete_asset>"Delete imported asset"</button>
+                                    <button type="button" class="ui-button" on:click=delete_asset>"Delete imported asset"</button>
                                 </Show>
                             </div>
 
@@ -406,7 +406,7 @@ pub fn SettingsApp(
                                     prop:value=move || new_collection_name.get()
                                     on:input=move |ev| new_collection_name.set(event_target_value(&ev))
                                 />
-                                <button type="button" class="app-action" on:click=create_collection>"Create collection"</button>
+                                <button type="button" class="ui-button" on:click=create_collection>"Create collection"</button>
                             </div>
                         </Show>
                     </section>
@@ -463,7 +463,7 @@ pub fn SettingsApp(
                 </Show>
             </div>
 
-            <footer class="app-statusbar">
+            <footer class="ui-statusbar" data-ui-primitive="true" data-ui-kind="statusbar">
                 <span>{move || format!("Skin: {}", theme_skin_id.get())}</span>
                 <span>
                     {move || {

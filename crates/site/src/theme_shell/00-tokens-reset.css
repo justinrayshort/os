@@ -40,6 +40,69 @@
     inset -2px -2px 0 var(--ui-shadow), inset 2px 2px 0 #ece9d8;
   --bevel-in: inset -1px -1px 0 var(--ui-highlight), inset 1px 1px 0 var(--ui-shadow-dark),
     inset -2px -2px 0 #ece9d8, inset 2px 2px 0 var(--ui-shadow);
+  --sys-color-canvas: var(--ui-bg);
+  --sys-color-surface: var(--ui-panel);
+  --sys-color-surface-muted: var(--ui-panel-alt);
+  --sys-color-surface-inset: #fff;
+  --sys-color-border: var(--ui-shadow);
+  --sys-color-border-strong: var(--ui-shadow-dark);
+  --sys-color-text-primary: var(--ui-text);
+  --sys-color-text-secondary: var(--ui-text-muted);
+  --sys-color-text-disabled: var(--ui-text-muted);
+  --sys-color-accent: var(--ui-title);
+  --sys-color-accent-contrast: var(--ui-highlight);
+  --sys-color-focus-ring: var(--ui-focus);
+  --sys-color-success: #2f7d4e;
+  --sys-color-warning: #946200;
+  --sys-color-danger: #a4262c;
+  --sys-space-0: 0;
+  --sys-space-1: 2px;
+  --sys-space-2: 4px;
+  --sys-space-3: 8px;
+  --sys-space-4: 12px;
+  --sys-space-5: 16px;
+  --sys-space-6: 20px;
+  --sys-space-7: 24px;
+  --sys-space-8: 32px;
+  --sys-radius-0: 0;
+  --sys-radius-1: 2px;
+  --sys-radius-2: 4px;
+  --sys-radius-3: 8px;
+  --sys-radius-4: 12px;
+  --sys-radius-5: 18px;
+  --sys-font-sans: Tahoma, "Segoe UI", Geneva, sans-serif;
+  --sys-font-mono: var(--terminal-font-family);
+  --sys-font-body-sm: 11px;
+  --sys-font-body-md: 12px;
+  --sys-font-body-lg: 13px;
+  --sys-font-title-sm: 13px;
+  --sys-font-title-md: 14px;
+  --sys-font-title-lg: 16px;
+  --sys-font-caption: 11px;
+  --sys-font-weight-regular: 400;
+  --sys-font-weight-medium: 500;
+  --sys-font-weight-semibold: 600;
+  --sys-line-height-tight: 1.2;
+  --sys-line-height-body: 1.35;
+  --sys-shadow-flat: none;
+  --sys-shadow-raised: var(--bevel-out);
+  --sys-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --sys-shadow-inset: var(--bevel-in);
+  --sys-shadow-pressed: var(--bevel-in);
+  --sys-motion-instant: 0ms;
+  --sys-motion-fast: 120ms;
+  --sys-motion-standard: 180ms;
+  --sys-motion-slow: 240ms;
+  --sys-focus-ring-width: 2px;
+  --sys-focus-ring-offset: 2px;
+  --sys-elevation-flat: var(--sys-shadow-flat);
+  --sys-elevation-raised: var(--sys-shadow-raised);
+  --sys-elevation-overlay: var(--sys-shadow-overlay);
+  --sys-elevation-inset: var(--sys-shadow-inset);
+  --sys-elevation-pressed: var(--sys-shadow-pressed);
+  --sys-state-hover-opacity: 1;
+  --sys-state-pressed-scale: 0.99;
+  --sys-state-disabled-opacity: 0.55;
 }
 
 .site-root,
@@ -53,11 +116,11 @@ body {
 }
 
 .site-root {
-  background: var(--ui-bg);
-  color: var(--ui-text);
-  font-family: Tahoma, "Segoe UI", Geneva, sans-serif;
-  font-size: 12px;
-  line-height: 1.35;
+  background: var(--sys-color-canvas);
+  color: var(--sys-color-text-primary);
+  font-family: var(--sys-font-sans);
+  font-size: var(--sys-font-body-md);
+  line-height: var(--sys-line-height-body);
 }
 
 .site-root button,

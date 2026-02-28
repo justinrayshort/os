@@ -612,7 +612,7 @@ pub fn TerminalApp(
     let indexed_entries = move || transcript.get().into_iter().enumerate().collect::<Vec<_>>();
 
     view! {
-        <div class="app-shell app-terminal-shell">
+        <div class="ui-app-shell app-terminal-shell" data-ui-primitive="true" data-ui-kind="app-shell">
             <div
                 class="terminal-screen"
                 role="log"

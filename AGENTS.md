@@ -7,6 +7,7 @@ This repository is maintained with help from automated agents. Use this file as 
 - Rust workspace with multiple crates and clear architectural boundaries, including:
   - `crates/site` (Leptos web entrypoints, routes, deep-link parsing, browser mount)
   - `crates/desktop_runtime` (desktop state model, reducer/effects, shell UI, app registry)
+  - `crates/system_ui` (shared shell/app visual primitives, semantic icons, `data-ui-*` component contract)
   - `crates/platform_host` (typed host-domain contracts and shared models)
   - `crates/platform_host_web` (browser/wasm implementations of `platform_host` services)
   - `crates/apps/*` (desktop app crates such as calculator, explorer, notepad, terminal)
@@ -40,7 +41,7 @@ This repository is maintained with help from automated agents. Use this file as 
   - `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md`
   - `docs/sop/ui-design-conformance-review-sop.md`
 - UI conformance claims must be evidence-based (checklist status updates plus keyboard/focus/motion/responsive validation and contrast measurements when colors/focus/borders change), not subjective visual approval alone.
-- Preserve centralized Fluent icon usage (`crates/desktop_runtime/src/icons.rs`), theme-scoped tokenization, and accessibility behavior during visual refinements; document any intentional deviations.
+- Preserve centralized shared icon usage (`crates/system_ui/src/icon.rs`), the `system_ui` primitive library, theme-scoped tokenization, and accessibility behavior during visual refinements; document any intentional deviations.
 - Preserve documentation contracts enforced by `tools/docs/doc_contracts.json` and `cargo xtask docs`.
 - Do not weaken validation rules or local verification workflows unless explicitly requested.
 - Avoid destructive git commands unless explicitly requested.
@@ -145,7 +146,7 @@ Docs-focused verification order (`cargo xtask docs all` internals):
 4. Mermaid validation (`cargo xtask docs mermaid`)
 5. Broken internal reference detection (`cargo xtask docs links`)
 6. Typed app-state boundary enforcement (`cargo xtask docs storage-boundary`) to prevent direct envelope-load usage in app/runtime crates
-7. UI conformance token/literal + icon-standardization audit (`cargo xtask docs ui-conformance`) for Fluent shell design-system hygiene
+7. UI conformance token/literal + icon/primitive-standardization audit (`cargo xtask docs ui-conformance`) for shared shell design-system hygiene
 8. Rustdoc build (`cargo doc --workspace --no-deps`, `RUSTDOCFLAGS=-D warnings` when tightening docs quality)
 9. Rustdoc doctests (`cargo test --workspace --doc`)
 10. Audit artifact generation (`cargo xtask docs audit-report --output ...`) when needed
