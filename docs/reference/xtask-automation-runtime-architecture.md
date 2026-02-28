@@ -94,6 +94,30 @@ The refactor established these extension points for future workflows:
 
 New workflow families should build on these APIs instead of introducing command-specific process or artifact helpers.
 
+### API Contracts
+
+- `CommandContext`
+  - Owns shared workspace-root discovery and service wiring.
+  - New command families should accept `&CommandContext` instead of constructing their own process, artifact, or workflow helpers.
+- `ProcessRunner`
+  - Owns stable child-process execution, simple availability probes, and shared command printing.
+  - Command domains should not reimplement ad hoc `Command::new(...).status()` helpers when the existing runner contract is sufficient.
+- `WorkspaceState`
+  - Owns git/cargo workspace inspection and repo-local state queries.
+  - Cross-worktree git checks such as the wiki submodule should build on this service instead of introducing command-local porcelain parsing.
+- `WorkflowRecorder`
+  - Owns structured run manifests, JSONL events, and stage timing.
+  - Multi-stage workflows should record through this service so artifact layout and event vocabulary remain consistent.
+- `ArtifactManager`
+  - Owns workspace-relative artifact resolution and directory policy.
+  - Command families should not invent new root-relative path join helpers.
+- `ConfigLoader<T>`
+  - Owns typed TOML loading for versioned workflow policy.
+  - Semantic validation still belongs to the consuming command domain after deserialization.
+- `XtaskError`
+  - Owns stable error categories and contextual metadata (`operation`, `target`, `hint`).
+  - Public xtask command paths should surface this type rather than collapsing back to plain strings.
+
 ## Configuration Ownership
 
 Versioned automation configuration lives under [`tools/automation/`](../../tools/automation/):

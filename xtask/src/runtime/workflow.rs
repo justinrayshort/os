@@ -305,3 +305,83 @@ pub fn unix_timestamp_millis() -> u64 {
         .unwrap_or_default()
         .as_millis() as u64
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_root() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "xtask-workflow-test-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("time")
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn workflow_run_writes_manifest_and_events() {
+        let root = unique_temp_root();
+        let artifacts = ArtifactManager::new(root.clone());
+        let workflow = WorkflowRecorder::new(artifacts.clone());
+
+        workflow
+            .with_workflow_run("runtime-test", Some("local".into()), || {
+                workflow.run_timed_stage("example stage", || Ok(()))
+            })
+            .expect("workflow run");
+
+        let run_root = artifacts.automation_runs_dir();
+        let entries = fs::read_dir(&run_root)
+            .expect("read run dir")
+            .map(|entry| entry.expect("entry").path())
+            .collect::<Vec<_>>();
+        assert_eq!(entries.len(), 1);
+
+        let manifest_path = entries[0].join("manifest.json");
+        let events_path = entries[0].join("events.jsonl");
+        let manifest = fs::read_to_string(&manifest_path).expect("manifest");
+        let events = fs::read_to_string(&events_path).expect("events");
+
+        assert!(manifest.contains("\"workflow\": \"runtime-test\""));
+        assert!(manifest.contains("\"profile\": \"local\""));
+        assert!(manifest.contains("\"status\": \"ok\""));
+        assert!(events.contains("\"type\":\"workflow_started\""));
+        assert!(events.contains("\"type\":\"stage_started\""));
+        assert!(events.contains("\"type\":\"stage_finished\""));
+        assert!(events.contains("\"type\":\"workflow_finished\""));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn failed_stage_marks_manifest_as_failed() {
+        let root = unique_temp_root();
+        let artifacts = ArtifactManager::new(root.clone());
+        let workflow = WorkflowRecorder::new(artifacts.clone());
+
+        let result = workflow.with_workflow_run("runtime-test", None, || {
+            workflow.run_timed_stage("failing stage", || {
+                Err(XtaskError::validation("expected failure"))
+            })
+        });
+        assert!(result.is_err());
+
+        let run_root = artifacts.automation_runs_dir();
+        let entries = fs::read_dir(&run_root)
+            .expect("read run dir")
+            .map(|entry| entry.expect("entry").path())
+            .collect::<Vec<_>>();
+        assert_eq!(entries.len(), 1);
+
+        let manifest = fs::read_to_string(entries[0].join("manifest.json")).expect("manifest");
+        assert!(manifest.contains("\"status\": \"failed\""));
+        assert!(manifest.contains("expected failure"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+}
