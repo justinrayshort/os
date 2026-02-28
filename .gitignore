@@ -11,6 +11,7 @@
 
 # Playwright smoke outputs/artifacts
 /output/playwright/
+/tools/e2e/node_modules/
 
 # Trunk/Tauri local build artifacts
 /crates/site/target/

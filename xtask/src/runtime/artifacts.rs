@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 const AUTOMATION_RUNS_DIR: &str = ".artifacts/automation/runs";
 const DOCS_AUDIT_REPORT: &str = ".artifacts/docs-audit.json";
+const E2E_RUNS_DIR: &str = ".artifacts/e2e/runs";
 
 /// Central artifact path policy for xtask.
 ///
@@ -53,6 +54,11 @@ impl ArtifactManager {
         self.path(DOCS_AUDIT_REPORT)
     }
 
+    /// Return the standard E2E run root used by Cargo-managed browser automation workflows.
+    pub fn e2e_runs_dir(&self) -> PathBuf {
+        self.path(E2E_RUNS_DIR)
+    }
+
     /// Ensure a directory exists.
     ///
     /// This helper is idempotent and succeeds when the directory already exists.
@@ -89,6 +95,7 @@ mod tests {
             manager.docs_audit_report(),
             root.join(".artifacts/docs-audit.json")
         );
+        assert_eq!(manager.e2e_runs_dir(), root.join(".artifacts/e2e/runs"));
     }
 
     #[test]

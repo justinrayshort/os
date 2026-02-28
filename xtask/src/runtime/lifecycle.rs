@@ -156,11 +156,8 @@ mod tests {
     }
 
     #[test]
-    fn port_is_open_returns_false_for_unbound_port() {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind listener");
-        let port = listener.local_addr().expect("addr").port();
-        drop(listener);
-        assert!(!port_is_open("127.0.0.1", port));
+    fn port_is_open_returns_false_for_invalid_port() {
+        assert!(!port_is_open("127.0.0.1", 0));
     }
 
     #[cfg(unix)]

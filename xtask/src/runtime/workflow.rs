@@ -323,7 +323,13 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::{Mutex, OnceLock};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn workflow_test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     fn unique_temp_root() -> PathBuf {
         std::env::temp_dir().join(format!(
@@ -337,6 +343,7 @@ mod tests {
 
     #[test]
     fn workflow_run_writes_manifest_and_events() {
+        let _guard = workflow_test_lock().lock().expect("lock workflow test");
         let root = unique_temp_root();
         let artifacts = ArtifactManager::new(root.clone());
         let workflow = WorkflowRecorder::new(artifacts.clone());
@@ -372,6 +379,7 @@ mod tests {
 
     #[test]
     fn failed_stage_marks_manifest_as_failed() {
+        let _guard = workflow_test_lock().lock().expect("lock workflow test");
         let root = unique_temp_root();
         let artifacts = ArtifactManager::new(root.clone());
         let workflow = WorkflowRecorder::new(artifacts.clone());

@@ -1,0 +1,43 @@
+[profile.local-dev]
+backend = "playwright"
+target = "browser"
+scenario_set = "local-smoke"
+browsers = ["chromium"]
+headless = false
+workers = 1
+retries = 0
+trace = "on"
+supported_os = ["macos", "linux", "windows"]
+
+[profile.ci-headless]
+backend = "playwright"
+target = "browser"
+scenario_set = "ci"
+browsers = ["chromium"]
+headless = true
+workers = "auto"
+retries = 2
+trace = "retain-on-failure"
+supported_os = ["macos", "linux", "windows"]
+
+[profile.cross-browser]
+backend = "playwright"
+target = "browser"
+scenario_set = "cross-browser"
+browsers = ["chromium", "firefox", "webkit"]
+headless = true
+workers = 1
+retries = 1
+trace = "retain-on-failure"
+supported_os = ["macos", "linux", "windows"]
+
+[profile.debug]
+backend = "playwright"
+target = "browser"
+scenario_set = "debug"
+browsers = ["chromium"]
+headless = false
+workers = 1
+retries = 0
+trace = "on"
+supported_os = ["macos", "linux", "windows"]

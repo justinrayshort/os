@@ -79,6 +79,18 @@ This page documents the supported top-level commands for local development, veri
 - `cargo perf heaptrack [-- <cmd...>]`: Run heap profiling with `heaptrack` (default command: `cargo bench --workspace`).
 - `source scripts/dev/setup-sccache.sh`: Optional local helper to configure `RUSTC_WRAPPER=sccache`, `SCCACHE_DIR=.artifacts/sccache`, and `SCCACHE_CACHE_SIZE=20G` in the current shell.
 
+### Cargo-Managed E2E Foundation
+
+- `cargo e2e list`: Show the versioned E2E profiles and scenario sets defined under `tools/automation/`.
+- `cargo e2e doctor`: Check local E2E prerequisites (`cargo`, `node`, `npm`, `trunk`) and report whether the versioned config files plus the committed `tools/e2e/` Node project surface are present.
+- `cargo e2e run --profile <name> [--scenario <id>] --dry-run`: Resolve a typed profile/scenario selection, validate OS compatibility, and print the planned artifact root under `.artifacts/e2e/runs/`.
+- `cargo e2e run --profile <name> [--scenario <id>] [--base-url <url>] [--artifact-dir <path>]`: Start an isolated per-run `trunk serve` instance under `.artifacts/e2e/` by default, bootstrap `tools/e2e/node_modules` with `npm ci` when missing, and execute the Playwright browser harness with artifacts under `.artifacts/e2e/runs/`.
+- `--base-url <url>` reuses an externally managed server instead of starting the isolated E2E-owned server.
+- `--artifact-dir <path>` overrides the default per-run artifact root. Relative paths are resolved from the workspace root.
+- Current executable coverage is browser-only (`backend = "playwright"`). `tauri-webdriver` remains reserved for a later slice.
+- Versioned config currently lives in `tools/automation/e2e_profiles.toml` and `tools/automation/e2e_scenarios.toml`.
+- The E2E command family executes through the same shared xtask runtime (`CommandContext`, `ConfigLoader<T>`, `ProcessRunner`, `ArtifactManager`, `WorkflowRecorder`) as `verify`, `perf`, `docs`, and `wiki`.
+
 ### Documentation Workflow (Rustdoc + Wiki)
 
 - `cargo wiki status`: Show whether the `wiki/` submodule is initialized, which branch/HEAD it is on, and whether it has local changes.
@@ -90,8 +102,8 @@ This page documents the supported top-level commands for local development, veri
 - `cargo xtask docs ui-inventory --output .artifacts/ui/styling-inventory.json`: Generate a machine-readable inventory of Rust/CSS styling entry points, local visual contracts, token definitions, and hard-coded literals across shell/apps/system_ui/theme files.
 - `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries by flagging legacy low-level envelope access patterns in `crates/apps`, `crates/desktop_runtime`, and `crates/site`.
 - `cargo xtask docs app-contract`: Validate app manifest contract shape, app-id conventions, and forbidden ad hoc app integration patterns.
-- `scripts/ui/capture-skin-matrix.sh [base_url] [output_dir]`: Capture screenshot evidence matrix across skins (`soft-neumorphic`, `modern-adaptive`, `classic-xp`, `classic-95`) and breakpoints (`desktop`, `tablet`, `mobile`) into `.artifacts/ui-conformance/screenshots/`.
-- `scripts/ui/keyboard-flow-smoke.sh [base_url] [output_dir]`: Run keyboard traversal smoke checks for context menu and system-surface settings flows across all skins, writing `.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json`.
+- `scripts/ui/capture-skin-matrix.sh [base_url] [output_dir]`: Deprecated compatibility shim that forwards into `cargo e2e run --profile local-dev --scenario ui.screenshot-matrix`.
+- `scripts/ui/keyboard-flow-smoke.sh [base_url] [output_dir]`: Deprecated compatibility shim that forwards into `cargo e2e run --profile local-dev --scenario ui.keyboard-smoke`.
 - `cargo doc --workspace --no-deps`: Generate authoritative Rust API reference (`target/doc/`).
 - `cargo test --workspace --doc`: Run rustdoc examples (doctests).
 - `cargo xtask docs all`: Run docs contract validation (includes `wiki` validation).

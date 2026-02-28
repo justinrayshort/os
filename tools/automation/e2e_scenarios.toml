@@ -1,0 +1,29 @@
+[scenario."shell.boot"]
+summary = "Load the browser-hosted shell root and confirm idle startup."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["smoke", "shell"]
+
+[scenario."shell.settings-navigation"]
+summary = "Traverse a representative shell settings flow."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["smoke", "shell", "navigation"]
+
+[scenario."ui.keyboard-smoke"]
+summary = "Run keyboard traversal smoke checks across supported skins."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "keyboard"]
+
+[scenario."ui.screenshot-matrix"]
+summary = "Capture the shell screenshot matrix across skins and breakpoints."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "screenshots"]
+
+[scenario_set]
+local-smoke = ["shell.boot", "shell.settings-navigation"]
+ci = ["shell.boot", "shell.settings-navigation", "ui.keyboard-smoke"]
+cross-browser = ["shell.boot", "shell.settings-navigation"]
+debug = ["shell.settings-navigation"]

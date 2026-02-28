@@ -14,6 +14,7 @@ use crate::commands::dev::{
     BuildWebCommand, CheckWebCommand, DevCommand, DoctorCommand, SetupWebCommand, TauriCommand,
 };
 use crate::commands::docs::DocsCommand;
+use crate::commands::e2e::E2eCommand;
 use crate::commands::perf::PerfCommand;
 use crate::commands::verify::{FlowCommand, VerifyCommand};
 use crate::commands::wiki::WikiCommand;
@@ -70,6 +71,7 @@ pub fn execute_from_env() -> XtaskResult<()> {
         TopLevelCommand::Flow(args) => FlowCommand::run(&ctx, FlowCommand::parse(&args)?),
         TopLevelCommand::Doctor(args) => DoctorCommand::run(&ctx, DoctorCommand::parse(&args)?),
         TopLevelCommand::Docs(args) => DocsCommand::run(&ctx, DocsCommand::parse(&args)?),
+        TopLevelCommand::E2e(args) => E2eCommand::run(&ctx, E2eCommand::parse(&args)?),
         TopLevelCommand::Perf(args) => PerfCommand::run(&ctx, PerfCommand::parse(&args)?),
         TopLevelCommand::Verify(args) => VerifyCommand::run(&ctx, VerifyCommand::parse(&args)?),
         TopLevelCommand::Wiki(args) => WikiCommand::run(&ctx, WikiCommand::parse(&args)?),

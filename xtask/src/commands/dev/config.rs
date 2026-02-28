@@ -46,7 +46,7 @@ impl DevServerConfig {
     }
 }
 
-pub(super) fn load_dev_server_config(ctx: &CommandContext) -> XtaskResult<DevServerConfig> {
+pub(crate) fn load_dev_server_config(ctx: &CommandContext) -> XtaskResult<DevServerConfig> {
     let loader = ConfigLoader::<DevServerConfigFile>::new(ctx.root(), DEV_SERVER_CONFIG_FILE);
     loader.load()?.dev_server.validate()
 }

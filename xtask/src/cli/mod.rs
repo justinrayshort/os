@@ -13,6 +13,7 @@ pub enum TopLevelCommand {
     Flow(Vec<String>),
     Doctor(Vec<String>),
     Docs(Vec<String>),
+    E2e(Vec<String>),
     Perf(Vec<String>),
     Verify(Vec<String>),
     Wiki(Vec<String>),
@@ -35,6 +36,7 @@ pub fn parse(args: Vec<String>) -> XtaskResult<TopLevelCommand> {
         "flow" => Ok(TopLevelCommand::Flow(rest)),
         "doctor" => Ok(TopLevelCommand::Doctor(rest)),
         "docs" => Ok(TopLevelCommand::Docs(rest)),
+        "e2e" => Ok(TopLevelCommand::E2e(rest)),
         "perf" => Ok(TopLevelCommand::Perf(rest)),
         "verify" => Ok(TopLevelCommand::Verify(rest)),
         "wiki" => Ok(TopLevelCommand::Wiki(rest)),
@@ -59,6 +61,7 @@ pub fn print_usage() {
            flow [...]          Run scoped inner-loop checks for changed packages/docs\n\
            doctor [--fix]      Validate local automation/tooling prerequisites\n\
            docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
+           e2e <subcommand>    Cargo-managed end-to-end workflow foundation\n\
            perf <subcommand>   Performance benchmarks/profiling workflows\n\
            wiki <subcommand>   Wiki submodule status/sync workflows\n\
            verify [fast|full] [--with-desktop|--without-desktop] [--profile <name>]\n\

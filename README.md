@@ -141,6 +141,22 @@ cargo doctor
 cargo doctor --fix
 ```
 
+Resolve the Cargo-managed E2E profile surface and prerequisites:
+
+```bash
+cargo e2e list
+cargo e2e doctor
+cargo e2e run --profile local-dev --dry-run
+cargo e2e run --profile local-dev --scenario shell.boot
+```
+
+The current E2E slice now includes the first executable browser path: profiles and scenario sets are
+versioned under `tools/automation/`, `cargo e2e doctor` checks the local prerequisites, and
+`cargo e2e run --profile ...` starts an isolated per-run `trunk serve` instance under
+`.artifacts/e2e/`, bootstraps `tools/e2e/` with `npm ci` when needed, and runs the Playwright
+harness with artifacts under `.artifacts/e2e/runs/`.
+`cargo e2e run --dry-run` remains available for config-only validation.
+
 Full verification (fast verification + prototype checks + optional clippy/trunk build):
 
 ```bash

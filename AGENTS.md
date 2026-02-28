@@ -129,6 +129,10 @@ Primary entry points:
 - `cargo perf check`
 - `cargo perf bench`
 - `cargo perf dev-loop-baseline --output .artifacts/perf/reports/dev-loop-baseline.json`
+- `cargo e2e list`
+- `cargo e2e doctor`
+- `cargo e2e run --profile local-dev --dry-run`
+- `cargo e2e run --profile local-dev --scenario shell.boot`
 
 Stages (automation-backed verification order):
 
@@ -187,6 +191,7 @@ When changing `xtask/src/docs.rs`, `xtask/src/docs/`, `xtask/src/commands/docs/`
 1. Run `cargo fmt --all`.
 2. Run `cargo test -p xtask`.
 3. Run the affected workflow commands (for example `cargo xtask docs all`, `cargo xtask docs wiki` for isolated wiki diagnostics, `cargo perf doctor`).
+   Add `cargo e2e doctor` plus either `cargo e2e run --dry-run` or a focused executable scenario such as `cargo e2e run --profile local-dev --scenario shell.boot` when the Cargo-managed E2E workflow changes.
 4. Update `AGENTS.md`, wiki/reference docs, and command catalogs when behavior/contracts changed.
 
 ## 5) Local Commands
@@ -257,6 +262,10 @@ cargo perf compare local-main
 cargo perf dev-loop-baseline --output .artifacts/perf/reports/dev-loop-baseline.json
 cargo perf flamegraph --bench <bench_name>
 cargo perf heaptrack -- cargo bench --workspace
+cargo e2e list
+cargo e2e doctor
+cargo e2e run --profile local-dev --dry-run
+cargo e2e run --profile local-dev --scenario shell.boot
 ```
 
 Notes:
@@ -282,6 +291,7 @@ cargo wiki
 cargo docs-check
 cargo docs-audit
 cargo perf <subcommand>
+cargo e2e <subcommand>
 cargo verify-fast
 cargo verify
 cargo check-all
@@ -327,6 +337,7 @@ Run `cargo xtask docs wiki` in addition when validating staged wiki-only diagnos
 8. If Mermaid or OpenAPI changed, run targeted checks (`cargo xtask docs mermaid`, `cargo xtask docs openapi`) in addition to `all`.
 9. Generate an audit artifact (`cargo xtask docs audit-report --output .artifacts/docs-audit.json`) when the change affects governance/reporting flows.
 10. For performance-sensitive changes, run `cargo perf check` and the relevant benchmark/profile commands (for example `cargo perf bench`, `cargo perf compare <baseline>`) and document measured deltas/tradeoffs in code review plus the relevant wiki/docs pages.
+11. For Cargo-managed E2E workflow changes, run `cargo e2e doctor`, at least one `cargo e2e run --dry-run`, and a focused executable browser scenario when the backend path is affected.
 
 ### 6.2 Code + docs changes
 

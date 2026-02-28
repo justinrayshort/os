@@ -1,0 +1,12 @@
+{
+  "name": "os-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Cargo-managed Playwright browser automation for the OS workspace",
+  "scripts": {
+    "run": "node src/run.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.58.2"
+  }
+}

@@ -147,6 +147,7 @@ impl XtaskCommand for DevCommand {
     }
 }
 
+pub(crate) use config::{load_dev_server_config, DevServerConfig};
 pub(crate) use server::wasm_target_installed;
 
 #[cfg(test)]

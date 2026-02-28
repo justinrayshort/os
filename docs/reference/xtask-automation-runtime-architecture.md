@@ -68,6 +68,7 @@ Responsibilities:
 - [`xtask/src/commands/verify.rs`](../../xtask/src/commands/verify.rs): verify command-family façade and shared command structs
 - [`xtask/src/commands/verify/`](../../xtask/src/commands/verify/): cohesive verify submodules for profile/config handling, changed-scope detection, flow execution, and verification stage orchestration
 - [`xtask/src/commands/perf/`](../../xtask/src/commands/perf/): cohesive perf submodules for CLI args, tooling checks, benchmark/profiling execution, and report generation
+- [`xtask/src/commands/e2e.rs`](../../xtask/src/commands/e2e.rs): Cargo-managed E2E profile/scenario orchestration plus the first executable Playwright/browser workflow path
 - [`xtask/src/commands/wiki.rs`](../../xtask/src/commands/wiki.rs): wiki submodule status/sync workflow management
 - [`xtask/src/commands/docs/`](../../xtask/src/commands/docs/): docs command family façade and runtime integration
 - [`xtask/src/docs.rs`](../../xtask/src/docs.rs): docs validator module root and command dispatch
@@ -124,6 +125,9 @@ Versioned automation configuration lives under [`tools/automation/`](../../tools
 
 - [`tools/automation/dev_server.toml`](../../tools/automation/dev_server.toml): managed dev-server defaults and artifact paths
 - [`tools/automation/verify_profiles.toml`](../../tools/automation/verify_profiles.toml): verification profile definitions
+- [`tools/automation/e2e_profiles.toml`](../../tools/automation/e2e_profiles.toml): initial E2E profile definitions
+- [`tools/automation/e2e_scenarios.toml`](../../tools/automation/e2e_scenarios.toml): initial E2E scenario catalog and scenario sets
+- [`tools/e2e/`](../../tools/e2e/): versioned Playwright harness consumed by `cargo e2e run`
 
 Guidelines:
 
