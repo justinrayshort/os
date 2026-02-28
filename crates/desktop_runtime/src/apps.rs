@@ -13,6 +13,7 @@ use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
 use desktop_app_settings::SettingsApp;
 use desktop_app_terminal::TerminalApp;
+use desktop_app_ui_showcase::UiShowcaseApp;
 use leptos::*;
 use system_ui::IconName;
 const APP_ID_CALCULATOR: &str = "system.calculator";
@@ -21,6 +22,7 @@ const APP_ID_NOTEPAD: &str = "system.notepad";
 const APP_ID_PAINT: &str = "system.paint";
 const APP_ID_TERMINAL: &str = "system.terminal";
 const APP_ID_SETTINGS: &str = "system.settings";
+const APP_ID_UI_SHOWCASE: &str = "system.ui-showcase";
 const APP_ID_DIALUP: &str = "system.dialup";
 
 #[derive(Debug, Clone, Copy)]
@@ -137,6 +139,17 @@ fn build_app_registry() -> Vec<AppDescriptor> {
             requested_capabilities: SYSTEM_SETTINGS_MANIFEST.requested_capabilities,
         },
         AppDescriptor {
+            app_id: builtin_app_id(APP_ID_UI_SHOWCASE),
+            launcher_label: SYSTEM_UI_SHOWCASE_MANIFEST.display_name,
+            desktop_icon_label: SYSTEM_UI_SHOWCASE_MANIFEST.display_name,
+            show_in_launcher: SYSTEM_UI_SHOWCASE_MANIFEST.show_in_launcher,
+            show_on_desktop: SYSTEM_UI_SHOWCASE_MANIFEST.show_on_desktop,
+            single_instance: SYSTEM_UI_SHOWCASE_MANIFEST.single_instance,
+            module: AppModule::new(mount_ui_showcase_app),
+            suspend_policy: SYSTEM_UI_SHOWCASE_MANIFEST.suspend_policy,
+            requested_capabilities: SYSTEM_UI_SHOWCASE_MANIFEST.requested_capabilities,
+        },
+        AppDescriptor {
             app_id: builtin_app_id(APP_ID_DIALUP),
             launcher_label: "Dial-up",
             desktop_icon_label: "Connect",
@@ -163,6 +176,7 @@ const LEGACY_BUILTIN_APP_ID_MAPPINGS: &[(&str, &str)] = &[
     ("Paint", APP_ID_PAINT),
     ("Terminal", APP_ID_TERMINAL),
     ("Settings", APP_ID_SETTINGS),
+    ("UI Showcase", APP_ID_UI_SHOWCASE),
     ("Dialup", APP_ID_DIALUP),
 ];
 
@@ -249,6 +263,7 @@ pub fn app_icon_id_by_id(app_id: &ApplicationId) -> &'static str {
         APP_ID_PAINT => "paint",
         APP_ID_TERMINAL => "terminal",
         APP_ID_SETTINGS => "settings",
+        APP_ID_UI_SHOWCASE => "window",
         APP_ID_DIALUP => "modem",
         _ => "window",
     }
@@ -263,6 +278,7 @@ pub fn app_icon_name_by_id(app_id: &ApplicationId) -> IconName {
         APP_ID_PAINT => IconName::PaintBrush,
         APP_ID_TERMINAL => IconName::Terminal,
         APP_ID_SETTINGS => IconName::Settings,
+        APP_ID_UI_SHOWCASE => IconName::WindowMultiple,
         APP_ID_DIALUP => IconName::Connect,
         _ => IconName::WindowMultiple,
     }
@@ -351,6 +367,14 @@ fn default_window_rect_for_app(
                 0.92,
                 0.82,
                 0.82,
+            ),
+            APP_ID_UI_SHOWCASE => (
+                SYSTEM_UI_SHOWCASE_MANIFEST.window_defaults.0,
+                SYSTEM_UI_SHOWCASE_MANIFEST.window_defaults.1,
+                0.92,
+                0.92,
+                0.88,
+                0.88,
             ),
             APP_ID_CALCULATOR => (
                 SYSTEM_CALCULATOR_MANIFEST.window_defaults.0,
@@ -476,6 +500,17 @@ fn mount_settings_app(context: AppMountContext) -> View {
     view! {
         <SettingsApp
             _launch_params=context.launch_params.clone()
+            restored_state=Some(context.restored_state.clone())
+            services=Some(context.services)
+        />
+    }
+    .into_view()
+}
+
+fn mount_ui_showcase_app(context: AppMountContext) -> View {
+    view! {
+        <UiShowcaseApp
+            launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
             services=Some(context.services)
         />

@@ -13,8 +13,9 @@ mod overlays;
 mod shell;
 
 pub use controls::{
-    Button, CheckboxField, ColorField, CompletionItem, CompletionList, FieldGroup, ProgressBar,
-    RangeField, SelectField, TextArea, TextField, ToggleRow,
+    Button, CheckboxField, CircularProgress, ColorField, CompletionItem, CompletionList,
+    FieldGroup, IconButton, KnobDial, ProgressBar, RangeField, SegmentedControl,
+    SegmentedControlOption, SelectField, Switch, TextArea, TextField, ToggleRow,
 };
 pub use data_display::{
     Badge, Card, DataTable, ElevationLayer, EmptyState, Heading, InspectorGrid, ListSurface,
@@ -99,8 +100,14 @@ impl Elevation {
 pub enum ButtonVariant {
     /// Standard action button.
     Standard,
+    /// Secondary neutral action button.
+    Secondary,
     /// Primary emphasized action button.
     Primary,
+    /// Segmented control option button.
+    Segmented,
+    /// Circular or icon-only action button.
+    Icon,
     /// Quiet/toggle style button.
     Quiet,
     /// Accent/emphasized button.
@@ -119,10 +126,40 @@ impl ButtonVariant {
     pub(crate) fn token(self) -> &'static str {
         match self {
             Self::Standard => "standard",
+            Self::Secondary => "secondary",
             Self::Primary => "primary",
+            Self::Segmented => "segmented",
+            Self::Icon => "icon",
             Self::Quiet => "quiet",
             Self::Accent => "accent",
             Self::Danger => "danger",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Shared button shape tokens.
+pub enum ButtonShape {
+    /// Standard rounded rectangle.
+    Standard,
+    /// Pill-shaped control.
+    Pill,
+    /// Circular control.
+    Circle,
+}
+
+impl Default for ButtonShape {
+    fn default() -> Self {
+        Self::Standard
+    }
+}
+
+impl ButtonShape {
+    pub(crate) fn token(self) -> &'static str {
+        match self {
+            Self::Standard => "standard",
+            Self::Pill => "pill",
+            Self::Circle => "circle",
         }
     }
 }

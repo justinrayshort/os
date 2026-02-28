@@ -1,10 +1,19 @@
 use super::*;
 
+fn clamp_percent(value: &str, min: Option<&str>, max: Option<&str>) -> f32 {
+    let value = value.parse::<f32>().unwrap_or(0.0);
+    let min = min.and_then(|raw| raw.parse::<f32>().ok()).unwrap_or(0.0);
+    let max = max.and_then(|raw| raw.parse::<f32>().ok()).unwrap_or(100.0);
+    let span = (max - min).max(1.0);
+    (((value - min) / span) * 100.0).clamp(0.0, 100.0)
+}
+
 #[component]
-/// Shared button primitive with standardized states and icon slots.
+/// Shared button primitive with standardized states, icon slots, and semantic shape tokens.
 pub fn Button(
     #[prop(default = ButtonVariant::Standard)] variant: ButtonVariant,
     #[prop(default = ButtonSize::Md)] size: ButtonSize,
+    #[prop(default = ButtonShape::Standard)] shape: ButtonShape,
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional, into)] id: Option<String>,
     #[prop(optional, into)] role: Option<String>,
@@ -55,6 +64,7 @@ pub fn Button(
             data-ui-slot=ui_slot
             data-ui-variant=variant.token()
             data-ui-size=size.token()
+            data-ui-shape=shape.token()
             data-ui-state=move || {
                 if pressed.get() {
                     "pressed"
@@ -101,6 +111,104 @@ pub fn Button(
             {leading_icon.map(|icon| view! { <Icon icon size=IconSize::Sm /> })}
             {children()}
             {trailing_icon.map(|icon| view! { <Icon icon size=IconSize::Sm /> })}
+        </button>
+    }
+}
+
+#[component]
+/// Shared circular icon button used for transport controls and compact surface actions.
+pub fn IconButton(
+    icon: IconName,
+    #[prop(default = ButtonVariant::Icon)] variant: ButtonVariant,
+    #[prop(default = ButtonSize::Md)] size: ButtonSize,
+    #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional, into)] title: MaybeSignal<String>,
+    #[prop(optional)] ui_slot: Option<&'static str>,
+    #[prop(optional, into)] disabled: MaybeSignal<bool>,
+    #[prop(optional, into)] pressed: MaybeSignal<bool>,
+    #[prop(optional)] on_click: Option<Callback<MouseEvent>>,
+) -> impl IntoView {
+    view! {
+        <button
+            type="button"
+            class=merge_layout_class("ui-icon-button", layout_class)
+            aria-label=move || aria_label.get()
+            title=move || title.get()
+            disabled=move || disabled.get()
+            data-ui-primitive="true"
+            data-ui-kind="icon-button"
+            data-ui-slot=ui_slot
+            data-ui-variant=variant.token()
+            data-ui-size=size.token()
+            data-ui-shape=ButtonShape::Circle.token()
+            data-ui-pressed=move || bool_token(pressed.get())
+            data-ui-disabled=move || bool_token(disabled.get())
+            on:click=move |ev| {
+                if let Some(on_click) = on_click.as_ref() {
+                    on_click.call(ev);
+                }
+            }
+        >
+            <Icon icon size=IconSize::Md />
+        </button>
+    }
+}
+
+#[component]
+/// Shared pill-style segmented control container.
+pub fn SegmentedControl(
+    #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional)] ui_slot: Option<&'static str>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <div
+            class=merge_layout_class("ui-segmented-control", layout_class)
+            role="group"
+            aria-label=move || aria_label.get()
+            data-ui-primitive="true"
+            data-ui-kind="segmented-control"
+            data-ui-slot=ui_slot
+        >
+            {children()}
+        </div>
+    }
+}
+
+#[component]
+/// Shared segmented control option button.
+pub fn SegmentedControlOption(
+    #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional)] ui_slot: Option<&'static str>,
+    #[prop(optional, into)] selected: MaybeSignal<bool>,
+    #[prop(optional, into)] disabled: MaybeSignal<bool>,
+    #[prop(optional, into)] pressed: MaybeSignal<bool>,
+    #[prop(optional)] on_click: Option<Callback<MouseEvent>>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <button
+            type="button"
+            class=merge_layout_class("ui-segmented-control-option", layout_class)
+            aria-label=move || aria_label.get()
+            disabled=move || disabled.get()
+            data-ui-primitive="true"
+            data-ui-kind="segmented-control-option"
+            data-ui-slot=ui_slot
+            data-ui-variant=ButtonVariant::Segmented.token()
+            data-ui-selected=move || bool_token(selected.get())
+            data-ui-pressed=move || bool_token(pressed.get())
+            data-ui-disabled=move || bool_token(disabled.get())
+            on:click=move |ev| {
+                if let Some(on_click) = on_click.as_ref() {
+                    on_click.call(ev);
+                }
+            }
+        >
+            {children()}
         </button>
     }
 }
@@ -263,7 +371,7 @@ pub fn SelectField(
 }
 
 #[component]
-/// Shared range-field primitive.
+/// Shared range-field primitive with a percent CSS hook for active-track styling.
 pub fn RangeField(
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional)] min: Option<&'static str>,
@@ -273,6 +381,9 @@ pub fn RangeField(
     #[prop(optional, into)] value: MaybeSignal<String>,
     #[prop(optional)] on_input: Option<Callback<web_sys::Event>>,
 ) -> impl IntoView {
+    let value_signal = Signal::derive(move || value.get());
+    let percent = Signal::derive(move || clamp_percent(&value_signal.get(), min, max));
+
     view! {
         <input
             class=merge_layout_class("ui-field", layout_class)
@@ -280,11 +391,15 @@ pub fn RangeField(
             min=min
             max=max
             aria-label=aria_label
-            prop:value=move || value.get()
+            prop:value=move || value_signal.get()
             data-ui-primitive="true"
             data-ui-kind="range"
             data-ui-slot=ui_slot
             data-ui-variant="standard"
+            data-ui-value=move || value_signal.get()
+            data-ui-min=min.unwrap_or("0")
+            data-ui-max=max.unwrap_or("100")
+            data-ui-percent=move || format!("{:.2}", percent.get())
             on:input=move |ev| {
                 if let Some(on_input) = on_input.as_ref() {
                     on_input.call(ev);
@@ -349,7 +464,55 @@ pub fn CheckboxField(
 }
 
 #[component]
-/// Shared progress indicator primitive.
+/// Shared neumorphic switch with explicit `role="switch"` semantics.
+pub fn Switch(
+    #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional, into)] aria_label: MaybeSignal<String>,
+    #[prop(optional)] ui_slot: Option<&'static str>,
+    #[prop(optional, into)] checked: MaybeSignal<bool>,
+    #[prop(optional, into)] disabled: MaybeSignal<bool>,
+    #[prop(optional)] on_toggle: Option<Callback<bool>>,
+) -> impl IntoView {
+    let handle_toggle = move || {
+        if disabled.get_untracked() {
+            return;
+        }
+        if let Some(on_toggle) = on_toggle.as_ref() {
+            on_toggle.call(!checked.get_untracked());
+        }
+    };
+
+    view! {
+        <button
+            type="button"
+            class=merge_layout_class("ui-switch", layout_class)
+            role="switch"
+            aria-label=move || aria_label.get()
+            aria-checked=move || checked.get().to_string()
+            disabled=move || disabled.get()
+            data-ui-primitive="true"
+            data-ui-kind="switch"
+            data-ui-slot=ui_slot
+            data-ui-selected=move || bool_token(checked.get())
+            data-ui-disabled=move || bool_token(disabled.get())
+            on:click=move |_| handle_toggle()
+            on:keydown=move |ev| match ev.key().as_str() {
+                " " | "Enter" => {
+                    ev.prevent_default();
+                    handle_toggle();
+                }
+                _ => {}
+            }
+        >
+            <span data-ui-slot="track">
+                <span data-ui-slot="thumb"></span>
+            </span>
+        </button>
+    }
+}
+
+#[component]
+/// Shared linear progress indicator.
 pub fn ProgressBar(
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(default = ProgressVariant::Standard)] _variant: ProgressVariant,
@@ -357,16 +520,171 @@ pub fn ProgressBar(
     max: u16,
     value: u16,
 ) -> impl IntoView {
+    let capped_value = value.min(max);
+
     view! {
         <progress
             class=merge_layout_class("ui-progress", layout_class)
             max=max
-            value=value
+            value=capped_value
             data-ui-primitive="true"
             data-ui-kind="progress"
             data-ui-slot=ui_slot
-            data-ui-variant="standard"
+            data-ui-variant="linear"
+            data-ui-value=capped_value
+            data-ui-max=max
         ></progress>
+    }
+}
+
+#[component]
+/// Shared circular progress ring with an optional center label.
+pub fn CircularProgress(
+    value: u16,
+    max: u16,
+    #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional)] ui_slot: Option<&'static str>,
+    #[prop(optional, into)] label: Option<String>,
+) -> impl IntoView {
+    let radius = 24.0f32;
+    let circumference = 2.0 * std::f32::consts::PI * radius;
+    let clamped = value.min(max);
+    let progress = if max == 0 {
+        0.0
+    } else {
+        clamped as f32 / max as f32
+    };
+    let dash_offset = circumference * (1.0 - progress);
+
+    view! {
+        <div
+            class=merge_layout_class("ui-progress-ring", layout_class)
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax=max
+            aria-valuenow=clamped
+            data-ui-primitive="true"
+            data-ui-kind="progress-ring"
+            data-ui-slot=ui_slot
+            data-ui-value=clamped
+            data-ui-max=max
+        >
+            <svg viewBox="0 0 64 64" aria-hidden="true">
+                <circle data-ui-slot="track" cx="32" cy="32" r=radius></circle>
+                <circle
+                    data-ui-slot="fill"
+                    cx="32"
+                    cy="32"
+                    r=radius
+                    stroke-dasharray=circumference
+                    stroke-dashoffset=dash_offset
+                ></circle>
+            </svg>
+            {label.map(|label| view! { <span data-ui-slot="label">{label}</span> })}
+        </div>
+    }
+}
+
+#[component]
+/// Shared showcase-ready dial primitive with radial ticks and a pointer needle.
+pub fn KnobDial(
+    value: i32,
+    #[prop(optional)] min: Option<i32>,
+    #[prop(optional)] max: Option<i32>,
+    #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(optional)] ui_slot: Option<&'static str>,
+    #[prop(optional, into)] aria_label: Option<String>,
+    #[prop(optional, into)] on_change: Option<Callback<i32>>,
+) -> impl IntoView {
+    let min = min.unwrap_or(0);
+    let max = max.unwrap_or(100).max(min + 1);
+    let clamped = value.clamp(min, max);
+    let progress = (clamped - min) as f32 / (max - min) as f32;
+    let rotation = -135.0 + progress * 270.0;
+
+    let ticks = (0..15)
+        .map(|index| {
+            let tick_rotation = -135.0 + (index as f32 / 14.0) * 270.0;
+            let selected = tick_rotation <= rotation + 1.0;
+            view! {
+                <line
+                    data-ui-slot="tick"
+                    data-ui-selected=bool_token(selected)
+                    x1="50"
+                    y1="11"
+                    x2="50"
+                    y2="21"
+                    transform=format!("rotate({tick_rotation} 50 50)")
+                ></line>
+            }
+        })
+        .collect_view();
+
+    let emit_delta = move |delta: i32| {
+        if let Some(on_change) = on_change.as_ref() {
+            on_change.call((clamped + delta).clamp(min, max));
+        }
+    };
+
+    view! {
+        <button
+            type="button"
+            class=merge_layout_class("ui-knob-dial", layout_class)
+            aria-label=aria_label
+            data-ui-primitive="true"
+            data-ui-kind="knob-dial"
+            data-ui-slot=ui_slot
+            data-ui-value=clamped
+            data-ui-min=min
+            data-ui-max=max
+            on:keydown=move |ev| match ev.key().as_str() {
+                "ArrowLeft" | "ArrowDown" => {
+                    ev.prevent_default();
+                    emit_delta(-1);
+                }
+                "ArrowRight" | "ArrowUp" => {
+                    ev.prevent_default();
+                    emit_delta(1);
+                }
+                "PageDown" => {
+                    ev.prevent_default();
+                    emit_delta(-10);
+                }
+                "PageUp" => {
+                    ev.prevent_default();
+                    emit_delta(10);
+                }
+                "Home" => {
+                    ev.prevent_default();
+                    if let Some(on_change) = on_change.as_ref() {
+                        on_change.call(min);
+                    }
+                }
+                "End" => {
+                    ev.prevent_default();
+                    if let Some(on_change) = on_change.as_ref() {
+                        on_change.call(max);
+                    }
+                }
+                _ => {}
+            }
+        >
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+                <g data-ui-slot="ticks">{ticks}</g>
+                <circle data-ui-slot="dial-face" cx="50" cy="50" r="34"></circle>
+                <circle data-ui-slot="inner-ring" cx="50" cy="50" r="24"></circle>
+                <line
+                    data-ui-slot="needle"
+                    x1="50"
+                    y1="50"
+                    x2="50"
+                    y2="24"
+                    transform=format!("rotate({rotation} 50 50)")
+                ></line>
+                <circle data-ui-slot="needle-cap" cx="50" cy="50" r="4"></circle>
+            </svg>
+            <span data-ui-slot="value">{clamped}</span>
+        </button>
     }
 }
 

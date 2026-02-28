@@ -15,6 +15,7 @@ members = [
   "crates/apps/notepad",
   "crates/apps/terminal",
   "crates/apps/settings",
+  "crates/apps/ui_showcase",
   "xtask",
 ]
 default-members = [
@@ -32,5 +33,6 @@ default-members = [
   "crates/apps/notepad",
   "crates/apps/terminal",
   "crates/apps/settings",
+  "crates/apps/ui_showcase",
 ]
 resolver = "2"

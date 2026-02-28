@@ -71,13 +71,19 @@ Shell primitives:
 Control primitives:
 
 - `Button`
+- `IconButton`
+- `SegmentedControl`
+- `SegmentedControlOption`
 - `FieldGroup`
 - `TextField`
 - `TextArea`
 - `SelectField`
 - `RangeField`
 - `ColorField`
+- `Switch`
 - `ProgressBar`
+- `CircularProgress`
+- `KnobDial`
 - `DisclosurePanel`
 - `StepFlow`
 - `StepFlowHeader`
@@ -175,6 +181,8 @@ Additional hard requirements for the soft-neumorphic shell:
 - geometry and visual depth decisions must be expressed through semantic token aliases such as `--sys-radius-control`, `--sys-space-panel`, `--sys-surface-depth-*`, and `--sys-state-*`
 - shell/runtime surfaces should consume shared shell primitives (`WindowFrame`, `WindowTitleBar`, `WindowControlButton`, `TaskbarButton`, `ClockButton`, `MenuSurface`, `MenuItem`) instead of emitting raw interactive elements with manual `data-ui-*` roots
 - app/runtime `layout_class` hooks are allowed only for layout/test targeting and must not be required for visual appearance
+- tactile controls should expose semantic state through shared attributes (`data-ui-selected`, `data-ui-pressed`, `data-ui-disabled`) instead of app-local style hooks
+- control polish such as active slider fills, switch thumbs, icon-button geometry, and dial rotation indicators should be driven through shared CSS variables and token families rather than per-app literals
 
 ## DOM Contract
 
@@ -187,6 +195,7 @@ Shared primitives render stable root markers:
 - `data-ui-tone`
 - `data-ui-elevation`
 - `data-ui-slot`
+- `data-ui-shape`
 
 Shared primitives may also expose discrete state markers such as:
 
@@ -197,6 +206,24 @@ Shared primitives may also expose discrete state markers such as:
 - `data-ui-pressed`
 - `data-ui-disabled`
 - `data-ui-minimized`
+
+New shared root kinds added for the production neumorphic kit:
+
+- `segmented-control`
+- `segmented-control-option`
+- `icon-button`
+- `switch`
+- `progress-ring`
+- `knob-dial`
+
+Expanded shared control semantics:
+
+- `ButtonVariant` now includes `Secondary`, `Segmented`, and `Icon`
+- `ButtonShape` adds `standard`, `pill`, and `circle` geometry tokens
+- `RangeField` exposes `--ui-range-percent` for active-track rendering
+- `ProgressBar` exposes `data-ui-value`, `data-ui-max`, and `--ui-progress-percent`
+- `CircularProgress` renders an SVG-backed ring while preserving the shared `data-ui-*` contract
+- `KnobDial` is a showcase-ready shared primitive with keyboard affordances for incremental adjustment
 
 New work should prefer `data-ui-*` roots and shared components over direct legacy `.app-*` class usage.
 

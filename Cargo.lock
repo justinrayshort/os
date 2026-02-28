@@ -1018,6 +1018,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "desktop_app_ui_showcase"
+version = "0.1.0"
+dependencies = [
+ "desktop_app_contract",
+ "leptos",
+ "serde",
+ "serde_json",
+ "system_ui",
+]
+
+[[package]]
 name = "desktop_runtime"
 version = "0.1.0"
 dependencies = [
@@ -1027,6 +1038,7 @@ dependencies = [
  "desktop_app_notepad",
  "desktop_app_settings",
  "desktop_app_terminal",
+ "desktop_app_ui_showcase",
  "futures",
  "js-sys",
  "leptos",

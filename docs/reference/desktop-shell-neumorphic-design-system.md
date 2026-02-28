@@ -16,7 +16,7 @@ lifecycle: "ga"
 
 # Desktop Shell Neumorphic Design System
 
-This reference documents the `soft-neumorphic` shell skin and the supporting token model used to apply restrained neumorphic depth across shell chrome and built-in app interiors without changing runtime behavior.
+This reference documents the rebuilt `soft-neumorphic` shell skin and the supporting token model used to apply a production neumorphic surface language across shell chrome, shared primitives, and the built-in UI showcase app without changing runtime behavior.
 
 ## Scope
 
@@ -26,7 +26,7 @@ The neumorphic skin covers:
 - window chrome, titlebar controls, and window bodies
 - taskbar, start button, taskbar app buttons, tray, overflow, and menus
 - built-in app primitives rendered through `system_ui` shell/content primitives and `data-ui-*` roots
-- built-in app interiors for Explorer, Notepad, Terminal, Calculator, System Settings, and the lightweight Paint/Connection utility surfaces that replaced placeholder-grade windows
+- built-in app interiors for Explorer, Notepad, Terminal, Calculator, System Settings, the built-in UI Showcase app, and the lightweight Paint/Connection utility surfaces that replaced placeholder-grade windows
 
 Wallpaper asset selection remains a separate subsystem. Skin files may style atmosphere and surface treatment, but they must not choose wallpapers or mutate wallpaper runtime state.
 
@@ -72,11 +72,44 @@ Primary token families:
 
 The neumorphic theme file is token-only. It remaps the shared `--sys-*` surface, elevation, border, focus, and component-role tokens for `data-skin="soft-neumorphic"` without targeting app-specific DOM contracts.
 
+Key soft-neumorphic defaults now standardized by token remapping:
+
+- base surface family centered on `#e6e7ee`
+- muted blue accent family centered on `#5b8ccf`
+- dual-shadow raised geometry:
+  - highlight `rgba(255,255,255,0.8)` at `-6px -6px 12px`
+  - shadow `rgba(0,0,0,0.12)` at `6px 6px 12px`
+- inset, overlay, and pressed states derived from the same semantic shadow aliases rather than per-component literals
+- large shared radii:
+  - controls `12px`
+  - panels/cards `18px` to `24px`
+  - pills `9999px`
+- 8px-based spacing and motion tokens
+
+New semantic tokens added for the expanded kit include:
+
+- `--sys-color-placeholder`
+- `--sys-color-track`
+- `--sys-color-track-active`
+- `--sys-color-thumb`
+- `--sys-color-ring`
+- `--sys-color-ring-active`
+- `--sys-color-icon-button`
+- `--sys-color-icon-button-active`
+- `--sys-glow-accent-soft`
+- `--sys-scale-hover`
+- `--sys-scale-pressed`
+- `--sys-comp-switch-*`
+- `--sys-comp-icon-button-size`
+- `--sys-comp-knob-*`
+- `--sys-comp-progress-ring-*`
+
 ## Visual Rules
 
 - Light source direction is fixed: top-left highlight and bottom-right shadow.
 - Raised controls use low-amplitude outer shadows rather than dramatic extrusion.
 - Pressed, toggled, and input-well states use inset treatments, not color changes alone.
+- Hover feedback is limited to slight light intensification plus `1.01` scale rather than large motion or glow effects.
 - Focus indication uses an explicit outline token and must remain visible independently of elevation styling.
 - Primitive selectors consume token aliases such as `--sys-radius-control`, `--sys-space-panel`, `--sys-surface-depth-muted`, and `--sys-state-hover` instead of direct literal geometry or color recipes.
 - High-contrast mode may intentionally flatten surfaces to preserve separation and contrast.
@@ -90,6 +123,8 @@ The neumorphic theme file is token-only. It remaps the shared `--sys-*` surface,
 - Preserve shared shell structure and reducer-driven state semantics.
 - Prefer semantic token remapping over one-off literals in theme files.
 - Compose runtime shell chrome through `system_ui` primitives (`WindowFrame`, `WindowControlButton`, `TaskbarButton`, `ClockButton`, `MenuSurface`, `MenuItem`) rather than local raw button/menu markup.
+- The expanded primitive kit now includes `IconButton`, `SegmentedControl`, `SegmentedControlOption`, `Switch`, `CircularProgress`, and `KnobDial`, all rendered through stable `data-ui-*` roots.
+- `RangeField`, `SelectField`, `ProgressBar`, `TextField`, and `TextArea` now expose richer neumorphic hooks while preserving the shared contract.
 - Keep app-specific classes nonvisual; styling must flow through shared primitives and `data-ui-*` contracts.
 - Preserve terminal transcript readability over tactile styling.
 
@@ -122,9 +157,15 @@ Current measured observations from that contrast artifact:
 - Taskbar start-button label sample: `1.2:1` against its control background, below the documented text target and a concrete follow-up item for the skin.
 - Browser `prefers-color-scheme: dark` emulation did not change the sampled computed shell colors during this review cycle, so dark-mode-specific contrast evidence remains incomplete.
 
+Implementation note for the current review cycle:
+
+- the shared neumorphic primitive kit and `system.ui-showcase` app are now implemented in code
+- contrast, screenshot-matrix, and keyboard-smoke evidence should be regenerated for the rebuilt skin before claiming all checklist items as complete
+
 ## Related Files
 
 - [`crates/desktop_runtime/src/model.rs`](../../crates/desktop_runtime/src/model.rs)
 - [`crates/desktop_runtime/src/reducer/appearance.rs`](../../crates/desktop_runtime/src/reducer/appearance.rs)
+- [`crates/apps/ui_showcase/src/lib.rs`](../../crates/apps/ui_showcase/src/lib.rs)
 - [`crates/site/src/theme_shell/01-primitives.css`](../../crates/site/src/theme_shell/01-primitives.css)
 - [`crates/site/src/theme_shell/34-theme-soft-neumorphic.css`](../../crates/site/src/theme_shell/34-theme-soft-neumorphic.css)

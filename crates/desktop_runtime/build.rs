@@ -42,15 +42,22 @@ struct WallpaperManifest {
 }
 
 fn app_manifest_paths(root: &Path) -> Vec<PathBuf> {
-    ["calculator", "explorer", "notepad", "terminal", "settings"]
-        .iter()
-        .map(|name| {
-            root.join("..")
-                .join("apps")
-                .join(name)
-                .join("app.manifest.toml")
-        })
-        .collect()
+    [
+        "calculator",
+        "explorer",
+        "notepad",
+        "terminal",
+        "settings",
+        "ui_showcase",
+    ]
+    .iter()
+    .map(|name| {
+        root.join("..")
+            .join("apps")
+            .join(name)
+            .join("app.manifest.toml")
+    })
+    .collect()
 }
 
 fn main() {
