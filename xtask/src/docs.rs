@@ -1896,6 +1896,10 @@ fn write_audit_report(
 
 const FLUENT_OVERRIDES_PATH: &str =
     "crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css";
+const SOFT_NEUMORPHIC_TOKENS_PATH: &str =
+    "crates/site/src/theme_shell/34-theme-soft-neumorphic-tokens.css";
+const SOFT_NEUMORPHIC_OVERRIDES_PATH: &str =
+    "crates/site/src/theme_shell/35-theme-soft-neumorphic-overrides.css";
 const XP_TOKENS_PATH: &str = "crates/site/src/theme_shell/10-theme-xp-tokens.css";
 const XP_OVERRIDES_PATH: &str = "crates/site/src/theme_shell/11-theme-xp-overrides.css";
 const LEGACY95_TOKENS_PATH: &str = "crates/site/src/theme_shell/20-theme-legacy95-tokens.css";
@@ -1916,8 +1920,11 @@ const ACTIVE_THEME_SHELL_CSS_FILES: &[&str] = &[
     "crates/site/src/theme_shell/31-theme-fluent-modern-primitives.css",
     MODERN_TOKENS_PATH,
     FLUENT_OVERRIDES_PATH,
+    SOFT_NEUMORPHIC_TOKENS_PATH,
+    SOFT_NEUMORPHIC_OVERRIDES_PATH,
 ];
 const REQUIRED_SKIN_SCOPES: &[&str] = &[
+    ".desktop-shell[data-skin=\"soft-neumorphic\"]",
     ".desktop-shell[data-skin=\"modern-adaptive\"]",
     ".desktop-shell[data-skin=\"classic-xp\"]",
     ".desktop-shell[data-skin=\"classic-95\"]",
@@ -1944,7 +1951,17 @@ const SKIN_SCOPED_FILES: &[(&str, &str)] = &[
         FLUENT_OVERRIDES_PATH,
         ".desktop-shell[data-skin=\"modern-adaptive\"]",
     ),
+    (
+        SOFT_NEUMORPHIC_TOKENS_PATH,
+        ".desktop-shell[data-skin=\"soft-neumorphic\"]",
+    ),
+    (
+        SOFT_NEUMORPHIC_OVERRIDES_PATH,
+        ".desktop-shell[data-skin=\"soft-neumorphic\"]",
+    ),
 ];
+const THEME_OVERRIDE_FILES_WITH_LITERAL_HYGIENE: &[&str] =
+    &[FLUENT_OVERRIDES_PATH, SOFT_NEUMORPHIC_OVERRIDES_PATH];
 const TYPED_PERSISTENCE_BOUNDARY_DIRS: &[&str] =
     &["crates/apps", "crates/desktop_runtime", "crates/site"];
 const PLATFORM_HOST_WEB_IMPORT_ALLOWLIST: &[&str] = &["crates/site/src/web_app.rs"];
@@ -1963,45 +1980,46 @@ fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
     problems.extend(validate_skin_file_scope_presence(root));
     problems.extend(validate_skin_selector_scoping(root));
 
-    let path = root.join(FLUENT_OVERRIDES_PATH);
-    let Ok(text) = fs::read_to_string(&path) else {
-        problems.push(Problem::new(
-            "ui-conformance",
-            FLUENT_OVERRIDES_PATH,
-            "failed to read Fluent overrides CSS for UI conformance checks",
-            None,
-        ));
-        problems.extend(validate_shell_icon_standardization(root));
-        return problems;
-    };
-
-    for (idx, line) in text.lines().enumerate() {
-        let line_no = idx + 1;
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with("/*") || trimmed.starts_with('*') {
-            continue;
-        }
-        if trimmed.starts_with("--") {
-            // Token definitions may contain raw literals by design.
-            continue;
-        }
-
-        if has_disallowed_raw_color_literal(trimmed) {
+    for rel_path in THEME_OVERRIDE_FILES_WITH_LITERAL_HYGIENE {
+        let path = root.join(rel_path);
+        let Ok(text) = fs::read_to_string(&path) else {
             problems.push(Problem::new(
                 "ui-conformance",
-                FLUENT_OVERRIDES_PATH,
-                "raw color literal outside token definitions (allowed exception: transparent rgba(..., 0) stops)",
-                Some(line_no),
+                *rel_path,
+                "failed to read theme overrides CSS for UI conformance checks",
+                None,
             ));
-        }
+            continue;
+        };
 
-        if has_disallowed_raw_px_literal(trimmed) {
-            problems.push(Problem::new(
-                "ui-conformance",
-                FLUENT_OVERRIDES_PATH,
-                "raw px literal outside token definitions/effect-geometry exceptions",
-                Some(line_no),
-            ));
+        for (idx, line) in text.lines().enumerate() {
+            let line_no = idx + 1;
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with("/*") || trimmed.starts_with('*') {
+                continue;
+            }
+            if trimmed.starts_with("--") {
+                // Token definitions may contain raw literals by design.
+                continue;
+            }
+
+            if has_disallowed_raw_color_literal(trimmed) {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    *rel_path,
+                    "raw color literal outside token definitions (allowed exception: transparent rgba(..., 0) stops)",
+                    Some(line_no),
+                ));
+            }
+
+            if has_disallowed_raw_px_literal(trimmed) {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    *rel_path,
+                    "raw px literal outside token definitions/effect-geometry exceptions",
+                    Some(line_no),
+                ));
+            }
         }
     }
 

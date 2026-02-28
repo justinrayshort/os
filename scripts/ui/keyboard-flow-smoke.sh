@@ -94,7 +94,7 @@ async function main() {
     process.exit(1);
   }
 
-  const skins = ['modern-adaptive', 'classic-xp', 'classic-95'];
+  const skins = ['soft-neumorphic', 'modern-adaptive', 'classic-xp', 'classic-95'];
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1366, height: 900 } });
   const page = await context.newPage();

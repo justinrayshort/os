@@ -12,6 +12,7 @@ use crate::{
 
 pub(super) fn desktop_skin_from_id(skin_id: &str) -> Option<DesktopSkin> {
     match skin_id.trim() {
+        "soft-neumorphic" => Some(DesktopSkin::SoftNeumorphic),
         "modern-adaptive" => Some(DesktopSkin::ModernAdaptive),
         "classic-xp" => Some(DesktopSkin::ClassicXp),
         "classic-95" => Some(DesktopSkin::Classic95),

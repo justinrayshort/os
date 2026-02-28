@@ -27,6 +27,8 @@ const DESKTOP_THEME_CSS: &str = concat!(
     include_str!("theme_shell/31-theme-fluent-modern-primitives.css"),
     include_str!("theme_shell/32-theme-fluent-modern-theme-tokens.css"),
     include_str!("theme_shell/33-theme-fluent-modern-overrides.css"),
+    include_str!("theme_shell/34-theme-soft-neumorphic-tokens.css"),
+    include_str!("theme_shell/35-theme-soft-neumorphic-overrides.css"),
 );
 
 #[component]

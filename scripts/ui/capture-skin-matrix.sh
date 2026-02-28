@@ -27,7 +27,7 @@ async function main() {
     process.exit(1);
   }
 
-  const skins = ['modern-adaptive', 'classic-xp', 'classic-95'];
+  const skins = ['soft-neumorphic', 'modern-adaptive', 'classic-xp', 'classic-95'];
   const viewports = [
     { name: 'desktop', width: 1440, height: 900 },
     { name: 'tablet', width: 1024, height: 768 },

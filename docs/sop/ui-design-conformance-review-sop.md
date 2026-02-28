@@ -1,24 +1,24 @@
 ---
-title: "SOP: UI Design Conformance Review (Apple HIG + Fluent Integration)"
+title: "SOP: UI Design Conformance Review (Apple HIG + Neumorphic Shell)"
 category: "sop"
 owner: "platform-team"
 status: "active"
 last_reviewed: "2026-02-26"
 audience: ["engineering", "design"]
 invariants:
-  - "Material shell UI changes are reviewed against explicit HIG and Fluent integration criteria before merge."
+  - "Material shell UI changes are reviewed against explicit HIG and neumorphic design criteria before merge."
   - "Conformance claims require recorded evidence, not subjective visual approval alone."
   - "UI conformance checklist and design-system references remain synchronized with implementation changes."
-tags: ["sop", "ui", "design-system", "apple-hig", "fluent-ui", "governance"]
+tags: ["sop", "ui", "design-system", "apple-hig", "neumorphic", "governance"]
 domain: "frontend"
 lifecycle: "ga"
 ---
 
-# SOP: UI Design Conformance Review (Apple HIG + Fluent Integration)
+# SOP: UI Design Conformance Review (Apple HIG + Neumorphic Shell)
 
 ## 1. Title & Purpose
 
-This SOP defines the repeatable procedure for reviewing desktop-shell and shared UI changes against Apple Human Interface Guidelines principles while integrating Fluent UI assets/resources in a consistent, tokenized, and semantically controlled manner without violating accessibility, interaction, and documentation governance invariants.
+This SOP defines the repeatable procedure for reviewing desktop-shell and shared UI changes against Apple Human Interface Guidelines principles while applying the project neumorphic design system in a consistent, tokenized, and semantically controlled manner without violating accessibility, interaction, and documentation governance invariants.
 
 ## 2. Scope
 
@@ -41,8 +41,8 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
 - Repository checkout with Rust toolchain and local build/test capability
 - `wiki/` submodule initialized when wiki registry pages will be updated
 - Ability to run the desktop shell locally (browser/WASM workflow used by the project)
-- Current checklist available: `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`
-- Current design-system reference available: `docs/reference/desktop-shell-fluent-modern-design-system.md`
+- Current checklist available: `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md`
+- Current design-system reference available: `docs/reference/desktop-shell-neumorphic-design-system.md`
 - Change scope identified (token-only, visual component, interaction behavior, accessibility, iconography, responsive)
 
 ## 5. Step-by-Step Procedure
@@ -97,7 +97,7 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    cargo xtask docs all
    ```
 
-   - Expected output: implementation, machine-checkable UI conformance checks (including Fluent token/literal hygiene and shell icon-standardization regressions), and documentation checks pass for the current change set
+   - Expected output: implementation, machine-checkable UI conformance checks (including neumorphic token/literal hygiene and shell icon-standardization regressions), and documentation checks pass for the current change set
    - Failure condition: compile/test/docs validation failures or skipped checks without explanation
    - If rustdoc comments were changed: also run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc`
 
@@ -105,13 +105,13 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    - Command:
 
    ```bash
-   $EDITOR docs/reference/desktop-shell-hig-fluent-conformance-checklist.md
+   $EDITOR docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md
    ```
 
    - Expected output: affected checklist items are updated to `Complete`, `Partial`, or `Outstanding` with evidence-based notes
    - Failure condition: UI code changes merge with stale checklist status or no acceptance-criteria mapping
    - Additional required doc updates by change type:
-     - token/primitives/invariants changed -> update `docs/reference/desktop-shell-fluent-modern-design-system.md`
+     - token/primitives/invariants changed -> update `docs/reference/desktop-shell-neumorphic-design-system.md`
      - review process/gates changed -> update this SOP and `AGENTS.md`
      - new/changed formal docs -> update relevant wiki registry pages (`wiki/Reference-Design-Materials-and-Artifacts.md`, `wiki/Reference-Operational-Runbooks-and-SOPs.md`, etc.)
 
@@ -119,7 +119,7 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    - Command:
 
    ```bash
-   git diff -- docs/reference/desktop-shell-hig-fluent-conformance-checklist.md docs/sop/ui-design-conformance-review-sop.md AGENTS.md
+   git diff -- docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md docs/sop/ui-design-conformance-review-sop.md AGENTS.md
    ```
 
    - Expected output: deviations, status changes, and governance updates are reviewable in diff
@@ -159,8 +159,8 @@ flowchart TD
 ## 7. Invariants (Critical Section)
 
 - Material shell UI changes do not claim HIG conformance based only on visual similarity.
-- Apple HIG principles (hierarchy, clarity, feedback, motion discipline, accessibility) take precedence over cosmetic Fluent styling decisions when conflicts arise.
-- Fluent UI assets/resources are integrated semantically (for example via `FluentIcon`/`IconName`) and not mixed ad hoc per component.
+- Apple HIG principles (hierarchy, clarity, feedback, motion discipline, accessibility) take precedence over cosmetic neumorphic styling decisions when conflicts arise.
+- Centralized shell icon assets remain integrated semantically (for example via `FluentIcon`/`IconName`) and not mixed ad hoc per component.
 - Theme state remains driven by runtime state + reducer patterns (or documented equivalent), not hidden CSS-only toggles for user preferences.
 - Reduced-motion support must remain functional during visual refinements.
 - Keyboard focus visibility and menu/dialog keyboard behavior must remain functional during visual refinements.
@@ -170,7 +170,7 @@ flowchart TD
 ## 8. Validation Checklist
 
 - [ ] UI change scope classified (`tokens`, `primitives`, `interaction`, `a11y`, `iconography`, `responsive`, `docs-governance`)
-- [ ] Affected checklist IDs updated in `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`
+- [ ] Affected checklist IDs updated in `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md`
 - [ ] Keyboard/focus/menu/dialog behavior verified for changed surfaces
 - [ ] Reduced-motion behavior verified (system and/or runtime toggle if affected)
 - [ ] Light/dark/high-contrast impact assessed for changed surfaces
@@ -188,4 +188,5 @@ flowchart TD
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.1.0 | 2026-02-28 | Codex | Reoriented the SOP around the `soft-neumorphic` shell while preserving HIG accessibility and centralized icon governance |
 | 1.0.0 | 2026-02-26 | Codex | Initial SOP for repeatable Apple HIG + Fluent UI design conformance reviews and governance |

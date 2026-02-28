@@ -52,7 +52,12 @@ struct SkinPreset {
     note: &'static str,
 }
 
-const SKIN_PRESETS: [SkinPreset; 3] = [
+const SKIN_PRESETS: [SkinPreset; 4] = [
+    SkinPreset {
+        id: "soft-neumorphic",
+        label: "Soft Neumorphic",
+        note: "Disciplined low-contrast shell depth with tactile surfaces",
+    },
     SkinPreset {
         id: "modern-adaptive",
         label: "Modern Adaptive",

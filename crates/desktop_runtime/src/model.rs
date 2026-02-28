@@ -148,6 +148,9 @@ pub struct WindowRecord {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Typed desktop skin variants rendered by the shell root `data-skin` attribute.
 pub enum DesktopSkin {
+    /// Soft neumorphic skin with restrained depth cues and adaptive light/dark parity.
+    #[serde(rename = "soft-neumorphic")]
+    SoftNeumorphic,
     /// Modern adaptive skin with dark-first token language and light/dark remapping.
     #[serde(rename = "modern-adaptive")]
     ModernAdaptive,
@@ -163,6 +166,7 @@ impl DesktopSkin {
     /// Stable CSS skin id exposed on the shell root `data-skin` attribute.
     pub const fn css_id(&self) -> &'static str {
         match self {
+            Self::SoftNeumorphic => "soft-neumorphic",
             Self::ModernAdaptive => "modern-adaptive",
             Self::ClassicXp => "classic-xp",
             Self::Classic95 => "classic-95",
@@ -172,16 +176,25 @@ impl DesktopSkin {
     /// Human-readable label used by UI skin pickers.
     pub const fn label(&self) -> &'static str {
         match self {
+            Self::SoftNeumorphic => "Soft Neumorphic",
             Self::ModernAdaptive => "Modern Adaptive",
             Self::ClassicXp => "Classic XP",
             Self::Classic95 => "Classic 95",
         }
     }
+
+    /// Stable ordered list of selectable shell skins.
+    pub const ALL: [Self; 4] = [
+        Self::SoftNeumorphic,
+        Self::ModernAdaptive,
+        Self::ClassicXp,
+        Self::Classic95,
+    ];
 }
 
 impl Default for DesktopSkin {
     fn default() -> Self {
-        Self::ModernAdaptive
+        Self::SoftNeumorphic
     }
 }
 
@@ -190,7 +203,8 @@ impl Default for DesktopSkin {
 pub struct DesktopTheme {
     /// Typed skin preset rendered as the shell root `data-skin`.
     ///
-    /// This defaults to [`DesktopSkin::ModernAdaptive`] for legacy persisted payloads.
+    /// This defaults to [`DesktopSkin::SoftNeumorphic`] for fresh state and legacy persisted
+    /// payloads that omitted the typed `skin` field.
     #[serde(default)]
     pub skin: DesktopSkin,
     /// Whether high contrast rendering is enabled.
@@ -536,7 +550,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_theme_name_defaults_skin_to_modern_adaptive() {
+    fn legacy_theme_name_defaults_skin_to_soft_neumorphic() {
         let payload = serde_json::json!({
             "high_contrast": true,
             "reduced_motion": true,
@@ -546,7 +560,7 @@ mod tests {
 
         let theme: DesktopTheme =
             serde_json::from_value(payload).expect("legacy theme payload should deserialize");
-        assert_eq!(theme.skin, DesktopSkin::ModernAdaptive);
+        assert_eq!(theme.skin, DesktopSkin::SoftNeumorphic);
         assert!(theme.high_contrast);
         assert!(theme.reduced_motion);
     }

@@ -55,7 +55,7 @@ fn theme_set_skin_registration(runtime: DesktopRuntimeContext) -> AppCommandRegi
             "theme set skin",
             &[],
             "Set the desktop skin.",
-            "theme set skin <modern-adaptive|classic-xp|classic-95>",
+            "theme set skin <soft-neumorphic|modern-adaptive|classic-xp|classic-95>",
             vec![CommandArgSpec {
                 name: "skin".to_string(),
                 summary: "Desktop skin id.".to_string(),
@@ -71,6 +71,7 @@ fn theme_set_skin_registration(runtime: DesktopRuntimeContext) -> AppCommandRegi
             let runtime = runtime.clone();
             Box::pin(async move {
                 let skin = match context.args.first().map(String::as_str) {
+                    Some("soft-neumorphic") => DesktopSkin::SoftNeumorphic,
                     Some("modern-adaptive") => DesktopSkin::ModernAdaptive,
                     Some("classic-xp") => DesktopSkin::ClassicXp,
                     Some("classic-95") => DesktopSkin::Classic95,

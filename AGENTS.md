@@ -36,8 +36,8 @@ This repository is maintained with help from automated agents. Use this file as 
   - `platform_host_web` provides browser/wasm implementations
   - `desktop_tauri` owns native transport/bootstrap integration
 - When editing Wiki tutorial/how-to pages, preserve the shared instructional template headings and order (validated by `cargo xtask docs wiki`).
-- Material shell/UI design-system changes (theme tokens, shell component visuals, interaction patterns, iconography, responsive behavior, accessibility-affecting UI) must be reviewed against Apple HIG principles and Fluent UI integration standards using:
-  - `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`
+- Material shell/UI design-system changes (theme tokens, shell component visuals, interaction patterns, iconography, responsive behavior, accessibility-affecting UI) must be reviewed against Apple HIG principles and the project neumorphic shell standards using:
+  - `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md`
   - `docs/sop/ui-design-conformance-review-sop.md`
 - UI conformance claims must be evidence-based (checklist status updates plus keyboard/focus/motion/responsive validation and contrast measurements when colors/focus/borders change), not subjective visual approval alone.
 - Preserve centralized Fluent icon usage (`crates/desktop_runtime/src/icons.rs`), theme-scoped tokenization, and accessibility behavior during visual refinements; document any intentional deviations.
@@ -164,7 +164,7 @@ Behavior:
 
 Use the formal checklist and SOP for shell/UI design changes:
 
-- `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`
+- `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md`
 - `docs/sop/ui-design-conformance-review-sop.md`
 
 Minimum local review expectations for material UI changes:
@@ -346,8 +346,8 @@ Run `cargo xtask docs wiki` in addition when validating staged wiki-only diagnos
 1. Classify the UI change surface (tokens, primitives/components, interaction behavior, accessibility, iconography, responsive/adaptive theming).
 2. Reuse existing shell primitives and conventions first (`FluentIcon`, semantic `IconName` mapping, theme-scoped token overrides, reducer-driven UI state).
 3. Update implementation and preserve behavioral/accessibility invariants (keyboard navigation, focus visibility, reduced motion support, dialog/menu semantics).
-4. Update `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md` with evidence-based status changes for affected checklist items.
-5. Update `docs/reference/desktop-shell-fluent-modern-design-system.md` when token sets, primitives, invariants, or scope materially change.
+4. Update `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md` with evidence-based status changes for affected checklist items.
+5. Update `docs/reference/desktop-shell-neumorphic-design-system.md` when token sets, primitives, invariants, or scope materially change.
 6. Follow `docs/sop/ui-design-conformance-review-sop.md` for evidence collection, validation, and deviation handling.
 7. Run `cargo check --workspace`, `cargo test --workspace`, `cargo xtask docs ui-conformance`, and `cargo xtask docs all` (plus rustdoc checks when rustdoc changed).
 8. If formal docs artifacts or registries changed, update the relevant wiki reference pages and include the `wiki/` submodule pointer update in the same PR/change set.
@@ -378,8 +378,8 @@ When changing `platform_host`, `platform_host_web`, or `desktop_tauri` contracts
 - `docs/reference/project-command-entrypoints.md` (command catalog / entrypoint reference)
 - `tools/automation/verify_profiles.toml` (profile-driven verification policy surface used by `cargo verify --profile`)
 - `docs/reference/performance-engineering-and-benchmarking.md` (performance workflow reference)
-- `docs/reference/desktop-shell-fluent-modern-design-system.md` (shell Fluent design-system reference and invariants)
-- `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md` (objective HIG + Fluent conformance status checklist)
+- `docs/reference/desktop-shell-neumorphic-design-system.md` (shell neumorphic design-system reference and invariants)
+- `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md` (objective HIG + neumorphic conformance status checklist)
 - `docs/sop/ui-design-conformance-review-sop.md` (repeatable UI conformance review and change-control procedure)
 - `.cargo/config.toml` (Cargo aliases for local workflows)
 - `Makefile` (minimal compatibility wrappers delegating to Cargo aliases)

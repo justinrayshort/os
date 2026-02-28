@@ -1201,6 +1201,7 @@ mod tests {
     use super::*;
     use crate::model::{InteractionState, OpenWindowRequest};
     use desktop_app_contract::ApplicationId;
+    use platform_host::{WallpaperDisplayMode, WallpaperSelection};
 
     fn open(
         state: &mut DesktopState,
@@ -1609,7 +1610,7 @@ mod tests {
         .expect("preview wallpaper");
         assert!(effects.is_empty());
         assert_eq!(state.wallpaper_preview, Some(next.clone()));
-        assert_eq!(state.theme.skin, DesktopSkin::ModernAdaptive);
+        assert_eq!(state.theme.skin, DesktopSkin::SoftNeumorphic);
 
         let effects = reduce_desktop(
             &mut state,
@@ -1620,7 +1621,7 @@ mod tests {
         assert_eq!(state.wallpaper, next);
         assert!(state.wallpaper_preview.is_none());
         assert_eq!(effects, vec![RuntimeEffect::PersistWallpaper]);
-        assert_eq!(state.theme.skin, DesktopSkin::ModernAdaptive);
+        assert_eq!(state.theme.skin, DesktopSkin::SoftNeumorphic);
     }
 
     #[test]

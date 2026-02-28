@@ -1,0 +1,682 @@
+.desktop-shell[data-skin="soft-neumorphic"] {
+  background: var(--neuro-surface-root);
+  color: var(--neuro-text-1);
+  font-family: var(--neuro-font-family);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-wallpaper {
+  background: var(--neuro-wallpaper-base);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-wallpaper::before,
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-wallpaper::after {
+  content: "";
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-wallpaper::before {
+  background: var(--neuro-wallpaper-atmosphere);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-wallpaper::after {
+  background: var(--neuro-wallpaper-sheen);
+  filter: none;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-wallpaper-atmosphere {
+  background: var(--neuro-wallpaper-atmosphere);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-icons {
+  left: var(--neuro-space-3);
+  top: var(--neuro-space-3);
+  gap: var(--neuro-space-2);
+  width: var(--neuro-desktop-icons-column-width);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-icon {
+  width: var(--neuro-desktop-icon-card-width);
+  min-height: var(--neuro-desktop-icon-card-min-height);
+  padding: var(--neuro-space-2);
+  gap: var(--neuro-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--neuro-radius-md);
+  color: var(--neuro-text-1);
+  text-shadow: none;
+  background: transparent;
+  transition:
+    transform var(--neuro-motion-fast) ease,
+    box-shadow var(--neuro-motion-fast) ease,
+    background-color var(--neuro-motion-fast) ease,
+    border-color var(--neuro-motion-fast) ease;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-icon .icon {
+  width: var(--neuro-desktop-icon-chip-size);
+  height: var(--neuro-desktop-icon-chip-size);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--neuro-border-soft);
+  border-radius: var(--neuro-radius-sm);
+  background: var(--neuro-surface-raised);
+  box-shadow: var(--neuro-elevation-raised-1);
+  color: var(--neuro-accent);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-icon .icon::before,
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-icon .icon::after {
+  display: none;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-icon:hover,
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-icon:focus-visible {
+  border-color: var(--neuro-border-accent);
+  background: var(--neuro-surface-selection);
+  box-shadow: var(--neuro-elevation-raised-1);
+  transform: translateY(-1px);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-window {
+  border: 1px solid var(--neuro-border-soft);
+  border-radius: var(--neuro-radius-lg);
+  background: var(--neuro-surface-panel-strong);
+  box-shadow: var(--neuro-elevation-raised-3);
+  overflow: hidden;
+  transition:
+    box-shadow var(--neuro-motion-normal) ease,
+    transform var(--neuro-motion-fast) ease,
+    border-color var(--neuro-motion-fast) ease;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-window.focused {
+  border-color: var(--neuro-border-accent);
+  box-shadow:
+    0 0 0 2px var(--neuro-focus-ring-soft),
+    var(--neuro-elevation-raised-3);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-window .titlebar {
+  min-height: var(--neuro-titlebar-min-height);
+  padding: var(--neuro-space-2) var(--neuro-space-3);
+  gap: var(--neuro-space-2);
+  border: 0;
+  border-bottom: 1px solid var(--neuro-border-soft);
+  background: var(--neuro-surface-panel);
+  color: var(--neuro-text-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-window .titlebar::after {
+  display: none;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-window:not(.focused) .titlebar {
+  color: var(--neuro-text-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .titlebar-title {
+  display: flex;
+  align-items: center;
+  gap: var(--neuro-space-2);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .titlebar-app-icon {
+  display: inline-grid;
+  place-items: center;
+  width: var(--neuro-titlebar-icon-size);
+  height: var(--neuro-titlebar-icon-size);
+  color: var(--neuro-accent);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .titlebar-controls {
+  gap: var(--neuro-space-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .titlebar-controls button {
+  width: var(--neuro-titlebar-control-size);
+  height: var(--neuro-titlebar-control-size);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--neuro-border-soft);
+  border-radius: var(--neuro-radius-sm);
+  background: var(--neuro-surface-raised);
+  color: var(--neuro-text-2);
+  box-shadow: var(--neuro-elevation-raised-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .titlebar-controls button:hover:not(:disabled) {
+  color: var(--neuro-text-1);
+  transform: translateY(-1px);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .titlebar-controls button:active:not(:disabled) {
+  background: var(--neuro-surface-pressed);
+  box-shadow: var(--neuro-elevation-pressed-1);
+  transform: none;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .titlebar-controls button:last-child:hover:not(:disabled) {
+  color: var(--neuro-danger);
+  border-color: var(--neuro-danger-soft);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .window-body,
+.desktop-shell[data-skin="soft-neumorphic"] .window-body-content {
+  background: var(--neuro-surface-panel-strong);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar {
+  gap: var(--neuro-space-2);
+  padding: var(--neuro-space-2) var(--neuro-space-3);
+  border-top: 1px solid var(--neuro-border-soft);
+  background: var(--neuro-surface-panel);
+  box-shadow:
+    0 -1px 0 var(--neuro-highlight-edge) inset,
+    var(--neuro-elevation-raised-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-left,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-right {
+  gap: var(--neuro-space-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .start-button,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-app,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-overflow-button,
+.desktop-shell[data-skin="soft-neumorphic"] .tray-widget,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-clock,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-menu-item,
+.desktop-shell[data-skin="soft-neumorphic"] .start-menu button,
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-close,
+.desktop-shell[data-skin="soft-neumorphic"] .display-action-button,
+.desktop-shell[data-skin="soft-neumorphic"] .display-footer-button,
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-tab,
+.desktop-shell[data-skin="soft-neumorphic"] .app-action,
+.desktop-shell[data-skin="soft-neumorphic"] .app-field,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-option,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-toggle,
+.desktop-shell[data-skin="soft-neumorphic"] .notepad-tab,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-key {
+  border: 1px solid var(--neuro-border-soft);
+  background: var(--neuro-surface-raised);
+  color: var(--neuro-text-1);
+  box-shadow: var(--neuro-elevation-raised-1);
+  text-shadow: none;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .start-button {
+  min-width: var(--neuro-start-button-min-width);
+  padding: var(--neuro-space-2) var(--neuro-space-3);
+  gap: var(--neuro-space-2);
+  border-radius: var(--neuro-radius-xl);
+  font-weight: 600;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-glyph {
+  min-width: var(--neuro-taskbar-glyph-size);
+  min-height: var(--neuro-taskbar-glyph-size);
+  border-radius: var(--neuro-radius-xl);
+  background: transparent;
+  color: currentColor;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-app,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-overflow-button {
+  min-height: var(--neuro-taskbar-button-min-height);
+  border-radius: var(--neuro-radius-sm);
+  transition:
+    transform var(--neuro-motion-fast) ease,
+    box-shadow var(--neuro-motion-fast) ease,
+    background-color var(--neuro-motion-fast) ease,
+    border-color var(--neuro-motion-fast) ease;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-overflow-button {
+  min-width: var(--neuro-taskbar-overflow-min-width);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--neuro-space-1);
+  padding: var(--neuro-space-1) var(--neuro-space-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-overflow-icon,
+.desktop-shell[data-skin="soft-neumorphic"] .tray-widget-glyph,
+.desktop-shell[data-skin="soft-neumorphic"] .tree-glyph {
+  color: var(--neuro-text-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .start-button:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-app:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-overflow-button:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .tray-widget:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-clock:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-menu-item:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .start-menu button:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .app-action:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .tree-node:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .settings-option:hover:not(:disabled) {
+  border-color: var(--neuro-border-accent);
+  transform: translateY(-1px);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .start-button:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-app:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-overflow-button:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .tray-widget.pressed,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-menu-item:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .start-menu button:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .app-action:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-close:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .display-action-button:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .display-footer-button:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-tab:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .calc-key:active:not(:disabled) {
+  background: var(--neuro-surface-pressed);
+  box-shadow: var(--neuro-elevation-pressed-1);
+  transform: none;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-app.focused,
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-tab.active,
+.desktop-shell[data-skin="soft-neumorphic"] .notepad-tab.active,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-tab.active,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-option.selected,
+.desktop-shell[data-skin="soft-neumorphic"] .wallpaper-picker-item.selected,
+.desktop-shell[data-skin="soft-neumorphic"] .tree-node.selected,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-list tbody tr.selected {
+  border-color: var(--neuro-border-accent);
+  background: var(--neuro-surface-selection);
+  box-shadow: var(--neuro-elevation-inset-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-app.minimized,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-clock-date,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-heading,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-option-note,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-toggle small,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-display-meta,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-expression {
+  color: var(--neuro-text-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-app.active::after {
+  left: var(--neuro-space-3);
+  right: var(--neuro-space-3);
+  bottom: var(--neuro-space-1);
+  height: var(--neuro-taskbar-active-indicator-height);
+  border-radius: var(--neuro-radius-xl);
+  background: var(--neuro-accent);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-app.keyboard-selected {
+  outline: var(--neuro-outline-width) solid var(--neuro-focus-ring);
+  outline-offset: var(--neuro-outline-offset-inner);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-tray,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-menu,
+.desktop-shell[data-skin="soft-neumorphic"] .start-menu,
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-context-menu,
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-dialog,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-tree,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-pane,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-content,
+.desktop-shell[data-skin="soft-neumorphic"] .notepad-document,
+.desktop-shell[data-skin="soft-neumorphic"] .calculator-main,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-tape,
+.desktop-shell[data-skin="soft-neumorphic"] .app-dialup-card {
+  border: 1px solid var(--neuro-border-soft);
+  border-radius: var(--neuro-radius-md);
+  background: var(--neuro-surface-panel);
+  box-shadow: var(--neuro-elevation-raised-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-tray {
+  min-height: var(--neuro-tray-min-height);
+  padding: var(--neuro-space-1);
+  gap: var(--neuro-space-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .tray-widget,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-clock {
+  min-height: var(--neuro-tray-item-min-height);
+  border-radius: var(--neuro-radius-sm);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .tray-widget {
+  min-width: var(--neuro-tray-item-min-width);
+  gap: var(--neuro-space-1);
+  padding: var(--neuro-space-1) var(--neuro-space-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-clock {
+  min-width: var(--neuro-clock-min-width);
+  padding: var(--neuro-space-1) var(--neuro-space-3);
+  gap: var(--neuro-space-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-clock-time {
+  font-family: var(--neuro-font-family-mono);
+  font-weight: 700;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-menu,
+.desktop-shell[data-skin="soft-neumorphic"] .start-menu,
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-context-menu {
+  padding: var(--neuro-space-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-menu-item,
+.desktop-shell[data-skin="soft-neumorphic"] .start-menu button {
+  min-height: var(--neuro-taskbar-button-min-height);
+  border-radius: var(--neuro-radius-sm);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-menu-item.danger:hover:not(:disabled) {
+  color: var(--neuro-danger);
+  border-color: var(--neuro-danger-soft);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-context-wallpaper-check {
+  width: var(--neuro-menu-check-size);
+  min-width: var(--neuro-menu-check-size);
+  display: inline-grid;
+  place-items: center;
+  color: var(--neuro-accent);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-overlay {
+  background: var(--neuro-overlay-surface);
+  backdrop-filter: none;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-dialog {
+  border-radius: var(--neuro-radius-lg);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-titlebar,
+.desktop-shell[data-skin="soft-neumorphic"] .tree-header,
+.desktop-shell[data-skin="soft-neumorphic"] .pane-header,
+.desktop-shell[data-skin="soft-neumorphic"] .notepad-document-header,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-tape-header {
+  border-bottom: 1px solid var(--neuro-border-soft);
+  background: var(--neuro-surface-panel-strong);
+  color: var(--neuro-text-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .display-properties-close {
+  width: var(--neuro-titlebar-control-size);
+  min-width: var(--neuro-titlebar-control-size);
+  height: var(--neuro-titlebar-control-size);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .wallpaper-picker-item {
+  border-radius: var(--neuro-radius-sm);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-shell {
+  gap: var(--neuro-app-grid-gap);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-menubar,
+.desktop-shell[data-skin="soft-neumorphic"] .app-toolbar,
+.desktop-shell[data-skin="soft-neumorphic"] .app-statusbar > span,
+.desktop-shell[data-skin="soft-neumorphic"] .notepad-ruler,
+.desktop-shell[data-skin="soft-neumorphic"] .notepad-tabstrip,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-display-panel,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-tape-item,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-empty-tape {
+  border: 1px solid var(--neuro-border-soft);
+  border-radius: var(--neuro-radius-sm);
+  background: var(--neuro-surface-panel);
+  box-shadow: var(--neuro-elevation-raised-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-menubar,
+.desktop-shell[data-skin="soft-neumorphic"] .app-toolbar {
+  gap: var(--neuro-app-toolbar-gap);
+  padding: var(--neuro-app-toolbar-padding);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-toolbar label {
+  min-height: var(--neuro-app-control-min-height);
+  color: var(--neuro-text-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-action,
+.desktop-shell[data-skin="soft-neumorphic"] .app-field {
+  min-height: var(--neuro-app-control-min-height);
+  padding:
+    var(--neuro-app-control-padding-block)
+    var(--neuro-app-control-padding-inline);
+  transition:
+    transform var(--neuro-app-interaction-transition) ease,
+    box-shadow var(--neuro-app-interaction-transition) ease,
+    border-color var(--neuro-app-interaction-transition) ease,
+    background-color var(--neuro-app-interaction-transition) ease;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-field,
+.desktop-shell[data-skin="soft-neumorphic"] .app-editor,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-create-name,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-file-editor,
+.desktop-shell[data-skin="soft-neumorphic"] .terminal-input {
+  background: var(--neuro-surface-pressed);
+  box-shadow: var(--neuro-elevation-inset-1);
+  caret-color: var(--neuro-accent-strong);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-field[type="range"] {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-field[type="color"] {
+  min-height: var(--neuro-app-control-min-height);
+  padding: 0;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-editor {
+  min-height: var(--neuro-editor-min-height);
+  padding: var(--neuro-space-3);
+  border: 1px solid var(--neuro-border-soft);
+  border-radius: var(--neuro-radius-sm);
+  color: var(--neuro-text-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-progress {
+  width: 100%;
+  min-height: var(--neuro-app-control-min-height);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-statusbar {
+  gap: var(--neuro-app-grid-gap);
+  background: transparent;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .settings-content,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-listwrap,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-list thead th,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-list tbody td,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-details {
+  border-color: var(--neuro-border-soft);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-status-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--neuro-space-1) var(--neuro-space-2);
+  padding: var(--neuro-space-2);
+  border-top: 1px solid var(--neuro-border-soft);
+  color: var(--neuro-text-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .tree-node,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-option,
+.desktop-shell[data-skin="soft-neumorphic"] .settings-toggle,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-list tbody tr,
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-details {
+  color: var(--neuro-text-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-editor {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-top: 1px solid var(--neuro-border-soft);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .explorer-file-editor {
+  margin: var(--neuro-space-2);
+  resize: vertical;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .notepad-tabstrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--neuro-app-grid-gap);
+  padding: var(--neuro-app-grid-gap);
+  border-bottom: 1px solid var(--neuro-border-soft);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .notepad-tab {
+  color: var(--neuro-text-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .notepad-page {
+  color: var(--neuro-text-1);
+  background:
+    linear-gradient(var(--neuro-surface-panel-strong), var(--neuro-surface-panel-strong))
+      padding-box,
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 1.35em,
+      var(--neuro-accent-soft) 1.35em,
+      var(--neuro-accent-soft) 1.42em
+    );
+  caret-color: var(--neuro-accent-strong);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .terminal-screen {
+  border: 1px solid var(--terminal-border);
+  border-radius: var(--neuro-radius-md);
+  background: var(--terminal-surface);
+  box-shadow: var(--neuro-elevation-inset-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .terminal-composer-shell,
+.desktop-shell[data-skin="soft-neumorphic"] .terminal-completions {
+  border: 1px solid var(--terminal-overlay-border);
+  border-radius: var(--neuro-radius-sm);
+  background: var(--terminal-surface-muted);
+  box-shadow: var(--neuro-elevation-raised-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .terminal-composer {
+  gap: var(--terminal-gap);
+  padding: var(--terminal-padding);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .terminal-completion:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .terminal-completion:focus-visible {
+  border-color: var(--neuro-border-accent);
+  background: var(--neuro-accent-soft);
+  box-shadow: var(--neuro-elevation-inset-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-paint-intro {
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .app-dialup-card {
+  padding: var(--neuro-app-panel-padding);
+  color: var(--neuro-text-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .calculator-main {
+  background: var(--neuro-surface-panel);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .calc-display-panel {
+  background: var(--neuro-surface-pressed);
+  box-shadow: var(--neuro-elevation-inset-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .calc-display {
+  color: var(--neuro-text-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .calc-key.digit,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-key.memory,
+.desktop-shell[data-skin="soft-neumorphic"] .calc-key.util {
+  background: var(--neuro-surface-raised);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .calc-key.operator {
+  background: var(--neuro-surface-selection);
+  border-color: var(--neuro-border-accent);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .calc-key.equals {
+  background: var(--neuro-accent);
+  border-color: var(--neuro-border-accent);
+  color: var(--neuro-text-inverse);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .calc-tape-result {
+  color: var(--neuro-accent-strong);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] button:focus-visible,
+.desktop-shell[data-skin="soft-neumorphic"] input:focus-visible,
+.desktop-shell[data-skin="soft-neumorphic"] textarea:focus-visible,
+.desktop-shell[data-skin="soft-neumorphic"] select:focus-visible {
+  outline: var(--neuro-outline-width) solid var(--neuro-focus-ring);
+  outline-offset: var(--neuro-outline-offset-outer);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .terminal-input:focus-visible {
+  outline: none;
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .desktop-icon:focus-visible,
+.desktop-shell[data-skin="soft-neumorphic"] .taskbar-app.keyboard-selected {
+  outline-offset: var(--neuro-outline-offset-inner);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"][data-reduced-motion="true"] *,
+.desktop-shell[data-skin="soft-neumorphic"][data-reduced-motion="true"] *::before,
+.desktop-shell[data-skin="soft-neumorphic"][data-reduced-motion="true"] *::after {
+  animation: none !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (pointer: coarse), (hover: none) {
+  .desktop-shell[data-skin="soft-neumorphic"] {
+    --neuro-app-control-min-height: var(--neuro-app-touch-target-min-height);
+    --neuro-app-grid-gap: var(--neuro-app-touch-gap);
+    --neuro-app-control-padding-inline: var(--neuro-app-touch-padding-inline);
+    --neuro-app-toolbar-gap: var(--neuro-app-touch-gap);
+    --neuro-app-toolbar-padding: var(--neuro-app-touch-gap);
+  }
+
+  .desktop-shell[data-skin="soft-neumorphic"] .calculator-workspace,
+  .desktop-shell[data-skin="soft-neumorphic"] .explorer-workspace,
+  .desktop-shell[data-skin="soft-neumorphic"] .terminal-composer,
+  .desktop-shell[data-skin="soft-neumorphic"] .calc-keypad,
+  .desktop-shell[data-skin="soft-neumorphic"] .notepad-tabstrip {
+    gap: var(--neuro-app-touch-gap);
+  }
+}

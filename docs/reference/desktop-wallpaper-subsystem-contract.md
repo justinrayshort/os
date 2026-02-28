@@ -128,6 +128,6 @@ Build-time validation in [`/Users/justinshort/os/crates/desktop_runtime/build.rs
 
 ## Related References
 
-- [/Users/justinshort/os/docs/reference/desktop-shell-fluent-modern-design-system.md](/Users/justinshort/os/docs/reference/desktop-shell-fluent-modern-design-system.md)
-- [/Users/justinshort/os/docs/reference/desktop-shell-hig-fluent-conformance-checklist.md](/Users/justinshort/os/docs/reference/desktop-shell-hig-fluent-conformance-checklist.md)
+- [/Users/justinshort/os/docs/reference/desktop-shell-neumorphic-design-system.md](/Users/justinshort/os/docs/reference/desktop-shell-neumorphic-design-system.md)
+- [/Users/justinshort/os/docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md](/Users/justinshort/os/docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md)
 - [/Users/justinshort/os/wiki/Explanation-System-Architecture-Overview.md](/Users/justinshort/os/wiki/Explanation-System-Architecture-Overview.md)
