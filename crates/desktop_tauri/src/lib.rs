@@ -10,6 +10,7 @@ mod app_state;
 mod cache;
 #[doc(hidden)]
 pub mod explorer;
+mod external_url;
 mod notifications;
 mod prefs;
 
@@ -36,6 +37,7 @@ pub fn run() {
             explorer::explorer_create_file,
             explorer::explorer_delete,
             explorer::explorer_stat,
+            external_url::external_open_url,
             notifications::notify_send,
             prefs::prefs_load,
             prefs::prefs_save,

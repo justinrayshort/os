@@ -32,7 +32,8 @@ Theme and wallpaper are separate domains:
 
 ## Contract Surface
 
-The shared app-facing types live in [`/Users/justinshort/os/crates/desktop_app_contract/src/lib.rs`](/Users/justinshort/os/crates/desktop_app_contract/src/lib.rs).
+The wallpaper domain model now lives in [`/Users/justinshort/os/crates/platform_host/src/wallpaper.rs`](/Users/justinshort/os/crates/platform_host/src/wallpaper.rs).
+The app-facing wallpaper service surface continues to live in [`/Users/justinshort/os/crates/desktop_app_contract/src/lib.rs`](/Users/justinshort/os/crates/desktop_app_contract/src/lib.rs).
 
 Primary types:
 
@@ -58,6 +59,13 @@ Primary service:
 - wallpaper library metadata (`library`)
 - preview/apply/revert commands
 - import, rename, tag, favorite, collection, and delete operations
+
+Runtime update semantics:
+
+- metadata edits and collection create/rename operations upsert the returned record directly into
+  the merged runtime wallpaper library
+- import and destructive operations still reload a full `WallpaperLibrarySnapshot` because they
+  change storage totals or remove cross-record relationships
 
 ## Rendering Rules
 

@@ -1,14 +1,13 @@
 //! Desktop runtime persistence adapters for boot hydration and lightweight local preferences.
 
+use crate::host::DesktopHostContext;
 use crate::model::{DesktopSnapshot, DesktopState, DesktopTheme};
-use desktop_app_contract::{WallpaperConfig, WallpaperSelection};
-use platform_host::{
-    load_app_state_with_migration, load_pref_with, migrate_envelope_payload,
-    save_app_state_with, save_pref_with, AppStateEnvelope, DESKTOP_STATE_NAMESPACE,
-};
 #[cfg(test)]
 use platform_host::build_app_state_envelope;
-use platform_host_web::{app_state_store, prefs_store};
+use platform_host::{
+    load_app_state_with_migration, load_pref_with, migrate_envelope_payload, save_app_state_with,
+    save_pref_with, AppStateEnvelope, WallpaperConfig, WallpaperSelection, DESKTOP_STATE_NAMESPACE,
+};
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_arch = "wasm32")]
@@ -75,7 +74,7 @@ fn migrate_desktop_snapshot(
 /// Loads the compatibility boot snapshot and terminal history if present.
 ///
 /// On non-WASM targets this returns `None`.
-pub async fn load_boot_snapshot() -> Option<DesktopSnapshot> {
+pub async fn load_boot_snapshot(_host: &DesktopHostContext) -> Option<DesktopSnapshot> {
     #[cfg(target_arch = "wasm32")]
     {
         let storage = local_storage()?;
@@ -84,7 +83,8 @@ pub async fn load_boot_snapshot() -> Option<DesktopSnapshot> {
             .ok()
             .flatten()
             .and_then(|raw| serde_json::from_str::<DesktopSnapshot>(&raw).ok());
-        let terminal_history = match load_pref_with(&prefs_store(), TERMINAL_HISTORY_KEY).await {
+        let terminal_history =
+            match load_pref_with(host.prefs_store().as_ref(), TERMINAL_HISTORY_KEY).await {
                 Ok(history) => history,
                 Err(err) => {
                     leptos::logging::warn!("terminal history compatibility load failed: {err}");
@@ -120,10 +120,10 @@ pub async fn load_boot_snapshot() -> Option<DesktopSnapshot> {
 
 /// Loads the durable boot snapshot from the configured [`platform_host::AppStateStore`]
 /// implementation (IndexedDB-backed in the browser host).
-pub async fn load_durable_boot_snapshot() -> Option<DesktopSnapshot> {
-    let store = app_state_store();
+pub async fn load_durable_boot_snapshot(host: &DesktopHostContext) -> Option<DesktopSnapshot> {
+    let store = host.app_state_store();
     match load_app_state_with_migration(
-        &store,
+        store.as_ref(),
         DESKTOP_STATE_NAMESPACE,
         crate::model::DESKTOP_LAYOUT_SCHEMA_VERSION,
         migrate_desktop_snapshot,
@@ -140,11 +140,14 @@ pub async fn load_durable_boot_snapshot() -> Option<DesktopSnapshot> {
 
 /// Persists a durable desktop layout snapshot through the configured
 /// [`platform_host::AppStateStore`] implementation.
-pub async fn persist_durable_layout_snapshot(state: &DesktopState) -> Result<(), String> {
+pub async fn persist_durable_layout_snapshot(
+    host: &DesktopHostContext,
+    state: &DesktopState,
+) -> Result<(), String> {
     let snapshot = state.snapshot();
-    let store = app_state_store();
+    let store = host.app_state_store();
     save_app_state_with(
-        &store,
+        store.as_ref(),
         DESKTOP_STATE_NAMESPACE,
         crate::model::DESKTOP_LAYOUT_SCHEMA_VERSION,
         &snapshot,
@@ -174,15 +177,15 @@ pub fn persist_layout_snapshot(state: &DesktopState) -> Result<(), String> {
 }
 
 /// Persists the desktop theme through typed host prefs storage.
-pub async fn persist_theme(theme: &DesktopTheme) -> Result<(), String> {
-    save_pref_with(&prefs_store(), THEME_KEY, theme).await
+pub async fn persist_theme(host: &DesktopHostContext, theme: &DesktopTheme) -> Result<(), String> {
+    save_pref_with(host.prefs_store().as_ref(), THEME_KEY, theme).await
 }
 
 /// Loads the current desktop theme from typed prefs, falling back to the legacy combined payload.
-pub async fn load_theme() -> Option<DesktopTheme> {
-    match load_pref_with(&prefs_store(), THEME_KEY).await {
+pub async fn load_theme(host: &DesktopHostContext) -> Option<DesktopTheme> {
+    match load_pref_with(host.prefs_store().as_ref(), THEME_KEY).await {
         Ok(Some(theme)) => Some(theme),
-        Ok(None) => load_legacy_theme().await.map(|legacy| DesktopTheme {
+        Ok(None) => load_legacy_theme(host).await.map(|legacy| DesktopTheme {
             skin: legacy.skin,
             high_contrast: legacy.high_contrast,
             reduced_motion: legacy.reduced_motion,
@@ -196,15 +199,18 @@ pub async fn load_theme() -> Option<DesktopTheme> {
 }
 
 /// Persists the current wallpaper configuration through typed host prefs storage.
-pub async fn persist_wallpaper(wallpaper: &WallpaperConfig) -> Result<(), String> {
-    save_pref_with(&prefs_store(), WALLPAPER_KEY, wallpaper).await
+pub async fn persist_wallpaper(
+    host: &DesktopHostContext,
+    wallpaper: &WallpaperConfig,
+) -> Result<(), String> {
+    save_pref_with(host.prefs_store().as_ref(), WALLPAPER_KEY, wallpaper).await
 }
 
 /// Loads the current wallpaper configuration from typed prefs, falling back to the legacy theme payload.
-pub async fn load_wallpaper() -> Option<WallpaperConfig> {
-    match load_pref_with(&prefs_store(), WALLPAPER_KEY).await {
+pub async fn load_wallpaper(host: &DesktopHostContext) -> Option<WallpaperConfig> {
+    match load_pref_with(host.prefs_store().as_ref(), WALLPAPER_KEY).await {
         Ok(Some(wallpaper)) => Some(normalize_wallpaper(wallpaper)),
-        Ok(None) => load_legacy_theme().await.map(|legacy| WallpaperConfig {
+        Ok(None) => load_legacy_theme(host).await.map(|legacy| WallpaperConfig {
             selection: WallpaperSelection::BuiltIn {
                 wallpaper_id: normalize_legacy_wallpaper_id(&legacy.wallpaper_id),
             },
@@ -232,8 +238,8 @@ fn normalize_wallpaper(mut wallpaper: WallpaperConfig) -> WallpaperConfig {
     wallpaper
 }
 
-async fn load_legacy_theme() -> Option<LegacyThemePayload> {
-    match load_pref_with(&prefs_store(), LEGACY_THEME_KEY).await {
+async fn load_legacy_theme(host: &DesktopHostContext) -> Option<LegacyThemePayload> {
+    match load_pref_with(host.prefs_store().as_ref(), LEGACY_THEME_KEY).await {
         Ok(value) => value,
         Err(err) => {
             leptos::logging::warn!("legacy theme compatibility load failed: {err}");
@@ -243,13 +249,16 @@ async fn load_legacy_theme() -> Option<LegacyThemePayload> {
 }
 
 /// Persists the terminal history list through typed host prefs storage.
-pub async fn persist_terminal_history(history: &[String]) -> Result<(), String> {
-    save_pref_with(&prefs_store(), TERMINAL_HISTORY_KEY, &history).await
+pub async fn persist_terminal_history(
+    host: &DesktopHostContext,
+    history: &[String],
+) -> Result<(), String> {
+    save_pref_with(host.prefs_store().as_ref(), TERMINAL_HISTORY_KEY, &history).await
 }
 
 /// Loads app capability policy overlay from typed host prefs storage.
-pub async fn load_app_policy_overlay() -> Option<AppPolicyOverlay> {
-    match load_pref_with(&prefs_store(), APP_POLICY_KEY).await {
+pub async fn load_app_policy_overlay(host: &DesktopHostContext) -> Option<AppPolicyOverlay> {
+    match load_pref_with(host.prefs_store().as_ref(), APP_POLICY_KEY).await {
         Ok(value) => value,
         Err(err) => {
             leptos::logging::warn!("app policy overlay load failed: {err}");
@@ -259,8 +268,11 @@ pub async fn load_app_policy_overlay() -> Option<AppPolicyOverlay> {
 }
 
 /// Persists app capability policy overlay through typed host prefs storage.
-pub async fn persist_app_policy_overlay(policy: &AppPolicyOverlay) -> Result<(), String> {
-    save_pref_with(&prefs_store(), APP_POLICY_KEY, policy).await
+pub async fn persist_app_policy_overlay(
+    host: &DesktopHostContext,
+    policy: &AppPolicyOverlay,
+) -> Result<(), String> {
+    save_pref_with(host.prefs_store().as_ref(), APP_POLICY_KEY, policy).await
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -275,12 +287,8 @@ mod tests {
     #[test]
     fn desktop_namespace_migration_supports_schema_zero() {
         let snapshot = DesktopState::default().snapshot();
-        let envelope = build_app_state_envelope(
-            DESKTOP_STATE_NAMESPACE,
-            0,
-            &snapshot,
-        )
-        .expect("build envelope");
+        let envelope = build_app_state_envelope(DESKTOP_STATE_NAMESPACE, 0, &snapshot)
+            .expect("build envelope");
 
         let migrated =
             migrate_desktop_snapshot(0, &envelope).expect("schema-zero migration should succeed");

@@ -5,7 +5,13 @@ pub(super) fn Taskbar() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
 
-    let viewport_width = create_rw_signal(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX).w);
+    let viewport_width = create_rw_signal(
+        runtime
+            .host
+            .get_value()
+            .desktop_viewport_rect(TASKBAR_HEIGHT_PX)
+            .w,
+    );
     let clock_config = create_rw_signal(TaskbarClockConfig::default());
     let clock_now = create_rw_signal(TaskbarClockSnapshot::now());
     let selected_running_window = create_rw_signal(None::<WindowId>);
@@ -29,7 +35,13 @@ pub(super) fn Taskbar() -> impl IntoView {
     });
 
     let resize_listener = window_event_listener(ev::resize, move |_| {
-        viewport_width.set(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX).w);
+        viewport_width.set(
+            runtime
+                .host
+                .get_value()
+                .desktop_viewport_rect(TASKBAR_HEIGHT_PX)
+                .w,
+        );
     });
     on_cleanup(move || resize_listener.remove());
 
@@ -219,11 +231,14 @@ pub(super) fn Taskbar() -> impl IntoView {
                         overflow_menu_open.set(false);
                         clock_menu_open.set(false);
                         runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                        let viewport = runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX);
+                        let viewport = runtime
+                            .host
+                            .get_value()
+                            .desktop_viewport_rect(TASKBAR_HEIGHT_PX);
                         let x = (viewport.w / 2).max(24);
                         let y = (viewport.h + TASKBAR_HEIGHT_PX - 180).max(24);
                         open_taskbar_window_context_menu(
-                            runtime.host,
+                            runtime.host.get_value(),
                             window_context_menu,
                             window_id,
                             x,
@@ -370,7 +385,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                                 clock_menu_open.set(false);
                                 runtime.dispatch_action(DesktopAction::CloseStartMenu);
                                 open_taskbar_window_context_menu(
-                                    runtime.host,
+                                    runtime.host.get_value(),
                                     window_context_menu,
                                     win.id,
                                     ev.client_x(),

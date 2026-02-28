@@ -4,11 +4,7 @@ use desktop_app_contract::AppCommandRegistration;
 use leptos::SignalGetUntracked;
 use system_shell_contract::{CommandArgSpec, CommandDataShape, CommandOutputShape};
 
-use crate::{
-    components::DesktopRuntimeContext,
-    model::WindowId,
-    reducer::DesktopAction,
-};
+use crate::{components::DesktopRuntimeContext, model::WindowId, reducer::DesktopAction};
 
 pub(super) fn registrations(runtime: DesktopRuntimeContext) -> Vec<AppCommandRegistration> {
     vec![
@@ -90,10 +86,9 @@ fn simple_window_registration(
         handler: Rc::new(move |context| {
             let runtime = runtime.clone();
             Box::pin(async move {
-                let raw = context
-                    .args
-                    .first()
-                    .ok_or_else(|| super::super::usage_error(format!("usage: {path} <window-id>")))?;
+                let raw = context.args.first().ok_or_else(|| {
+                    super::super::usage_error(format!("usage: {path} <window-id>"))
+                })?;
                 let window_id = super::super::parse_window_id(raw)?;
                 runtime.dispatch_action(builder(window_id));
                 Ok(super::super::info_result(format!("{path} {}", window_id.0)))

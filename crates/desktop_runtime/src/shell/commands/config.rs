@@ -2,14 +2,20 @@ use std::rc::Rc;
 
 use desktop_app_contract::AppCommandRegistration;
 use platform_host::{load_pref_with, save_pref_with};
-use platform_host_web::prefs_store;
-use system_shell_contract::{CommandArgSpec, CommandDataShape, CommandOutputShape, StructuredScalar, StructuredValue};
+use system_shell_contract::{
+    CommandArgSpec, CommandDataShape, CommandOutputShape, StructuredScalar, StructuredValue,
+};
 
-pub(super) fn registrations() -> Vec<AppCommandRegistration> {
-    vec![config_get_registration(), config_set_registration()]
+use crate::components::DesktopRuntimeContext;
+
+pub(super) fn registrations(runtime: DesktopRuntimeContext) -> Vec<AppCommandRegistration> {
+    vec![
+        config_get_registration(runtime.clone()),
+        config_set_registration(runtime),
+    ]
 }
 
-fn config_get_registration() -> AppCommandRegistration {
+fn config_get_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
     AppCommandRegistration {
         descriptor: super::super::namespaced_descriptor(
             "config get",
@@ -35,20 +41,20 @@ fn config_get_registration() -> AppCommandRegistration {
             CommandOutputShape::new(CommandDataShape::Any),
         ),
         completion: None,
-        handler: Rc::new(|context| {
+        handler: Rc::new(move |context| {
+            let runtime = runtime.clone();
             Box::pin(async move {
-                let namespace = context
-                    .args
-                    .first()
-                    .ok_or_else(|| super::super::usage_error("usage: config get <namespace> <key>"))?;
-                let key = context
-                    .args
-                    .get(1)
-                    .ok_or_else(|| super::super::usage_error("usage: config get <namespace> <key>"))?;
+                let namespace = context.args.first().ok_or_else(|| {
+                    super::super::usage_error("usage: config get <namespace> <key>")
+                })?;
+                let key = context.args.get(1).ok_or_else(|| {
+                    super::super::usage_error("usage: config get <namespace> <key>")
+                })?;
                 let pref_key = format!("{namespace}.{key}");
-                let value = load_pref_with(&prefs_store(), &pref_key)
-                    .await
-                    .map_err(super::super::unavailable)?;
+                let value =
+                    load_pref_with(runtime.host.get_value().prefs_store().as_ref(), &pref_key)
+                        .await
+                        .map_err(super::super::unavailable)?;
                 match value {
                     Some(value) => Ok(system_shell_contract::CommandResult {
                         output: super::super::json_to_structured_data(value),
@@ -66,7 +72,7 @@ fn config_get_registration() -> AppCommandRegistration {
     }
 }
 
-fn config_set_registration() -> AppCommandRegistration {
+fn config_set_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
     AppCommandRegistration {
         descriptor: super::super::namespaced_descriptor(
             "config set",
@@ -98,7 +104,8 @@ fn config_set_registration() -> AppCommandRegistration {
             CommandOutputShape::new(CommandDataShape::Empty),
         ),
         completion: None,
-        handler: Rc::new(|context| {
+        handler: Rc::new(move |context| {
+            let runtime = runtime.clone();
             Box::pin(async move {
                 if context.args.len() < 3 {
                     return Err(super::super::usage_error(
@@ -116,9 +123,13 @@ fn config_set_registration() -> AppCommandRegistration {
                         StructuredValue::Scalar(StructuredScalar::String(context.args[2].clone()))
                     });
                 let pref_key = format!("{namespace}.{key}");
-                save_pref_with(&prefs_store(), &pref_key, &super::super::structured_value_to_json(&value))
-                    .await
-                    .map_err(super::super::unavailable)?;
+                save_pref_with(
+                    runtime.host.get_value().prefs_store().as_ref(),
+                    &pref_key,
+                    &super::super::structured_value_to_json(&value),
+                )
+                .await
+                .map_err(super::super::unavailable)?;
                 Ok(super::super::info_result(format!("saved `{pref_key}`")))
             })
         }),

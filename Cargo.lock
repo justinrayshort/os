@@ -950,7 +950,6 @@ dependencies = [
  "desktop_app_contract",
  "leptos",
  "platform_host",
- "platform_host_web",
  "serde",
  "serde_json",
 ]
@@ -961,6 +960,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "leptos",
+ "platform_host",
  "serde",
  "serde_json",
  "system_shell_contract",
@@ -973,7 +973,6 @@ dependencies = [
  "desktop_app_contract",
  "leptos",
  "platform_host",
- "platform_host_web",
  "serde",
  "serde_json",
 ]
@@ -985,7 +984,6 @@ dependencies = [
  "desktop_app_contract",
  "leptos",
  "platform_host",
- "platform_host_web",
  "serde",
  "serde_json",
 ]
@@ -996,6 +994,7 @@ version = "0.1.0"
 dependencies = [
  "desktop_app_contract",
  "leptos",
+ "platform_host",
  "serde",
  "serde_json",
 ]
@@ -1007,7 +1006,6 @@ dependencies = [
  "desktop_app_contract",
  "leptos",
  "platform_host",
- "platform_host_web",
  "serde",
  "serde_json",
  "system_shell_contract",
@@ -3780,7 +3778,6 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 name = "platform_host"
 version = "0.1.0"
 dependencies = [
- "desktop_app_contract",
  "futures",
  "js-sys",
  "serde",
@@ -3791,7 +3788,6 @@ dependencies = [
 name = "platform_host_web"
 version = "0.1.0"
 dependencies = [
- "desktop_app_contract",
  "futures",
  "js-sys",
  "platform_host",

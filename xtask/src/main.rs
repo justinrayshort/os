@@ -1484,7 +1484,8 @@ fn run_cargo_default_matrix_full(root: &Path) -> Result<(), String> {
 }
 
 fn run_rust_feature_matrix_fast(root: &Path, include_desktop: bool) -> Result<(), String> {
-    let mut workspace_feature_test_args = vec!["test", "--workspace", "--all-features", "--lib", "--tests"];
+    let mut workspace_feature_test_args =
+        vec!["test", "--workspace", "--all-features", "--lib", "--tests"];
     if !include_desktop {
         workspace_feature_test_args.extend(["--exclude", DESKTOP_TAURI_PACKAGE]);
     }
@@ -1493,7 +1494,11 @@ fn run_rust_feature_matrix_fast(root: &Path, include_desktop: bool) -> Result<()
 }
 
 fn run_rust_feature_matrix_full(root: &Path) -> Result<(), String> {
-    run(root, "cargo", vec!["check", "--workspace", "--all-features"])?;
+    run(
+        root,
+        "cargo",
+        vec!["check", "--workspace", "--all-features"],
+    )?;
     run(
         root,
         "cargo",

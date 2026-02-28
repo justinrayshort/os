@@ -1,13 +1,12 @@
 #[cfg(target_arch = "wasm32")]
 use desktop_app_contract::window_primary_input_dom_id;
 use leptos::{logging, spawn_local};
-use platform_host::NotificationService;
-use platform_host_web::notification_service;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::{closure::Closure, JsCast};
 
 use crate::{
     components::DesktopRuntimeContext,
+    host::DesktopHostContext,
     model::WindowRect,
     reducer::{build_open_request_from_deeplink, DesktopAction},
 };
@@ -21,7 +20,7 @@ pub(super) fn open_deep_link(
             crate::model::DeepLinkOpenTarget::App(app_id) => {
                 runtime.dispatch_action(DesktopAction::ActivateApp {
                     app_id,
-                    viewport: Some(runtime.host.desktop_viewport_rect(38)),
+                    viewport: Some(runtime.host.get_value().desktop_viewport_rect(38)),
                 });
             }
             target => {
@@ -52,22 +51,25 @@ pub(super) fn focus_window_input(window_id: crate::model::WindowId) {
         let callback = Closure::once_into_js(move || {
             let _ = element.focus();
         });
-        let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
-            callback.unchecked_ref(),
-            0,
-        );
+        let _ = window
+            .set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), 0);
     }
     #[cfg(not(target_arch = "wasm32"))]
     let _ = window_id;
 }
 
-pub(super) fn open_external_url(url: &str) {
-    logging::log!("open external url requested: {url}");
+pub(super) fn open_external_url(host: DesktopHostContext, url: &str) {
+    let url = url.to_string();
+    spawn_local(async move {
+        if let Err(err) = host.external_url_service().open_url(&url).await {
+            logging::warn!("open external url failed for `{url}`: {err}");
+        }
+    });
 }
 
-pub(super) fn notify(title: String, body: String) {
+pub(super) fn notify(host: DesktopHostContext, title: String, body: String) {
     spawn_local(async move {
-        if let Err(err) = notification_service().notify(&title, &body).await {
+        if let Err(err) = host.notification_service().notify(&title, &body).await {
             logging::warn!("notification dispatch failed: {err}");
         }
     });

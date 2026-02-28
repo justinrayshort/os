@@ -9,6 +9,7 @@
 //! - centralized Fluent icon primitives in [`icons`]
 //! - Leptos UI primitives in [`components`]
 //! - app integration bridge types re-exported from [`desktop_app_contract`]
+//! - wallpaper contracts re-exported from [`platform_host`]
 //!
 //! # Example
 //!
@@ -61,10 +62,7 @@ pub use components::{use_desktop_runtime, DesktopProvider, DesktopRuntimeContext
 /// Re-exported app-runtime contract types for managed app integrations.
 pub use desktop_app_contract::{
     AppCapability, AppCommand, AppEvent, AppLifecycleEvent, AppModule, AppMountContext,
-    AppRegistration, AppServices, ApplicationId, IpcEnvelope, ResolvedWallpaperSource,
-    SuspendPolicy, WallpaperAssetRecord, WallpaperCollection, WallpaperConfig,
-    WallpaperDisplayMode, WallpaperImportRequest, WallpaperLibrarySnapshot, WallpaperMediaKind,
-    WallpaperPosition, WallpaperSelection,
+    AppRegistration, AppServices, ApplicationId, IpcEnvelope, SuspendPolicy,
 };
 /// Re-exported host-side effect execution context.
 pub use host::DesktopHostContext;
@@ -76,6 +74,12 @@ pub use model::*;
 pub use persistence::{
     load_boot_snapshot, load_theme, load_wallpaper, persist_layout_snapshot,
     persist_terminal_history, persist_theme, persist_wallpaper,
+};
+/// Re-exported wallpaper contracts owned by the host boundary.
+pub use platform_host::{
+    ResolvedWallpaperSource, WallpaperAnimationPolicy, WallpaperAssetRecord, WallpaperCollection,
+    WallpaperConfig, WallpaperDisplayMode, WallpaperImportRequest, WallpaperLibrarySnapshot,
+    WallpaperMediaKind, WallpaperPosition, WallpaperSelection, WallpaperSourceKind,
 };
 /// Re-exported reducer entrypoint and core action/effect enums.
 pub use reducer::{reduce_desktop, DesktopAction, RuntimeEffect};

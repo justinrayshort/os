@@ -10,9 +10,7 @@ mod inspect;
 mod theme;
 mod windows;
 
-pub(super) fn builtin_registrations(
-    runtime: DesktopRuntimeContext,
-) -> Vec<AppCommandRegistration> {
+pub(super) fn builtin_registrations(runtime: DesktopRuntimeContext) -> Vec<AppCommandRegistration> {
     let mut registrations = Vec::new();
     registrations.extend(vec![
         super::help_list_registration(runtime.clone()),
@@ -25,8 +23,8 @@ pub(super) fn builtin_registrations(
     registrations.extend(windows::registrations(runtime.clone()));
     registrations.extend(theme::registrations(runtime.clone()));
     registrations.extend(inspect::registrations(runtime.clone()));
-    registrations.extend(filesystem::registrations());
+    registrations.extend(filesystem::registrations(runtime.clone()));
     registrations.extend(data::registrations());
-    registrations.extend(config::registrations());
+    registrations.extend(config::registrations(runtime.clone()));
     registrations
 }

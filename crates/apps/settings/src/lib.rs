@@ -5,11 +5,13 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
-use desktop_app_contract::{
-    AppServices, WallpaperAnimationPolicy, WallpaperAssetRecord, WallpaperConfig,
-    WallpaperDisplayMode, WallpaperPosition, WallpaperSelection, WallpaperSourceKind,
-};
+use desktop_app_contract::AppServices;
 use leptos::*;
+use platform_host::{
+    WallpaperAnimationPolicy, WallpaperAssetRecord, WallpaperCollection, WallpaperConfig,
+    WallpaperDisplayMode, WallpaperMediaKind, WallpaperPosition, WallpaperSelection,
+    WallpaperSourceKind,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -475,8 +477,9 @@ pub fn SettingsApp(
 
 fn asset_to_config(asset: &WallpaperAssetRecord, current: &WallpaperConfig) -> WallpaperConfig {
     let animation = match asset.media_kind {
-        desktop_app_contract::WallpaperMediaKind::AnimatedImage
-        | desktop_app_contract::WallpaperMediaKind::Video => WallpaperAnimationPolicy::LoopMuted,
+        WallpaperMediaKind::AnimatedImage | WallpaperMediaKind::Video => {
+            WallpaperAnimationPolicy::LoopMuted
+        }
         _ => WallpaperAnimationPolicy::None,
     };
     WallpaperConfig {
@@ -592,7 +595,7 @@ fn WallpaperLibraryItem(
 
 #[component]
 fn WallpaperCollectionItem(
-    collection: desktop_app_contract::WallpaperCollection,
+    collection: WallpaperCollection,
     selected_asset: Signal<Option<WallpaperAssetRecord>>,
     on_toggle: Callback<String>,
 ) -> impl IntoView {

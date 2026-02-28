@@ -6,25 +6,8 @@ use std::collections::BTreeMap;
 
 use desktop_app_contract::AppServices;
 use leptos::*;
-use platform_host::{
-    load_app_state_with_migration, migrate_envelope_payload, save_app_state_with,
-    NOTEPAD_STATE_NAMESPACE,
-};
-use platform_host_web::app_state_store;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-const NOTEPAD_STATE_SCHEMA_VERSION: u32 = 1;
-
-fn migrate_notepad_state(
-    schema_version: u32,
-    envelope: &platform_host::AppStateEnvelope,
-) -> Result<Option<NotepadWorkspaceState>, String> {
-    match schema_version {
-        0 => migrate_envelope_payload(envelope).map(Some),
-        _ => Ok(None),
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct NotepadWorkspaceState {
@@ -176,7 +159,7 @@ pub fn NotepadApp(
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
     let transient_notice = create_rw_signal::<Option<String>>(None);
-    let services_for_persist = services;
+    let services_for_persist = services.clone();
 
     if let Some(restored_state) = restored_state.as_ref() {
         if let Ok(mut restored) =
@@ -190,35 +173,7 @@ pub fn NotepadApp(
         }
     }
 
-    create_effect(move |_| {
-        let workspace = workspace;
-        let hydrated = hydrated;
-        let last_saved = last_saved;
-        let requested_slug = requested_slug.clone();
-        spawn_local(async move {
-            let store = app_state_store();
-            match load_app_state_with_migration(
-                &store,
-                NOTEPAD_STATE_NAMESPACE,
-                NOTEPAD_STATE_SCHEMA_VERSION,
-                migrate_notepad_state,
-            )
-            .await
-            {
-                Ok(Some(mut restored)) => {
-                    if last_saved.get_untracked().is_none() {
-                        restored.ensure_document(&requested_slug);
-                        let serialized = serde_json::to_string(&restored).ok();
-                        workspace.set(restored);
-                        last_saved.set(serialized);
-                    }
-                }
-                Ok(None) => {}
-                Err(err) => logging::warn!("notepad hydrate failed: {err}"),
-            }
-            hydrated.set(true);
-        });
-    });
+    hydrated.set(true);
 
     create_effect(move |_| {
         if !hydrated.get() {
@@ -244,20 +199,6 @@ pub fn NotepadApp(
                 services.state.persist_window_state(value);
             }
         }
-
-        spawn_local(async move {
-            let store = app_state_store();
-            if let Err(err) = save_app_state_with(
-                &store,
-                NOTEPAD_STATE_NAMESPACE,
-                NOTEPAD_STATE_SCHEMA_VERSION,
-                &snapshot,
-            )
-            .await
-            {
-                logging::warn!("notepad persist failed: {err}");
-            }
-        });
     });
 
     let current_text = Signal::derive(move || workspace.get().active_text());
@@ -425,25 +366,6 @@ pub fn NotepadApp(
                 }}</span>
             </div>
         </div>
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn notepad_namespace_migration_supports_schema_zero() {
-        let envelope = platform_host::build_app_state_envelope(
-            NOTEPAD_STATE_NAMESPACE,
-            0,
-            &NotepadWorkspaceState::new("welcome"),
-        )
-        .expect("build envelope");
-
-        let migrated =
-            migrate_notepad_state(0, &envelope).expect("schema-zero migration should succeed");
-        assert!(migrated.is_some(), "expected migrated notepad workspace");
     }
 }
 

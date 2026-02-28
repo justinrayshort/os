@@ -158,7 +158,9 @@ The command input uses `desktop_app_contract::window_primary_input_dom_id(window
 
 ## Persistence
 
-Terminal state is persisted under `app.terminal` (`TERMINAL_STATE_NAMESPACE`) with schema version `3`.
+Terminal window state is persisted through the desktop runtime's manager-owned window snapshot path.
+The terminal app hydrates from `AppMountContext.restored_state` and persists updates through
+`StateService::persist_window_state`.
 
 Persisted fields:
 
@@ -167,9 +169,6 @@ Persisted fields:
 - `transcript`
 - `history_cursor`
 - `active_execution`
-
-Legacy schema `0`/`1` terminal transcripts using plain `lines: Vec<String>` are migrated into typed `System` transcript entries.
-Legacy schema `2` transcript lines using `Stdout`/`Stderr`/`Status`/`Json` entries are migrated into typed `Notice` and `Data` entries.
 
 ## Host Boundary
 

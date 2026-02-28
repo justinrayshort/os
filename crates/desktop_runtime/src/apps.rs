@@ -1,26 +1,19 @@
 //! Desktop app registry metadata and app-content mounting helpers.
 
-use std::{cell::Cell, rc::Rc, sync::OnceLock};
+use std::sync::OnceLock;
 
 use crate::icons::IconName;
 use crate::model::{OpenWindowRequest, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
 use desktop_app_calculator::CalculatorApp;
-use desktop_app_contract::{AppCapability, AppModule, AppMountContext, ApplicationId, SuspendPolicy};
+use desktop_app_contract::{
+    AppCapability, AppModule, AppMountContext, ApplicationId, SuspendPolicy,
+};
 use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
 use desktop_app_settings::SettingsApp;
 use desktop_app_terminal::TerminalApp;
 use leptos::*;
-use platform_host::{
-    load_app_state_with_migration, migrate_envelope_payload, save_app_state_with,
-    AppStateEnvelope, PAINT_STATE_NAMESPACE,
-};
-#[cfg(test)]
-use platform_host::build_app_state_envelope;
-use platform_host_web::app_state_store;
 use serde::{Deserialize, Serialize};
-
-const PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION: u32 = 1;
 const APP_ID_CALCULATOR: &str = "system.calculator";
 const APP_ID_EXPLORER: &str = "system.explorer";
 const APP_ID_NOTEPAD: &str = "system.notepad";
@@ -51,16 +44,6 @@ pub fn app_manifest_catalog_json() -> &'static str {
     APP_MANIFEST_CATALOG_JSON
 }
 
-fn migrate_paint_placeholder_state(
-    schema_version: u32,
-    envelope: &AppStateEnvelope,
-) -> Result<Option<PaintPlaceholderState>, String> {
-    match schema_version {
-        0 => migrate_envelope_payload(envelope).map(Some),
-        _ => Ok(None),
-    }
-}
-
 #[derive(Debug, Clone)]
 /// Metadata describing how an app appears in the launcher/desktop and how it is instantiated.
 pub struct AppDescriptor {
@@ -86,83 +69,83 @@ pub struct AppDescriptor {
 
 fn build_app_registry() -> Vec<AppDescriptor> {
     vec![
-    AppDescriptor {
-        app_id: builtin_app_id(APP_ID_CALCULATOR),
-        launcher_label: SYSTEM_CALCULATOR_MANIFEST.display_name,
-        desktop_icon_label: SYSTEM_CALCULATOR_MANIFEST.display_name,
-        show_in_launcher: SYSTEM_CALCULATOR_MANIFEST.show_in_launcher,
-        show_on_desktop: SYSTEM_CALCULATOR_MANIFEST.show_on_desktop,
-        single_instance: SYSTEM_CALCULATOR_MANIFEST.single_instance,
-        module: AppModule::new(mount_calculator_app),
-        suspend_policy: SYSTEM_CALCULATOR_MANIFEST.suspend_policy,
-        requested_capabilities: SYSTEM_CALCULATOR_MANIFEST.requested_capabilities,
-    },
-    AppDescriptor {
-        app_id: builtin_app_id(APP_ID_EXPLORER),
-        launcher_label: SYSTEM_EXPLORER_MANIFEST.display_name,
-        desktop_icon_label: SYSTEM_EXPLORER_MANIFEST.display_name,
-        show_in_launcher: SYSTEM_EXPLORER_MANIFEST.show_in_launcher,
-        show_on_desktop: SYSTEM_EXPLORER_MANIFEST.show_on_desktop,
-        single_instance: SYSTEM_EXPLORER_MANIFEST.single_instance,
-        module: AppModule::new(mount_explorer_app),
-        suspend_policy: SYSTEM_EXPLORER_MANIFEST.suspend_policy,
-        requested_capabilities: SYSTEM_EXPLORER_MANIFEST.requested_capabilities,
-    },
-    AppDescriptor {
-        app_id: builtin_app_id(APP_ID_NOTEPAD),
-        launcher_label: SYSTEM_NOTEPAD_MANIFEST.display_name,
-        desktop_icon_label: "Notes",
-        show_in_launcher: SYSTEM_NOTEPAD_MANIFEST.show_in_launcher,
-        show_on_desktop: SYSTEM_NOTEPAD_MANIFEST.show_on_desktop,
-        single_instance: SYSTEM_NOTEPAD_MANIFEST.single_instance,
-        module: AppModule::new(mount_notepad_app),
-        suspend_policy: SYSTEM_NOTEPAD_MANIFEST.suspend_policy,
-        requested_capabilities: SYSTEM_NOTEPAD_MANIFEST.requested_capabilities,
-    },
-    AppDescriptor {
-        app_id: builtin_app_id(APP_ID_PAINT),
-        launcher_label: "Paint",
-        desktop_icon_label: "Paint",
-        show_in_launcher: true,
-        show_on_desktop: false,
-        single_instance: false,
-        module: AppModule::new(mount_paint_placeholder_app),
-        suspend_policy: SuspendPolicy::OnMinimize,
-        requested_capabilities: &[AppCapability::Window, AppCapability::State],
-    },
-    AppDescriptor {
-        app_id: builtin_app_id(APP_ID_TERMINAL),
-        launcher_label: SYSTEM_TERMINAL_MANIFEST.display_name,
-        desktop_icon_label: SYSTEM_TERMINAL_MANIFEST.display_name,
-        show_in_launcher: SYSTEM_TERMINAL_MANIFEST.show_in_launcher,
-        show_on_desktop: SYSTEM_TERMINAL_MANIFEST.show_on_desktop,
-        single_instance: SYSTEM_TERMINAL_MANIFEST.single_instance,
-        module: AppModule::new(mount_terminal_app),
-        suspend_policy: SYSTEM_TERMINAL_MANIFEST.suspend_policy,
-        requested_capabilities: SYSTEM_TERMINAL_MANIFEST.requested_capabilities,
-    },
-    AppDescriptor {
-        app_id: builtin_app_id(APP_ID_SETTINGS),
-        launcher_label: SYSTEM_SETTINGS_MANIFEST.display_name,
-        desktop_icon_label: "Settings",
-        show_in_launcher: SYSTEM_SETTINGS_MANIFEST.show_in_launcher,
-        show_on_desktop: SYSTEM_SETTINGS_MANIFEST.show_on_desktop,
-        single_instance: SYSTEM_SETTINGS_MANIFEST.single_instance,
-        module: AppModule::new(mount_settings_app),
-        suspend_policy: SYSTEM_SETTINGS_MANIFEST.suspend_policy,
-        requested_capabilities: SYSTEM_SETTINGS_MANIFEST.requested_capabilities,
-    },
-    AppDescriptor {
-        app_id: builtin_app_id(APP_ID_DIALUP),
-        launcher_label: "Dial-up",
-        desktop_icon_label: "Connect",
-        show_in_launcher: true,
-        show_on_desktop: false,
-        single_instance: false,
-        module: AppModule::new(mount_dialup_placeholder_app),
-        suspend_policy: SuspendPolicy::OnMinimize,
-        requested_capabilities: &[AppCapability::Window],
-    },
+        AppDescriptor {
+            app_id: builtin_app_id(APP_ID_CALCULATOR),
+            launcher_label: SYSTEM_CALCULATOR_MANIFEST.display_name,
+            desktop_icon_label: SYSTEM_CALCULATOR_MANIFEST.display_name,
+            show_in_launcher: SYSTEM_CALCULATOR_MANIFEST.show_in_launcher,
+            show_on_desktop: SYSTEM_CALCULATOR_MANIFEST.show_on_desktop,
+            single_instance: SYSTEM_CALCULATOR_MANIFEST.single_instance,
+            module: AppModule::new(mount_calculator_app),
+            suspend_policy: SYSTEM_CALCULATOR_MANIFEST.suspend_policy,
+            requested_capabilities: SYSTEM_CALCULATOR_MANIFEST.requested_capabilities,
+        },
+        AppDescriptor {
+            app_id: builtin_app_id(APP_ID_EXPLORER),
+            launcher_label: SYSTEM_EXPLORER_MANIFEST.display_name,
+            desktop_icon_label: SYSTEM_EXPLORER_MANIFEST.display_name,
+            show_in_launcher: SYSTEM_EXPLORER_MANIFEST.show_in_launcher,
+            show_on_desktop: SYSTEM_EXPLORER_MANIFEST.show_on_desktop,
+            single_instance: SYSTEM_EXPLORER_MANIFEST.single_instance,
+            module: AppModule::new(mount_explorer_app),
+            suspend_policy: SYSTEM_EXPLORER_MANIFEST.suspend_policy,
+            requested_capabilities: SYSTEM_EXPLORER_MANIFEST.requested_capabilities,
+        },
+        AppDescriptor {
+            app_id: builtin_app_id(APP_ID_NOTEPAD),
+            launcher_label: SYSTEM_NOTEPAD_MANIFEST.display_name,
+            desktop_icon_label: "Notes",
+            show_in_launcher: SYSTEM_NOTEPAD_MANIFEST.show_in_launcher,
+            show_on_desktop: SYSTEM_NOTEPAD_MANIFEST.show_on_desktop,
+            single_instance: SYSTEM_NOTEPAD_MANIFEST.single_instance,
+            module: AppModule::new(mount_notepad_app),
+            suspend_policy: SYSTEM_NOTEPAD_MANIFEST.suspend_policy,
+            requested_capabilities: SYSTEM_NOTEPAD_MANIFEST.requested_capabilities,
+        },
+        AppDescriptor {
+            app_id: builtin_app_id(APP_ID_PAINT),
+            launcher_label: "Paint",
+            desktop_icon_label: "Paint",
+            show_in_launcher: true,
+            show_on_desktop: false,
+            single_instance: false,
+            module: AppModule::new(mount_paint_placeholder_app),
+            suspend_policy: SuspendPolicy::OnMinimize,
+            requested_capabilities: &[AppCapability::Window, AppCapability::State],
+        },
+        AppDescriptor {
+            app_id: builtin_app_id(APP_ID_TERMINAL),
+            launcher_label: SYSTEM_TERMINAL_MANIFEST.display_name,
+            desktop_icon_label: SYSTEM_TERMINAL_MANIFEST.display_name,
+            show_in_launcher: SYSTEM_TERMINAL_MANIFEST.show_in_launcher,
+            show_on_desktop: SYSTEM_TERMINAL_MANIFEST.show_on_desktop,
+            single_instance: SYSTEM_TERMINAL_MANIFEST.single_instance,
+            module: AppModule::new(mount_terminal_app),
+            suspend_policy: SYSTEM_TERMINAL_MANIFEST.suspend_policy,
+            requested_capabilities: SYSTEM_TERMINAL_MANIFEST.requested_capabilities,
+        },
+        AppDescriptor {
+            app_id: builtin_app_id(APP_ID_SETTINGS),
+            launcher_label: SYSTEM_SETTINGS_MANIFEST.display_name,
+            desktop_icon_label: "Settings",
+            show_in_launcher: SYSTEM_SETTINGS_MANIFEST.show_in_launcher,
+            show_on_desktop: SYSTEM_SETTINGS_MANIFEST.show_on_desktop,
+            single_instance: SYSTEM_SETTINGS_MANIFEST.single_instance,
+            module: AppModule::new(mount_settings_app),
+            suspend_policy: SYSTEM_SETTINGS_MANIFEST.suspend_policy,
+            requested_capabilities: SYSTEM_SETTINGS_MANIFEST.requested_capabilities,
+        },
+        AppDescriptor {
+            app_id: builtin_app_id(APP_ID_DIALUP),
+            launcher_label: "Dial-up",
+            desktop_icon_label: "Connect",
+            show_in_launcher: true,
+            show_on_desktop: false,
+            single_instance: false,
+            module: AppModule::new(mount_dialup_placeholder_app),
+            suspend_policy: SuspendPolicy::OnMinimize,
+            requested_capabilities: &[AppCapability::Window],
+        },
     ]
 }
 
@@ -184,7 +167,9 @@ const LEGACY_BUILTIN_APP_ID_MAPPINGS: &[(&str, &str)] = &[
 
 /// Returns the static app registry used by the desktop shell.
 pub fn app_registry() -> &'static [AppDescriptor] {
-    app_registry_storage().get_or_init(build_app_registry).as_slice()
+    app_registry_storage()
+        .get_or_init(build_app_registry)
+        .as_slice()
 }
 
 /// Returns app descriptors that should appear in launcher menus.
@@ -294,10 +279,15 @@ pub fn is_dialup_application_id(app_id: &ApplicationId) -> bool {
 
 /// Returns the canonical pinned taskbar application ids in display order.
 pub fn pinned_taskbar_app_ids() -> Vec<ApplicationId> {
-    [APP_ID_EXPLORER, APP_ID_TERMINAL, APP_ID_NOTEPAD, APP_ID_CALCULATOR]
-        .into_iter()
-        .map(builtin_app_id)
-        .collect()
+    [
+        APP_ID_EXPLORER,
+        APP_ID_TERMINAL,
+        APP_ID_NOTEPAD,
+        APP_ID_CALCULATOR,
+    ]
+    .into_iter()
+    .map(builtin_app_id)
+    .collect()
 }
 
 /// Builds the default [`OpenWindowRequest`] for a canonical application id.
@@ -327,51 +317,59 @@ fn default_window_rect_for_app(
         h: 760,
     });
 
-    let (min_w, min_h, max_w_ratio, max_h_ratio, default_w_ratio, default_h_ratio) = match app_id.as_str() {
-        APP_ID_EXPLORER => (
-            SYSTEM_EXPLORER_MANIFEST.window_defaults.0,
-            SYSTEM_EXPLORER_MANIFEST.window_defaults.1,
-            0.92,
-            0.92,
-            0.80,
-            0.78,
-        ),
-        APP_ID_NOTEPAD => (
-            SYSTEM_NOTEPAD_MANIFEST.window_defaults.0,
-            SYSTEM_NOTEPAD_MANIFEST.window_defaults.1,
-            0.88,
-            0.88,
-            0.74,
-            0.74,
-        ),
-        APP_ID_TERMINAL => (
-            SYSTEM_TERMINAL_MANIFEST.window_defaults.0,
-            SYSTEM_TERMINAL_MANIFEST.window_defaults.1,
-            0.88,
-            0.86,
-            0.74,
-            0.70,
-        ),
-        APP_ID_SETTINGS => (
-            SYSTEM_SETTINGS_MANIFEST.window_defaults.0,
-            SYSTEM_SETTINGS_MANIFEST.window_defaults.1,
-            0.92,
-            0.92,
-            0.82,
-            0.82,
-        ),
-        APP_ID_CALCULATOR => (
-            SYSTEM_CALCULATOR_MANIFEST.window_defaults.0,
-            SYSTEM_CALCULATOR_MANIFEST.window_defaults.1,
-            0.78,
-            0.86,
-            0.56,
-            0.74,
-        ),
-        APP_ID_PAINT => (620, 420, 0.92, 0.92, 0.78, 0.78),
-        APP_ID_DIALUP => (420, 300, 0.66, 0.68, 0.48, 0.50),
-        _ => (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, 0.80, 0.80, 0.70, 0.70),
-    };
+    let (min_w, min_h, max_w_ratio, max_h_ratio, default_w_ratio, default_h_ratio) =
+        match app_id.as_str() {
+            APP_ID_EXPLORER => (
+                SYSTEM_EXPLORER_MANIFEST.window_defaults.0,
+                SYSTEM_EXPLORER_MANIFEST.window_defaults.1,
+                0.92,
+                0.92,
+                0.80,
+                0.78,
+            ),
+            APP_ID_NOTEPAD => (
+                SYSTEM_NOTEPAD_MANIFEST.window_defaults.0,
+                SYSTEM_NOTEPAD_MANIFEST.window_defaults.1,
+                0.88,
+                0.88,
+                0.74,
+                0.74,
+            ),
+            APP_ID_TERMINAL => (
+                SYSTEM_TERMINAL_MANIFEST.window_defaults.0,
+                SYSTEM_TERMINAL_MANIFEST.window_defaults.1,
+                0.88,
+                0.86,
+                0.74,
+                0.70,
+            ),
+            APP_ID_SETTINGS => (
+                SYSTEM_SETTINGS_MANIFEST.window_defaults.0,
+                SYSTEM_SETTINGS_MANIFEST.window_defaults.1,
+                0.92,
+                0.92,
+                0.82,
+                0.82,
+            ),
+            APP_ID_CALCULATOR => (
+                SYSTEM_CALCULATOR_MANIFEST.window_defaults.0,
+                SYSTEM_CALCULATOR_MANIFEST.window_defaults.1,
+                0.78,
+                0.86,
+                0.56,
+                0.74,
+            ),
+            APP_ID_PAINT => (620, 420, 0.92, 0.92, 0.78, 0.78),
+            APP_ID_DIALUP => (420, 300, 0.66, 0.68, 0.48, 0.50),
+            _ => (
+                DEFAULT_WINDOW_WIDTH,
+                DEFAULT_WINDOW_HEIGHT,
+                0.80,
+                0.80,
+                0.70,
+                0.70,
+            ),
+        };
 
     let max_w = ((vp.w as f32) * max_w_ratio) as i32;
     let max_h = ((vp.h as f32) * max_h_ratio) as i32;
@@ -554,11 +552,6 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
     let state = create_rw_signal(PaintPlaceholderState::default());
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
-    let hydrate_alive = Rc::new(Cell::new(true));
-    on_cleanup({
-        let hydrate_alive = hydrate_alive.clone();
-        move || hydrate_alive.set(false)
-    });
 
     create_effect(move |_| {
         if context.restored_state.is_object() {
@@ -573,41 +566,7 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
         }
     });
 
-    create_effect(move |_| {
-        let state = state;
-        let hydrated = hydrated;
-        let last_saved = last_saved;
-        let hydrate_alive = hydrate_alive.clone();
-        spawn_local(async move {
-            let store = app_state_store();
-            match load_app_state_with_migration(
-                &store,
-                PAINT_STATE_NAMESPACE,
-                PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION,
-                migrate_paint_placeholder_state,
-            )
-            .await
-            {
-                Ok(Some(restored)) => {
-                    let restored = restore_paint_placeholder_state(restored);
-                    if !hydrate_alive.get() {
-                        return;
-                    }
-                    let serialized = serde_json::to_string(&restored).ok();
-                    if last_saved.get_untracked().is_none() {
-                        state.set(restored);
-                        last_saved.set(serialized);
-                    }
-                }
-                Ok(None) => {}
-                Err(err) => logging::warn!("paint placeholder hydrate failed: {err}"),
-            }
-            if !hydrate_alive.get() {
-                return;
-            }
-            hydrated.set(true);
-        });
-    });
+    hydrated.set(true);
 
     create_effect(move |_| {
         if !hydrated.get() {
@@ -632,28 +591,13 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
         if let Ok(value) = serde_json::to_value(&snapshot) {
             context.services.state.persist_window_state(value);
         }
-
-        // Legacy namespace persistence retained for migration compatibility.
-        spawn_local(async move {
-            let store = app_state_store();
-            if let Err(err) = save_app_state_with(
-                &store,
-                PAINT_STATE_NAMESPACE,
-                PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION,
-                &snapshot,
-            )
-            .await
-            {
-                logging::warn!("paint placeholder persist failed: {err}");
-            }
-        });
     });
 
     view! {
         <div class="app-shell app-paint-shell">
             <div class="app-toolbar app-paint-intro" role="note">
                 <strong>"Paint (Placeholder)"</strong>
-                <span>"Future canvas state persists under the same namespaced IndexedDB path."</span>
+                <span>"Future canvas state persists through the desktop runtime window snapshot."</span>
             </div>
 
             <div class="app-toolbar" role="group" aria-label="Paint placeholder controls">
@@ -745,24 +689,5 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
                 <span>{move || state.get().status.clone()}</span>
             </div>
         </div>
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn paint_namespace_migration_supports_schema_zero() {
-        let envelope = build_app_state_envelope(
-            PAINT_STATE_NAMESPACE,
-            0,
-            &PaintPlaceholderState::default(),
-        )
-        .expect("build envelope");
-
-        let migrated = migrate_paint_placeholder_state(0, &envelope)
-            .expect("schema-zero migration should succeed");
-        assert!(migrated.is_some(), "expected migrated paint state");
     }
 }

@@ -8,6 +8,7 @@
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
 pub mod cache;
+pub mod external_url;
 pub mod fs;
 pub mod notifications;
 pub mod session;
@@ -19,6 +20,7 @@ pub use cache::{
     cache_get_json_with, cache_put_json_with, ContentCache, ContentCacheFuture, MemoryContentCache,
     NoopContentCache,
 };
+pub use external_url::{ExternalUrlFuture, ExternalUrlService, NoopExternalUrlService};
 pub use fs::path::normalize_virtual_path;
 pub use fs::service::{ExplorerFsFuture, ExplorerFsService, NoopExplorerFsService};
 pub use fs::types::{
@@ -42,6 +44,9 @@ pub use storage::prefs::{
 };
 pub use time::{next_monotonic_timestamp_ms, unix_time_ms_now};
 pub use wallpaper::{
-    NoopWallpaperAssetService, WallpaperAssetFuture, WallpaperAssetMetadataPatch,
-    WallpaperAssetService,
+    NoopWallpaperAssetService, ResolvedWallpaperSource, WallpaperAnimationPolicy,
+    WallpaperAssetFuture, WallpaperAssetMetadataPatch, WallpaperAssetRecord, WallpaperAssetService,
+    WallpaperCollection, WallpaperConfig, WallpaperDisplayMode, WallpaperImportRequest,
+    WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperPosition, WallpaperSelection,
+    WallpaperSourceKind,
 };

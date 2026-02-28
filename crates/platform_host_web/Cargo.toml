@@ -9,7 +9,6 @@ desktop-host-stub = []
 desktop-host-tauri = []
 
 [dependencies]
-desktop_app_contract = { path = "../desktop_app_contract", default-features = false }
 futures = "0.3"
 js-sys = "0.3"
 platform_host = { path = "../platform_host" }

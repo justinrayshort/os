@@ -147,7 +147,13 @@ fn render_manifest_metadata_const(manifest: &AppManifest) -> String {
     let ident = manifest
         .app_id
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() { ch.to_ascii_uppercase() } else { '_' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_uppercase()
+            } else {
+                '_'
+            }
+        })
         .collect::<String>();
     let requested_capabilities = manifest
         .requested_capabilities

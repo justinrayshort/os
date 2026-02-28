@@ -10,11 +10,6 @@ use crate::engine::{
 use desktop_app_contract::AppServices;
 use leptos::ev::KeyboardEvent;
 use leptos::*;
-use platform_host::{
-    load_app_state_with_migration, migrate_envelope_payload, save_app_state_with,
-    CALCULATOR_STATE_NAMESPACE,
-};
-use platform_host_web::app_state_store;
 use serde_json::Value;
 
 #[derive(Clone, Copy)]
@@ -239,18 +234,6 @@ const CALC_KEYS: [CalcKeySpec; 30] = [
     },
 ];
 
-const CALCULATOR_STATE_SCHEMA_VERSION: u32 = 1;
-
-fn migrate_calculator_state(
-    schema_version: u32,
-    envelope: &platform_host::AppStateEnvelope,
-) -> Result<Option<CalculatorState>, String> {
-    match schema_version {
-        0 => migrate_envelope_payload(envelope).map(Some),
-        _ => Ok(None),
-    }
-}
-
 #[component]
 /// Calculator app window contents.
 ///
@@ -267,7 +250,7 @@ pub fn CalculatorApp(
     let calc = create_rw_signal(CalculatorState::default());
     let hydrated = create_rw_signal(false);
     let last_saved = create_rw_signal::<Option<String>>(None);
-    let services_for_persist = services;
+    let services_for_persist = services.clone();
 
     if let Some(restored_state) = restored_state.as_ref() {
         if let Ok(restored) = serde_json::from_value::<CalculatorState>(restored_state.clone()) {
@@ -277,33 +260,7 @@ pub fn CalculatorApp(
             hydrated.set(true);
         }
     }
-    create_effect(move |_| {
-        let calc = calc;
-        let hydrated = hydrated;
-        let last_saved = last_saved;
-        spawn_local(async move {
-            let store = app_state_store();
-            match load_app_state_with_migration(
-                &store,
-                CALCULATOR_STATE_NAMESPACE,
-                CALCULATOR_STATE_SCHEMA_VERSION,
-                migrate_calculator_state,
-            )
-            .await
-            {
-                Ok(Some(restored)) => {
-                    if last_saved.get_untracked().is_none() {
-                        let serialized = serde_json::to_string(&restored).ok();
-                        calc.set(restored);
-                        last_saved.set(serialized);
-                    }
-                }
-                Ok(None) => {}
-                Err(err) => logging::warn!("calculator state hydrate failed: {err}"),
-            }
-            hydrated.set(true);
-        });
-    });
+    hydrated.set(true);
 
     create_effect(move |_| {
         if !hydrated.get() {
@@ -329,20 +286,6 @@ pub fn CalculatorApp(
                 services.state.persist_window_state(value);
             }
         }
-
-        spawn_local(async move {
-            let store = app_state_store();
-            if let Err(err) = save_app_state_with(
-                &store,
-                CALCULATOR_STATE_NAMESPACE,
-                CALCULATOR_STATE_SCHEMA_VERSION,
-                &snapshot,
-            )
-            .await
-            {
-                logging::warn!("calculator state persist failed: {err}");
-            }
-        });
     });
 
     let on_keydown = move |ev: KeyboardEvent| {
@@ -473,24 +416,5 @@ pub fn CalculatorApp(
                 <span>{move || if hydrated.get() { "State: synced" } else { "State: hydrating..." }}</span>
             </div>
         </div>
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn calculator_namespace_migration_supports_schema_zero() {
-        let envelope = platform_host::build_app_state_envelope(
-            CALCULATOR_STATE_NAMESPACE,
-            0,
-            &CalculatorState::default(),
-        )
-        .expect("build envelope");
-
-        let migrated =
-            migrate_calculator_state(0, &envelope).expect("schema-zero migration should succeed");
-        assert!(migrated.is_some(), "expected migrated calculator state");
     }
 }

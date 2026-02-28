@@ -48,7 +48,10 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
             } else if win.flags.maximizable {
                 runtime.dispatch_action(DesktopAction::MaximizeWindow {
                     window_id,
-                    viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
+                    viewport: runtime
+                        .host
+                        .get_value()
+                        .desktop_viewport_rect(TASKBAR_HEIGHT_PX),
                 });
             }
         }
@@ -81,7 +84,10 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                 } else {
                     runtime.dispatch_action(DesktopAction::MaximizeWindow {
                         window_id,
-                        viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
+                        viewport: runtime
+                            .host
+                            .get_value()
+                            .desktop_viewport_rect(TASKBAR_HEIGHT_PX),
                     });
                 }
             }
@@ -270,7 +276,10 @@ fn WindowResizeHandle(window_id: WindowId, edge: ResizeEdge) -> impl IntoView {
             window_id,
             edge,
             pointer: pointer_from_pointer_event(&ev),
-            viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
+            viewport: runtime
+                .host
+                .get_value()
+                .desktop_viewport_rect(TASKBAR_HEIGHT_PX),
         });
     };
 
@@ -322,6 +331,10 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
     });
     let services = store_value(AppServices::new(
         command_sender,
+        runtime.host.get_value().app_state_store(),
+        runtime.host.get_value().prefs_store(),
+        runtime.host.get_value().explorer_fs_service(),
+        runtime.host.get_value().content_cache(),
         theme_skin_id.read_only(),
         theme_high_contrast.read_only(),
         theme_reduced_motion.read_only(),

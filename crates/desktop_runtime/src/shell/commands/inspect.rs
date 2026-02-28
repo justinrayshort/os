@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use desktop_app_contract::AppCommandRegistration;
 use leptos::SignalGetUntracked;
-use platform_host::AppStateStore;
-use platform_host_web::{app_state_store, host_strategy_name};
-use system_shell_contract::{CommandDataShape, CommandOutputShape, StructuredScalar, StructuredValue};
+use system_shell_contract::{
+    CommandDataShape, CommandOutputShape, StructuredScalar, StructuredValue,
+};
 
 use crate::components::DesktopRuntimeContext;
 
@@ -12,7 +12,7 @@ pub(super) fn registrations(runtime: DesktopRuntimeContext) -> Vec<AppCommandReg
     vec![
         inspect_runtime_registration(runtime.clone()),
         inspect_windows_registration(runtime.clone()),
-        inspect_storage_registration(),
+        inspect_storage_registration(runtime),
     ]
 }
 
@@ -95,7 +95,7 @@ fn inspect_windows_registration(runtime: DesktopRuntimeContext) -> AppCommandReg
     }
 }
 
-fn inspect_storage_registration() -> AppCommandRegistration {
+fn inspect_storage_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
     AppCommandRegistration {
         descriptor: super::super::namespaced_descriptor(
             "inspect storage",
@@ -108,15 +108,22 @@ fn inspect_storage_registration() -> AppCommandRegistration {
             CommandOutputShape::new(CommandDataShape::Record),
         ),
         completion: None,
-        handler: Rc::new(|_| {
+        handler: Rc::new(move |_| {
+            let runtime = runtime.clone();
             Box::pin(async move {
-                let namespaces = app_state_store()
+                let namespaces = runtime
+                    .host
+                    .get_value()
+                    .app_state_store()
                     .list_app_state_namespaces()
                     .await
                     .map_err(super::super::unavailable)?;
                 Ok(system_shell_contract::CommandResult {
                     output: super::super::record_data(vec![
-                        super::super::string_field("host_strategy", host_strategy_name()),
+                        super::super::string_field(
+                            "host_strategy",
+                            runtime.host.get_value().host_strategy_name(),
+                        ),
                         super::super::value_field(
                             "namespaces",
                             StructuredValue::List(

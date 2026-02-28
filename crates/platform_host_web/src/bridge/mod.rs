@@ -96,6 +96,10 @@ pub async fn explorer_stat(path: &str) -> Result<ExplorerMetadata, String> {
     fs::explorer_stat(path).await
 }
 
+pub async fn open_external_url(url: &str) -> Result<(), String> {
+    interop::open_external_url(url).await
+}
+
 #[cfg(test)]
 mod tests {
     use futures::executor::block_on;

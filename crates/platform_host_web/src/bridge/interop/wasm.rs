@@ -897,6 +897,17 @@ export async function jsExplorerCreateFile(path, text) { return await explorerCr
 export async function jsExplorerDelete(path, recursive) { return await explorerDelete(path, recursive); }
 export async function jsExplorerStat(path) { return await explorerStat(path); }
 export async function jsExplorerClearNativeRoot() { await clearNativeRootHandle(); return await nativeStatus(); }
+export async function jsOpenExternalUrl(url) {
+  if (!url || typeof url !== 'string') fail('URL is required');
+  const tauri = await tauriInvoke('external_open_url', { url });
+  if (tauri.available) return tauri.value ?? null;
+  if (typeof window === 'undefined' || typeof window.open !== 'function') {
+    fail('window.open is unavailable in this browser context');
+  }
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!opened) fail(`Failed to open external URL: ${url}`);
+  return null;
+}
 "#)]
 extern "C" {
     #[wasm_bindgen(js_name = jsAppStateLoad)]
@@ -943,6 +954,8 @@ extern "C" {
     fn js_explorer_stat(path: &str) -> Promise;
     #[wasm_bindgen(js_name = jsExplorerClearNativeRoot)]
     fn js_explorer_clear_native_root() -> Promise;
+    #[wasm_bindgen(js_name = jsOpenExternalUrl)]
+    fn js_open_external_url(url: &str) -> Promise;
 }
 
 async fn await_promise(promise: Promise) -> Result<JsValue, String> {
@@ -1092,4 +1105,9 @@ pub async fn explorer_stat(path: &str) -> Result<ExplorerMetadata, String> {
 #[allow(dead_code)]
 pub async fn explorer_clear_native_root() -> Result<ExplorerBackendStatus, String> {
     promise_to_json(js_explorer_clear_native_root()).await
+}
+
+pub async fn open_external_url(url: &str) -> Result<(), String> {
+    let _ = await_promise(js_open_external_url(url)).await?;
+    Ok(())
 }

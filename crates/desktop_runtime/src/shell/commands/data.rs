@@ -85,26 +85,30 @@ fn data_select_registration() -> AppCommandRegistration {
                         cwd: None,
                         exit: system_shell_contract::ShellExit::success(),
                     }),
-                    StructuredData::Value(StructuredValue::Record(record)) => Ok(system_shell_contract::CommandResult {
-                        output: StructuredData::Record(StructuredRecord {
-                            fields: context
-                                .args
-                                .iter()
-                                .filter_map(|name| {
-                                    record
-                                        .fields
-                                        .iter()
-                                        .find(|field| &field.name == name)
-                                        .cloned()
-                                })
-                                .collect(),
-                        }),
-                        display: DisplayPreference::Record,
-                        notices: Vec::new(),
-                        cwd: None,
-                        exit: system_shell_contract::ShellExit::success(),
-                    }),
-                    _ => Err(super::super::usage_error("data select expects record or table input")),
+                    StructuredData::Value(StructuredValue::Record(record)) => {
+                        Ok(system_shell_contract::CommandResult {
+                            output: StructuredData::Record(StructuredRecord {
+                                fields: context
+                                    .args
+                                    .iter()
+                                    .filter_map(|name| {
+                                        record
+                                            .fields
+                                            .iter()
+                                            .find(|field| &field.name == name)
+                                            .cloned()
+                                    })
+                                    .collect(),
+                            }),
+                            display: DisplayPreference::Record,
+                            notices: Vec::new(),
+                            cwd: None,
+                            exit: system_shell_contract::ShellExit::success(),
+                        })
+                    }
+                    _ => Err(super::super::usage_error(
+                        "data select expects record or table input",
+                    )),
                 }
             })
         }),
@@ -151,7 +155,11 @@ fn data_sort_registration() -> AppCommandRegistration {
                         (None, Some(_)) => Ordering::Less,
                         (None, None) => Ordering::Equal,
                     };
-                    if descending { ord.reverse() } else { ord }
+                    if descending {
+                        ord.reverse()
+                    } else {
+                        ord
+                    }
                 });
                 Ok(system_shell_contract::CommandResult {
                     output: StructuredData::Table(table),
@@ -200,7 +208,9 @@ fn data_where_registration() -> AppCommandRegistration {
         handler: Rc::new(|context| {
             Box::pin(async move {
                 if context.args.len() < 3 {
-                    return Err(super::super::usage_error("usage: data where <field> <op> <value>"));
+                    return Err(super::super::usage_error(
+                        "usage: data where <field> <op> <value>",
+                    ));
                 }
                 let field = &context.args[0];
                 let op = &context.args[1];
@@ -282,7 +292,9 @@ fn data_first_registration() -> AppCommandRegistration {
                         cwd: None,
                         exit: system_shell_contract::ShellExit::success(),
                     }),
-                    _ => Err(super::super::usage_error("data first expects table or list input")),
+                    _ => Err(super::super::usage_error(
+                        "data first expects table or list input",
+                    )),
                 }
             })
         }),
@@ -330,7 +342,9 @@ fn data_get_registration() -> AppCommandRegistration {
                     StructuredData::Record(record) => {
                         let value = super::super::field_value(record, field)
                             .cloned()
-                            .ok_or_else(|| super::super::usage_error(format!("missing field `{field}`")))?;
+                            .ok_or_else(|| {
+                                super::super::usage_error(format!("missing field `{field}`"))
+                            })?;
                         Ok(system_shell_contract::CommandResult {
                             output: StructuredData::Value(value),
                             display: DisplayPreference::Value,
@@ -342,7 +356,9 @@ fn data_get_registration() -> AppCommandRegistration {
                     StructuredData::Value(StructuredValue::Record(record)) => {
                         let value = super::super::field_value(record, field)
                             .cloned()
-                            .ok_or_else(|| super::super::usage_error(format!("missing field `{field}`")))?;
+                            .ok_or_else(|| {
+                                super::super::usage_error(format!("missing field `{field}`"))
+                            })?;
                         Ok(system_shell_contract::CommandResult {
                             output: StructuredData::Value(value),
                             display: DisplayPreference::Value,
@@ -351,7 +367,9 @@ fn data_get_registration() -> AppCommandRegistration {
                             exit: system_shell_contract::ShellExit::success(),
                         })
                     }
-                    _ => Err(super::super::usage_error("data get expects record or table input")),
+                    _ => Err(super::super::usage_error(
+                        "data get expects record or table input",
+                    )),
                 }
             })
         }),

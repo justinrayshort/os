@@ -1,12 +1,12 @@
 //! Root route components and URL deep-link bootstrap for the site shell.
 
-use desktop_runtime::{
-    use_desktop_runtime, DeepLinkState, DesktopAction, DesktopProvider, DesktopShell,
-};
 #[cfg(any(test, target_arch = "wasm32"))]
 use desktop_app_contract::ApplicationId;
 #[cfg(any(test, target_arch = "wasm32"))]
 use desktop_runtime::DeepLinkOpenTarget;
+use desktop_runtime::{
+    use_desktop_runtime, DeepLinkState, DesktopAction, DesktopProvider, DesktopShell,
+};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;

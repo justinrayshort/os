@@ -1947,6 +1947,7 @@ const SKIN_SCOPED_FILES: &[(&str, &str)] = &[
 ];
 const TYPED_PERSISTENCE_BOUNDARY_DIRS: &[&str] =
     &["crates/apps", "crates/desktop_runtime", "crates/site"];
+const PLATFORM_HOST_WEB_IMPORT_ALLOWLIST: &[&str] = &["crates/desktop_runtime/src/host.rs"];
 const SHELL_ICON_COMPONENT_FILES: &[&str] = &[
     "crates/desktop_runtime/src/components.rs",
     "crates/desktop_runtime/src/components/display_properties.rs",
@@ -2197,6 +2198,8 @@ fn validate_typed_persistence_boundary(root: &Path) -> Vec<Problem> {
                 }
             };
             let imports_low_level_load = imports_legacy_low_level_app_state_load(&text);
+            let allows_platform_host_web =
+                PLATFORM_HOST_WEB_IMPORT_ALLOWLIST.contains(&rel_path.as_str());
 
             for (idx, line) in text.lines().enumerate() {
                 if uses_forbidden_envelope_load_call(line, imports_low_level_load) {
@@ -2204,6 +2207,14 @@ fn validate_typed_persistence_boundary(root: &Path) -> Vec<Problem> {
                         "storage-boundary",
                         rel_path.clone(),
                         "direct `load_app_state_envelope(...)` usage is not allowed in app/runtime crates; use typed load helpers",
+                        Some(idx + 1),
+                    ));
+                }
+                if !allows_platform_host_web && uses_forbidden_platform_host_web_import(line) {
+                    problems.push(Problem::new(
+                        "storage-boundary",
+                        rel_path.clone(),
+                        "direct `platform_host_web` imports are not allowed here; route host access through `AppServices` or `DesktopHostContext`",
                         Some(idx + 1),
                     ));
                 }
@@ -2386,6 +2397,20 @@ fn uses_forbidden_envelope_load_call(line: &str, imports_low_level_load: bool) -
     }
 
     false
+}
+
+fn uses_forbidden_platform_host_web_import(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with("//") {
+        return false;
+    }
+
+    let compact = line
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect::<String>();
+
+    compact.starts_with("useplatform_host_web") || compact.contains("externcrateplatform_host_web")
 }
 
 fn validate_shell_icon_standardization(root: &Path) -> Vec<Problem> {
@@ -2799,6 +2824,22 @@ Continue.
         ));
         assert!(!imports_legacy_low_level_app_state_load(
             "use platform_storage::load_app_state_typed;"
+        ));
+    }
+
+    #[test]
+    fn storage_boundary_flags_platform_host_web_imports_outside_allowlist() {
+        assert!(uses_forbidden_platform_host_web_import(
+            "use platform_host_web::prefs_store;"
+        ));
+        assert!(uses_forbidden_platform_host_web_import(
+            "use platform_host_web::{app_state_store, explorer_fs_service};"
+        ));
+        assert!(!uses_forbidden_platform_host_web_import(
+            "// use platform_host_web::prefs_store;"
+        ));
+        assert!(!uses_forbidden_platform_host_web_import(
+            "let platform_host_web_value = 1;"
         ));
     }
 }

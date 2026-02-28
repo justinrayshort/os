@@ -1,7 +1,9 @@
 use std::rc::Rc;
 
 use desktop_app_contract::AppCommandRegistration;
-use system_shell_contract::{CommandArgSpec, CommandDataShape, CommandOutputShape, CompletionRequest};
+use system_shell_contract::{
+    CommandArgSpec, CommandDataShape, CommandOutputShape, CompletionRequest,
+};
 
 use crate::{apps, components::DesktopRuntimeContext, reducer::DesktopAction};
 
@@ -88,6 +90,7 @@ fn apps_open_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistrat
                     *viewport = Some(
                         runtime
                             .host
+                            .get_value()
                             .desktop_viewport_rect(super::super::TASKBAR_HEIGHT_PX),
                     );
                 }

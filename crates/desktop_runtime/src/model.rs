@@ -2,7 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use desktop_app_contract::{ApplicationId, WallpaperConfig, WallpaperLibrarySnapshot};
+use desktop_app_contract::ApplicationId;
+use platform_host::{WallpaperConfig, WallpaperLibrarySnapshot};
 use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

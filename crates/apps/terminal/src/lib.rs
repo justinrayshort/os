@@ -2,17 +2,12 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
-use std::{cell::Cell, rc::Rc};
+use std::rc::Rc;
 
 use desktop_app_contract::{window_primary_input_dom_id, AppServices, WindowRuntimeId};
 use leptos::ev::KeyboardEvent;
 use leptos::html;
 use leptos::*;
-use platform_host::{
-    load_app_state_with_migration, migrate_envelope_payload, save_app_state_with,
-    TERMINAL_STATE_NAMESPACE,
-};
-use platform_host_web::app_state_store;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use system_shell_contract::{
@@ -21,59 +16,8 @@ use system_shell_contract::{
     StructuredScalar, StructuredTable, StructuredValue,
 };
 
-const TERMINAL_STATE_SCHEMA_VERSION: u32 = 3;
 const MAX_TERMINAL_ENTRIES: usize = 200;
 const AUTO_FOLLOW_THRESHOLD_PX: i32 = 32;
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct LegacyTerminalPersistedState {
-    cwd: String,
-    input: String,
-    lines: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct LegacyPersistedExecutionState {
-    execution_id: ExecutionId,
-    command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-enum LegacyTerminalTranscriptEntryV2 {
-    Prompt {
-        cwd: String,
-        command: String,
-        execution_id: Option<ExecutionId>,
-    },
-    Stdout {
-        text: String,
-        execution_id: ExecutionId,
-    },
-    Stderr {
-        text: String,
-        execution_id: ExecutionId,
-    },
-    Status {
-        text: String,
-        execution_id: ExecutionId,
-    },
-    Json {
-        value: Value,
-        execution_id: ExecutionId,
-    },
-    System {
-        text: String,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct LegacyTerminalPersistedStateV2 {
-    cwd: String,
-    input: String,
-    transcript: Vec<LegacyTerminalTranscriptEntryV2>,
-    history_cursor: Option<usize>,
-    active_execution: Option<LegacyPersistedExecutionState>,
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct PersistedExecutionState {
@@ -114,98 +58,6 @@ struct TerminalPersistedState {
     transcript: Vec<TerminalTranscriptEntry>,
     history_cursor: Option<usize>,
     active_execution: Option<PersistedExecutionState>,
-}
-
-fn migrate_terminal_state(
-    schema_version: u32,
-    envelope: &platform_host::AppStateEnvelope,
-) -> Result<Option<TerminalPersistedState>, String> {
-    match schema_version {
-        0 | 1 => {
-            let legacy: LegacyTerminalPersistedState =
-                migrate_envelope_payload(envelope)?;
-            Ok(Some(TerminalPersistedState {
-                cwd: legacy.cwd,
-                input: legacy.input,
-                transcript: legacy
-                    .lines
-                    .into_iter()
-                    .map(|text| TerminalTranscriptEntry::System { text })
-                    .collect(),
-                history_cursor: None,
-                active_execution: None,
-            }))
-        }
-        2 => {
-            let legacy: LegacyTerminalPersistedStateV2 =
-                migrate_envelope_payload(envelope)?;
-            Ok(Some(TerminalPersistedState {
-                cwd: legacy.cwd,
-                input: legacy.input,
-                transcript: legacy
-                    .transcript
-                    .into_iter()
-                    .map(|entry| match entry {
-                        LegacyTerminalTranscriptEntryV2::Prompt {
-                            cwd,
-                            command,
-                            execution_id,
-                        } => TerminalTranscriptEntry::Prompt {
-                            cwd,
-                            command,
-                            execution_id,
-                        },
-                        LegacyTerminalTranscriptEntryV2::Stdout { text, execution_id } => {
-                            TerminalTranscriptEntry::Notice {
-                                notice: CommandNotice {
-                                    level: CommandNoticeLevel::Info,
-                                    message: text,
-                                },
-                                execution_id,
-                            }
-                        }
-                        LegacyTerminalTranscriptEntryV2::Stderr { text, execution_id } => {
-                            TerminalTranscriptEntry::Notice {
-                                notice: CommandNotice {
-                                    level: CommandNoticeLevel::Error,
-                                    message: text,
-                                },
-                                execution_id,
-                            }
-                        }
-                        LegacyTerminalTranscriptEntryV2::Status { text, execution_id } => {
-                            TerminalTranscriptEntry::Notice {
-                                notice: CommandNotice {
-                                    level: CommandNoticeLevel::Info,
-                                    message: text,
-                                },
-                                execution_id,
-                            }
-                        }
-                        LegacyTerminalTranscriptEntryV2::Json {
-                            value,
-                            execution_id,
-                        } => TerminalTranscriptEntry::Data {
-                            data: json_to_structured_data(value),
-                            display: DisplayPreference::Auto,
-                            execution_id,
-                        },
-                        LegacyTerminalTranscriptEntryV2::System { text } => {
-                            TerminalTranscriptEntry::System { text }
-                        }
-                    })
-                    .collect(),
-                history_cursor: legacy.history_cursor,
-                active_execution: legacy.active_execution.map(|execution| {
-                    PersistedExecutionState {
-                        execution_id: execution.execution_id,
-                        command: execution.command,
-                    }
-                }),
-            }))
-        }
-        _ => Ok(None),
-    }
 }
 
 fn default_terminal_transcript() -> Vec<TerminalTranscriptEntry> {
@@ -286,41 +138,6 @@ fn completion_request(cwd: &str, line: &str) -> CompletionRequest {
             .collect::<Vec<_>>(),
         cursor: line.len(),
         source_window_id: None,
-    }
-}
-
-fn json_to_structured_value(value: Value) -> StructuredValue {
-    match value {
-        Value::Null => StructuredValue::Scalar(StructuredScalar::Null),
-        Value::Bool(value) => StructuredValue::Scalar(StructuredScalar::Bool(value)),
-        Value::Number(value) => {
-            if let Some(int) = value.as_i64() {
-                StructuredValue::Scalar(StructuredScalar::Int(int))
-            } else {
-                StructuredValue::Scalar(StructuredScalar::Float(value.as_f64().unwrap_or_default()))
-            }
-        }
-        Value::String(value) => StructuredValue::Scalar(StructuredScalar::String(value)),
-        Value::Array(values) => {
-            StructuredValue::List(values.into_iter().map(json_to_structured_value).collect())
-        }
-        Value::Object(values) => StructuredValue::Record(StructuredRecord {
-            fields: values
-                .into_iter()
-                .map(|(name, value)| system_shell_contract::StructuredField {
-                    name,
-                    value: json_to_structured_value(value),
-                })
-                .collect(),
-        }),
-    }
-}
-
-fn json_to_structured_data(value: Value) -> StructuredData {
-    match json_to_structured_value(value) {
-        StructuredValue::Record(record) => StructuredData::Record(record),
-        StructuredValue::List(values) => StructuredData::List(values),
-        other => StructuredData::Value(other),
     }
 }
 
@@ -497,6 +314,7 @@ pub fn TerminalApp(
     let shell_session = services
         .as_ref()
         .and_then(|services| services.commands.create_session(launch_cwd.clone()).ok());
+    let services_for_persist = services.clone();
     let cwd = create_rw_signal(launch_cwd.clone());
     let input = create_rw_signal(String::new());
     let transcript = create_rw_signal(default_terminal_transcript());
@@ -516,12 +334,6 @@ pub fn TerminalApp(
             "ready"
         }
     };
-    let hydrate_alive = Rc::new(Cell::new(true));
-    on_cleanup({
-        let hydrate_alive = hydrate_alive.clone();
-        move || hydrate_alive.set(false)
-    });
-
     if let Some(restored_state) = restored_state.as_ref() {
         if let Ok(restored) =
             serde_json::from_value::<TerminalPersistedState>(restored_state.clone())
@@ -537,51 +349,7 @@ pub fn TerminalApp(
             hydrated.set(true);
         }
     }
-
-    create_effect(move |_| {
-        let cwd = cwd;
-        let input = input;
-        let transcript = transcript;
-        let history_cursor = history_cursor;
-        let active_execution = active_execution;
-        let hydrated = hydrated;
-        let last_saved = last_saved;
-        let hydrate_alive = hydrate_alive.clone();
-        let launch_cwd = launch_cwd.clone();
-        spawn_local(async move {
-            let store = app_state_store();
-            match load_app_state_with_migration(
-                &store,
-                TERMINAL_STATE_NAMESPACE,
-                TERMINAL_STATE_SCHEMA_VERSION,
-                migrate_terminal_state,
-            )
-            .await
-            {
-                Ok(Some(restored)) => {
-                    if last_saved.get_untracked().is_none() {
-                        let restored = restore_terminal_state(restored, &launch_cwd);
-                        if !hydrate_alive.get() {
-                            return;
-                        }
-                        let serialized = serde_json::to_string(&restored).ok();
-                        cwd.set(restored.cwd);
-                        input.set(restored.input);
-                        transcript.set(restored.transcript);
-                        history_cursor.set(restored.history_cursor);
-                        active_execution.set(restored.active_execution);
-                        last_saved.set(serialized);
-                    }
-                }
-                Ok(None) => {}
-                Err(err) => logging::warn!("terminal hydrate failed: {err}"),
-            }
-            if !hydrate_alive.get() {
-                return;
-            }
-            hydrated.set(true);
-        });
-    });
+    hydrated.set(true);
 
     create_effect(move |_| {
         if !hydrated.get() {
@@ -614,19 +382,11 @@ pub fn TerminalApp(
         }
         last_saved.set(Some(serialized));
 
-        spawn_local(async move {
-            let store = app_state_store();
-            if let Err(err) = save_app_state_with(
-                &store,
-                TERMINAL_STATE_NAMESPACE,
-                TERMINAL_STATE_SCHEMA_VERSION,
-                &snapshot,
-            )
-            .await
-            {
-                logging::warn!("terminal persist failed: {err}");
+        if let Some(services) = services_for_persist.clone() {
+            if let Ok(value) = serde_json::to_value(&snapshot) {
+                services.state.persist_window_state(value);
             }
-        });
+        }
     });
 
     if let Some(shell_session) = shell_session.clone() {

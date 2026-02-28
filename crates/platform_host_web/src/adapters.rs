@@ -1,22 +1,21 @@
-use desktop_app_contract::{
-    ResolvedWallpaperSource, WallpaperAssetRecord, WallpaperCollection, WallpaperImportRequest,
-    WallpaperLibrarySnapshot, WallpaperSelection,
-};
 use platform_host::{
     AppStateEnvelope, AppStateStore, AppStateStoreFuture, ContentCache, ContentCacheFuture,
     ExplorerBackendStatus, ExplorerFileReadResult, ExplorerFsFuture, ExplorerFsService,
     ExplorerListResult, ExplorerMetadata, ExplorerPermissionMode, ExplorerPermissionState,
-    NoopAppStateStore, NoopContentCache, NoopExplorerFsService, NoopNotificationService,
-    NoopPrefsStore, NoopWallpaperAssetService, NotificationFuture, NotificationService,
-    PrefsStore, PrefsStoreFuture, WallpaperAssetFuture, WallpaperAssetMetadataPatch,
-    WallpaperAssetService,
+    ExternalUrlFuture, ExternalUrlService, NoopAppStateStore, NoopContentCache,
+    NoopExplorerFsService, NoopExternalUrlService, NoopNotificationService, NoopPrefsStore,
+    NoopWallpaperAssetService, NotificationFuture, NotificationService, PrefsStore,
+    PrefsStoreFuture, ResolvedWallpaperSource, WallpaperAssetFuture, WallpaperAssetMetadataPatch,
+    WallpaperAssetRecord, WallpaperAssetService, WallpaperCollection, WallpaperImportRequest,
+    WallpaperLibrarySnapshot, WallpaperSelection,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    TauriAppStateStore, TauriContentCache, TauriExplorerFsService, TauriNotificationService,
-    TauriPrefsStore, WebAppStateStore, WebContentCache, WebExplorerFsService,
-    WebNotificationService, WebPrefsStore, WebWallpaperAssetService,
+    TauriAppStateStore, TauriContentCache, TauriExplorerFsService, TauriExternalUrlService,
+    TauriNotificationService, TauriPrefsStore, WebAppStateStore, WebContentCache,
+    WebExplorerFsService, WebExternalUrlService, WebNotificationService, WebPrefsStore,
+    WebWallpaperAssetService,
 };
 
 #[cfg(all(feature = "desktop-host-stub", feature = "desktop-host-tauri"))]
@@ -289,6 +288,27 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     }
 }
 
+/// Adapter enum that erases the concrete external URL backend behind [`ExternalUrlService`].
+#[derive(Debug, Clone, Copy)]
+pub enum ExternalUrlServiceAdapter {
+    /// Browser-backed external URL opening.
+    Browser(WebExternalUrlService),
+    /// Native desktop external URL opening through Tauri transport.
+    DesktopTauri(TauriExternalUrlService),
+    /// No-op fallback used when desktop transport is intentionally stubbed.
+    DesktopStub(NoopExternalUrlService),
+}
+
+impl ExternalUrlService for ExternalUrlServiceAdapter {
+    fn open_url<'a>(&'a self, url: &'a str) -> ExternalUrlFuture<'a, Result<(), String>> {
+        match self {
+            Self::Browser(service) => service.open_url(url),
+            Self::DesktopTauri(service) => service.open_url(url),
+            Self::DesktopStub(service) => service.open_url(url),
+        }
+    }
+}
+
 /// Adapter enum that erases the concrete preferences backend behind [`PrefsStore`].
 #[derive(Debug, Clone, Copy)]
 pub enum PrefsStoreAdapter {
@@ -538,7 +558,20 @@ pub fn notification_service() -> NotificationServiceAdapter {
         HostStrategy::DesktopTauri => {
             NotificationServiceAdapter::DesktopTauri(TauriNotificationService)
         }
-        HostStrategy::DesktopStub => NotificationServiceAdapter::DesktopStub(NoopNotificationService),
+        HostStrategy::DesktopStub => {
+            NotificationServiceAdapter::DesktopStub(NoopNotificationService)
+        }
+    }
+}
+
+/// Builds the external-URL adapter for the compile-time selected host strategy.
+pub fn external_url_service() -> ExternalUrlServiceAdapter {
+    match selected_host_strategy() {
+        HostStrategy::Browser => ExternalUrlServiceAdapter::Browser(WebExternalUrlService),
+        HostStrategy::DesktopTauri => {
+            ExternalUrlServiceAdapter::DesktopTauri(TauriExternalUrlService)
+        }
+        HostStrategy::DesktopStub => ExternalUrlServiceAdapter::DesktopStub(NoopExternalUrlService),
     }
 }
 

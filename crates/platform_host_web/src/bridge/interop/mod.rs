@@ -99,3 +99,7 @@ pub async fn explorer_delete(path: &str, recursive: bool) -> Result<(), String> 
 pub async fn explorer_stat(path: &str) -> Result<ExplorerMetadata, String> {
     imp::explorer_stat(path).await
 }
+
+pub async fn open_external_url(url: &str) -> Result<(), String> {
+    imp::open_external_url(url).await
+}

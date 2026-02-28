@@ -2,7 +2,7 @@
 
 use std::sync::OnceLock;
 
-use desktop_app_contract::{
+use platform_host::{
     ResolvedWallpaperSource, WallpaperAssetRecord, WallpaperConfig, WallpaperLibrarySnapshot,
     WallpaperMediaKind, WallpaperSelection, WallpaperSourceKind,
 };
@@ -71,6 +71,38 @@ pub fn merged_wallpaper_library(imported: &WallpaperLibrarySnapshot) -> Wallpape
         soft_limit_bytes: imported.soft_limit_bytes,
         used_bytes: imported.used_bytes,
     }
+}
+
+/// Upserts one imported wallpaper asset into the merged library view.
+pub fn upsert_imported_wallpaper_asset(
+    library: &mut WallpaperLibrarySnapshot,
+    asset: WallpaperAssetRecord,
+) {
+    if let Some(existing) = library
+        .assets
+        .iter_mut()
+        .find(|existing| existing.asset_id == asset.asset_id)
+    {
+        *existing = asset;
+        return;
+    }
+    library.assets.push(asset);
+}
+
+/// Upserts one wallpaper collection into the merged library view.
+pub fn upsert_wallpaper_collection(
+    library: &mut WallpaperLibrarySnapshot,
+    collection: platform_host::WallpaperCollection,
+) {
+    if let Some(existing) = library
+        .collections
+        .iter_mut()
+        .find(|existing| existing.collection_id == collection.collection_id)
+    {
+        *existing = collection;
+        return;
+    }
+    library.collections.push(collection);
 }
 
 /// Resolves a wallpaper configuration against the merged library.
@@ -149,7 +181,7 @@ fn mime_type_for_path(path: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use desktop_app_contract::{
+    use platform_host::{
         WallpaperAnimationPolicy, WallpaperCollection, WallpaperDisplayMode, WallpaperPosition,
     };
 
@@ -227,5 +259,65 @@ mod tests {
         };
         let resolved = resolve_wallpaper_source(&config, &library).expect("resolved");
         assert!(resolved.primary_url.starts_with("data:image/png"));
+    }
+
+    #[test]
+    fn upserts_imported_asset_without_reloading_library() {
+        let mut library = merged_wallpaper_library(&WallpaperLibrarySnapshot::default());
+        let original_len = library.assets.len();
+
+        upsert_imported_wallpaper_asset(
+            &mut library,
+            WallpaperAssetRecord {
+                asset_id: "wallpaper-1".to_string(),
+                display_name: "Imported".to_string(),
+                source_kind: WallpaperSourceKind::Imported,
+                media_kind: WallpaperMediaKind::StaticImage,
+                mime_type: "image/png".to_string(),
+                byte_len: 42,
+                natural_width: None,
+                natural_height: None,
+                duration_ms: None,
+                favorite: true,
+                tags: vec!["featured".to_string()],
+                collection_ids: vec!["collection-1".to_string()],
+                primary_url: "data:image/png;base64,abc".to_string(),
+                poster_url: None,
+                created_at_unix_ms: None,
+                last_used_at_unix_ms: None,
+            },
+        );
+
+        assert_eq!(library.assets.len(), original_len + 1);
+        assert!(library.assets.iter().any(|asset| {
+            asset.asset_id == "wallpaper-1"
+                && asset.favorite
+                && asset.collection_ids == vec!["collection-1".to_string()]
+        }));
+    }
+
+    #[test]
+    fn upserts_collection_without_reloading_library() {
+        let mut library = WallpaperLibrarySnapshot::default();
+        upsert_wallpaper_collection(
+            &mut library,
+            WallpaperCollection {
+                collection_id: "favorites".to_string(),
+                display_name: "Favorites".to_string(),
+                sort_order: 1,
+            },
+        );
+        upsert_wallpaper_collection(
+            &mut library,
+            WallpaperCollection {
+                collection_id: "favorites".to_string(),
+                display_name: "Pinned".to_string(),
+                sort_order: 2,
+            },
+        );
+
+        assert_eq!(library.collections.len(), 1);
+        assert_eq!(library.collections[0].display_name, "Pinned");
+        assert_eq!(library.collections[0].sort_order, 2);
     }
 }

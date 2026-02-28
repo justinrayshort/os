@@ -4,11 +4,7 @@ use desktop_app_contract::AppCommandRegistration;
 use leptos::SignalGetUntracked;
 use system_shell_contract::{CommandArgSpec, CommandDataShape, CommandOutputShape};
 
-use crate::{
-    components::DesktopRuntimeContext,
-    model::DesktopSkin,
-    reducer::DesktopAction,
-};
+use crate::{components::DesktopRuntimeContext, model::DesktopSkin, reducer::DesktopAction};
 
 pub(super) fn registrations(runtime: DesktopRuntimeContext) -> Vec<AppCommandRegistration> {
     vec![
@@ -84,7 +80,10 @@ fn theme_set_skin_registration(runtime: DesktopRuntimeContext) -> AppCommandRegi
                     None => return Err(super::super::usage_error("usage: theme set skin <skin>")),
                 };
                 runtime.dispatch_action(DesktopAction::SetSkin { skin });
-                Ok(super::super::info_result(format!("skin set to {}", skin.css_id())))
+                Ok(super::super::info_result(format!(
+                    "skin set to {}",
+                    skin.css_id()
+                )))
             })
         }),
     }

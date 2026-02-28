@@ -8,11 +8,11 @@ mod window;
 
 use std::time::Duration;
 
-use desktop_app_contract::{
-    ApplicationId, WallpaperAnimationPolicy, WallpaperDisplayMode, WallpaperMediaKind,
-    WallpaperPosition,
-};
+use desktop_app_contract::ApplicationId;
 use leptos::*;
+use platform_host::{
+    WallpaperAnimationPolicy, WallpaperDisplayMode, WallpaperMediaKind, WallpaperPosition,
+};
 
 use self::{
     a11y::{focus_element_by_id, focus_first_menu_item, handle_menu_roving_keydown},
@@ -76,7 +76,7 @@ fn wallpaper_object_fit(display_mode: WallpaperDisplayMode) -> &'static str {
 /// Leptos context for reading desktop runtime state and dispatching [`DesktopAction`] values.
 pub struct DesktopRuntimeContext {
     /// Host service bundle for executing runtime side effects and environment queries.
-    pub host: DesktopHostContext,
+    pub host: StoredValue<DesktopHostContext>,
     /// Long-lived reactive owner for runtime-managed resources that must outlive transient app views.
     pub owner: Owner,
     /// Reactive desktop state signal.
@@ -103,7 +103,7 @@ impl DesktopRuntimeContext {
 #[component]
 /// Provides [`DesktopRuntimeContext`] to descendant components and boots persisted state.
 pub fn DesktopProvider(children: Children) -> impl IntoView {
-    let host = DesktopHostContext::default();
+    let host = store_value(DesktopHostContext::default());
     let owner = Owner::current().expect("DesktopProvider owner");
     let state = create_rw_signal(DesktopState::default());
     let interaction = create_rw_signal(InteractionState::default());
@@ -152,7 +152,7 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
 
     provide_context(runtime.clone());
 
-    host.install_boot_hydration(dispatch);
+    host.get_value().install_boot_hydration(dispatch);
     std::mem::forget(shell::register_builtin_commands(runtime));
 
     children().into_view()
@@ -309,7 +309,7 @@ pub fn DesktopShell() -> impl IntoView {
         runtime.effects.set(Vec::new());
 
         for effect in queued {
-            runtime.host.run_runtime_effect(runtime, effect);
+            runtime.host.get_value().run_runtime_effect(runtime, effect);
         }
     });
 
@@ -323,7 +323,10 @@ pub fn DesktopShell() -> impl IntoView {
             return;
         }
 
-        let viewport = runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX);
+        let viewport = runtime
+            .host
+            .get_value()
+            .desktop_viewport_rect(TASKBAR_HEIGHT_PX);
         runtime.dispatch_action(DesktopAction::OpenWindow(
             apps::default_open_request_by_id(&app_id, Some(viewport))
                 .expect("system settings app exists"),
@@ -363,7 +366,7 @@ pub fn DesktopShell() -> impl IntoView {
                         ev.stop_propagation();
                         runtime.dispatch_action(DesktopAction::CloseStartMenu);
                         open_desktop_context_menu(
-                            runtime.host,
+                            runtime.host.get_value(),
                             desktop_context_menu,
                             ev.client_x(),
                             ev.client_y(),
@@ -384,7 +387,7 @@ pub fn DesktopShell() -> impl IntoView {
                                     on:click=move |_| {
                                         runtime.dispatch_action(DesktopAction::ActivateApp {
                                             app_id: app_id.clone(),
-                                            viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
+                                            viewport: Some(runtime.host.get_value().desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
                                         });
                                     }
                                 >
@@ -548,10 +551,7 @@ fn preferred_window_for_app(state: &DesktopState, app_id: &ApplicationId) -> Opt
         .map(|win| win.id)
 }
 
-fn pinned_taskbar_app_state(
-    state: &DesktopState,
-    app_id: &ApplicationId,
-) -> PinnedTaskbarAppState {
+fn pinned_taskbar_app_state(state: &DesktopState, app_id: &ApplicationId) -> PinnedTaskbarAppState {
     let windows: Vec<&WindowRecord> = state
         .windows
         .iter()
@@ -764,7 +764,12 @@ fn activate_pinned_taskbar_app(runtime: DesktopRuntimeContext, app_id: Applicati
 
     runtime.dispatch_action(DesktopAction::ActivateApp {
         app_id,
-        viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
+        viewport: Some(
+            runtime
+                .host
+                .get_value()
+                .desktop_viewport_rect(TASKBAR_HEIGHT_PX),
+        ),
     });
 }
 
@@ -1000,7 +1005,10 @@ fn end_active_pointer_interaction(runtime: DesktopRuntimeContext) {
     let interaction = runtime.interaction.get_untracked();
     if interaction.dragging.is_some() {
         runtime.dispatch_action(DesktopAction::EndMoveWithViewport {
-            viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
+            viewport: runtime
+                .host
+                .get_value()
+                .desktop_viewport_rect(TASKBAR_HEIGHT_PX),
         });
     }
     if interaction.resizing.is_some() {

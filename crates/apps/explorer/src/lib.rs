@@ -4,32 +4,15 @@
 
 use std::{cell::Cell, rc::Rc};
 
-use desktop_app_contract::{AppEvent, AppServices};
+use desktop_app_contract::{AppEvent, AppServices, CacheHostService, ExplorerHostService};
 use leptos::*;
 use platform_host::{
-    explorer_preview_cache_key, save_app_state_with, save_pref_with, session_store, ContentCache,
-    ExplorerBackend, ExplorerBackendStatus, ExplorerEntry, ExplorerEntryKind, ExplorerFsService,
-    ExplorerMetadata, ExplorerPermissionMode, ExplorerPrefs, EXPLORER_CACHE_NAME,
-    EXPLORER_PREFS_KEY, EXPLORER_STATE_NAMESPACE,
+    explorer_preview_cache_key, session_store, ExplorerBackend, ExplorerBackendStatus,
+    ExplorerEntry, ExplorerEntryKind, ExplorerMetadata, ExplorerPermissionMode, ExplorerPrefs,
+    EXPLORER_CACHE_NAME, EXPLORER_PREFS_KEY,
 };
-#[cfg(test)]
-use platform_host::{migrate_envelope_payload, AppStateEnvelope};
-use platform_host_web::{app_state_store, content_cache, explorer_fs_service, prefs_store};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-
-const EXPLORER_STATE_SCHEMA_VERSION: u32 = 1;
-
-#[cfg(test)]
-fn migrate_explorer_state(
-    schema_version: u32,
-    envelope: &AppStateEnvelope,
-) -> Result<Option<ExplorerPersistedState>, String> {
-    match schema_version {
-        0 => migrate_envelope_payload(envelope).map(Some),
-        _ => Ok(None),
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ExplorerPersistedState {
@@ -168,12 +151,21 @@ fn set_notice(signals: ExplorerSignals, message: impl Into<String>) {
     signals.error.set(None);
 }
 
-fn refresh_directory(signals: ExplorerSignals, path: Option<String>) {
+fn refresh_directory(
+    signals: ExplorerSignals,
+    explorer: Option<ExplorerHostService>,
+    path: Option<String>,
+) {
     let target = path.unwrap_or_else(|| signals.cwd.get_untracked());
     let target = normalize_path(&target);
     signals.busy.set(true);
     spawn_local(async move {
-        let list_result = explorer_fs_service().list_dir(&target).await;
+        let Some(explorer) = explorer else {
+            set_error(signals, "Explorer host service unavailable");
+            signals.busy.set(false);
+            return;
+        };
+        let list_result = explorer.list_dir(&target).await;
         match list_result {
             Ok(result) => {
                 let cwd = result.cwd.clone();
@@ -210,21 +202,35 @@ fn refresh_directory(signals: ExplorerSignals, path: Option<String>) {
     });
 }
 
-fn inspect_path(signals: ExplorerSignals, path: String) {
+fn inspect_path(signals: ExplorerSignals, explorer: Option<ExplorerHostService>, path: String) {
     let path = normalize_path(&path);
     spawn_local(async move {
-        match explorer_fs_service().stat(&path).await {
+        let Some(explorer) = explorer else {
+            set_error(signals, "Explorer host service unavailable");
+            return;
+        };
+        match explorer.stat(&path).await {
             Ok(meta) => signals.selected_metadata.set(Some(meta)),
             Err(err) => set_error(signals, format!("metadata failed: {err}")),
         }
     });
 }
 
-fn open_file(signals: ExplorerSignals, path: String) {
+fn open_file(
+    signals: ExplorerSignals,
+    explorer: Option<ExplorerHostService>,
+    cache: Option<CacheHostService>,
+    path: String,
+) {
     let path = normalize_path(&path);
     signals.busy.set(true);
     spawn_local(async move {
-        match explorer_fs_service().read_text_file(&path).await {
+        let Some(explorer) = explorer else {
+            set_error(signals, "Explorer host service unavailable");
+            signals.busy.set(false);
+            return;
+        };
+        match explorer.read_text_file(&path).await {
             Ok(file) => {
                 signals.editor_path.set(Some(file.path.clone()));
                 signals.editor_text.set(file.text.clone());
@@ -238,7 +244,12 @@ fn open_file(signals: ExplorerSignals, path: String) {
             }
             Err(err) => {
                 let cache_key = explorer_preview_cache_key(&path);
-                match content_cache().get_text(EXPLORER_CACHE_NAME, &cache_key).await {
+                let Some(cache) = cache else {
+                    set_error(signals, format!("read failed: {err}"));
+                    signals.busy.set(false);
+                    return;
+                };
+                match cache.get_text(EXPLORER_CACHE_NAME, &cache_key).await {
                     Ok(Some(cached)) => {
                         signals.editor_path.set(Some(path.clone()));
                         signals.editor_text.set(cached);
@@ -260,7 +271,11 @@ fn open_file(signals: ExplorerSignals, path: String) {
     });
 }
 
-fn save_editor(signals: ExplorerSignals) {
+fn save_editor(
+    signals: ExplorerSignals,
+    explorer: Option<ExplorerHostService>,
+    cache: Option<CacheHostService>,
+) {
     let Some(path) = signals.editor_path.get_untracked() else {
         set_error(signals, "No file is open in the editor");
         return;
@@ -268,12 +283,23 @@ fn save_editor(signals: ExplorerSignals) {
     let text = signals.editor_text.get_untracked();
     signals.busy.set(true);
     spawn_local(async move {
-        match explorer_fs_service().write_text_file(&path, &text).await {
+        let Some(explorer) = explorer else {
+            set_error(signals, "Explorer host service unavailable");
+            signals.busy.set(false);
+            return;
+        };
+        match explorer.write_text_file(&path, &text).await {
             Ok(meta) => {
                 signals.editor_dirty.set(false);
                 signals.selected_metadata.set(Some(meta.clone()));
+                if let Some(cache) = cache {
+                    let cache_key = explorer_preview_cache_key(&path);
+                    if let Err(err) = cache.delete(EXPLORER_CACHE_NAME, &cache_key).await {
+                        logging::warn!("explorer cache delete failed: {err}");
+                    }
+                }
                 set_notice(signals, format!("Saved {}", meta.path));
-                refresh_directory(signals, Some(parent_path(&path)));
+                refresh_directory(signals, Some(explorer.clone()), Some(parent_path(&path)));
             }
             Err(err) => set_error(signals, format!("save failed: {err}")),
         }
@@ -281,14 +307,28 @@ fn save_editor(signals: ExplorerSignals) {
     });
 }
 
-fn create_folder(signals: ExplorerSignals, cwd: String, name: String) {
+fn create_folder(
+    signals: ExplorerSignals,
+    explorer: Option<ExplorerHostService>,
+    cwd: String,
+    name: String,
+) {
     let path = join_path(&cwd, &name);
     signals.busy.set(true);
     spawn_local(async move {
-        match explorer_fs_service().create_dir(&path).await {
+        let Some(explorer) = explorer else {
+            set_error(signals, "Explorer host service unavailable");
+            signals.busy.set(false);
+            return;
+        };
+        match explorer.create_dir(&path).await {
             Ok(meta) => {
                 set_notice(signals, format!("Created folder {}", meta.path));
-                refresh_directory(signals, Some(parent_path(&meta.path)));
+                refresh_directory(
+                    signals,
+                    Some(explorer.clone()),
+                    Some(parent_path(&meta.path)),
+                );
             }
             Err(err) => set_error(signals, format!("create folder failed: {err}")),
         }
@@ -296,16 +336,31 @@ fn create_folder(signals: ExplorerSignals, cwd: String, name: String) {
     });
 }
 
-fn create_file(signals: ExplorerSignals, cwd: String, name: String) {
+fn create_file(
+    signals: ExplorerSignals,
+    explorer: Option<ExplorerHostService>,
+    cache: Option<CacheHostService>,
+    cwd: String,
+    name: String,
+) {
     let path = join_path(&cwd, &name);
     signals.busy.set(true);
     spawn_local(async move {
-        match explorer_fs_service().create_file(&path, "").await {
+        let Some(explorer) = explorer else {
+            set_error(signals, "Explorer host service unavailable");
+            signals.busy.set(false);
+            return;
+        };
+        match explorer.create_file(&path, "").await {
             Ok(meta) => {
                 signals.selected_path.set(Some(meta.path.clone()));
                 signals.selected_metadata.set(Some(meta.clone()));
-                refresh_directory(signals, Some(parent_path(&meta.path)));
-                open_file(signals, meta.path.clone());
+                refresh_directory(
+                    signals,
+                    Some(explorer.clone()),
+                    Some(parent_path(&meta.path)),
+                );
+                open_file(signals, Some(explorer), cache, meta.path.clone());
                 set_notice(signals, format!("Created file {}", meta.path));
             }
             Err(err) => set_error(signals, format!("create file failed: {err}")),
@@ -314,7 +369,11 @@ fn create_file(signals: ExplorerSignals, cwd: String, name: String) {
     });
 }
 
-fn delete_selected(signals: ExplorerSignals) {
+fn delete_selected(
+    signals: ExplorerSignals,
+    explorer: Option<ExplorerHostService>,
+    cache: Option<CacheHostService>,
+) {
     let Some(path) = signals.selected_path.get_untracked() else {
         set_error(signals, "Select a file or folder to delete");
         return;
@@ -325,17 +384,28 @@ fn delete_selected(signals: ExplorerSignals) {
     }
     signals.busy.set(true);
     spawn_local(async move {
-        match explorer_fs_service().delete(&path, true).await {
+        let Some(explorer) = explorer else {
+            set_error(signals, "Explorer host service unavailable");
+            signals.busy.set(false);
+            return;
+        };
+        match explorer.delete(&path, true).await {
             Ok(()) => {
                 if signals.editor_path.get_untracked() == Some(path.clone()) {
                     signals.editor_path.set(None);
                     signals.editor_text.set(String::new());
                     signals.editor_dirty.set(false);
                 }
+                if let Some(cache) = cache {
+                    let cache_key = explorer_preview_cache_key(&path);
+                    if let Err(err) = cache.delete(EXPLORER_CACHE_NAME, &cache_key).await {
+                        logging::warn!("explorer cache delete failed: {err}");
+                    }
+                }
                 signals.selected_path.set(None);
                 signals.selected_metadata.set(None);
                 set_notice(signals, format!("Deleted {}", path));
-                refresh_directory(signals, Some(parent_path(&path)));
+                refresh_directory(signals, Some(explorer), Some(parent_path(&path)));
             }
             Err(err) => set_error(signals, format!("delete failed: {err}")),
         }
@@ -343,9 +413,13 @@ fn delete_selected(signals: ExplorerSignals) {
     });
 }
 
-fn request_rw_permission(signals: ExplorerSignals) {
+fn request_rw_permission(signals: ExplorerSignals, explorer: Option<ExplorerHostService>) {
     spawn_local(async move {
-        match explorer_fs_service()
+        let Some(explorer) = explorer else {
+            set_error(signals, "Explorer host service unavailable");
+            return;
+        };
+        match explorer
             .request_permission(ExplorerPermissionMode::Readwrite)
             .await
         {
@@ -361,14 +435,19 @@ fn request_rw_permission(signals: ExplorerSignals) {
     });
 }
 
-fn connect_native_folder(signals: ExplorerSignals) {
+fn connect_native_folder(signals: ExplorerSignals, explorer: Option<ExplorerHostService>) {
     signals.busy.set(true);
     spawn_local(async move {
-        match explorer_fs_service().pick_native_directory().await {
+        let Some(explorer) = explorer else {
+            set_error(signals, "Explorer host service unavailable");
+            signals.busy.set(false);
+            return;
+        };
+        match explorer.pick_native_directory().await {
             Ok(status) => {
                 signals.status.set(Some(status));
                 signals.cwd.set("/".to_string());
-                refresh_directory(signals, Some("/".to_string()));
+                refresh_directory(signals, Some(explorer), Some("/".to_string()));
                 set_notice(signals, "Native folder connected");
             }
             Err(err) => set_error(signals, format!("connect folder failed: {err}")),
@@ -416,6 +495,9 @@ pub fn ExplorerApp(
     let services_for_bus = services.clone();
     let services_for_persist = services.clone();
     let services_for_publish = services.clone();
+    let explorer_service = store_value(services.as_ref().map(|services| services.explorer.clone()));
+    let cache_service = store_value(services.as_ref().map(|services| services.cache.clone()));
+    let prefs_service = store_value(services.as_ref().map(|services| services.prefs.clone()));
 
     let session_store = session_store();
     let initial_draft_name = session_store
@@ -481,7 +563,7 @@ pub fn ExplorerApp(
                         .get("path")
                         .and_then(Value::as_str)
                         .map(str::to_string);
-                    refresh_directory(signals, target);
+                    refresh_directory(signals, explorer_service.get_value(), target);
                 }
             }
             cursor.set(events.len());
@@ -493,11 +575,12 @@ pub fn ExplorerApp(
             return;
         }
         let prefs_value = prefs.get();
+        let prefs_service = prefs_service.get_value();
         spawn_local(async move {
-            if let Err(err) =
-                save_pref_with(&prefs_store(), EXPLORER_PREFS_KEY, &prefs_value).await
-            {
-                logging::warn!("explorer prefs persist failed: {err}");
+            if let Some(prefs_service) = prefs_service {
+                if let Err(err) = prefs_service.save(EXPLORER_PREFS_KEY, &prefs_value).await {
+                    logging::warn!("explorer prefs persist failed: {err}");
+                }
             }
         });
     });
@@ -546,20 +629,6 @@ pub fn ExplorerApp(
                 services.state.persist_window_state(value);
             }
         }
-
-        spawn_local(async move {
-            let store = app_state_store();
-            if let Err(err) = save_app_state_with(
-                &store,
-                EXPLORER_STATE_NAMESPACE,
-                EXPLORER_STATE_SCHEMA_VERSION,
-                &snapshot,
-            )
-            .await
-            {
-                logging::warn!("explorer persist failed: {err}");
-            }
-        });
     });
 
     let visible_entries = Signal::derive(move || {
@@ -591,7 +660,7 @@ pub fn ExplorerApp(
                     .unwrap_or(0);
                 let entry = rows[next].clone();
                 signals.selected_path.set(Some(entry.path.clone()));
-                inspect_path(signals, entry.path);
+                inspect_path(signals, explorer_service.get_value(), entry.path);
             }
             "ArrowUp" => {
                 ev.prevent_default();
@@ -600,26 +669,26 @@ pub fn ExplorerApp(
                     .unwrap_or(last_index);
                 let entry = rows[next].clone();
                 signals.selected_path.set(Some(entry.path.clone()));
-                inspect_path(signals, entry.path);
+                inspect_path(signals, explorer_service.get_value(), entry.path);
             }
             "Home" => {
                 ev.prevent_default();
                 let entry = rows[0].clone();
                 signals.selected_path.set(Some(entry.path.clone()));
-                inspect_path(signals, entry.path);
+                inspect_path(signals, explorer_service.get_value(), entry.path);
             }
             "End" => {
                 ev.prevent_default();
                 let entry = rows[last_index].clone();
                 signals.selected_path.set(Some(entry.path.clone()));
-                inspect_path(signals, entry.path);
+                inspect_path(signals, explorer_service.get_value(), entry.path);
             }
             " " | "Spacebar" => {
                 ev.prevent_default();
                 let index = current_index.unwrap_or(0);
                 let entry = rows[index].clone();
                 signals.selected_path.set(Some(entry.path.clone()));
-                inspect_path(signals, entry.path);
+                inspect_path(signals, explorer_service.get_value(), entry.path);
             }
             "Enter" => {
                 ev.prevent_default();
@@ -627,8 +696,15 @@ pub fn ExplorerApp(
                 let entry = rows[index].clone();
                 signals.selected_path.set(Some(entry.path.clone()));
                 match entry.kind {
-                    ExplorerEntryKind::Directory => refresh_directory(signals, Some(entry.path)),
-                    ExplorerEntryKind::File => open_file(signals, entry.path),
+                    ExplorerEntryKind::Directory => {
+                        refresh_directory(signals, explorer_service.get_value(), Some(entry.path))
+                    }
+                    ExplorerEntryKind::File => open_file(
+                        signals,
+                        explorer_service.get_value(),
+                        cache_service.get_value(),
+                        entry.path,
+                    ),
                 }
             }
             _ => {}
@@ -646,22 +722,22 @@ pub fn ExplorerApp(
             </div>
 
             <div class="app-toolbar">
-                <button type="button" class="app-action" on:click=move |_| connect_native_folder(signals)>
+                <button type="button" class="app-action" on:click=move |_| connect_native_folder(signals, explorer_service.get_value())>
                     "Connect Folder"
                 </button>
-                <button type="button" class="app-action" on:click=move |_| refresh_directory(signals, None)>
+                <button type="button" class="app-action" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), None)>
                     "Refresh"
                 </button>
-                <button type="button" class="app-action" on:click=move |_| refresh_directory(signals, Some(parent_path(&cwd.get_untracked())))>
+                <button type="button" class="app-action" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), Some(parent_path(&cwd.get_untracked())))>
                     "Up"
                 </button>
-                <button type="button" class="app-action" on:click=move |_| request_rw_permission(signals)>
+                <button type="button" class="app-action" on:click=move |_| request_rw_permission(signals, explorer_service.get_value())>
                     "Request RW"
                 </button>
-                <button type="button" class="app-action" on:click=move |_| save_editor(signals) disabled=move || !editor_dirty.get()>
+                <button type="button" class="app-action" on:click=move |_| save_editor(signals, explorer_service.get_value(), cache_service.get_value()) disabled=move || !editor_dirty.get()>
                     "Save"
                 </button>
-                <button type="button" class="app-action" on:click=move |_| delete_selected(signals)>
+                <button type="button" class="app-action" on:click=move |_| delete_selected(signals, explorer_service.get_value(), cache_service.get_value())>
                     "Delete"
                 </button>
                 <button type="button" class="app-action" on:click=move |_| prefs.update(|p| p.details_visible = !p.details_visible)>
@@ -687,7 +763,13 @@ pub fn ExplorerApp(
                         set_error(signals, "Enter a name first");
                         return;
                     }
-                    create_file(signals, cwd.get_untracked(), name);
+                    create_file(
+                        signals,
+                        explorer_service.get_value(),
+                        cache_service.get_value(),
+                        cwd.get_untracked(),
+                        name,
+                    );
                 }>
                     "New File"
                 </button>
@@ -697,7 +779,7 @@ pub fn ExplorerApp(
                         set_error(signals, "Enter a name first");
                         return;
                     }
-                    create_folder(signals, cwd.get_untracked(), name);
+                    create_folder(signals, explorer_service.get_value(), cwd.get_untracked(), name);
                 }>
                     "New Folder"
                 </button>
@@ -740,7 +822,7 @@ pub fn ExplorerApp(
                     <div class="tree-header">"Path Segments"</div>
                     <ul class="tree-list">
                         <li>
-                            <button type="button" class="tree-node app-action" on:click=move |_| refresh_directory(signals, Some("/".to_string()))>
+                            <button type="button" class="tree-node app-action" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), Some("/".to_string()))>
                                 <span class="tree-glyph">"[]"</span>
                                 <span>"/"</span>
                             </button>
@@ -763,7 +845,7 @@ pub fn ExplorerApp(
                             let:item
                         >
                             <li>
-                                <button type="button" class="tree-node app-action" on:click=move |_| refresh_directory(signals, Some(item.1.clone()))>
+                                <button type="button" class="tree-node app-action" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), Some(item.1.clone()))>
                                     <span class="tree-glyph">">"</span>
                                     <span>{item.0.clone()}</span>
                                 </button>
@@ -802,6 +884,9 @@ pub fn ExplorerApp(
                                     {move || {
                                         let entry_for_select = entry.clone();
                                         let entry_for_open = entry.clone();
+                                        let explorer_for_select = explorer_service.get_value();
+                                        let explorer_for_open = explorer_service.get_value();
+                                        let cache_for_open = cache_service.get_value();
                                         let row_selected = selected_path.get() == Some(entry.path.clone());
                                         view! {
                                             <tr
@@ -810,16 +895,29 @@ pub fn ExplorerApp(
                                                 aria-selected=row_selected
                                                 on:mousedown=move |_| {
                                                     signals.selected_path.set(Some(entry_for_select.path.clone()));
-                                                    inspect_path(signals, entry_for_select.path.clone());
+                                                    inspect_path(
+                                                        signals,
+                                                        explorer_for_select.clone(),
+                                                        entry_for_select.path.clone(),
+                                                    );
                                                 }
                                                 on:dblclick=move |_| {
                                                     signals.selected_path.set(Some(entry_for_open.path.clone()));
                                                     match entry_for_open.kind {
                                                         ExplorerEntryKind::Directory => {
-                                                            refresh_directory(signals, Some(entry_for_open.path.clone()));
+                                                            refresh_directory(
+                                                                signals,
+                                                                explorer_for_open.clone(),
+                                                                Some(entry_for_open.path.clone()),
+                                                            );
                                                         }
                                                         ExplorerEntryKind::File => {
-                                                            open_file(signals, entry_for_open.path.clone());
+                                                            open_file(
+                                                                signals,
+                                                                explorer_for_open.clone(),
+                                                                cache_for_open.clone(),
+                                                                entry_for_open.path.clone(),
+                                                            );
                                                         }
                                                     }
                                                 }
@@ -912,25 +1010,6 @@ pub fn ExplorerApp(
                 }}</span>
             </div>
         </div>
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn explorer_namespace_migration_supports_schema_zero() {
-        let envelope = platform_host::build_app_state_envelope(
-            EXPLORER_STATE_NAMESPACE,
-            0,
-            &ExplorerPersistedState::default(),
-        )
-        .expect("build envelope");
-
-        let migrated =
-            migrate_explorer_state(0, &envelope).expect("schema-zero migration should succeed");
-        assert!(migrated.is_some(), "expected migrated explorer state");
     }
 }
 

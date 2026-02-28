@@ -14,10 +14,7 @@ use leptos::SignalGetUntracked;
 use nu_ansi_term::{Color, Style};
 use nu_protocol::{Config as NuConfig, Record as NuRecord, Span as NuSpan, Value as NuValue};
 use nu_table::{NuTable, TableTheme, TextStyle};
-use platform_host::{
-    normalize_virtual_path, ExplorerEntry, ExplorerEntryKind, ExplorerFsService,
-};
-use platform_host_web::explorer_fs_service;
+use platform_host::{normalize_virtual_path, ExplorerEntry, ExplorerEntryKind};
 use serde_json::Value;
 use system_shell::{CommandExecutionContext, CommandRegistryHandle};
 use system_shell_contract::{
@@ -31,12 +28,7 @@ use system_shell_contract::{
 };
 use tabled::grid::records::vec_records::Text;
 
-use crate::{
-    apps,
-    components::DesktopRuntimeContext,
-    model::WindowId,
-    reducer::DesktopAction,
-};
+use crate::{apps, components::DesktopRuntimeContext, model::WindowId, reducer::DesktopAction};
 
 const TASKBAR_HEIGHT_PX: i32 = 38;
 const TABLE_RENDER_WIDTH: usize = 120;
@@ -863,7 +855,12 @@ fn open_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
                     ref mut viewport, ..
                 } = action
                 {
-                    *viewport = Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX));
+                    *viewport = Some(
+                        runtime
+                            .host
+                            .get_value()
+                            .desktop_viewport_rect(TASKBAR_HEIGHT_PX),
+                    );
                 }
                 runtime.dispatch_action(action);
                 Ok(info_result(format!("opened `{target}`")))
@@ -873,6 +870,7 @@ fn open_registration(runtime: DesktopRuntimeContext) -> AppCommandRegistration {
 }
 
 fn path_completion_items(
+    runtime: DesktopRuntimeContext,
     cwd: &str,
     raw_prefix: &str,
     directories_only: bool,
@@ -890,7 +888,10 @@ fn path_completion_items(
         } else {
             normalize_session_path(&cwd, &dir_input)
         };
-        let listing = explorer_fs_service()
+        let listing = runtime
+            .host
+            .get_value()
+            .explorer_fs_service()
             .list_dir(&dir)
             .await
             .map_err(unavailable)?;

@@ -1,17 +1,18 @@
 //! Reducer actions, side-effect intents, and transition logic for the desktop runtime.
 
-use desktop_app_contract::{
-    AppCapability, AppCommand, AppEvent, AppLifecycleEvent, ApplicationId, WallpaperConfig,
-    WallpaperDisplayMode, WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperSelection,
+use desktop_app_contract::{AppCapability, AppCommand, AppEvent, AppLifecycleEvent, ApplicationId};
+use platform_host::{
+    WallpaperAssetMetadataPatch, WallpaperAssetRecord, WallpaperCollection, WallpaperConfig,
+    WallpaperDisplayMode, WallpaperImportRequest, WallpaperLibrarySnapshot, WallpaperMediaKind,
+    WallpaperSelection,
 };
-use platform_host::WallpaperAssetMetadataPatch;
 use serde_json::{json, Value};
 use thiserror::Error;
 
 use crate::model::{
-    DeepLinkOpenTarget, DeepLinkState, DesktopSkin, DesktopSnapshot, DesktopState,
-    DesktopTheme, InteractionState, OpenWindowRequest, PointerPosition, ResizeEdge, ResizeSession,
-    WindowId, WindowRecord, WindowRect, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
+    DeepLinkOpenTarget, DeepLinkState, DesktopSkin, DesktopSnapshot, DesktopState, DesktopTheme,
+    InteractionState, OpenWindowRequest, PointerPosition, ResizeEdge, ResizeSession, WindowId,
+    WindowRecord, WindowRect, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
 };
 use crate::window_manager::{
     focus_window_internal, normalize_window_stack, resize_rect, snap_window_to_viewport_edge,
@@ -158,6 +159,16 @@ pub enum DesktopAction {
         /// Imported wallpaper library snapshot loaded from the host.
         snapshot: WallpaperLibrarySnapshot,
     },
+    /// Upsert one imported wallpaper asset inside the merged wallpaper library.
+    WallpaperAssetUpdated {
+        /// Updated imported wallpaper asset metadata.
+        asset: WallpaperAssetRecord,
+    },
+    /// Upsert one wallpaper collection inside the merged wallpaper library.
+    WallpaperCollectionUpdated {
+        /// Updated or newly created collection metadata.
+        collection: WallpaperCollection,
+    },
     /// Toggle high-contrast rendering.
     SetHighContrast {
         /// Whether high contrast is enabled.
@@ -275,7 +286,7 @@ pub enum RuntimeEffect {
     /// Import a wallpaper through the host picker flow.
     ImportWallpaperFromPicker {
         /// Import request payload.
-        request: desktop_app_contract::WallpaperImportRequest,
+        request: WallpaperImportRequest,
     },
     /// Update managed wallpaper metadata through the host service.
     UpdateWallpaperAssetMetadata {
@@ -467,8 +478,7 @@ pub fn reduce_desktop(
                 state,
                 interaction,
                 DesktopAction::OpenWindow(
-                    apps::default_open_request_by_id(&app_id, viewport)
-                        .expect("built-in app id"),
+                    apps::default_open_request_by_id(&app_id, viewport).expect("built-in app id"),
                 ),
             )?;
             effects.extend(nested);
@@ -1056,6 +1066,14 @@ pub fn reduce_desktop(
             state.wallpaper_library = wallpaper::merged_wallpaper_library(&snapshot);
             normalize_wallpaper_state(state);
         }
+        DesktopAction::WallpaperAssetUpdated { asset } => {
+            wallpaper::upsert_imported_wallpaper_asset(&mut state.wallpaper_library, asset);
+            normalize_wallpaper_state(state);
+        }
+        DesktopAction::WallpaperCollectionUpdated { collection } => {
+            wallpaper::upsert_wallpaper_collection(&mut state.wallpaper_library, collection);
+            normalize_wallpaper_state(state);
+        }
         DesktopAction::SetHighContrast { enabled } => {
             state.theme.high_contrast = enabled;
             effects.push(RuntimeEffect::PersistTheme);
@@ -1173,13 +1191,7 @@ fn preferred_window_for_app(state: &DesktopState, app_id: &ApplicationId) -> Opt
                 .rev()
                 .find(|win| win.app_id == *app_id && !win.minimized)
         })
-        .or_else(|| {
-            state
-                .windows
-                .iter()
-                .rev()
-                .find(|win| win.app_id == *app_id)
-        })
+        .or_else(|| state.windows.iter().rev().find(|win| win.app_id == *app_id))
         .map(|win| win.id)
 }
 
@@ -1302,8 +1314,16 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let first = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
-        let second = open(&mut state, &mut interaction, ApplicationId::trusted("system.notepad"));
+        let first = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.explorer"),
+        );
+        let second = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.notepad"),
+        );
 
         assert_eq!(state.focused_window_id(), Some(second));
         assert_eq!(state.windows.len(), 2);
@@ -1317,7 +1337,11 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
+        let win = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.explorer"),
+        );
         reduce_desktop(
             &mut state,
             &mut interaction,
@@ -1345,7 +1369,11 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
+        let win = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.explorer"),
+        );
         reduce_desktop(
             &mut state,
             &mut interaction,
@@ -1425,7 +1453,7 @@ mod tests {
                 viewport: None,
             },
         )
-            .expect("activate explorer second");
+        .expect("activate explorer second");
 
         assert_eq!(state.windows.len(), 2);
         assert!(state
@@ -1460,8 +1488,16 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let first = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
-        let second = open(&mut state, &mut interaction, ApplicationId::trusted("system.calculator"));
+        let first = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.explorer"),
+        );
+        let second = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.calculator"),
+        );
         let before = state.windows.clone();
 
         let effects = reduce_desktop(
@@ -1482,7 +1518,11 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.terminal"));
+        let win = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.terminal"),
+        );
         let original = state.windows.iter().find(|w| w.id == win).unwrap().rect;
 
         reduce_desktop(
@@ -1521,7 +1561,11 @@ mod tests {
             h: 700,
         };
 
-        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
+        let win = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.explorer"),
+        );
         reduce_desktop(
             &mut state,
             &mut interaction,
@@ -1566,7 +1610,11 @@ mod tests {
             h: 760,
         };
 
-        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.terminal"));
+        let win = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.terminal"),
+        );
         reduce_desktop(
             &mut state,
             &mut interaction,
@@ -1695,7 +1743,11 @@ mod tests {
     fn handle_app_command_persist_state_updates_window_record_and_persists() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let window_id = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
+        let window_id = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.explorer"),
+        );
         let payload = serde_json::json!({ "cwd": "/Projects" });
 
         let effects = reduce_desktop(
@@ -1719,7 +1771,11 @@ mod tests {
     fn handle_app_command_set_window_title_updates_taskbar_and_chrome_title() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let window_id = open(&mut state, &mut interaction, ApplicationId::trusted("system.notepad"));
+        let window_id = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.notepad"),
+        );
 
         let effects = reduce_desktop(
             &mut state,
@@ -1742,8 +1798,16 @@ mod tests {
     fn minimize_applies_suspend_policy() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let explorer = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
-        let terminal = open(&mut state, &mut interaction, ApplicationId::trusted("system.terminal"));
+        let explorer = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.explorer"),
+        );
+        let terminal = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.terminal"),
+        );
 
         let explorer_effects = reduce_desktop(
             &mut state,
@@ -1784,8 +1848,16 @@ mod tests {
     fn close_flow_emits_closing_then_closed() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let _first = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
-        let second = open(&mut state, &mut interaction, ApplicationId::trusted("system.notepad"));
+        let _first = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.explorer"),
+        );
+        let second = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.notepad"),
+        );
 
         let effects = reduce_desktop(
             &mut state,
@@ -1828,7 +1900,11 @@ mod tests {
     fn app_bus_commands_emit_window_manager_effects() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let window_id = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
+        let window_id = open(
+            &mut state,
+            &mut interaction,
+            ApplicationId::trusted("system.explorer"),
+        );
         let payload = serde_json::json!({ "path": "/Projects/demo" });
 
         let subscribe_effects = reduce_desktop(

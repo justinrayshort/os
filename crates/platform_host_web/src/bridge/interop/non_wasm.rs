@@ -88,3 +88,7 @@ pub async fn explorer_delete(_path: &str, _recursive: bool) -> Result<(), String
 pub async fn explorer_stat(_path: &str) -> Result<ExplorerMetadata, String> {
     Err(unsupported())
 }
+
+pub async fn open_external_url(_url: &str) -> Result<(), String> {
+    Err(unsupported())
+}

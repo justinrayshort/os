@@ -67,9 +67,20 @@ Close remains non-veto by app modules.
   - `WindowService`
   - `StateService`
   - `ConfigService`
+  - `AppStateHostService`
+  - `PrefsHostService`
+  - `ExplorerHostService`
+  - `CacheHostService`
   - `ThemeService`
+  - `WallpaperService`
   - `NotificationService`
   - `IpcService`
+  - `CommandService`
+
+`AppServices` does not expose a raw transport send hook; apps integrate through the typed services above.
+`ConfigService` now provides typed namespaced reads through the runtime-selected prefs backend and
+keeps writes on the runtime command path so config remains on the formal app/runtime integration
+surface instead of ad hoc host imports.
 - `IpcEnvelope`: typed IPC payload (`schema_version`, `topic`, `correlation_id`, `reply_to`, `source_app_id`, `payload`, `timestamp_unix_ms`).
 - `AppRegistration`: manifest-backed app registration descriptor model.
 - `SuspendPolicy`: manager suspend behavior (`OnMinimize`, `Never`).
@@ -104,6 +115,10 @@ Runtime routing behavior:
 - host hooks (`OpenExternalUrl`, focus input)
 - app runtime dispatch (`DispatchLifecycle`, `DeliverAppEvent`, subscribe/unsubscribe/publish topic routing)
 - config and notification host operations (`SaveConfig`, `Notify`)
+
+`OpenExternalUrl` now executes through the runtime-selected host bundle's explicit external URL
+service, using browser `window.open(...)` fallback in web builds and the Tauri opener command on
+desktop-host builds.
 
 ## Persistence Contract
 

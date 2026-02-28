@@ -1,12 +1,10 @@
 //! Browser-backed wallpaper asset service implementation.
 
-use desktop_app_contract::{
-    ResolvedWallpaperSource, WallpaperAssetRecord, WallpaperCollection, WallpaperImportRequest,
-    WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperSelection, WallpaperSourceKind,
-};
 use platform_host::{
     build_app_state_envelope, migrate_envelope_payload, next_monotonic_timestamp_ms,
-    WallpaperAssetFuture, WallpaperAssetMetadataPatch, WallpaperAssetService,
+    ResolvedWallpaperSource, WallpaperAssetFuture, WallpaperAssetMetadataPatch,
+    WallpaperAssetRecord, WallpaperAssetService, WallpaperCollection, WallpaperImportRequest,
+    WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperSelection, WallpaperSourceKind,
 };
 
 #[cfg(target_arch = "wasm32")]

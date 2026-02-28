@@ -3,6 +3,9 @@
 //! v2 introduces a capability-scoped service injection model (`AppServices`) and
 //! canonical string application identifiers (`ApplicationId`) while keeping stable
 //! lifecycle semantics for runtime-managed windows.
+//!
+//! Host-owned wallpaper models now live in [`platform_host`]. This crate exposes the app-facing
+//! service surface that consumes those models without redefining the wallpaper domain itself.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
@@ -10,6 +13,13 @@ use std::{cell::Cell, rc::Rc};
 
 use futures::future::LocalBoxFuture;
 use leptos::{Callable, Callback, ReadSignal, RwSignal, View};
+use platform_host::{
+    load_app_state_with_migration, load_pref_with, save_app_state_with, save_pref_with,
+    AppStateEnvelope, AppStateStore, ContentCache, ExplorerBackendStatus, ExplorerFileReadResult,
+    ExplorerFsService, ExplorerListResult, ExplorerMetadata, ExplorerPermissionMode,
+    ExplorerPermissionState, PrefsStore, WallpaperConfig, WallpaperImportRequest,
+    WallpaperLibrarySnapshot,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use system_shell_contract::{
@@ -366,226 +376,6 @@ pub enum SuspendPolicy {
     Never,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
-/// Identifies either a built-in wallpaper or an imported managed asset.
-pub enum WallpaperSelection {
-    /// Built-in wallpaper from the generated runtime catalog.
-    BuiltIn {
-        /// Stable built-in wallpaper identifier.
-        wallpaper_id: String,
-    },
-    /// Imported managed wallpaper asset.
-    Imported {
-        /// Stable managed asset identifier.
-        asset_id: String,
-    },
-}
-
-impl Default for WallpaperSelection {
-    fn default() -> Self {
-        Self::BuiltIn {
-            wallpaper_id: "cloud-bands".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-/// Traditional desktop wallpaper display modes.
-pub enum WallpaperDisplayMode {
-    /// Preserve aspect ratio while covering the viewport.
-    #[default]
-    Fill,
-    /// Preserve aspect ratio while containing the image inside the viewport.
-    Fit,
-    /// Stretch the wallpaper to match the viewport exactly.
-    Stretch,
-    /// Repeat the wallpaper at intrinsic size from the top-left origin.
-    Tile,
-    /// Render the wallpaper once at intrinsic size.
-    Center,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-/// Anchor position used for non-tiled wallpaper placement.
-pub enum WallpaperPosition {
-    /// Center the wallpaper.
-    #[default]
-    Center,
-    /// Place the wallpaper in the top-left corner.
-    TopLeft,
-    /// Align the wallpaper to the top edge.
-    Top,
-    /// Place the wallpaper in the top-right corner.
-    TopRight,
-    /// Align the wallpaper to the left edge.
-    Left,
-    /// Align the wallpaper to the right edge.
-    Right,
-    /// Place the wallpaper in the bottom-left corner.
-    BottomLeft,
-    /// Align the wallpaper to the bottom edge.
-    Bottom,
-    /// Place the wallpaper in the bottom-right corner.
-    BottomRight,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-/// Persisted animation intent for wallpapers that can move.
-pub enum WallpaperAnimationPolicy {
-    /// Render the wallpaper in a static form.
-    #[default]
-    None,
-    /// Loop animated media with muted playback.
-    LoopMuted,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-/// Media kind used by the shell renderer.
-pub enum WallpaperMediaKind {
-    /// Static bitmap image.
-    #[default]
-    StaticImage,
-    /// Animated image such as GIF or animated SVG.
-    AnimatedImage,
-    /// Video wallpaper.
-    Video,
-    /// Static or animated SVG wallpaper.
-    Svg,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-/// Source origin for wallpaper assets in the user library.
-pub enum WallpaperSourceKind {
-    /// Shell-provided built-in wallpaper.
-    BuiltIn,
-    /// User-imported managed asset.
-    #[default]
-    Imported,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-/// Current or previewed wallpaper configuration.
-pub struct WallpaperConfig {
-    /// Wallpaper asset selection.
-    pub selection: WallpaperSelection,
-    /// Viewport rendering mode.
-    #[serde(default)]
-    pub display_mode: WallpaperDisplayMode,
-    /// Anchor position used by placement modes.
-    #[serde(default)]
-    pub position: WallpaperPosition,
-    /// Animation intent for moving wallpaper media.
-    #[serde(default)]
-    pub animation: WallpaperAnimationPolicy,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-/// Managed wallpaper asset metadata known to the runtime library.
-pub struct WallpaperAssetRecord {
-    /// Stable asset identifier.
-    pub asset_id: String,
-    /// User-facing label.
-    pub display_name: String,
-    /// Built-in vs imported source classification.
-    pub source_kind: WallpaperSourceKind,
-    /// Media kind used by the shell renderer.
-    pub media_kind: WallpaperMediaKind,
-    /// MIME type for the primary asset payload.
-    pub mime_type: String,
-    /// Asset size in bytes.
-    pub byte_len: u64,
-    /// Natural width in pixels when known.
-    pub natural_width: Option<u32>,
-    /// Natural height in pixels when known.
-    pub natural_height: Option<u32>,
-    /// Duration in milliseconds for animated media when known.
-    pub duration_ms: Option<u64>,
-    /// Favorite flag shown in the library UI.
-    #[serde(default)]
-    pub favorite: bool,
-    /// User-defined tags.
-    #[serde(default)]
-    pub tags: Vec<String>,
-    /// User-defined collection memberships.
-    #[serde(default)]
-    pub collection_ids: Vec<String>,
-    /// Managed primary URL or data URL.
-    pub primary_url: String,
-    /// Optional poster URL or data URL.
-    pub poster_url: Option<String>,
-    /// Creation timestamp when known.
-    pub created_at_unix_ms: Option<u64>,
-    /// Last-used timestamp when known.
-    pub last_used_at_unix_ms: Option<u64>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-/// User-defined grouping for wallpaper library browsing.
-pub struct WallpaperCollection {
-    /// Stable collection identifier.
-    pub collection_id: String,
-    /// User-facing label.
-    pub display_name: String,
-    /// Stable ordering key.
-    pub sort_order: i32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-/// Full wallpaper library snapshot exposed to apps and persisted by the runtime.
-pub struct WallpaperLibrarySnapshot {
-    /// Known built-in and imported assets.
-    pub assets: Vec<WallpaperAssetRecord>,
-    /// User-defined collections.
-    pub collections: Vec<WallpaperCollection>,
-    /// Soft storage limit enforced by the host/runtime policy.
-    pub soft_limit_bytes: u64,
-    /// Current managed library usage in bytes.
-    pub used_bytes: u64,
-}
-
-impl Default for WallpaperLibrarySnapshot {
-    fn default() -> Self {
-        Self {
-            assets: Vec::new(),
-            collections: Vec::new(),
-            soft_limit_bytes: 512 * 1024 * 1024,
-            used_bytes: 0,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-/// Import request describing how a newly selected wallpaper should enter the library.
-pub struct WallpaperImportRequest {
-    /// Default display name to use when host metadata is missing.
-    pub display_name: Option<String>,
-    /// Wallpaper configuration to apply after import when provided.
-    pub default_config: Option<WallpaperConfig>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-/// Resolved wallpaper source information used by the renderer.
-pub struct ResolvedWallpaperSource {
-    /// Resolved URL for the primary asset.
-    pub primary_url: String,
-    /// Optional poster URL for animated media.
-    pub poster_url: Option<String>,
-    /// Media kind used by the renderer.
-    pub media_kind: WallpaperMediaKind,
-    /// Natural width in pixels when known.
-    pub natural_width: Option<u32>,
-    /// Natural height in pixels when known.
-    pub natural_height: Option<u32>,
-    /// Duration in milliseconds when known.
-    pub duration_ms: Option<u64>,
-}
-
 #[derive(Clone, Copy)]
 /// Window-scoped app service for shell window integration APIs.
 pub struct WindowService {
@@ -622,20 +412,208 @@ impl StateService {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 /// Namespaced app config service.
 pub struct ConfigService {
     sender: Callback<AppCommand>,
+    prefs: Rc<dyn PrefsStore>,
 }
 
 impl ConfigService {
+    fn pref_key(namespace: &str, key: &str) -> String {
+        format!("{namespace}.{key}")
+    }
+
+    /// Loads a typed namespaced config value from the runtime-selected host preference store.
+    pub async fn load<T: serde::de::DeserializeOwned>(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Option<T>, String> {
+        load_pref_with(self.prefs.as_ref(), &Self::pref_key(namespace, key)).await
+    }
+
     /// Saves a namespaced config key/value payload.
     pub fn save(&self, namespace: impl Into<String>, key: impl Into<String>, value: Value) {
+        let namespace = namespace.into();
+        let key = key.into();
         self.sender.call(AppCommand::SaveConfig {
-            namespace: namespace.into(),
-            key: key.into(),
+            namespace,
+            key,
             value,
         });
+    }
+}
+
+#[derive(Clone)]
+/// Typed app-state persistence service backed by the runtime-selected host strategy.
+pub struct AppStateHostService {
+    store: Rc<dyn AppStateStore>,
+}
+
+impl AppStateHostService {
+    /// Creates an app-state host service from a concrete adapter object.
+    pub fn new(store: Rc<dyn AppStateStore>) -> Self {
+        Self { store }
+    }
+
+    /// Loads typed app state and applies an explicit legacy migration hook.
+    pub async fn load_with_migration<T, F>(
+        &self,
+        namespace: &str,
+        current_schema_version: u32,
+        migrate_legacy: F,
+    ) -> Result<Option<T>, String>
+    where
+        T: serde::de::DeserializeOwned,
+        F: Fn(u32, &AppStateEnvelope) -> Result<Option<T>, String>,
+    {
+        load_app_state_with_migration(
+            self.store.as_ref(),
+            namespace,
+            current_schema_version,
+            migrate_legacy,
+        )
+        .await
+    }
+
+    /// Persists typed app state under the provided namespace and schema version.
+    pub async fn save<T: Serialize>(
+        &self,
+        namespace: &str,
+        schema_version: u32,
+        payload: &T,
+    ) -> Result<(), String> {
+        save_app_state_with(self.store.as_ref(), namespace, schema_version, payload).await
+    }
+}
+
+#[derive(Clone)]
+/// Typed preference service backed by the runtime-selected host strategy.
+pub struct PrefsHostService {
+    store: Rc<dyn PrefsStore>,
+}
+
+impl PrefsHostService {
+    /// Creates a preference host service from a concrete adapter object.
+    pub fn new(store: Rc<dyn PrefsStore>) -> Self {
+        Self { store }
+    }
+
+    /// Loads a typed preference value.
+    pub async fn load<T: serde::de::DeserializeOwned>(
+        &self,
+        key: &str,
+    ) -> Result<Option<T>, String> {
+        load_pref_with(self.store.as_ref(), key).await
+    }
+
+    /// Saves a typed preference value.
+    pub async fn save<T: Serialize>(&self, key: &str, value: &T) -> Result<(), String> {
+        save_pref_with(self.store.as_ref(), key, value).await
+    }
+
+    /// Deletes a stored preference key.
+    pub async fn delete(&self, key: &str) -> Result<(), String> {
+        self.store.delete_pref(key).await
+    }
+}
+
+#[derive(Clone)]
+/// Explorer/filesystem service backed by the runtime-selected host strategy.
+pub struct ExplorerHostService {
+    service: Rc<dyn ExplorerFsService>,
+}
+
+impl ExplorerHostService {
+    /// Creates an explorer host service from a concrete adapter object.
+    pub fn new(service: Rc<dyn ExplorerFsService>) -> Self {
+        Self { service }
+    }
+
+    /// Returns active backend status.
+    pub async fn status(&self) -> Result<ExplorerBackendStatus, String> {
+        self.service.status().await
+    }
+
+    /// Opens the native-directory picker.
+    pub async fn pick_native_directory(&self) -> Result<ExplorerBackendStatus, String> {
+        self.service.pick_native_directory().await
+    }
+
+    /// Requests backend permissions.
+    pub async fn request_permission(
+        &self,
+        mode: ExplorerPermissionMode,
+    ) -> Result<ExplorerPermissionState, String> {
+        self.service.request_permission(mode).await
+    }
+
+    /// Lists a directory.
+    pub async fn list_dir(&self, path: &str) -> Result<ExplorerListResult, String> {
+        self.service.list_dir(path).await
+    }
+
+    /// Reads a text file.
+    pub async fn read_text_file(&self, path: &str) -> Result<ExplorerFileReadResult, String> {
+        self.service.read_text_file(path).await
+    }
+
+    /// Writes a text file.
+    pub async fn write_text_file(
+        &self,
+        path: &str,
+        text: &str,
+    ) -> Result<ExplorerMetadata, String> {
+        self.service.write_text_file(path, text).await
+    }
+
+    /// Creates a directory.
+    pub async fn create_dir(&self, path: &str) -> Result<ExplorerMetadata, String> {
+        self.service.create_dir(path).await
+    }
+
+    /// Creates a text file.
+    pub async fn create_file(&self, path: &str, text: &str) -> Result<ExplorerMetadata, String> {
+        self.service.create_file(path, text).await
+    }
+
+    /// Deletes a path.
+    pub async fn delete(&self, path: &str, recursive: bool) -> Result<(), String> {
+        self.service.delete(path, recursive).await
+    }
+
+    /// Retrieves metadata for a path.
+    pub async fn stat(&self, path: &str) -> Result<ExplorerMetadata, String> {
+        self.service.stat(path).await
+    }
+}
+
+#[derive(Clone)]
+/// Content-cache service backed by the runtime-selected host strategy.
+pub struct CacheHostService {
+    cache: Rc<dyn ContentCache>,
+}
+
+impl CacheHostService {
+    /// Creates a content-cache host service from a concrete adapter object.
+    pub fn new(cache: Rc<dyn ContentCache>) -> Self {
+        Self { cache }
+    }
+
+    /// Stores cached text content.
+    pub async fn put_text(&self, cache_name: &str, key: &str, value: &str) -> Result<(), String> {
+        self.cache.put_text(cache_name, key, value).await
+    }
+
+    /// Loads cached text content.
+    pub async fn get_text(&self, cache_name: &str, key: &str) -> Result<Option<String>, String> {
+        self.cache.get_text(cache_name, key).await
+    }
+
+    /// Deletes cached text content.
+    pub async fn delete(&self, cache_name: &str, key: &str) -> Result<(), String> {
+        self.cache.delete(cache_name, key).await
     }
 }
 
@@ -1138,6 +1116,14 @@ pub struct AppServices {
     pub state: StateService,
     /// Namespaced config service.
     pub config: ConfigService,
+    /// Typed app-state persistence service.
+    pub app_state: AppStateHostService,
+    /// Typed preference service.
+    pub prefs: PrefsHostService,
+    /// Explorer/filesystem service.
+    pub explorer: ExplorerHostService,
+    /// Content-cache service.
+    pub cache: CacheHostService,
     /// Theme/accessibility service.
     pub theme: ThemeService,
     /// Wallpaper query/preview/library service.
@@ -1148,13 +1134,16 @@ pub struct AppServices {
     pub ipc: IpcService,
     /// Shell command registration and session service.
     pub commands: CommandService,
-    sender: Callback<AppCommand>,
 }
 
 impl AppServices {
     /// Creates service handles from the runtime command callback.
     pub fn new(
         sender: Callback<AppCommand>,
+        app_state: Rc<dyn AppStateStore>,
+        prefs: Rc<dyn PrefsStore>,
+        explorer: Rc<dyn ExplorerFsService>,
+        cache: Rc<dyn ContentCache>,
         theme_skin_id: ReadSignal<String>,
         theme_high_contrast: ReadSignal<bool>,
         theme_reduced_motion: ReadSignal<bool>,
@@ -1166,7 +1155,14 @@ impl AppServices {
         Self {
             window: WindowService { sender },
             state: StateService { sender },
-            config: ConfigService { sender },
+            config: ConfigService {
+                sender,
+                prefs: prefs.clone(),
+            },
+            app_state: AppStateHostService::new(app_state),
+            prefs: PrefsHostService::new(prefs),
+            explorer: ExplorerHostService::new(explorer),
+            cache: CacheHostService::new(cache),
             theme: ThemeService {
                 sender,
                 skin_id: theme_skin_id,
@@ -1182,13 +1178,7 @@ impl AppServices {
             notifications: NotificationService { sender },
             ipc: IpcService { sender },
             commands,
-            sender,
         }
-    }
-
-    /// Low-level transport send for exceptional app/runtime flows.
-    pub fn send(&self, command: AppCommand) {
-        self.sender.call(command);
     }
 }
 

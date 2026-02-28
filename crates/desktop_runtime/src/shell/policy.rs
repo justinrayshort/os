@@ -5,13 +5,11 @@ use desktop_app_contract::{
     CommandRegistrationHandle as AppCommandRegistrationHandle,
 };
 use system_shell::CommandExecutionContext;
-use system_shell_contract::{CommandDescriptor, CommandNoticeLevel, CommandScope, ShellStreamEvent};
-
-use crate::{
-    apps,
-    components::DesktopRuntimeContext,
-    model::WindowId,
+use system_shell_contract::{
+    CommandDescriptor, CommandNoticeLevel, CommandScope, ShellStreamEvent,
 };
+
+use crate::{apps, components::DesktopRuntimeContext, model::WindowId};
 
 pub(super) fn register_app_command(
     runtime: DesktopRuntimeContext,
@@ -91,7 +89,9 @@ fn validate_scope(
 ) -> Result<(), String> {
     match scope {
         CommandScope::Global if apps::app_is_privileged_by_id(app_id) => Ok(()),
-        CommandScope::Global => Err("only privileged apps may register global commands".to_string()),
+        CommandScope::Global => {
+            Err("only privileged apps may register global commands".to_string())
+        }
         CommandScope::App { app_id: owner } if owner == app_id.as_str() => Ok(()),
         CommandScope::App { .. } => Err("app-scoped command owner mismatch".to_string()),
         CommandScope::Window { window_id: owner } if *owner == window_id.0 => Ok(()),

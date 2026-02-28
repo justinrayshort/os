@@ -1,6 +1,6 @@
 use super::*;
 use crate::wallpaper;
-use desktop_app_contract::{WallpaperConfig, WallpaperSelection};
+use platform_host::{WallpaperConfig, WallpaperMediaKind, WallpaperSelection};
 
 #[component]
 pub(super) fn DesktopContextMenu(
@@ -83,10 +83,10 @@ pub(super) fn DesktopContextMenu(
                                 let is_active = active_id == item_id;
                                 let display_name = asset.display_name.clone();
                                 let media_label = match asset.media_kind {
-                                    desktop_app_contract::WallpaperMediaKind::Video => "Video",
-                                    desktop_app_contract::WallpaperMediaKind::AnimatedImage => "Animated",
-                                    desktop_app_contract::WallpaperMediaKind::Svg => "Vector",
-                                    desktop_app_contract::WallpaperMediaKind::StaticImage => "Image",
+                                    WallpaperMediaKind::Video => "Video",
+                                    WallpaperMediaKind::AnimatedImage => "Animated",
+                                    WallpaperMediaKind::Svg => "Vector",
+                                    WallpaperMediaKind::StaticImage => "Image",
                                 };
 
                                 view! {
@@ -180,7 +180,7 @@ pub(super) fn StartMenu(
                                     clock_menu_open.set(false);
                                     runtime.dispatch_action(DesktopAction::ActivateApp {
                                         app_id: app_id.clone(),
-                                        viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
+                                        viewport: Some(runtime.host.get_value().desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
                                     });
                                 }
                             >
@@ -281,7 +281,7 @@ pub(super) fn OverflowMenu(
                             clock_menu_open.set(false);
                             runtime.dispatch_action(DesktopAction::CloseStartMenu);
                             open_taskbar_window_context_menu(
-                                runtime.host,
+                                runtime.host.get_value(),
                                 window_context_menu,
                                 win.id,
                                 ev.client_x(),
@@ -469,7 +469,7 @@ pub(super) fn TaskbarWindowContextMenu(
                                 window_context_menu.set(None);
                                 runtime.dispatch_action(DesktopAction::MaximizeWindow {
                                     window_id,
-                                    viewport: runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX),
+                                    viewport: runtime.host.get_value().desktop_viewport_rect(TASKBAR_HEIGHT_PX),
                                 });
                             }
                         >
