@@ -12,9 +12,9 @@ use platform_host::CapabilityStatus;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use system_shell_contract::{
-    CommandNotice, CommandNoticeLevel, CompletionItem, CompletionRequest, DisplayPreference,
-    ExecutionId, ShellRequest, ShellStreamEvent, StructuredData, StructuredRecord,
-    StructuredScalar, StructuredTable, StructuredValue,
+    CommandNotice, CompletionItem, CompletionRequest, DisplayPreference, ExecutionId, ShellRequest,
+    ShellStreamEvent, StructuredData, StructuredRecord, StructuredScalar, StructuredTable,
+    StructuredValue,
 };
 use system_ui::prelude::*;
 
@@ -187,15 +187,15 @@ fn value_summary(value: &StructuredValue) -> String {
 
 fn render_record(record: StructuredRecord) -> impl IntoView {
     view! {
-        <ListSurface layout_class="terminal-data terminal-data-record">
+        <ListSurface>
             {record
                 .fields
                 .into_iter()
                 .map(|field| {
                     view! {
-                        <div class="terminal-record-row">
-                            <span class="terminal-record-key">{field.name}</span>
-                            <span class="terminal-record-value">{value_summary(&field.value)}</span>
+                        <div>
+                            <span>{field.name}</span>
+                            <span>{value_summary(&field.value)}</span>
                         </div>
                     }
                 })
@@ -206,11 +206,11 @@ fn render_record(record: StructuredRecord) -> impl IntoView {
 
 fn render_list(values: Vec<StructuredValue>) -> impl IntoView {
     view! {
-        <ListSurface layout_class="terminal-data terminal-data-list">
+        <ListSurface>
             {values
                 .into_iter()
                 .map(|value| {
-                    view! { <div class="terminal-list-item">{value_summary(&value)}</div> }
+                    view! { <div>{value_summary(&value)}</div> }
                 })
                 .collect_view()}
         </ListSurface>
@@ -230,8 +230,8 @@ fn render_table(table: StructuredTable) -> impl IntoView {
     let columns = table.columns.clone();
     let rows = table.rows.clone();
     view! {
-        <ListSurface layout_class="terminal-data terminal-data-table">
-            <DataTable layout_class="terminal-table" role="table">
+        <ListSurface>
+            <DataTable role="table">
                 <thead>
                     <tr>
                         {columns
@@ -265,8 +265,7 @@ fn render_data(data: StructuredData, _display: DisplayPreference) -> View {
     match data {
         StructuredData::Empty => ().into_view(),
         StructuredData::Value(StructuredValue::Scalar(value)) => {
-            view! { <TerminalLine layout_class="terminal-line terminal-line-value">{scalar_text(&value)}</TerminalLine> }
-                .into_view()
+            view! { <TerminalLine>{scalar_text(&value)}</TerminalLine> }.into_view()
         }
         StructuredData::Value(StructuredValue::Record(record)) | StructuredData::Record(record) => {
             render_record(record).into_view()
@@ -278,22 +277,14 @@ fn render_data(data: StructuredData, _display: DisplayPreference) -> View {
     }
 }
 
-fn notice_class(level: CommandNoticeLevel) -> &'static str {
-    match level {
-        CommandNoticeLevel::Info => "terminal-line terminal-line-status",
-        CommandNoticeLevel::Warning => "terminal-line terminal-line-status",
-        CommandNoticeLevel::Error => "terminal-line terminal-line-stderr",
-    }
-}
-
 fn render_entry(entry: TerminalTranscriptEntry) -> View {
     match entry {
         TerminalTranscriptEntry::Prompt { cwd, command, .. } => view! {
-            <TerminalLine layout_class="terminal-line terminal-line-prompt" tone=TextTone::Secondary>{format!("{cwd} \u{203a} {command}")}</TerminalLine>
+            <TerminalLine tone=TextTone::Secondary>{format!("{cwd} \u{203a} {command}")}</TerminalLine>
         }
         .into_view(),
         TerminalTranscriptEntry::Notice { notice, .. } => view! {
-            <TerminalLine layout_class=notice_class(notice.level) tone=TextTone::Accent>{notice.message}</TerminalLine>
+            <TerminalLine tone=TextTone::Accent>{notice.message}</TerminalLine>
         }
         .into_view(),
         TerminalTranscriptEntry::Data { data, display, .. } => render_data(data, display),
@@ -303,12 +294,12 @@ fn render_entry(entry: TerminalTranscriptEntry) -> View {
                 .map(|value| format!(" {:.0}%", value * 100.0))
                 .unwrap_or_default();
             view! {
-                <TerminalLine layout_class="terminal-line terminal-line-status" tone=TextTone::Accent>{format!("{label}{suffix}")}</TerminalLine>
+                <TerminalLine tone=TextTone::Accent>{format!("{label}{suffix}")}</TerminalLine>
             }
             .into_view()
         }
         TerminalTranscriptEntry::System { text } => view! {
-            <TerminalLine layout_class="terminal-line terminal-line-system" tone=TextTone::Secondary>{text}</TerminalLine>
+            <TerminalLine tone=TextTone::Secondary>{text}</TerminalLine>
         }
         .into_view(),
     }
@@ -613,9 +604,8 @@ pub fn TerminalApp(
     let indexed_entries = move || transcript.get().into_iter().enumerate().collect::<Vec<_>>();
 
     view! {
-        <AppShell layout_class="app-terminal-shell">
+        <AppShell>
             <TerminalSurface
-                layout_class="terminal-screen"
                 role="log"
                 aria_live="polite"
                 node_ref=terminal_screen
@@ -631,10 +621,9 @@ pub fn TerminalApp(
                 }
             >
                 <Show when=move || !suggestions.get().is_empty() fallback=|| ()>
-                    <CompletionList layout_class="terminal-completions" role="listbox" aria_label="Completions">
+                    <CompletionList role="listbox" aria_label="Completions">
                         <For each=move || suggestions.get() key=|item| item.value.clone() let:item>
                             <CompletionItem
-                                layout_class="terminal-completion"
                                 on_click=Callback::new(move |_| {
                                     input.set(format!("{} ", item.value));
                                     suggestions.set(Vec::new());
@@ -646,22 +635,21 @@ pub fn TerminalApp(
                     </CompletionList>
                 </Show>
 
-                <TerminalTranscript layout_class="terminal-transcript">
+                <TerminalTranscript>
                     <For each=indexed_entries key=|(idx, _)| *idx let:entry>
                         {render_entry(entry.1)}
                     </For>
 
-                    <TerminalPrompt layout_class="terminal-line terminal-line-prompt terminal-live-prompt">
-                        <label class="visually-hidden" for=input_id.clone()>
+                    <TerminalPrompt>
+                        <label hidden for=input_id.clone()>
                             {move || format!("Command input for {} in {} mode", cwd.get(), prompt_mode())}
                         </label>
-                        <div class="terminal-prompt-context" aria-hidden="true">
-                            <span class="terminal-prompt-cwd">{move || cwd.get()}</span>
-                            <span class="terminal-prompt-mode">{move || prompt_mode()}</span>
-                            <span class="terminal-prompt-separator">"\u{203a}"</span>
+                        <div aria-hidden="true">
+                            <span>{move || cwd.get()}</span>
+                            <span>{move || prompt_mode()}</span>
+                            <span>"\u{203a}"</span>
                         </div>
                         <TextField
-                            layout_class="terminal-input terminal-command-input terminal-live-input"
                             id=input_id.clone()
                             input_type="text"
                             value=Signal::derive(move || input.get())

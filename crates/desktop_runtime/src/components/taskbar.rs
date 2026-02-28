@@ -259,17 +259,15 @@ pub(super) fn Taskbar() -> impl IntoView {
 
     view! {
         <SystemTaskbar
-            layout_class="taskbar"
             role="toolbar"
             aria_label="Desktop taskbar"
             aria_keyshortcuts="Ctrl+Escape Alt+1 Alt+2 Alt+3 Alt+4 Alt+5 Alt+6 Alt+7 Alt+8 Alt+9"
             on_mousedown=Callback::new(move |ev: MouseEvent| ev.stop_propagation())
             on_keydown=Callback::new(on_taskbar_keydown)
         >
-            <SystemTaskbarSection ui_slot="left" layout_class="taskbar-left">
+            <SystemTaskbarSection ui_slot="left">
                 <SystemTaskbarButton
                     id="taskbar-start-button"
-                    layout_class="start-button"
                     ui_slot="start-button"
                     aria_label="Open application launcher"
                     aria_haspopup="menu"
@@ -283,14 +281,14 @@ pub(super) fn Taskbar() -> impl IntoView {
                         runtime.dispatch_action(DesktopAction::ToggleStartMenu);
                     })
                 >
-                    <span class="taskbar-glyph" aria-hidden="true">
+                    <span aria-hidden="true">
                         <Icon icon=IconName::Launcher size=IconSize::Sm />
                     </span>
                     <span>"Start"</span>
                 </SystemTaskbarButton>
 
                 <Show when=move || taskbar_layout.get().show_pins fallback=|| ()>
-                    <div class="taskbar-pins" role="group" aria-label="Pinned apps" data-ui-slot="pinned-apps">
+                    <div role="group" aria-label="Pinned apps" data-ui-slot="pinned-apps">
                         <For
                             each=move || pinned_taskbar_apps().to_vec()
                             key=|app_id| app_id.to_string()
@@ -304,10 +302,8 @@ pub(super) fn Taskbar() -> impl IntoView {
                                 let app_id_for_click = app_id.clone();
                                 let app_icon_name_value = app_icon_name(&app_id);
                                 let app_data_id = apps::app_icon_id_by_id(&app_id).to_string();
-                                let app_title = apps::app_title_by_id(&app_id).to_string();
                                 view! {
                                     <SystemTaskbarButton
-                                        layout_class="taskbar-pinned-button"
                                         data_app=app_data_id.clone()
                                         title=Signal::derive(move || {
                                             let desktop = state.get();
@@ -339,13 +335,12 @@ pub(super) fn Taskbar() -> impl IntoView {
                                             activate_pinned_taskbar_app(runtime, app_id_for_click.clone());
                                         })
                                     >
-                                        <span class="taskbar-app-icon" aria-hidden="true">
+                                        <span aria-hidden="true">
                                             <Icon
                                                 icon=app_icon_name_value
                                                 size=IconSize::Sm
                                             />
                                         </span>
-                                        <span class="visually-hidden">{app_title}</span>
                                     </SystemTaskbarButton>
                                 }
                             }}
@@ -356,11 +351,10 @@ pub(super) fn Taskbar() -> impl IntoView {
 
             <SystemTaskbarSection
                 ui_slot="running"
-                layout_class="taskbar-running-region"
                 role="group"
                 aria_label="Running windows"
             >
-                <div class="taskbar-running-strip" data-ui-slot="running-strip">
+                <div data-ui-slot="running-strip">
                     <For
                         each=move || {
                             let desktop = state.get();
@@ -375,7 +369,6 @@ pub(super) fn Taskbar() -> impl IntoView {
                     >
                         <SystemTaskbarButton
                             id=taskbar_window_button_dom_id(win.id)
-                            layout_class="taskbar-window-button"
                             data_app=win.icon_id.clone()
                             aria_pressed=Signal::derive(move || win.is_focused && !win.minimized)
                             aria_label=taskbar_window_aria_label(&win)
@@ -410,13 +403,13 @@ pub(super) fn Taskbar() -> impl IntoView {
                                 );
                             })
                         >
-                            <span class="taskbar-app-icon" aria-hidden="true">
+                            <span aria-hidden="true">
                                 <Icon
                                     icon=app_icon_name(&win.app_id)
                                     size=IconSize::Sm
                                 />
                             </span>
-                            <span class="taskbar-app-label">{win.title.clone()}</span>
+                            <span>{win.title.clone()}</span>
                         </SystemTaskbarButton>
                     </For>
 
@@ -428,10 +421,9 @@ pub(super) fn Taskbar() -> impl IntoView {
                         }
                         fallback=|| ()
                     >
-                        <div class="taskbar-overflow-wrap">
+                        <div>
                             <SystemTaskbarOverflowButton
                                 id="taskbar-overflow-button"
-                                layout_class="taskbar-overflow-button"
                                 aria_haspopup="menu"
                                 aria_controls="taskbar-overflow-menu"
                                 aria_expanded=overflow_menu_open.read_only()
@@ -442,7 +434,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                                     overflow_menu_open.update(|open| *open = !*open);
                                 })
                             >
-                                <span class="taskbar-overflow-icon" aria-hidden="true">
+                                <span aria-hidden="true">
                                     <Icon icon=IconName::ChevronDown size=IconSize::Xs />
                                 </span>
                                 {move || {
@@ -469,8 +461,8 @@ pub(super) fn Taskbar() -> impl IntoView {
                 </div>
             </SystemTaskbarSection>
 
-            <SystemTaskbarSection ui_slot="right" layout_class="taskbar-right">
-                <SystemTrayList layout_class="taskbar-tray">
+            <SystemTaskbarSection ui_slot="right">
+                <SystemTrayList>
                     <For
                         each=move || {
                             build_taskbar_tray_widgets(&state.get())
@@ -482,9 +474,8 @@ pub(super) fn Taskbar() -> impl IntoView {
                         let:widget
                     >
                         <SystemTrayButton
-                            layout_class="tray-widget"
-                        aria_label=format!("{}: {}", widget.label, widget.value)
-                        title=format!("{}: {}", widget.label, widget.value)
+                            aria_label=format!("{}: {}", widget.label, widget.value)
+                            title=format!("{}: {}", widget.label, widget.value)
                             pressed=Signal::derive(move || widget.pressed.unwrap_or(false))
                             on_click=Callback::new(move |_| {
                                 if !matches!(widget.action, TaskbarTrayWidgetAction::None) {
@@ -495,18 +486,17 @@ pub(super) fn Taskbar() -> impl IntoView {
                                 activate_taskbar_tray_widget(runtime, widget.action);
                             })
                         >
-                            <span class="tray-widget-glyph" aria-hidden="true">
+                            <span aria-hidden="true">
                                 <Icon icon=widget.icon size=IconSize::Xs />
                             </span>
-                            <span class="tray-widget-value">{widget.value.clone()}</span>
+                            <span>{widget.value.clone()}</span>
                         </SystemTrayButton>
                     </For>
                 </SystemTrayList>
 
-                <div class="taskbar-clock-wrap">
+                <div>
                     <SystemClockButton
                         id="taskbar-clock-button"
-                        layout_class="taskbar-clock"
                         aria_label=Signal::derive(move || {
                             let mut config = clock_config.get();
                             config.show_date = config.show_date && taskbar_layout.get().show_clock_date;
@@ -522,7 +512,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                             clock_menu_open.update(|open| *open = !*open);
                         })
                     >
-                        <span class="taskbar-clock-time">
+                        <span>
                             {move || {
                                 let mut config = clock_config.get();
                                 config.show_date = config.show_date && taskbar_layout.get().show_clock_date;
@@ -533,7 +523,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                             when=move || clock_config.get().show_date && taskbar_layout.get().show_clock_date
                             fallback=|| ()
                         >
-                            <span class="taskbar-clock-date">
+                            <span>
                                 {move || format_taskbar_clock_date(clock_now.get())}
                             </span>
                         </Show>

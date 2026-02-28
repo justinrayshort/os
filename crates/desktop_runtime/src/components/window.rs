@@ -105,7 +105,6 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
     view! {
         <Show when=move || window.get().is_some() fallback=|| ()>
             <SystemWindowFrame
-                layout_class="desktop-window"
                 style=Signal::derive(move || {
                     let win = window.get().expect("window exists while shown");
                     format!(
@@ -131,12 +130,11 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                 })
             >
                 <SystemWindowTitleBar
-                    layout_class="desktop-window-titlebar"
                     on_pointerdown=Callback::new(begin_move)
                     on_dblclick=Callback::new(titlebar_double_click)
                 >
-                    <SystemWindowTitle layout_class="desktop-window-title">
-                        <span class="titlebar-app-icon" aria-hidden="true">
+                    <SystemWindowTitle>
+                        <span aria-hidden="true">
                             <Icon
                                 icon={{
                                     let app_id = window
@@ -157,7 +155,7 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                             }}
                         </span>
                     </SystemWindowTitle>
-                    <SystemWindowControls layout_class="desktop-window-controls">
+                    <SystemWindowControls>
                         <SystemWindowControlButton
                             disabled=Signal::derive(move || {
                                 !window
@@ -236,7 +234,7 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                         </SystemWindowControlButton>
                     </SystemWindowControls>
                 </SystemWindowTitleBar>
-                <SystemWindowBody layout_class="desktop-window-body">
+                <SystemWindowBody>
                     <ManagedWindowBody window_id=window_id />
                 </SystemWindowBody>
                 <Show
@@ -265,7 +263,6 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
 #[component]
 fn WindowResizeHandle(window_id: WindowId, edge: ResizeEdge) -> impl IntoView {
     let runtime = use_desktop_runtime();
-    let class_name = format!("window-resize-handle {}", resize_edge_class(edge));
 
     let on_pointerdown = move |ev: web_sys::PointerEvent| {
         if ev.pointer_type() == "mouse" && ev.button() != 0 {
@@ -290,7 +287,6 @@ fn WindowResizeHandle(window_id: WindowId, edge: ResizeEdge) -> impl IntoView {
 
     view! {
         <div
-            class=class_name
             aria-hidden="true"
             data-ui-primitive="true"
             data-ui-kind="resize-handle"
@@ -391,7 +387,7 @@ fn ManagedWindowBody(window_id: WindowId) -> impl IntoView {
     };
 
     view! {
-        <div class="window-body-content" data-ui-slot="window-body-content">
+        <div data-ui-slot="window-body-content">
             {contents}
         </div>
     }

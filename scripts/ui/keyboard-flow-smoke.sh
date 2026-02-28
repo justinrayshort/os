@@ -18,71 +18,76 @@ const path = require('path');
 const outDir = process.env.OUT_DIR;
 const baseUrl = process.env.BASE_URL;
 
-async function runSkin(page, skin) {
+async function runSkin(browser, skin) {
+  const context = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+  const page = await context.newPage();
   const failures = [];
 
-  await page.goto(baseUrl, { waitUntil: 'networkidle' });
-  await page.evaluate((requestedSkin) => {
-    const nextTheme = {
-      skin: requestedSkin,
-      wallpaper_id: 'cloud-bands',
-      high_contrast: false,
-      reduced_motion: false,
-      audio_enabled: true,
+  try {
+    await page.goto(baseUrl, { waitUntil: 'networkidle' });
+    await page.evaluate((requestedSkin) => {
+      localStorage.removeItem('retrodesk.layout.v1');
+      localStorage.removeItem('retrodesk.terminal_history.v1');
+      const nextTheme = {
+        skin: requestedSkin,
+        wallpaper_id: 'cloud-bands',
+        high_contrast: false,
+        reduced_motion: false,
+        audio_enabled: true,
+      };
+      localStorage.setItem('retrodesk.theme.v1', JSON.stringify(nextTheme));
+    }, skin);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(300);
+
+    try {
+      await page.click('[data-ui-kind="desktop-backdrop"]', { button: 'right', timeout: 3000 });
+      await page.waitForSelector('#desktop-context-menu', { timeout: 1500 });
+    } catch (error) {
+      failures.push('context menu did not open');
+    }
+
+    try {
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('text=Personalize your desktop', { timeout: 2500 });
+    } catch (error) {
+      failures.push('system settings did not open from keyboard flow');
+    }
+
+    try {
+      await page.focus('[role="tab"]:has-text("Appearance")');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('text=Choose a shell skin', { timeout: 1500 });
+      await page.focus('button:has-text("Soft Neumorphic")');
+      await page.keyboard.press('Enter');
+    } catch (error) {
+      failures.push('appearance tab keyboard traversal failed');
+    }
+
+    try {
+      await page.focus('[role="tab"]:has-text("Accessibility")');
+      await page.keyboard.press('Enter');
+      await page.waitForSelector('text=High contrast', { timeout: 1500 });
+      await page.focus('input[aria-label="High contrast"]');
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(150);
+    } catch (error) {
+      failures.push('accessibility keyboard toggle failed');
+    }
+
+    const screenshotPath = path.join(outDir, `${skin}-keyboard-smoke.png`);
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+
+    return {
+      skin,
+      ok: failures.length === 0,
+      failures,
+      screenshot: screenshotPath,
     };
-    localStorage.setItem('retrodesk.theme.v1', JSON.stringify(nextTheme));
-  }, skin);
-  await page.reload({ waitUntil: 'networkidle' });
-  await page.waitForTimeout(300);
-
-  try {
-    await page.click('.desktop-wallpaper', { button: 'right' });
-    await page.waitForSelector('.desktop-context-menu', { timeout: 1500 });
-  } catch (error) {
-    failures.push('context menu did not open');
+  } finally {
+    await context.close();
   }
-
-  try {
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-    await page.waitForSelector('.display-properties-dialog', { timeout: 1500 });
-  } catch (error) {
-    failures.push('display properties did not open from keyboard flow');
-  }
-
-  try {
-    await page.focus('#display-properties-tab-appearance');
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(100);
-    await page.focus('#skin-listbox');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-    await page.focus('#wallpaper-listbox');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-  } catch (error) {
-    failures.push('tab/listbox keyboard traversal failed');
-  }
-
-  try {
-    await page.focus('#display-properties-cancel-button');
-    await page.keyboard.press('Enter');
-    await page.waitForSelector('.display-properties-dialog', { state: 'detached', timeout: 1500 });
-  } catch (error) {
-    failures.push('cancel flow did not close display properties');
-  }
-
-  const screenshotPath = path.join(outDir, `${skin}-keyboard-smoke.png`);
-  await page.screenshot({ path: screenshotPath, fullPage: true });
-
-  return {
-    skin,
-    ok: failures.length === 0,
-    failures,
-    screenshot: screenshotPath,
-  };
 }
 
 async function main() {
@@ -96,12 +101,10 @@ async function main() {
 
   const skins = ['soft-neumorphic', 'modern-adaptive', 'classic-xp', 'classic-95'];
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1366, height: 900 } });
-  const page = await context.newPage();
 
   const results = [];
   for (const skin of skins) {
-    results.push(await runSkin(page, skin));
+    results.push(await runSkin(browser, skin));
   }
 
   await browser.close();

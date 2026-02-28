@@ -6,6 +6,7 @@ pub fn MenuSurface(
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional, into)] id: Option<String>,
     #[prop(optional, into)] role: Option<String>,
+    #[prop(optional)] ui_slot: Option<&'static str>,
     #[prop(optional, into)] aria_label: MaybeSignal<String>,
     #[prop(optional, into)] style: MaybeSignal<String>,
     #[prop(optional)] on_keydown: Option<Callback<KeyboardEvent>>,
@@ -22,6 +23,7 @@ pub fn MenuSurface(
             style=move || style.get()
             data-ui-primitive="true"
             data-ui-kind="menu-surface"
+            data-ui-slot=ui_slot
             on:keydown=move |ev| {
                 if let Some(on_keydown) = on_keydown.as_ref() {
                     on_keydown.call(ev);
@@ -49,6 +51,7 @@ pub fn MenuItem(
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional, into)] id: Option<String>,
     #[prop(optional, into)] role: Option<String>,
+    #[prop(default = ButtonVariant::Quiet)] variant: ButtonVariant,
     #[prop(optional, into)] aria_label: MaybeSignal<String>,
     #[prop(optional, into)] aria_checked: MaybeSignal<String>,
     #[prop(optional, into)] title: MaybeSignal<String>,
@@ -70,7 +73,7 @@ pub fn MenuItem(
             disabled=disabled
             selected=selected
             ui_slot="menu-item"
-            variant=ButtonVariant::Quiet
+            variant=variant
             on_mousedown=Callback::new(move |ev| {
                 if let Some(on_mousedown) = on_mousedown.as_ref() {
                     on_mousedown.call(ev);

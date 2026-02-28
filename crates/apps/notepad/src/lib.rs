@@ -233,7 +233,7 @@ pub fn NotepadApp(
     };
 
     view! {
-        <AppShell layout_class="app-notepad-shell">
+        <AppShell>
             <MenuBar>
                 <Button variant=ButtonVariant::Quiet>"File"</Button>
                 <Button variant=ButtonVariant::Quiet>"Edit"</Button>
@@ -274,9 +274,8 @@ pub fn NotepadApp(
                 </Button>
             </ToolBar>
 
-            <Pane layout_class="notepad-document" ui_slot="document">
+            <Pane ui_slot="document">
                 <PaneHeader
-                    layout_class="notepad-document-header"
                     title=Signal::derive(move || format!("{}.txt", workspace.get().active_slug))
                     meta=Signal::derive(move || {
                         let w = workspace.get();
@@ -290,10 +289,7 @@ pub fn NotepadApp(
                     <span></span>
                 </PaneHeader>
 
-                <TabList
-                    layout_class="notepad-tabstrip"
-                    aria_label="Open documents"
-                >
+                <TabList aria_label="Open documents">
                     <For
                         each=move || workspace.get().open_order.clone()
                         key=|slug| slug.clone()
@@ -305,11 +301,10 @@ pub fn NotepadApp(
                             let label_slug = slug.clone();
                             let tab_id_slug = slug.clone();
                             let tabindex_slug = slug.clone();
-                            view! {
-                                <Tab
-                                    layout_class="notepad-tab"
-                                    id=Signal::derive(move || tab_dom_id(&tab_id_slug))
-                                    controls="notepad-tabpanel".to_string()
+                                view! {
+                                    <Tab
+                                        id=Signal::derive(move || tab_dom_id(&tab_id_slug))
+                                        controls="notepad-tabpanel".to_string()
                                     selected=Signal::derive(move || workspace.get().active_slug == aria_slug)
                                     tabindex=Signal::derive(move || {
                                         if workspace.get().active_slug == tabindex_slug {
@@ -334,7 +329,6 @@ pub fn NotepadApp(
                     aria-labelledby=move || tab_dom_id(&workspace.get().active_slug)
                 >
                     <TextArea
-                        layout_class="notepad-page"
                         ui_slot="editor"
                         value=Signal::derive(move || current_text.get())
                         on_input=Callback::new(move |ev| {

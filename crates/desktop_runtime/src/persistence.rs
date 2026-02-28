@@ -77,6 +77,7 @@ fn migrate_desktop_snapshot(
 pub async fn load_boot_snapshot(_host: &DesktopHostContext) -> Option<DesktopSnapshot> {
     #[cfg(target_arch = "wasm32")]
     {
+        let host = _host;
         let storage = local_storage()?;
         let snapshot = storage
             .get_item(SNAPSHOT_KEY)

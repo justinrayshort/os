@@ -108,6 +108,20 @@ Validation and evidence requirements are governed by:
 - [`docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md`](desktop-shell-hig-neumorphic-conformance-checklist.md)
 - [`docs/sop/ui-design-conformance-review-sop.md`](../sop/ui-design-conformance-review-sop.md)
 
+Current review-cycle evidence artifacts:
+
+- [`/.artifacts/ui-conformance/screenshots/`](../../.artifacts/ui-conformance/screenshots/) contains the current desktop/tablet/mobile screenshot matrix across all supported skins.
+- [`/.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json`](../../.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json) records passing keyboard traversal for the desktop context menu and System Settings flow across all supported skins.
+- [`/.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json`](../../.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json) records the current soft-neumorphic contrast sample set.
+
+Current measured observations from that contrast artifact:
+
+- Taskbar start-button focus outline: `5.2:1` against the taskbar background, meeting the `3:1` focus-indicator target.
+- Terminal transcript sample text: `3.15:1` against the terminal surface, which preserves readability better than the ambient shell chrome but remains below the documented `4.5:1` body-text goal.
+- Window-frame boundary sample: `2.24:1` against the desktop root, below the `3:1` non-text boundary target.
+- Taskbar start-button label sample: `1.2:1` against its control background, below the documented text target and a concrete follow-up item for the skin.
+- Browser `prefers-color-scheme: dark` emulation did not change the sampled computed shell colors during this review cycle, so dark-mode-specific contrast evidence remains incomplete.
+
 ## Related Files
 
 - [`crates/desktop_runtime/src/model.rs`](../../crates/desktop_runtime/src/model.rs)

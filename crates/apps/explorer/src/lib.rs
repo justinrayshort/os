@@ -788,7 +788,7 @@ pub fn ExplorerApp(
     });
 
     view! {
-        <AppShell layout_class="app-explorer-shell">
+        <AppShell>
             <MenuBar aria_label="Explorer menu">
                 <Button variant=ButtonVariant::Quiet>"File"</Button>
                 <Button variant=ButtonVariant::Quiet>"View"</Button>
@@ -800,7 +800,7 @@ pub fn ExplorerApp(
                 fallback=move || {
                     view! {
                         <>
-                            <ToolBar layout_class="explorer-primary-toolbar" aria_label="Primary explorer actions">
+                            <ToolBar aria_label="Primary explorer actions">
                                 <Button
                                     variant=ButtonVariant::Quiet
                                     on_click=Callback::new(move |_| {
@@ -845,7 +845,6 @@ pub fn ExplorerApp(
                             </ToolBar>
 
                         <DisclosurePanel
-                                layout_class="explorer-disclosure"
                                 title="Workspace actions"
                                 description="Advanced filesystem and permission actions stay here until they are needed."
                                 expanded=Signal::derive(move || show_workspace_controls.get())
@@ -853,7 +852,7 @@ pub fn ExplorerApp(
                                     show_workspace_controls.update(|open| *open = !*open);
                                 })
                             >
-                                <Cluster layout_class="settings-toolbar">
+                                <Cluster>
                                     <Button
                                         variant=ButtonVariant::Quiet
                                         title=native_explorer_status_label(native_explorer)
@@ -900,7 +899,6 @@ pub fn ExplorerApp(
                             </DisclosurePanel>
 
                         <DisclosurePanel
-                                layout_class="explorer-disclosure"
                                 title="View options"
                                 description="Toggle metadata and hidden-file visibility without crowding the main toolbar."
                                 expanded=Signal::derive(move || show_view_controls.get())
@@ -908,7 +906,7 @@ pub fn ExplorerApp(
                                     show_view_controls.update(|open| *open = !*open);
                                 })
                             >
-                                <Cluster layout_class="settings-toolbar">
+                                <Cluster>
                                     <Button
                                         variant=ButtonVariant::Quiet
                                         selected=Signal::derive(move || prefs.get().details_visible)
@@ -931,14 +929,13 @@ pub fn ExplorerApp(
                             </DisclosurePanel>
 
                             <Show when=move || show_create_panel.get() fallback=|| ()>
-                                <Panel layout_class="explorer-create-panel" variant=SurfaceVariant::Muted>
+                                <Panel variant=SurfaceVariant::Muted>
                                     <Cluster justify=LayoutJustify::Between>
                                         <Text role=TextRole::Label>"Create a new item"</Text>
                                         <Text tone=TextTone::Secondary>"Enter a file or folder name, then create it in the current location."</Text>
                                     </Cluster>
                                     <Cluster>
                                         <TextField
-                                            layout_class="explorer-create-name"
                                             placeholder="new-file.txt or folder"
                                             value=Signal::derive(move || new_entry_name.get())
                                             on_input=Callback::new(move |ev| {
@@ -986,11 +983,11 @@ pub fn ExplorerApp(
                                 </Panel>
                             </Show>
 
-                            <SplitLayout layout_class="explorer-workspace explorer-workspace--three-pane" ui_slot="workspace">
-                                <Pane layout_class="explorer-tree" ui_slot="sidebar-pane" aria_label="Explorer status and path">
+                            <SplitLayout ui_slot="workspace">
+                                <Pane ui_slot="sidebar-pane" aria_label="Explorer status and path">
                                     <PaneHeader title="Workspace"><span></span></PaneHeader>
-                                    <Card layout_class="explorer-status-card" variant=SurfaceVariant::Muted>
-                                        <InspectorGrid layout_class="details-grid">
+                                    <Card variant=SurfaceVariant::Muted>
+                                        <InspectorGrid>
                                             <Text role=TextRole::Label>"Backend"</Text>
                                             <Text>{move || {
                                             status
@@ -1016,10 +1013,9 @@ pub fn ExplorerApp(
                                     </Card>
 
                                     <PaneHeader title="Path Segments"><span></span></PaneHeader>
-                                    <Tree layout_class="tree-list">
+                                    <Tree>
                                         <TreeItem>
                                             <Button
-                                                layout_class="tree-node"
                                                 variant=ButtonVariant::Quiet
                                                 on_click=Callback::new(move |_| {
                                                     refresh_directory(
@@ -1029,7 +1025,7 @@ pub fn ExplorerApp(
                                                     )
                                                 })
                                             >
-                                                <span class="tree-glyph">"[]"</span>
+                                                <span>"[]"</span>
                                                 <span>"/"</span>
                                             </Button>
                                         </TreeItem>
@@ -1052,7 +1048,6 @@ pub fn ExplorerApp(
                                         >
                                             <TreeItem>
                                                 <Button
-                                                    layout_class="tree-node"
                                                     variant=ButtonVariant::Quiet
                                                     on_click=Callback::new(move |_| {
                                                         refresh_directory(
@@ -1062,7 +1057,7 @@ pub fn ExplorerApp(
                                                         )
                                                     })
                                                 >
-                                                    <span class="tree-glyph">">"</span>
+                                                    <span>">"</span>
                                                     <span>{item.0.clone()}</span>
                                                 </Button>
                                             </TreeItem>
@@ -1070,12 +1065,11 @@ pub fn ExplorerApp(
                                     </Tree>
                                 </Pane>
 
-                                <Pane layout_class="explorer-pane" ui_slot="primary-pane" aria_label="Explorer contents">
+                                <Pane ui_slot="primary-pane" aria_label="Explorer contents">
                                     <PaneHeader title="Contents" meta=Signal::derive(move || format!("Path: {}", cwd.get()))><span></span></PaneHeader>
 
-                                    <div class="explorer-listwrap">
+                                    <div>
                                         <DataTable
-                                            layout_class="explorer-list"
                                             role="grid"
                                             aria_label="Explorer list view"
                                             tabindex=Signal::derive(|| 0)
@@ -1169,11 +1163,7 @@ pub fn ExplorerApp(
                                     </div>
                                 </Pane>
 
-                                <Pane
-                                    layout_class="explorer-pane explorer-inspector"
-                                    ui_slot="secondary-pane"
-                                    aria_label="Explorer inspector"
-                                >
+                                <Pane ui_slot="secondary-pane" aria_label="Explorer inspector">
                                     <PaneHeader
                                         title="Inspector"
                                         meta=Signal::derive(move || {
@@ -1185,7 +1175,7 @@ pub fn ExplorerApp(
                                     ><span></span></PaneHeader>
 
                                     <Show when=move || editor_path.get().is_some() fallback=|| ()>
-                                        <div class="explorer-editor">
+                                        <div>
                                             <PaneHeader
                                                 title=Signal::derive(move || {
                                                     editor_path
@@ -1202,7 +1192,6 @@ pub fn ExplorerApp(
                                                 })
                                             ><span></span></PaneHeader>
                                             <TextArea
-                                                layout_class="explorer-file-editor"
                                                 value=Signal::derive(move || editor_text.get())
                                                 on_input=Callback::new(move |ev| {
                                                     editor_text.set(event_target_value(&ev));
@@ -1213,11 +1202,11 @@ pub fn ExplorerApp(
                                     </Show>
 
                                     <Show when=move || prefs.get().details_visible fallback=|| ()>
-                                        <div class="explorer-details">
+                                        <div>
                                             {move || {
                                                 if let Some(meta) = selected_metadata.get() {
                                                     view! {
-                                                        <InspectorGrid layout_class="details-grid">
+                                                        <InspectorGrid>
                                                             <Text role=TextRole::Label>"Name"</Text><Text>{meta.name.clone()}</Text>
                                                             <Text role=TextRole::Label>"Path"</Text><Text>{meta.path.clone()}</Text>
                                                             <Text role=TextRole::Label>"Kind"</Text><Text>{format!("{:?}", meta.kind)}</Text>
@@ -1236,7 +1225,7 @@ pub fn ExplorerApp(
                                                     .into_view()
                                                 } else {
                                                     view! {
-                                                        <EmptyState layout_class="details-empty">
+                                                        <EmptyState>
                                                             "Select an item to view metadata."
                                                         </EmptyState>
                                                     }
@@ -1251,8 +1240,8 @@ pub fn ExplorerApp(
                     }
                 }
             >
-                <Surface layout_class="explorer-setup-shell" variant=SurfaceVariant::Muted elevation=Elevation::Inset>
-                    <StepFlow layout_class="explorer-setup-flow">
+                <Surface variant=SurfaceVariant::Muted elevation=Elevation::Inset>
+                    <StepFlow>
                         <StepFlowHeader
                             title="Set up a workspace"
                             description="Explorer only asks for setup details when it cannot open a usable workspace on its own."
@@ -1265,7 +1254,7 @@ pub fn ExplorerApp(
                                 setup_step_status(setup_step.get(), ExplorerSetupStep::Source)
                             })
                         >
-                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
+                            <Panel variant=SurfaceVariant::Standard>
                                 <Stack gap=LayoutGap::Sm>
                                     <Text>{native_explorer_status_label(native_explorer)}</Text>
                                     <Cluster>
@@ -1314,7 +1303,7 @@ pub fn ExplorerApp(
                                 setup_step_status(setup_step.get(), ExplorerSetupStep::Access)
                             })
                         >
-                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
+                            <Panel variant=SurfaceVariant::Standard>
                                 <Cluster justify=LayoutJustify::Between>
                                     <Text>{move || {
                                         status
@@ -1357,7 +1346,7 @@ pub fn ExplorerApp(
                                 setup_step_status(setup_step.get(), ExplorerSetupStep::Open)
                             })
                         >
-                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
+                            <Panel variant=SurfaceVariant::Standard>
                                 <Stack gap=LayoutGap::Sm>
                                     <Text>{move || format!("Workspace target: {}", cwd.get())}</Text>
                                     <Text tone=TextTone::Secondary>
@@ -1396,14 +1385,14 @@ pub fn ExplorerApp(
             </Show>
 
             <StatusBar>
-                <span>{move || format!("{} item(s)", visible_entries.get().len())}</span>
-                <span>{move || {
+                <StatusBarItem>{move || format!("{} item(s)", visible_entries.get().len())}</StatusBarItem>
+                <StatusBarItem>{move || {
                     status
                         .get()
                         .map(|s| format!("Backend: {:?} | Permission: {:?}", s.backend, s.permission))
                         .unwrap_or_else(|| "Backend: loading".to_string())
-                }}</span>
-                <span>{move || {
+                }}</StatusBarItem>
+                <StatusBarItem>{move || {
                     if let Some(err) = error.get() {
                         format!("Error: {err}")
                     } else if let Some(note) = notice.get() {
@@ -1415,7 +1404,7 @@ pub fn ExplorerApp(
                     } else {
                         "Hydrating...".to_string()
                     }
-                }}</span>
+                }}</StatusBarItem>
             </StatusBar>
         </AppShell>
     }

@@ -270,8 +270,8 @@ pub fn SettingsApp(
     };
 
     view! {
-        <AppShell layout_class="app-settings-shell">
-            <MenuBar layout_class="settings-tablist" role="tablist" aria_label="Settings sections">
+        <AppShell>
+            <MenuBar role="tablist" aria_label="Settings sections">
                 <For
                     each=move || {
                         [
@@ -298,11 +298,10 @@ pub fn SettingsApp(
 
             <Show when=move || settings_state.get().active_section == SettingsSection::Personalize fallback=|| ()>
                 <Surface
-                    layout_class="settings-content settings-content--personalize"
                     variant=SurfaceVariant::Muted
                     elevation=Elevation::Inset
                 >
-                    <StepFlow layout_class="settings-step-flow">
+                    <StepFlow>
                         <StepFlowHeader
                             title="Personalize your desktop"
                             description="Choose a wallpaper, refine the framing, then review before applying."
@@ -318,8 +317,8 @@ pub fn SettingsApp(
                                 )
                             })
                         >
-                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
-                                <Cluster layout_class="settings-toolbar" justify=LayoutJustify::Between>
+                            <Panel variant=SurfaceVariant::Standard>
+                                <Cluster justify=LayoutJustify::Between>
                                     <Cluster>
                                         <Button
                                             variant=ButtonVariant::Primary
@@ -344,7 +343,6 @@ pub fn SettingsApp(
                                         </Button>
                                     </Cluster>
                                     <TextField
-                                        layout_class="settings-search"
                                         input_type="search"
                                         placeholder="Search wallpapers"
                                         value=Signal::derive(move || search.get())
@@ -354,11 +352,11 @@ pub fn SettingsApp(
                                     />
                                 </Cluster>
 
-                                <div class="display-preview-screen">
+                                <div>
                                     <WallpaperPreview config=active_wallpaper />
                                 </div>
 
-                                <div class="wallpaper-picker-list">
+                                <div>
                                     <For
                                         each=move || filtered_assets.get()
                                         key=|asset| asset.asset_id.clone()
@@ -386,8 +384,8 @@ pub fn SettingsApp(
                                 <Show when=move || selected_asset.get().is_some() fallback=|| {
                                     view! { <Text tone=TextTone::Secondary>"Select a wallpaper to manage its metadata."</Text> }
                                 }>
-                                    <Grid layout_class="settings-form-grid">
-                                        <label class="settings-field">
+                                    <Grid>
+                                        <label>
                                             <Text role=TextRole::Label>"Name"</Text>
                                             <TextField
                                                 value=Signal::derive(move || rename_value.get())
@@ -398,7 +396,7 @@ pub fn SettingsApp(
                                         </label>
                                         <Button on_click=Callback::new(save_rename)>"Rename"</Button>
 
-                                        <label class="settings-field">
+                                        <label>
                                             <Text role=TextRole::Label>"Tags"</Text>
                                             <TextField
                                                 placeholder="comma, separated, tags"
@@ -411,7 +409,7 @@ pub fn SettingsApp(
                                         <Button on_click=Callback::new(save_tags)>"Save Tags"</Button>
                                     </Grid>
 
-                                    <Cluster layout_class="settings-toolbar">
+                                    <Cluster>
                                         <Button
                                             variant=ButtonVariant::Quiet
                                             on_click=Callback::new(toggle_favorite)
@@ -442,10 +440,10 @@ pub fn SettingsApp(
                                         </Show>
                                     </Cluster>
 
-                                    <Heading layout_class="settings-heading" role=TextRole::Title>
+                                    <Heading role=TextRole::Title>
                                         "Collections"
                                     </Heading>
-                                    <div class="settings-option-grid">
+                                    <div>
                                         <For
                                             each=move || wallpaper_library.get().collections
                                             key=|collection| collection.collection_id.clone()
@@ -472,9 +470,8 @@ pub fn SettingsApp(
                                             />
                                         </For>
                                     </div>
-                                    <Cluster layout_class="settings-toolbar">
+                                    <Cluster>
                                         <TextField
-                                            layout_class="settings-search"
                                             placeholder="New collection"
                                             value=Signal::derive(move || new_collection_name.get())
                                             on_input=Callback::new(move |ev| {
@@ -514,18 +511,17 @@ pub fn SettingsApp(
                                 )
                             })
                         >
-                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
-                                <Heading layout_class="settings-heading" role=TextRole::Title>
+                            <Panel variant=SurfaceVariant::Standard>
+                                <Heading role=TextRole::Title>
                                     "Display Mode"
                                 </Heading>
-                                <div class="settings-option-grid">
+                                <div>
                                     <For
                                         each=move || wallpaper_display_modes()
                                         key=|mode| *mode as u8
                                         let:mode
                                     >
                                         <Button
-                                            layout_class="settings-option"
                                             variant=ButtonVariant::Quiet
                                             selected=Signal::derive(move || active_wallpaper.get().display_mode == mode)
                                             on_click=Callback::new(move |_| preview_mode(mode))
@@ -535,17 +531,16 @@ pub fn SettingsApp(
                                     </For>
                                 </div>
 
-                                <Heading layout_class="settings-heading" role=TextRole::Title>
+                                <Heading role=TextRole::Title>
                                     "Position"
                                 </Heading>
-                                <div class="settings-option-grid">
+                                <div>
                                     <For
                                         each=move || wallpaper_positions()
                                         key=|position| *position as u8
                                         let:position
                                     >
                                         <Button
-                                            layout_class="settings-option"
                                             variant=ButtonVariant::Quiet
                                             selected=Signal::derive(move || active_wallpaper.get().position == position)
                                             on_click=Callback::new(move |_| preview_position(position))
@@ -590,12 +585,12 @@ pub fn SettingsApp(
                                 )
                             })
                         >
-                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
-                                <div class="display-preview-screen">
+                            <Panel variant=SurfaceVariant::Standard>
+                                <div>
                                     <WallpaperPreview config=active_wallpaper />
                                 </div>
                                 <Show when=move || selected_asset.get().is_some() fallback=|| ()>
-                                    <Stack layout_class="settings-review-copy" gap=LayoutGap::Sm>
+                                    <Stack gap=LayoutGap::Sm>
                                         <Text role=TextRole::Label>"Selected wallpaper"</Text>
                                         <Text>{move || selected_asset.get().map(|asset| asset.display_name).unwrap_or_default()}</Text>
                                         <Text tone=TextTone::Secondary>
@@ -647,30 +642,28 @@ pub fn SettingsApp(
 
             <Show when=move || settings_state.get().active_section == SettingsSection::Appearance fallback=|| ()>
                 <Surface
-                    layout_class="settings-content settings-content--appearance"
                     variant=SurfaceVariant::Muted
                     elevation=Elevation::Inset
                 >
                     <Stack gap=LayoutGap::Lg>
-                        <Panel layout_class="settings-panel" variant=SurfaceVariant::Standard>
+                        <Panel variant=SurfaceVariant::Standard>
                             <Heading role=TextRole::Title>"Choose a shell skin"</Heading>
                             <Text tone=TextTone::Secondary>
                                 "Use the curated shell presets below. Advanced tuning stays tucked away unless you need it."
                             </Text>
-                            <div class="settings-option-grid">
+                            <div>
                                 <For
                                     each=move || SKIN_PRESETS.into_iter()
                                     key=|preset| preset.id
                                     let:preset
                                 >
                                     <Button
-                                        layout_class="settings-option"
                                         variant=ButtonVariant::Quiet
                                         selected=Signal::derive(move || theme_skin_id.get() == preset.id)
                                         on_click=Callback::new(move |_| services.theme.set_skin(preset.id))
                                     >
-                                        <span class="settings-option-title">{preset.label}</span>
-                                        <span class="settings-option-note">{preset.note}</span>
+                                        <span>{preset.label}</span>
+                                        <span>{preset.note}</span>
                                     </Button>
                                 </For>
                             </div>
@@ -697,15 +690,13 @@ pub fn SettingsApp(
 
             <Show when=move || settings_state.get().active_section == SettingsSection::Accessibility fallback=|| ()>
                 <Surface
-                    layout_class="settings-content settings-content--accessibility"
                     variant=SurfaceVariant::Muted
                     elevation=Elevation::Inset
                 >
                     <Stack gap=LayoutGap::Md>
-                        <Panel layout_class="settings-panel" variant=SurfaceVariant::Standard>
+                        <Panel variant=SurfaceVariant::Standard>
                             <Heading role=TextRole::Title>"Visibility"</Heading>
                             <ToggleRow
-                                layout_class="settings-toggle"
                                 title="High contrast"
                                 description="Increase separation between borders, text, and focus states."
                                 checked=theme_high_contrast
@@ -720,10 +711,9 @@ pub fn SettingsApp(
                             </ToggleRow>
                         </Panel>
 
-                        <Panel layout_class="settings-panel" variant=SurfaceVariant::Standard>
+                        <Panel variant=SurfaceVariant::Standard>
                             <Heading role=TextRole::Title>"Motion"</Heading>
                             <ToggleRow
-                                layout_class="settings-toggle"
                                 title="Reduced motion"
                                 description="Replace animated wallpaper playback and shorten non-essential transitions."
                                 checked=theme_reduced_motion
@@ -861,17 +851,16 @@ fn WallpaperLibraryItem(
 
     view! {
         <Button
-            layout_class="wallpaper-picker-item"
             variant=ButtonVariant::Quiet
             selected=Signal::derive(move || selected_asset_id.get() == asset_id)
             on_click=Callback::new(move |_| on_preview.call(asset_for_click.clone()))
         >
-            <span class="wallpaper-preview-thumb">
+            <span>
                 <WallpaperThumb asset=asset.clone() />
             </span>
-            <span class="wallpaper-picker-item-copy">
-                <span class="wallpaper-picker-item-label">{display_name}</span>
-                <span class="wallpaper-picker-item-meta">{meta}</span>
+            <span>
+                <span>{display_name}</span>
+                <span>{meta}</span>
             </span>
         </Button>
     }
@@ -887,7 +876,6 @@ fn WallpaperCollectionItem(
 
     view! {
         <Button
-            layout_class="settings-option"
             variant=ButtonVariant::Quiet
             selected=Signal::derive(move || {
                 selected_asset
@@ -897,7 +885,7 @@ fn WallpaperCollectionItem(
             })
             on_click=Callback::new(move |_| on_toggle.call(collection.collection_id.clone()))
         >
-            <span class="settings-option-title">{collection.display_name}</span>
+            <span>{collection.display_name}</span>
         </Button>
     }
 }
@@ -912,7 +900,7 @@ fn WallpaperThumb(asset: WallpaperAssetRecord) -> impl IntoView {
 #[component]
 fn WallpaperPreview(config: Signal<WallpaperConfig>) -> impl IntoView {
     view! {
-        <div class="wallpaper-preview-thumb">
+        <div>
             {move || match config.get().selection {
                 WallpaperSelection::BuiltIn { wallpaper_id } => view! {
                     <span>{format!("Built-in: {wallpaper_id}")}</span>

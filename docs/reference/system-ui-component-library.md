@@ -226,6 +226,7 @@ App-local classes remain acceptable for:
 - shared primitive adoption via rejection of legacy primitive markup and old icon import paths
 - rejection of raw interactive markup in app crates and runtime shell surfaces
 - rejection of direct shared-primitive `data-ui-kind` composition outside `system_ui`
+- rejection of new app/runtime-local layout-only class contracts
 - token-only skin files
 - restricted inline-style usage outside geometry/media positioning
 - rejection of new app-specific or shell-bespoke visual selector contracts

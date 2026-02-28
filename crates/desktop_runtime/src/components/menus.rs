@@ -2,7 +2,7 @@ use super::*;
 use crate::wallpaper;
 use leptos::ev::MouseEvent;
 use platform_host::{WallpaperConfig, WallpaperMediaKind, WallpaperSelection};
-use system_ui::{Icon, IconName, IconSize, MenuItem, MenuSeparator, MenuSurface};
+use system_ui::{ButtonVariant, Icon, IconName, IconSize, MenuItem, MenuSeparator, MenuSurface};
 
 #[component]
 pub(super) fn DesktopContextMenu(
@@ -26,7 +26,6 @@ pub(super) fn DesktopContextMenu(
                 view! {
                     <MenuSurface
                         id="desktop-context-menu"
-                        layout_class="taskbar-menu desktop-context-menu"
                         role="menu"
                         aria_label="Desktop context menu"
                         style=menu_style
@@ -47,7 +46,6 @@ pub(super) fn DesktopContextMenu(
                         <MenuItem
                             id="desktop-context-menu-item-refresh"
                             role="menuitem"
-                            layout_class="taskbar-menu-item"
                             on_click=Callback::new(move |ev| {
                                 stop_mouse_event(&ev);
                                 desktop_context_menu.set(None);
@@ -58,7 +56,6 @@ pub(super) fn DesktopContextMenu(
                         <MenuItem
                             id="desktop-context-menu-item-properties"
                             role="menuitem"
-                            layout_class="taskbar-menu-item"
                             on_click=Callback::new(move |ev| {
                                 stop_mouse_event(&ev);
                                 desktop_context_menu.set(None);
@@ -68,8 +65,8 @@ pub(super) fn DesktopContextMenu(
                             "Properties..."
                         </MenuItem>
 
-                        <MenuSeparator layout_class="desktop-menu-separator" />
-                        <div class="desktop-context-group-label" data-ui-slot="menu-group-label">
+                        <MenuSeparator />
+                        <div data-ui-slot="menu-group-label">
                             "Quick Backgrounds"
                         </div>
 
@@ -97,7 +94,6 @@ pub(super) fn DesktopContextMenu(
                                         role="menuitemradio"
                                         aria_checked=if is_active { "true" } else { "false" }
                                         selected=is_active
-                                        layout_class="taskbar-menu-item desktop-context-wallpaper-item"
                                         on_click=Callback::new(move |ev| {
                                             stop_mouse_event(&ev);
                                             desktop_context_menu.set(None);
@@ -111,16 +107,16 @@ pub(super) fn DesktopContextMenu(
                                             });
                                         })
                                     >
-                                        <span class="desktop-context-wallpaper-check" aria-hidden="true">
+                                        <span aria-hidden="true">
                                             {if is_active {
                                                 view! { <Icon icon=IconName::Checkmark size=IconSize::Xs /> }.into_view()
                                             } else {
                                                 ().into_view()
                                             }}
                                         </span>
-                                        <span class="desktop-context-wallpaper-text">
-                                            <span class="desktop-context-wallpaper-label">{display_name}</span>
-                                            <span class="desktop-context-wallpaper-meta">{media_label}</span>
+                                        <span>
+                                            <span>{display_name}</span>
+                                            <span>{media_label}</span>
                                         </span>
                                     </MenuItem>
                                 }
@@ -147,7 +143,7 @@ pub(super) fn StartMenu(
         <Show when=move || state.get().start_menu_open fallback=|| ()>
             <MenuSurface
                 id="desktop-launcher-menu"
-                layout_class="start-menu"
+                ui_slot="launcher-menu"
                 role="menu"
                 aria_label="Application launcher"
                 on_keydown=Callback::new(move |ev: web_sys::KeyboardEvent| {
@@ -173,7 +169,6 @@ pub(super) fn StartMenu(
                             <MenuItem
                                 id=app_dom_id
                                 role="menuitem"
-                                layout_class="start-menu-item"
                                 on_click=Callback::new(move |_| {
                                     window_context_menu.set(None);
                                     overflow_menu_open.set(false);
@@ -184,7 +179,7 @@ pub(super) fn StartMenu(
                                     });
                                 })
                             >
-                                <span class="taskbar-app-icon" aria-hidden="true">
+                                <span aria-hidden="true">
                                     <Icon icon=app_icon size=IconSize::Sm />
                                 </span>
                                 <span>{format!("Open {}", launcher_label)}</span>
@@ -195,7 +190,6 @@ pub(super) fn StartMenu(
                 <MenuItem
                     id="desktop-launcher-item-close"
                     role="menuitem"
-                    layout_class="start-menu-item"
                     on_click=Callback::new(move |_| runtime.dispatch_action(DesktopAction::CloseStartMenu))
                 >
                     "Close"
@@ -220,7 +214,6 @@ pub(super) fn OverflowMenu(
         <Show when=move || overflow_menu_open.get() fallback=|| ()>
             <MenuSurface
                 id="taskbar-overflow-menu"
-                layout_class="taskbar-menu taskbar-overflow-menu"
                 role="menu"
                 aria_label="Hidden taskbar windows"
                 on_keydown=Callback::new(move |ev: web_sys::KeyboardEvent| {
@@ -258,7 +251,6 @@ pub(super) fn OverflowMenu(
                     <MenuItem
                         id=format!("taskbar-overflow-menu-item-{}", win.id.0)
                         role="menuitem"
-                        layout_class="taskbar-menu-item"
                         selected=Signal::derive(move || {
                             selected_running_window.get() == Some(win.id)
                         })
@@ -287,13 +279,13 @@ pub(super) fn OverflowMenu(
                             );
                         })
                     >
-                        <span class="taskbar-app-icon" aria-hidden="true">
+                        <span aria-hidden="true">
                             <Icon
                                 icon=app_icon_name(&win.app_id)
                                 size=IconSize::Sm
                             />
                         </span>
-                        <span class="taskbar-menu-item-label">{win.title.clone()}</span>
+                        <span>{win.title.clone()}</span>
                     </MenuItem>
                 </For>
             </MenuSurface>
@@ -310,7 +302,6 @@ pub(super) fn ClockMenu(
         <Show when=move || clock_menu_open.get() fallback=|| ()>
             <MenuSurface
                 id="taskbar-clock-menu"
-                layout_class="taskbar-menu taskbar-clock-menu"
                 role="menu"
                 aria_label="Clock settings"
                 on_keydown=Callback::new(move |ev: web_sys::KeyboardEvent| {
@@ -337,7 +328,6 @@ pub(super) fn ClockMenu(
                         }
                     })
                     selected=Signal::derive(move || clock_config.get().use_24_hour)
-                    layout_class="taskbar-menu-item"
                     on_click=Callback::new(move |_| {
                         clock_config.update(|cfg| cfg.use_24_hour = !cfg.use_24_hour);
                     })
@@ -347,7 +337,6 @@ pub(super) fn ClockMenu(
                 <MenuItem
                     id="taskbar-clock-menu-item-close"
                     role="menuitem"
-                    layout_class="taskbar-menu-item"
                     on_click=Callback::new(move |_| clock_menu_open.set(false))
                 >
                     "Close"
@@ -408,7 +397,6 @@ pub(super) fn TaskbarWindowContextMenu(
                 view! {
                     <MenuSurface
                         id="taskbar-window-context-menu"
-                        layout_class="taskbar-menu taskbar-window-menu"
                         role="menu"
                         aria_label=format!("Window menu for {}", win.title)
                         style=menu_style
@@ -431,7 +419,6 @@ pub(super) fn TaskbarWindowContextMenu(
                         <MenuItem
                             id=format!("taskbar-window-menu-focus-{}", window_id.0)
                             role="menuitem"
-                            layout_class="taskbar-menu-item"
                             disabled=!can_focus
                             on_click=Callback::new(move |_| {
                                 window_context_menu.set(None);
@@ -444,7 +431,6 @@ pub(super) fn TaskbarWindowContextMenu(
                         <MenuItem
                             id=format!("taskbar-window-menu-restore-{}", window_id.0)
                             role="menuitem"
-                            layout_class="taskbar-menu-item"
                             disabled=!can_restore
                             on_click=Callback::new(move |_| {
                                 window_context_menu.set(None);
@@ -456,7 +442,6 @@ pub(super) fn TaskbarWindowContextMenu(
                         <MenuItem
                             id=format!("taskbar-window-menu-minimize-{}", window_id.0)
                             role="menuitem"
-                            layout_class="taskbar-menu-item"
                             disabled=!can_minimize
                             on_click=Callback::new(move |_| {
                                 window_context_menu.set(None);
@@ -468,7 +453,6 @@ pub(super) fn TaskbarWindowContextMenu(
                         <MenuItem
                             id=format!("taskbar-window-menu-maximize-{}", window_id.0)
                             role="menuitem"
-                            layout_class="taskbar-menu-item"
                             disabled=!can_maximize
                             on_click=Callback::new(move |_| {
                                 window_context_menu.set(None);
@@ -483,7 +467,7 @@ pub(super) fn TaskbarWindowContextMenu(
                         <MenuItem
                             id=format!("taskbar-window-menu-close-{}", window_id.0)
                             role="menuitem"
-                            layout_class="taskbar-menu-item danger"
+                            variant=ButtonVariant::Danger
                             on_click=Callback::new(move |_| {
                                 window_context_menu.set(None);
                                 runtime.dispatch_action(DesktopAction::CloseWindow { window_id });

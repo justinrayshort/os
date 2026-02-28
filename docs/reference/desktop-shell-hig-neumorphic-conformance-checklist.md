@@ -42,6 +42,9 @@ Primary evidence sources:
 - [`crates/site/src/theme_shell/34-theme-soft-neumorphic.css`](../../crates/site/src/theme_shell/34-theme-soft-neumorphic.css)
 - [`scripts/ui/capture-skin-matrix.sh`](../../scripts/ui/capture-skin-matrix.sh)
 - [`scripts/ui/keyboard-flow-smoke.sh`](../../scripts/ui/keyboard-flow-smoke.sh)
+- [`/.artifacts/ui-conformance/screenshots/`](../../.artifacts/ui-conformance/screenshots/)
+- [`/.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json`](../../.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json)
+- [`/.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json`](../../.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json)
 
 ## Status Legend
 
@@ -78,15 +81,15 @@ Primary evidence sources:
 | `A11Y-01` | Complete | Keyboard navigation, dismissal, and reducer-driven interaction semantics remain unchanged. | Runtime behavior remains driven by `desktop_runtime` reducer/components; the skin is CSS-only. |
 | `A11Y-02` | Complete | Focus indication is separate from elevation styling and visible on all primary interactive elements. | `35-theme-soft-neumorphic-overrides.css` defines shared `:focus-visible` outlines using dedicated focus tokens. |
 | `A11Y-03` | Complete | Reduced-motion mode disables nonessential transitions and animations. | `data-reduced-motion="true"` suppression is present in the neumorphic overrides. |
-| `A11Y-04` | Partial | Contrast targets for text, key icons, boundaries, and focus indicators are measured and recorded across light/dark/high-contrast variants. | Design targets are documented, but measured reports remain a required evidence artifact for each material revision. |
-| `A11Y-05` | Partial | Terminal transcript readability is preserved above the ambient shell softness in both light and dark modes. | Terminal-specific token mapping exists; review evidence should confirm transcript contrast and completion clarity. |
+| `A11Y-04` | Partial | Contrast targets for text, key icons, boundaries, and focus indicators are measured and recorded across light/dark/high-contrast variants. | [`soft-neumorphic-contrast-report.json`](../../.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json) now records a soft-neumorphic sample set. Current measurements show the taskbar start-button label at `1.2:1` against its control background and a window-frame boundary sample at `2.24:1`, both below target, while the start-button focus outline measures `5.2:1` and clears the `3:1` non-text threshold. `prefers-color-scheme: dark` emulation produced the same computed shell colors as light during this review, so dark-specific contrast evidence remains incomplete. |
+| `A11Y-05` | Partial | Terminal transcript readability is preserved above the ambient shell softness in both light and dark modes. | [`soft-neumorphic-contrast-report.json`](../../.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json) measures a representative terminal transcript line at `3.15:1` against the terminal surface in the current browser-hosted shell. [`keyboard-smoke-report.json`](../../.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json) confirms keyboard traversal still reaches and operates the Settings flow, but terminal transcript/completion contrast still needs follow-up to meet the documented `4.5:1` body-text goal if treated as standard reading text. |
 
 ### D. Responsive and Governance Coverage
 
 | ID | Status | Acceptance criteria (objective) | Current evidence / gap |
 | --- | --- | --- | --- |
-| `RSP-01` | Complete | The screenshot matrix and keyboard smoke automation include `soft-neumorphic` alongside the other skins. | `scripts/ui/capture-skin-matrix.sh` and `scripts/ui/keyboard-flow-smoke.sh` enumerate the new skin. |
-| `RSP-02` | Partial | Desktop, tablet, and mobile evidence is captured and reviewed for the neumorphic skin. | Scripts exist; generated evidence must still be captured as part of the review cycle. |
+| `RSP-01` | Complete | The screenshot matrix and keyboard smoke automation include `soft-neumorphic` alongside the other skins. | `scripts/ui/capture-skin-matrix.sh` and `scripts/ui/keyboard-flow-smoke.sh` enumerate the new skin, and [`keyboard-smoke-report.json`](../../.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json) now records passing keyboard flows for all four skins. |
+| `RSP-02` | Complete | Desktop, tablet, and mobile evidence is captured and reviewed for the neumorphic skin. | [`/.artifacts/ui-conformance/screenshots/`](../../.artifacts/ui-conformance/screenshots/) now contains the desktop, tablet, and mobile screenshot matrix for `soft-neumorphic` plus the comparison skins captured during this review cycle. |
 | `DOC-01` | Complete | The canonical design-system reference documents the neumorphic token and component strategy. | `docs/reference/desktop-shell-neumorphic-design-system.md`. |
 | `DOC-02` | Complete | Local machine-checkable validation enforces required skin scopes and literal hygiene for the new skin. | `cargo xtask docs ui-conformance` now validates the soft-neumorphic scope and override file hygiene. |
 

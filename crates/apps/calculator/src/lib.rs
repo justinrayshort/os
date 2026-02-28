@@ -301,12 +301,11 @@ pub fn CalculatorApp(
     };
 
     view! {
-        <AppShell layout_class="app-calculator-shell">
-            <MenuBar layout_class="calc-toolbar" aria_label="Calculator menu and shortcuts">
+        <AppShell>
+            <MenuBar aria_label="Calculator menu and shortcuts">
                 <Button variant=ButtonVariant::Quiet>"Edit"</Button>
                 <Button variant=ButtonVariant::Quiet>"View"</Button>
                 <Button variant=ButtonVariant::Quiet>"Help"</Button>
-                <span class="calc-toolbar-divider" aria-hidden="true"></span>
                 <Button variant=ButtonVariant::Quiet on_click=Callback::new(move |_| calc.update(|s| s.apply(CalcAction::UseLast)))>
                     "Reuse Last"
                 </Button>
@@ -321,43 +320,25 @@ pub fn CalculatorApp(
                 </Button>
             </MenuBar>
 
-            <SplitLayout
-                layout_class="calculator-workspace"
-                ui_slot="workspace"
-                tabindex=0
-                on_keydown=Callback::new(on_keydown)
-            >
-                <Pane layout_class="calculator-main" ui_slot="primary-pane" aria_label="Calculator keypad">
-                    <Panel
-                        layout_class="calc-display-panel"
-                        ui_slot="display-panel"
-                    >
-                        <div class="calc-display-meta" data-ui-slot="meta">
-                            <span class="calc-mode" data-ui-slot="badge">"Standard"</span>
-                            <span class="calc-memory-indicator" data-ui-slot="badge">{move || if calc.get().memory_active() { "M" } else { "" }}</span>
-                            <span class="calc-status" data-ui-slot="status">{move || calc.get().status_text()}</span>
+            <SplitLayout ui_slot="workspace" tabindex=0 on_keydown=Callback::new(on_keydown)>
+                <Pane ui_slot="primary-pane" aria_label="Calculator keypad">
+                    <Panel ui_slot="display-panel">
+                        <div data-ui-slot="meta">
+                            <span data-ui-slot="badge">"Standard"</span>
+                            <span data-ui-slot="badge">{move || if calc.get().memory_active() { "M" } else { "" }}</span>
+                            <span data-ui-slot="status">{move || calc.get().status_text()}</span>
                         </div>
-                        <div class="calc-expression" data-ui-slot="expression" aria-live="off">{move || calc.get().expression_text()}</div>
-                        <div class="calc-display" data-ui-slot="display" role="status" aria-live="polite">{move || calc.get().display_text()}</div>
+                        <div data-ui-slot="expression" aria-live="off">{move || calc.get().expression_text()}</div>
+                        <div data-ui-slot="display" role="status" aria-live="polite">{move || calc.get().display_text()}</div>
                     </Panel>
 
-                    <div class="calc-keypad" data-ui-slot="keypad" role="group" aria-label="Calculator keys">
+                    <div data-ui-slot="keypad" role="group" aria-label="Calculator keys">
                         <For
                             each=move || CALC_KEYS.to_vec()
                             key=|spec| spec.id
                             let:spec
                         >
                             <Button
-                                layout_class=match spec.class_name {
-                                    "memory" => "calc-key memory",
-                                    "util" => "calc-key util",
-                                    "util danger" => "calc-key util danger",
-                                    "operator" => "calc-key operator",
-                                    "operator equals" => "calc-key operator equals",
-                                    "digit" => "calc-key digit",
-                                    "util accent" => "calc-key util accent",
-                                    _ => "calc-key",
-                                }
                                 variant=if spec.class_name.contains("danger") {
                                     ButtonVariant::Danger
                                 } else if spec.class_name.contains("accent") || spec.class_name.contains("equals") {
@@ -376,9 +357,8 @@ pub fn CalculatorApp(
                     </div>
                 </Pane>
 
-                <Pane layout_class="calc-tape" ui_slot="secondary-pane" aria_label="Recent calculations">
+                <Pane ui_slot="secondary-pane" aria_label="Recent calculations">
                     <PaneHeader
-                        layout_class="calc-tape-header"
                         title="Tape"
                         meta=Signal::derive(move || format!("{} item(s)", calc.get().history_count()))
                     >
@@ -390,12 +370,12 @@ pub fn CalculatorApp(
                         </Button>
                     </PaneHeader>
 
-                    <ListSurface layout_class="calc-tape-list" role="list">
+                    <ListSurface role="list">
                         <Show
                             when=move || { calc.get().history_count() > 0 }
                             fallback=|| {
                                 view! {
-                                    <EmptyState layout_class="calc-empty-tape">
+                                    <EmptyState>
                                         "Recent results appear here. Click a result to reuse it."
                                     </EmptyState>
                                 }
@@ -411,7 +391,6 @@ pub fn CalculatorApp(
                                 let:item
                             >
                                 <Button
-                                    layout_class="calc-tape-item"
                                     ui_slot="list-item"
                                     variant=ButtonVariant::Quiet
                                     on_click=Callback::new(move |_| {
@@ -419,8 +398,8 @@ pub fn CalculatorApp(
                                         calc.update(|state| state.use_value(value));
                                     })
                                 >
-                                    <span class="calc-tape-expr">{item.expression}</span>
-                                    <span class="calc-tape-result">{format!("= {}", item.result_text)}</span>
+                                    <span>{item.expression}</span>
+                                    <span>{format!("= {}", item.result_text)}</span>
                                 </Button>
                             </For>
                         </Show>

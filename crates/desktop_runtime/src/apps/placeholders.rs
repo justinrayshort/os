@@ -63,7 +63,7 @@ fn DialupUtilityApp(context: AppMountContext) -> impl IntoView {
     hydrate_persisted_state(&context, state);
 
     view! {
-        <AppShell layout_class="app-dialup-shell">
+        <AppShell>
             <ToolBar aria_label="Connection actions">
                 <Button
                     variant=ButtonVariant::Primary
@@ -92,14 +92,14 @@ fn DialupUtilityApp(context: AppMountContext) -> impl IntoView {
                 </Button>
             </ToolBar>
 
-            <Panel layout_class="app-dialup-card" variant=SurfaceVariant::Standard>
+            <Panel variant=SurfaceVariant::Standard>
                 <Stack gap=LayoutGap::Md>
                     <Heading>"Connection Setup"</Heading>
                     <Text tone=TextTone::Secondary>
                         "This minimal utility stores a provider profile and a connection state. It no longer simulates fake negotiation progress."
                     </Text>
-                    <Grid layout_class="settings-form-grid">
-                        <label class="settings-field">
+                    <Grid>
+                        <label>
                             <Text role=TextRole::Label>"Provider"</Text>
                             <TextField
                                 value=Signal::derive(move || state.get().provider)
@@ -109,7 +109,7 @@ fn DialupUtilityApp(context: AppMountContext) -> impl IntoView {
                                 })
                             />
                         </label>
-                        <label class="settings-field">
+                        <label>
                             <Text role=TextRole::Label>"Profile"</Text>
                             <TextField
                                 value=Signal::derive(move || state.get().profile)
@@ -124,9 +124,9 @@ fn DialupUtilityApp(context: AppMountContext) -> impl IntoView {
             </Panel>
 
             <StatusBar>
-                <span>{move || if state.get().connected { "Status: connected" } else { "Status: offline" }.to_string()}</span>
-                <span>{move || format!("Provider: {}", state.get().provider)}</span>
-                <span>{move || state.get().status.clone()}</span>
+                <StatusBarItem>{move || if state.get().connected { "Status: connected" } else { "Status: offline" }.to_string()}</StatusBarItem>
+                <StatusBarItem>{move || format!("Provider: {}", state.get().provider)}</StatusBarItem>
+                <StatusBarItem>{move || state.get().status.clone()}</StatusBarItem>
             </StatusBar>
         </AppShell>
     }
@@ -138,7 +138,7 @@ fn PaintUtilityApp(context: AppMountContext) -> impl IntoView {
     hydrate_persisted_state(&context, state);
 
     view! {
-        <AppShell layout_class="app-paint-shell">
+        <AppShell>
             <ToolBar aria_label="Sketch controls">
                 <label>
                     "Tool "
@@ -210,18 +210,18 @@ fn PaintUtilityApp(context: AppMountContext) -> impl IntoView {
                 </Button>
             </ToolBar>
 
-            <Panel layout_class="app-paint-canvas" variant=SurfaceVariant::Inset elevation=Elevation::Inset>
+            <Panel variant=SurfaceVariant::Inset elevation=Elevation::Inset>
                 <Stack gap=LayoutGap::Md>
                     <Heading>"Sketch Pad"</Heading>
                     <Text tone=TextTone::Secondary>
                         "This lightweight utility keeps a small persistent mark list instead of exposing fake unfinished canvas controls."
                     </Text>
-                    <div class="paint-mark-list" role="list">
+                    <div role="list">
                         <Show when=move || !state.get().marks.is_empty() fallback=|| {
                             view! { <Text tone=TextTone::Secondary>"No marks yet. Add one to capture the current tool, brush, and color."</Text> }
                         }>
                             <For each=move || state.get().marks key=|mark| mark.clone() let:mark>
-                                <Surface layout_class="paint-mark" variant=SurfaceVariant::Muted elevation=Elevation::Raised>
+                                <Surface variant=SurfaceVariant::Muted elevation=Elevation::Raised>
                                     <Text role=TextRole::Code>{mark}</Text>
                                 </Surface>
                             </For>
@@ -231,9 +231,9 @@ fn PaintUtilityApp(context: AppMountContext) -> impl IntoView {
             </Panel>
 
             <StatusBar>
-                <span>{move || format!("Tool: {}", state.get().tool)}</span>
-                <span>{move || format!("Brush: {} px | {}", state.get().brush_size, state.get().color_hex)}</span>
-                <span>{move || state.get().status.clone()}</span>
+                <StatusBarItem>{move || format!("Tool: {}", state.get().tool)}</StatusBarItem>
+                <StatusBarItem>{move || format!("Brush: {} px | {}", state.get().brush_size, state.get().color_hex)}</StatusBarItem>
+                <StatusBarItem>{move || state.get().status.clone()}</StatusBarItem>
             </StatusBar>
         </AppShell>
     }

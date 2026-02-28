@@ -2070,6 +2070,7 @@ fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
     problems.extend(validate_placeholder_surface_copy(root));
     problems.extend(validate_inline_style_allowlist(root));
     problems.extend(validate_raw_interactive_markup(root));
+    problems.extend(validate_app_runtime_layout_contracts(root));
 
     problems
 }
@@ -2944,6 +2945,34 @@ fn validate_raw_interactive_markup(root: &Path) -> Vec<Problem> {
     problems
 }
 
+fn validate_app_runtime_layout_contracts(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    let Ok(entries) = collect_ui_inventory(root) else {
+        return problems;
+    };
+
+    for entry in entries {
+        if entry.classification != "layout_only" {
+            continue;
+        }
+        if !matches!(entry.owner_layer.as_str(), "app_crate" | "desktop_runtime_shell") {
+            continue;
+        }
+
+        problems.push(Problem::new(
+            "ui-conformance",
+            entry.file,
+            format!(
+                "layout-only class contract `{}` detected in app/runtime surface; replace it with shared primitive props, `data-ui-*` semantics, or remove the unused hook",
+                entry.selector_or_token
+            ),
+            Some(entry.line),
+        ));
+    }
+
+    problems
+}
+
 fn write_ui_inventory(root: &Path, output: &Path) -> Result<(), String> {
     let entries = collect_ui_inventory(root)?;
     if let Some(parent) = output.parent() {
@@ -3076,9 +3105,26 @@ fn collect_ui_inventory(root: &Path) -> Result<Vec<UiInventoryEntry>, String> {
 }
 
 fn extract_attr_literal(line: &str, needle: &str) -> Option<String> {
-    let start = line.find(needle)? + needle.len();
-    let end = line[start..].find('"')?;
-    Some(line[start..start + end].to_string())
+    let search = needle.as_bytes();
+    let bytes = line.as_bytes();
+    let mut idx = 0usize;
+
+    while idx + search.len() <= bytes.len() {
+        if &bytes[idx..idx + search.len()] == search {
+            let boundary_ok = idx == 0
+                || !(bytes[idx - 1].is_ascii_alphanumeric()
+                    || bytes[idx - 1] == b'_'
+                    || bytes[idx - 1] == b'-');
+            if boundary_ok {
+                let start = idx + needle.len();
+                let end = line[start..].find('"')?;
+                return Some(line[start..start + end].to_string());
+            }
+        }
+        idx += 1;
+    }
+
+    None
 }
 
 fn collect_consumed_css_classes(root: &Path) -> Result<HashSet<String>, String> {
@@ -3147,15 +3193,16 @@ fn rust_owner_layer(rel_path: &str) -> &'static str {
 }
 
 fn classify_rust_contract(token: &str, consumed_css_classes: &HashSet<String>) -> &'static str {
-    let classes = token.split_whitespace();
+    let mut saw_non_root_class = false;
 
-    for class_name in classes {
+    for class_name in token.split_whitespace() {
         if ALLOWED_ROOT_CLASS_SELECTORS
             .iter()
             .any(|allowed| class_name == allowed.trim_start_matches('.'))
         {
             continue;
         }
+        saw_non_root_class = true;
         if FORBIDDEN_THEME_SELECTOR_PREFIXES.iter().any(|prefix| {
             class_name.contains(prefix.trim_start_matches('.'))
                 && consumed_css_classes.contains(class_name)
@@ -3164,7 +3211,11 @@ fn classify_rust_contract(token: &str, consumed_css_classes: &HashSet<String>) -
         }
     }
 
-    "layout_only"
+    if saw_non_root_class {
+        "layout_only"
+    } else {
+        "approved"
+    }
 }
 
 fn classify_css_selector(selector: &str) -> &'static str {
@@ -3572,5 +3623,24 @@ Continue.
         assert!(!uses_forbidden_platform_host_web_import(
             "let platform_host_web_value = 1;"
         ));
+    }
+
+    #[test]
+    fn extract_attr_literal_does_not_match_substrings_inside_other_attribute_names() {
+        assert_eq!(
+            extract_attr_literal(r#"<div layout_class="shell-pane">"#, "class=\""),
+            None
+        );
+        assert_eq!(
+            extract_attr_literal(r#"<div layout_class="shell-pane">"#, "layout_class=\""),
+            Some("shell-pane".to_string())
+        );
+        assert_eq!(
+            extract_attr_literal(
+                r#"<div class="shell-pane" layout_class="shell-grid">"#,
+                "class=\""
+            ),
+            Some("shell-pane".to_string())
+        );
     }
 }

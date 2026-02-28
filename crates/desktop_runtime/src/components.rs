@@ -30,7 +30,10 @@ use crate::{
     runtime_context::open_system_settings,
     wallpaper,
 };
-use system_ui::{Icon, IconName, IconSize};
+use system_ui::{
+    DesktopBackdrop, DesktopIconButton, DesktopIconGrid, DesktopWindowLayer, Icon, IconName,
+    IconSize,
+};
 
 const TASKBAR_HEIGHT_PX: i32 = 38;
 
@@ -105,7 +108,6 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
                     (WallpaperMediaKind::StaticImage | WallpaperMediaKind::Svg, WallpaperDisplayMode::Tile) => {
                         view! {
                             <div
-                                class="desktop-wallpaper-layer desktop-wallpaper-layer--tile"
                                 data-ui-slot="wallpaper-layer"
                                 data-ui-kind="wallpaper-layer"
                                 style=format!(
@@ -126,7 +128,6 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
                             .unwrap_or_else(|| source.primary_url.clone());
                         view! {
                             <img
-                                class="desktop-wallpaper-layer desktop-wallpaper-image"
                                 data-ui-slot="wallpaper-layer"
                                 data-ui-kind="wallpaper-layer"
                                 src=fallback_url
@@ -139,7 +140,6 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
                     (WallpaperMediaKind::Video, _) => {
                         view! {
                             <video
-                                class="desktop-wallpaper-layer desktop-wallpaper-video"
                                 data-ui-slot="wallpaper-layer"
                                 data-ui-kind="wallpaper-layer"
                                 src=source.primary_url
@@ -156,7 +156,6 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
                     _ => {
                         view! {
                             <img
-                                class="desktop-wallpaper-layer desktop-wallpaper-image"
                                 data-ui-slot="wallpaper-layer"
                                 data-ui-kind="wallpaper-layer"
                                 src=source.primary_url
@@ -242,15 +241,10 @@ pub fn DesktopShell() -> impl IntoView {
             on:pointerup=on_pointer_end
             on:pointercancel=on_pointer_end
         >
-            <div
-                class="desktop-wallpaper"
-                data-ui-primitive="true"
-                data-ui-kind="desktop-backdrop"
-            >
+            <DesktopBackdrop>
                 <DesktopWallpaperRenderer state=state />
-                <div class="desktop-wallpaper-atmosphere" data-ui-slot="atmosphere" aria-hidden="true"></div>
+                <div data-ui-slot="atmosphere" aria-hidden="true"></div>
                 <div
-                    class="desktop-surface-dismiss"
                     data-ui-slot="dismiss-layer"
                     on:mousedown=move |_| {
                         desktop_context_menu.set(None);
@@ -268,37 +262,32 @@ pub fn DesktopShell() -> impl IntoView {
                         );
                     }
                 />
-                <div class="desktop-icons" data-ui-primitive="true" data-ui-kind="desktop-icon-grid">
+                <DesktopIconGrid>
                     <For each=move || apps::desktop_icon_apps() key=|app| app.app_id.to_string() let:app>
                         {{
                             let app_id = app.app_id.clone();
-                            let app_data_id = app_id.to_string();
                             let app_icon = app_icon_name(&app_id);
                             let desktop_icon_label = app.desktop_icon_label;
                             view! {
-                                <button
-                                    class="desktop-icon"
-                                    data-app=app_data_id.clone()
-                                    data-ui-primitive="true"
-                                    data-ui-kind="desktop-icon-button"
-                                    on:click=move |_| {
+                                <DesktopIconButton
+                                    on_click=Callback::new(move |_| {
                                         runtime.dispatch_action(DesktopAction::ActivateApp {
                                             app_id: app_id.clone(),
                                             viewport: Some(runtime.host.get_value().desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
                                         });
-                                    }
+                                    })
                                 >
-                                    <span class="icon" data-app=app_data_id.clone()>
+                                    <span>
                                         <Icon icon=app_icon size=IconSize::Lg />
                                     </span>
                                     <span>{desktop_icon_label}</span>
-                                </button>
+                                </DesktopIconButton>
                             }
                         }}
                     </For>
-                </div>
+                </DesktopIconGrid>
 
-                <div class="window-layer" data-ui-primitive="true" data-ui-kind="desktop-window-layer">
+                <DesktopWindowLayer>
                     <For
                         each=move || state.get().windows
                         key=|win| win.id.0
@@ -306,7 +295,7 @@ pub fn DesktopShell() -> impl IntoView {
                     >
                         <DesktopWindow window_id=win.id />
                     </For>
-                </div>
+                </DesktopWindowLayer>
 
                 <DesktopContextMenu
                     state
@@ -314,7 +303,7 @@ pub fn DesktopShell() -> impl IntoView {
                     desktop_context_menu
                     open_system_settings
                 />
-            </div>
+            </DesktopBackdrop>
 
             <Taskbar />
         </div>
