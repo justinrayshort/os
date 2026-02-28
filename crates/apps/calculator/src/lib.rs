@@ -303,14 +303,14 @@ pub fn CalculatorApp(
     view! {
         <AppShell layout_class="app-calculator-shell">
             <MenuBar layout_class="calc-toolbar" aria_label="Calculator menu and shortcuts">
-                <Button>"Edit"</Button>
-                <Button>"View"</Button>
-                <Button>"Help"</Button>
+                <Button variant=ButtonVariant::Quiet>"Edit"</Button>
+                <Button variant=ButtonVariant::Quiet>"View"</Button>
+                <Button variant=ButtonVariant::Quiet>"Help"</Button>
                 <span class="calc-toolbar-divider" aria-hidden="true"></span>
-                <Button on_click=Callback::new(move |_| calc.update(|s| s.apply(CalcAction::UseLast)))>
+                <Button variant=ButtonVariant::Quiet on_click=Callback::new(move |_| calc.update(|s| s.apply(CalcAction::UseLast)))>
                     "Reuse Last"
                 </Button>
-                <Button on_click=Callback::new(move |_| calc.update(|s| s.clear_history()))>
+                <Button variant=ButtonVariant::Quiet on_click=Callback::new(move |_| calc.update(|s| s.clear_history()))>
                     "Clear Tape"
                 </Button>
                 <Button
@@ -356,7 +356,7 @@ pub fn CalculatorApp(
                                 variant=if spec.class_name.contains("danger") {
                                     ButtonVariant::Danger
                                 } else if spec.class_name.contains("accent") || spec.class_name.contains("equals") {
-                                    ButtonVariant::Accent
+                                    ButtonVariant::Primary
                                 } else if spec.class_name.contains("memory") {
                                     ButtonVariant::Quiet
                                 } else {

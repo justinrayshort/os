@@ -26,7 +26,7 @@ The neumorphic skin covers:
 - window chrome, titlebar controls, and window bodies
 - taskbar, start button, taskbar app buttons, tray, overflow, and menus
 - built-in app primitives rendered through `system_ui` (`AppShell`, `MenuBar`, `ToolBar`, `StatusBar`, `Button`, `TextField`, `TextArea`, `ProgressBar`) and `data-ui-*` roots
-- built-in app interiors for Explorer, Notepad, Terminal, Calculator, System Settings, and placeholder apps
+- built-in app interiors for Explorer, Notepad, Terminal, Calculator, System Settings, and the lightweight Paint/Connection utility surfaces that replaced placeholder-grade windows
 
 Wallpaper asset selection remains a separate subsystem. Skin files may style atmosphere and surface treatment, but they must not choose wallpapers or mutate wallpaper runtime state.
 
@@ -73,6 +73,7 @@ Terminal readability continues to use the shared `--terminal-*` token family, wi
 - Focus indication uses an explicit outline token and must remain visible independently of elevation styling.
 - High-contrast mode may intentionally flatten surfaces to preserve separation and contrast.
 - Dark mode uses dedicated neumorphic shadow/highlight recipes rather than simple light-theme inversion.
+- Guided flows use the same depth grammar as direct-use tools: setup steps read as raised cards, advanced controls use restrained disclosure surfaces, and primary actions use the accent family sparingly.
 
 ## Component Conventions
 

@@ -50,6 +50,11 @@ Control primitives:
 - `RangeField`
 - `ColorField`
 - `ProgressBar`
+- `DisclosurePanel`
+- `StepFlow`
+- `StepFlowHeader`
+- `StepFlowStep`
+- `StepFlowActions`
 
 Typography and layout primitives:
 
@@ -64,6 +69,25 @@ Icon primitives:
 - `Icon`
 - `IconName`
 - `IconSize`
+
+## Guided Flow Contract
+
+The component library now includes a narrow guided-flow API for setup and onboarding surfaces that would otherwise expose too much complexity up front.
+
+Shared guided-flow primitives:
+
+- `DisclosurePanel`
+- `StepFlow`
+- `StepFlowHeader`
+- `StepFlowStep`
+- `StepFlowActions`
+- `StepStatus`
+
+Usage rules:
+
+- app crates own step state and validation
+- shared primitives own badges, spacing, action-row layout, and reduced-motion-compatible transitions
+- advanced controls should prefer `DisclosurePanel` before introducing a bespoke local wrapper
 
 ## Token Contract
 

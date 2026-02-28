@@ -1,6 +1,6 @@
 //! Shared structural, control, typography, and layout primitives.
 
-use leptos::ev::{KeyboardEvent, MouseEvent};
+use leptos::ev::{FocusEvent, KeyboardEvent, MouseEvent};
 use leptos::*;
 
 use crate::{Icon, IconName, IconSize};
@@ -70,6 +70,8 @@ impl Elevation {
 pub enum ButtonVariant {
     /// Standard action button.
     Standard,
+    /// Primary emphasized action button.
+    Primary,
     /// Quiet/toggle style button.
     Quiet,
     /// Accent/emphasized button.
@@ -88,6 +90,7 @@ impl ButtonVariant {
     fn token(self) -> &'static str {
         match self {
             Self::Standard => "standard",
+            Self::Primary => "primary",
             Self::Quiet => "quiet",
             Self::Accent => "accent",
             Self::Danger => "danger",
@@ -250,6 +253,36 @@ impl LayoutGap {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Shared layout padding tokens.
+pub enum LayoutPadding {
+    /// No padding.
+    None,
+    /// Compact padding.
+    Sm,
+    /// Default padding.
+    Md,
+    /// Spacious padding.
+    Lg,
+}
+
+impl Default for LayoutPadding {
+    fn default() -> Self {
+        Self::Md
+    }
+}
+
+impl LayoutPadding {
+    fn token(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Sm => "sm",
+            Self::Md => "md",
+            Self::Lg => "lg",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Shared layout alignment tokens.
 pub enum LayoutAlign {
     /// Stretch/fill alignment.
@@ -265,6 +298,60 @@ pub enum LayoutAlign {
 impl Default for LayoutAlign {
     fn default() -> Self {
         Self::Stretch
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Shared layout justification tokens.
+pub enum LayoutJustify {
+    /// Start justification.
+    Start,
+    /// Center justification.
+    Center,
+    /// Space between items.
+    Between,
+    /// End justification.
+    End,
+}
+
+impl Default for LayoutJustify {
+    fn default() -> Self {
+        Self::Start
+    }
+}
+
+impl LayoutJustify {
+    fn token(self) -> &'static str {
+        match self {
+            Self::Start => "start",
+            Self::Center => "center",
+            Self::Between => "between",
+            Self::End => "end",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Shared guided-step status tokens.
+pub enum StepStatus {
+    /// Current active step.
+    Current,
+    /// Completed prior step.
+    Complete,
+    /// Pending future step.
+    Pending,
+    /// Step has a validation error.
+    Error,
+}
+
+impl StepStatus {
+    fn token(self) -> &'static str {
+        match self {
+            Self::Current => "current",
+            Self::Complete => "complete",
+            Self::Pending => "pending",
+            Self::Error => "error",
+        }
     }
 }
 
@@ -320,6 +407,8 @@ pub fn AppShell(
 /// Shared menubar primitive.
 pub fn MenuBar(
     #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(default = LayoutGap::Sm)] gap: LayoutGap,
+    #[prop(default = LayoutPadding::Sm)] padding: LayoutPadding,
     #[prop(optional)] role: Option<&'static str>,
     #[prop(optional)] aria_label: Option<&'static str>,
     children: Children,
@@ -330,6 +419,8 @@ pub fn MenuBar(
             data-ui-primitive="true"
             data-ui-kind="menubar"
             data-ui-variant="standard"
+            data-ui-gap=gap.token()
+            data-ui-padding=padding.token()
             role=role
             aria-label=aria_label
         >
@@ -342,6 +433,8 @@ pub fn MenuBar(
 /// Shared toolbar primitive.
 pub fn ToolBar(
     #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(default = LayoutGap::Sm)] gap: LayoutGap,
+    #[prop(default = LayoutPadding::Sm)] padding: LayoutPadding,
     #[prop(optional)] role: Option<&'static str>,
     #[prop(optional)] aria_label: Option<&'static str>,
     children: Children,
@@ -352,6 +445,8 @@ pub fn ToolBar(
             data-ui-primitive="true"
             data-ui-kind="toolbar"
             data-ui-variant="standard"
+            data-ui-gap=gap.token()
+            data-ui-padding=padding.token()
             role=role
             aria-label=aria_label
         >
@@ -364,6 +459,7 @@ pub fn ToolBar(
 /// Shared status bar primitive.
 pub fn StatusBar(
     #[prop(optional)] layout_class: Option<&'static str>,
+    #[prop(default = LayoutGap::Sm)] gap: LayoutGap,
     children: Children,
 ) -> impl IntoView {
     view! {
@@ -372,6 +468,7 @@ pub fn StatusBar(
             data-ui-primitive="true"
             data-ui-kind="statusbar"
             data-ui-variant="standard"
+            data-ui-gap=gap.token()
         >
             {children()}
         </div>
@@ -383,6 +480,7 @@ pub fn StatusBar(
 pub fn Surface(
     #[prop(default = SurfaceVariant::Standard)] variant: SurfaceVariant,
     #[prop(default = Elevation::Flat)] elevation: Elevation,
+    #[prop(default = LayoutPadding::Md)] padding: LayoutPadding,
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional)] role: Option<&'static str>,
     #[prop(optional)] aria_label: Option<&'static str>,
@@ -395,6 +493,7 @@ pub fn Surface(
             data-ui-kind="surface"
             data-ui-variant=variant.token()
             data-ui-elevation=elevation.token()
+            data-ui-padding=padding.token()
             role=role
             aria-label=aria_label
         >
@@ -408,6 +507,7 @@ pub fn Surface(
 pub fn Panel(
     #[prop(default = SurfaceVariant::Standard)] variant: SurfaceVariant,
     #[prop(default = Elevation::Raised)] elevation: Elevation,
+    #[prop(default = LayoutPadding::Md)] padding: LayoutPadding,
     #[prop(optional)] layout_class: Option<&'static str>,
     #[prop(optional)] role: Option<&'static str>,
     #[prop(optional)] aria_label: Option<&'static str>,
@@ -420,6 +520,7 @@ pub fn Panel(
             data-ui-kind="panel"
             data-ui-variant=variant.token()
             data-ui-elevation=elevation.token()
+            data-ui-padding=padding.token()
             role=role
             aria-label=aria_label
         >
@@ -432,6 +533,7 @@ pub fn Panel(
 /// Visual elevation layer wrapper.
 pub fn ElevationLayer(
     #[prop(default = Elevation::Raised)] elevation: Elevation,
+    #[prop(default = LayoutPadding::Sm)] padding: LayoutPadding,
     #[prop(optional)] layout_class: Option<&'static str>,
     children: Children,
 ) -> impl IntoView {
@@ -441,6 +543,7 @@ pub fn ElevationLayer(
             data-ui-primitive="true"
             data-ui-kind="layer"
             data-ui-elevation=elevation.token()
+            data-ui-padding=padding.token()
         >
             {children()}
         </div>
@@ -528,6 +631,9 @@ pub fn TextField(
     #[prop(optional, into)] value: MaybeSignal<String>,
     #[prop(optional, into)] disabled: MaybeSignal<bool>,
     #[prop(optional)] on_input: Option<Callback<web_sys::Event>>,
+    #[prop(optional)] on_keydown: Option<Callback<KeyboardEvent>>,
+    #[prop(optional)] on_focus: Option<Callback<FocusEvent>>,
+    #[prop(optional)] on_blur: Option<Callback<FocusEvent>>,
 ) -> impl IntoView {
     view! {
         <input
@@ -550,6 +656,21 @@ pub fn TextField(
                     on_input.call(ev);
                 }
             }
+            on:keydown=move |ev| {
+                if let Some(on_keydown) = on_keydown.as_ref() {
+                    on_keydown.call(ev);
+                }
+            }
+            on:focus=move |ev| {
+                if let Some(on_focus) = on_focus.as_ref() {
+                    on_focus.call(ev);
+                }
+            }
+            on:blur=move |ev| {
+                if let Some(on_blur) = on_blur.as_ref() {
+                    on_blur.call(ev);
+                }
+            }
         />
     }
 }
@@ -565,6 +686,7 @@ pub fn TextArea(
     #[prop(optional)] autocomplete: Option<&'static str>,
     #[prop(optional, into)] value: MaybeSignal<String>,
     #[prop(optional)] on_input: Option<Callback<web_sys::Event>>,
+    #[prop(optional)] on_keydown: Option<Callback<KeyboardEvent>>,
 ) -> impl IntoView {
     view! {
         <textarea
@@ -580,6 +702,11 @@ pub fn TextArea(
             on:input=move |ev| {
                 if let Some(on_input) = on_input.as_ref() {
                     on_input.call(ev);
+                }
+            }
+            on:keydown=move |ev| {
+                if let Some(on_keydown) = on_keydown.as_ref() {
+                    on_keydown.call(ev);
                 }
             }
         ></textarea>
@@ -612,6 +739,65 @@ pub fn SelectField(
         >
             {children()}
         </select>
+    }
+}
+
+#[component]
+/// Shared disclosure panel for secondary or advanced controls.
+pub fn DisclosurePanel(
+    /// Layout-only class hook for app-specific placement.
+    #[prop(optional)]
+    layout_class: Option<&'static str>,
+    /// Summary text shown in the disclosure trigger.
+    title: &'static str,
+    /// Optional helper text under the summary label.
+    #[prop(optional)]
+    description: Option<&'static str>,
+    /// Whether the panel is expanded.
+    #[prop(optional, into)]
+    expanded: MaybeSignal<bool>,
+    /// Optional toggle callback when the summary is activated.
+    #[prop(optional)]
+    on_toggle: Option<Callback<MouseEvent>>,
+    /// Child content shown when the disclosure is expanded.
+    children: ChildrenFn,
+) -> impl IntoView {
+    view! {
+        <section
+            class=merge_layout_class("ui-disclosure", layout_class)
+            data-ui-primitive="true"
+            data-ui-kind="disclosure"
+            data-ui-state=move || if expanded.get() { "open" } else { "closed" }
+        >
+            <button
+                type="button"
+                class="ui-disclosure-toggle"
+                data-ui-primitive="true"
+                data-ui-kind="button"
+                data-ui-variant="quiet"
+                data-ui-size="md"
+                data-ui-state=move || if expanded.get() { "selected" } else { "idle" }
+                aria-expanded=move || expanded.get()
+                on:click=move |ev| {
+                    if let Some(on_toggle) = on_toggle.as_ref() {
+                        on_toggle.call(ev);
+                    }
+                }
+            >
+                <span class="ui-disclosure-copy">
+                    <span class="ui-disclosure-title">{title}</span>
+                    {description.map(|description| {
+                        view! { <span class="ui-disclosure-description">{description}</span> }
+                    })}
+                </span>
+                <span class="ui-disclosure-indicator" aria-hidden="true">
+                    {move || if expanded.get() { "Hide" } else { "Show" }}
+                </span>
+            </button>
+            <Show when=move || expanded.get() fallback=|| ()>
+                <div class="ui-disclosure-body">{children()}</div>
+            </Show>
+        </section>
     }
 }
 
@@ -734,10 +920,98 @@ pub fn Heading(
 }
 
 #[component]
+/// Root container for a guided multi-step flow.
+pub fn StepFlow(
+    #[prop(optional)] layout_class: Option<&'static str>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <section
+            class=merge_layout_class("ui-step-flow", layout_class)
+            data-ui-primitive="true"
+            data-ui-kind="step-flow"
+        >
+            {children()}
+        </section>
+    }
+}
+
+#[component]
+/// Header section for a guided multi-step flow.
+pub fn StepFlowHeader(
+    #[prop(optional)] layout_class: Option<&'static str>,
+    title: &'static str,
+    #[prop(optional)] description: Option<&'static str>,
+) -> impl IntoView {
+    view! {
+        <header
+            class=merge_layout_class("ui-step-flow-header", layout_class)
+            data-ui-primitive="true"
+            data-ui-kind="step-flow-header"
+        >
+            <div class="ui-step-flow-title">{title}</div>
+            {description.map(|description| {
+                view! { <div class="ui-step-flow-description">{description}</div> }
+            })}
+        </header>
+    }
+}
+
+#[component]
+/// Individual step block within a guided flow.
+pub fn StepFlowStep(
+    #[prop(optional)] layout_class: Option<&'static str>,
+    title: &'static str,
+    #[prop(optional)] description: Option<&'static str>,
+    #[prop(into)] status: MaybeSignal<StepStatus>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <section
+            class=merge_layout_class("ui-step-flow-step", layout_class)
+            data-ui-primitive="true"
+            data-ui-kind="step-flow-step"
+            data-ui-state=move || status.get().token()
+        >
+            <div class="ui-step-flow-step-header">
+                <span class="ui-step-flow-step-badge">{move || status.get().token()}</span>
+                <div class="ui-step-flow-step-copy">
+                    <div class="ui-step-flow-step-title">{title}</div>
+                    {description.map(|description| {
+                        view! { <div class="ui-step-flow-step-description">{description}</div> }
+                    })}
+                </div>
+            </div>
+            <div class="ui-step-flow-step-body">{children()}</div>
+        </section>
+    }
+}
+
+#[component]
+/// Shared action row for guided flows.
+pub fn StepFlowActions(
+    #[prop(default = LayoutJustify::Between)] justify: LayoutJustify,
+    #[prop(optional)] layout_class: Option<&'static str>,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <div
+            class=merge_layout_class("ui-step-flow-actions", layout_class)
+            data-ui-primitive="true"
+            data-ui-kind="step-flow-actions"
+            data-ui-justify=justify.token()
+        >
+            {children()}
+        </div>
+    }
+}
+
+#[component]
 /// Vertical layout stack.
 pub fn Stack(
     #[prop(default = LayoutGap::Md)] gap: LayoutGap,
     #[prop(default = LayoutAlign::Stretch)] align: LayoutAlign,
+    #[prop(default = LayoutPadding::None)] padding: LayoutPadding,
     #[prop(optional)] layout_class: Option<&'static str>,
     children: Children,
 ) -> impl IntoView {
@@ -748,6 +1022,7 @@ pub fn Stack(
             data-ui-kind="stack"
             data-ui-gap=gap.token()
             data-ui-align=align.token()
+            data-ui-padding=padding.token()
         >
             {children()}
         </div>
@@ -759,6 +1034,8 @@ pub fn Stack(
 pub fn Cluster(
     #[prop(default = LayoutGap::Md)] gap: LayoutGap,
     #[prop(default = LayoutAlign::Center)] align: LayoutAlign,
+    #[prop(default = LayoutJustify::Start)] justify: LayoutJustify,
+    #[prop(default = LayoutPadding::None)] padding: LayoutPadding,
     #[prop(optional)] layout_class: Option<&'static str>,
     children: Children,
 ) -> impl IntoView {
@@ -769,6 +1046,8 @@ pub fn Cluster(
             data-ui-kind="cluster"
             data-ui-gap=gap.token()
             data-ui-align=align.token()
+            data-ui-justify=justify.token()
+            data-ui-padding=padding.token()
         >
             {children()}
         </div>
@@ -779,6 +1058,7 @@ pub fn Cluster(
 /// Grid layout primitive.
 pub fn Grid(
     #[prop(default = LayoutGap::Md)] gap: LayoutGap,
+    #[prop(default = LayoutPadding::None)] padding: LayoutPadding,
     #[prop(optional)] layout_class: Option<&'static str>,
     children: Children,
 ) -> impl IntoView {
@@ -788,6 +1068,7 @@ pub fn Grid(
             data-ui-primitive="true"
             data-ui-kind="grid"
             data-ui-gap=gap.token()
+            data-ui-padding=padding.token()
         >
             {children()}
         </div>

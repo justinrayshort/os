@@ -14,33 +14,47 @@ use platform_host::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use system_ui::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-enum SettingsTab {
-    Wallpaper,
-    Theme,
+enum SettingsSection {
+    Personalize,
+    Appearance,
     Accessibility,
 }
 
-impl SettingsTab {
+impl SettingsSection {
     fn label(self) -> &'static str {
         match self {
-            Self::Wallpaper => "Wallpaper",
-            Self::Theme => "Theme",
+            Self::Personalize => "Personalize",
+            Self::Appearance => "Appearance",
             Self::Accessibility => "Accessibility",
         }
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+enum WallpaperFlowStep {
+    Source,
+    Framing,
+    Review,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct SettingsAppState {
-    active_tab: SettingsTab,
+    active_section: SettingsSection,
+    wallpaper_step: WallpaperFlowStep,
+    wallpaper_library_open: bool,
+    appearance_advanced_open: bool,
 }
 
 impl Default for SettingsAppState {
     fn default() -> Self {
         Self {
-            active_tab: SettingsTab::Wallpaper,
+            active_section: SettingsSection::Personalize,
+            wallpaper_step: WallpaperFlowStep::Source,
+            wallpaper_library_open: false,
+            appearance_advanced_open: false,
         }
     }
 }
@@ -56,24 +70,37 @@ const SKIN_PRESETS: [SkinPreset; 4] = [
     SkinPreset {
         id: "soft-neumorphic",
         label: "Soft Neumorphic",
-        note: "Disciplined low-contrast shell depth with tactile surfaces",
+        note: "Disciplined low-contrast shell depth with tactile surfaces.",
     },
     SkinPreset {
         id: "modern-adaptive",
         label: "Modern Adaptive",
-        note: "Modern Fluent-inspired shell styling",
+        note: "Fluent-inspired surfaces with restrained motion and sharper hierarchy.",
     },
     SkinPreset {
         id: "classic-xp",
         label: "Classic XP",
-        note: "Glossy nostalgic shell styling",
+        note: "Glossy nostalgic shell styling with stronger contrast edges.",
     },
     SkinPreset {
         id: "classic-95",
         label: "Classic 95",
-        note: "Sharp retro shell styling",
+        note: "Retro square geometry with compact chrome and minimal depth.",
     },
 ];
+
+fn wallpaper_step_status(active: WallpaperFlowStep, step: WallpaperFlowStep) -> StepStatus {
+    match (active, step) {
+        (WallpaperFlowStep::Source, WallpaperFlowStep::Source)
+        | (WallpaperFlowStep::Framing, WallpaperFlowStep::Framing)
+        | (WallpaperFlowStep::Review, WallpaperFlowStep::Review) => StepStatus::Current,
+        (WallpaperFlowStep::Framing, WallpaperFlowStep::Source)
+        | (WallpaperFlowStep::Review, WallpaperFlowStep::Source | WallpaperFlowStep::Framing) => {
+            StepStatus::Complete
+        }
+        _ => StepStatus::Pending,
+    }
+}
 
 #[component]
 /// Settings app window contents.
@@ -113,6 +140,31 @@ pub fn SettingsApp(
             .unwrap_or_else(|| services.wallpaper.current.get())
     });
     let wallpaper_library = Signal::derive(move || services.wallpaper.library.get());
+    let selected_asset = Signal::derive(move || {
+        wallpaper_library
+            .get()
+            .assets
+            .into_iter()
+            .find(|asset| asset.asset_id == selected_asset_id.get())
+    });
+    let filtered_assets = Signal::derive(move || {
+        let query = search.get().trim().to_ascii_lowercase();
+        wallpaper_library
+            .get()
+            .assets
+            .into_iter()
+            .filter(|asset| {
+                if query.is_empty() {
+                    return true;
+                }
+                asset.display_name.to_ascii_lowercase().contains(&query)
+                    || asset
+                        .tags
+                        .iter()
+                        .any(|tag| tag.to_ascii_lowercase().contains(&query))
+            })
+            .collect::<Vec<_>>()
+    });
     let theme_skin_id = Signal::derive({
         let services = services.clone();
         move || services.theme.skin_id.get()
@@ -125,9 +177,6 @@ pub fn SettingsApp(
         let services = services.clone();
         move || services.theme.reduced_motion.get()
     });
-    let services_for_skin_click = services.clone();
-    let services_for_high_contrast = services.clone();
-    let services_for_reduced_motion = services.clone();
 
     create_effect(move |_| {
         let library = wallpaper_library.get();
@@ -150,33 +199,6 @@ pub fn SettingsApp(
         }
     });
 
-    let selected_asset = Signal::derive(move || {
-        wallpaper_library
-            .get()
-            .assets
-            .into_iter()
-            .find(|asset| asset.asset_id == selected_asset_id.get())
-    });
-
-    let filtered_assets = Signal::derive(move || {
-        let query = search.get().trim().to_ascii_lowercase();
-        wallpaper_library
-            .get()
-            .assets
-            .into_iter()
-            .filter(|asset| {
-                if query.is_empty() {
-                    return true;
-                }
-                asset.display_name.to_ascii_lowercase().contains(&query)
-                    || asset
-                        .tags
-                        .iter()
-                        .any(|tag| tag.to_ascii_lowercase().contains(&query))
-            })
-            .collect::<Vec<_>>()
-    });
-
     let preview_asset = move |asset: &WallpaperAssetRecord| {
         selected_asset_id.set(asset.asset_id.clone());
         rename_value.set(asset.display_name.clone());
@@ -185,23 +207,27 @@ pub fn SettingsApp(
             .wallpaper
             .preview(asset_to_config(asset, &active_wallpaper.get_untracked()));
     };
-
     let preview_mode = move |display_mode: WallpaperDisplayMode| {
         let mut config = active_wallpaper.get_untracked();
         config.display_mode = display_mode;
         services.wallpaper.preview(config);
     };
-
     let preview_position = move |position: WallpaperPosition| {
         let mut config = active_wallpaper.get_untracked();
         config.position = position;
         services.wallpaper.preview(config);
     };
-
-    let apply_preview = move |_| services.wallpaper.apply_preview();
-    let revert_preview = move |_| services.wallpaper.clear_preview();
+    let apply_preview = move |_| {
+        services.wallpaper.apply_preview();
+        settings_state.update(|state| state.wallpaper_step = WallpaperFlowStep::Source);
+    };
+    let revert_preview = move |_| {
+        services.wallpaper.clear_preview();
+        settings_state.update(|state| state.wallpaper_step = WallpaperFlowStep::Source);
+    };
     let import_wallpaper = move |_| {
         services.wallpaper.import_from_picker(Default::default());
+        settings_state.update(|state| state.wallpaper_library_open = true);
     };
     let save_rename = move |_| {
         if let Some(asset) = selected_asset.get_untracked() {
@@ -244,239 +270,493 @@ pub fn SettingsApp(
     };
 
     view! {
-        <div class="ui-app-shell app-settings-shell" data-ui-primitive="true" data-ui-kind="app-shell">
-            <div class="ui-menubar settings-tablist" data-ui-primitive="true" data-ui-kind="menubar" role="tablist" aria-label="Settings sections">
-                <For each=move || [SettingsTab::Wallpaper, SettingsTab::Theme, SettingsTab::Accessibility] key=|tab| *tab as u8 let:tab>
-                    <button
-                        type="button"
-                        class=move || if settings_state.get().active_tab == tab {
-                            "ui-button settings-tab active"
-                        } else {
-                            "ui-button settings-tab"
-                        }
+        <AppShell layout_class="app-settings-shell">
+            <MenuBar layout_class="settings-tablist" role="tablist" aria_label="Settings sections">
+                <For
+                    each=move || {
+                        [
+                            SettingsSection::Personalize,
+                            SettingsSection::Appearance,
+                            SettingsSection::Accessibility,
+                        ]
+                    }
+                    key=|section| *section as u8
+                    let:section
+                >
+                    <Button
+                        variant=ButtonVariant::Quiet
+                        selected=Signal::derive(move || settings_state.get().active_section == section)
                         role="tab"
-                        aria-selected=move || settings_state.get().active_tab == tab
-                        on:click=move |_| settings_state.update(|settings| settings.active_tab = tab)
+                        on_click=Callback::new(move |_| {
+                            settings_state.update(|state| state.active_section = section);
+                        })
                     >
-                        {tab.label()}
-                    </button>
+                        {section.label()}
+                    </Button>
                 </For>
-            </div>
+            </MenuBar>
 
-            <div class="settings-content">
-                <Show when=move || settings_state.get().active_tab == SettingsTab::Wallpaper fallback=|| ()>
-                    <section class="settings-panel" aria-label="Wallpaper settings">
-                        <div class="settings-toolbar">
-                            <button type="button" class="ui-button" on:click=import_wallpaper>"Import…"</button>
-                            <button
-                                type="button"
-                                class="ui-button"
-                                disabled=move || services.wallpaper.preview.get().is_none()
-                                on:click=apply_preview
-                            >
-                                "Apply"
-                            </button>
-                            <button
-                                type="button"
-                                class="ui-button"
-                                disabled=move || services.wallpaper.preview.get().is_none()
-                                on:click=revert_preview
-                            >
-                                "Revert"
-                            </button>
-                            <input
-                                type="search"
-                                class="settings-search"
-                                placeholder="Search wallpapers"
-                                prop:value=move || search.get()
-                                on:input=move |ev| search.set(event_target_value(&ev))
-                            />
-                        </div>
+            <Show when=move || settings_state.get().active_section == SettingsSection::Personalize fallback=|| ()>
+                <Surface
+                    layout_class="settings-content settings-content--personalize"
+                    variant=SurfaceVariant::Muted
+                    elevation=Elevation::Inset
+                >
+                    <StepFlow layout_class="settings-step-flow">
+                        <StepFlowHeader
+                            title="Personalize your desktop"
+                            description="Choose a wallpaper, refine the framing, then review before applying."
+                        />
 
-                        <div class="display-preview-screen">
-                            <WallpaperPreview config=active_wallpaper />
-                        </div>
-
-                        <h3 class="settings-heading">"Display mode"</h3>
-                        <div class="settings-option-grid">
-                            <For each=move || wallpaper_display_modes() key=|mode| *mode as u8 let:mode>
-                                <button
-                                    type="button"
-                                    class=move || if active_wallpaper.get().display_mode == mode {
-                                        "settings-option selected"
-                                    } else {
-                                        "settings-option"
-                                    }
-                                    on:click=move |_| preview_mode(mode)
-                                >
-                                    <span class="settings-option-title">{wallpaper_display_mode_label(mode)}</span>
-                                </button>
-                            </For>
-                        </div>
-
-                        <h3 class="settings-heading">"Position"</h3>
-                        <div class="settings-option-grid">
-                            <For each=move || wallpaper_positions() key=|position| *position as u8 let:position>
-                                <button
-                                    type="button"
-                                    class=move || if active_wallpaper.get().position == position {
-                                        "settings-option selected"
-                                    } else {
-                                        "settings-option"
-                                    }
-                                    on:click=move |_| preview_position(position)
-                                >
-                                    <span class="settings-option-title">{wallpaper_position_label(position)}</span>
-                                </button>
-                            </For>
-                        </div>
-
-                        <h3 class="settings-heading">"Library"</h3>
-                        <div class="wallpaper-picker-list">
-                            <For each=move || filtered_assets.get() key=|asset| asset.asset_id.clone() let:asset>
-                                <WallpaperLibraryItem
-                                    asset=asset
-                                    selected_asset_id=selected_asset_id
-                                    on_preview=Callback::new(move |asset| preview_asset(&asset))
-                                />
-                            </For>
-                        </div>
-
-                        <Show when=move || selected_asset.get().is_some() fallback=|| ()>
-                            <div class="settings-form-grid">
-                                <label class="settings-field">
-                                    <span>"Name"</span>
-                                    <input
-                                        type="text"
-                                        prop:value=move || rename_value.get()
-                                        on:input=move |ev| rename_value.set(event_target_value(&ev))
-                                    />
-                                </label>
-                                <button type="button" class="ui-button" on:click=save_rename>"Rename"</button>
-
-                                <label class="settings-field">
-                                    <span>"Tags"</span>
-                                    <input
-                                        type="text"
-                                        placeholder="comma, separated, tags"
-                                        prop:value=move || tags_value.get()
-                                        on:input=move |ev| tags_value.set(event_target_value(&ev))
-                                    />
-                                </label>
-                                <button type="button" class="ui-button" on:click=save_tags>"Save tags"</button>
-
-                                <button type="button" class="ui-button" on:click=toggle_favorite>
-                                    {move || if selected_asset.get().map(|asset| asset.favorite).unwrap_or(false) {
-                                        "Unfavorite"
-                                    } else {
-                                        "Favorite"
-                                    }}
-                                </button>
-
-                                <Show when=move || selected_asset.get().map(|asset| asset.source_kind == WallpaperSourceKind::Imported).unwrap_or(false) fallback=|| ()>
-                                    <button type="button" class="ui-button" on:click=delete_asset>"Delete imported asset"</button>
-                                </Show>
-                            </div>
-
-                            <h3 class="settings-heading">"Collections"</h3>
-                            <div class="settings-option-grid">
-                                <For each=move || wallpaper_library.get().collections key=|collection| collection.collection_id.clone() let:collection>
-                                    <WallpaperCollectionItem
-                                        collection=collection
-                                        selected_asset=selected_asset
-                                        on_toggle=Callback::new(move |collection_id: String| {
-                                            if let Some(asset) = selected_asset.get_untracked() {
-                                                let mut collection_ids = asset.collection_ids.clone();
-                                                if collection_ids.iter().any(|id| *id == collection_id) {
-                                                    collection_ids.retain(|id| *id != collection_id);
-                                                } else {
-                                                    collection_ids.push(collection_id);
-                                                }
-                                                services.wallpaper.set_collections(asset.asset_id, collection_ids);
-                                            }
+                        <StepFlowStep
+                            title="Choose a source"
+                            description="Browse the wallpaper library or import a new asset."
+                            status=Signal::derive(move || {
+                                wallpaper_step_status(
+                                    settings_state.get().wallpaper_step,
+                                    WallpaperFlowStep::Source,
+                                )
+                            })
+                        >
+                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
+                                <Cluster layout_class="settings-toolbar" justify=LayoutJustify::Between>
+                                    <Cluster>
+                                        <Button
+                                            variant=ButtonVariant::Primary
+                                            on_click=Callback::new(import_wallpaper)
+                                        >
+                                            "Import"
+                                        </Button>
+                                        <Button
+                                            variant=ButtonVariant::Quiet
+                                            on_click=Callback::new(move |_| {
+                                                settings_state.update(|state| {
+                                                    state.wallpaper_library_open =
+                                                        !state.wallpaper_library_open
+                                                });
+                                            })
+                                        >
+                                            {move || if settings_state.get().wallpaper_library_open {
+                                                "Hide Library Tools"
+                                            } else {
+                                                "Show Library Tools"
+                                            }}
+                                        </Button>
+                                    </Cluster>
+                                    <TextField
+                                        layout_class="settings-search"
+                                        input_type="search"
+                                        placeholder="Search wallpapers"
+                                        value=Signal::derive(move || search.get())
+                                        on_input=Callback::new(move |ev| {
+                                            search.set(event_target_value(&ev));
                                         })
                                     />
+                                </Cluster>
+
+                                <div class="display-preview-screen">
+                                    <WallpaperPreview config=active_wallpaper />
+                                </div>
+
+                                <div class="wallpaper-picker-list">
+                                    <For
+                                        each=move || filtered_assets.get()
+                                        key=|asset| asset.asset_id.clone()
+                                        let:asset
+                                    >
+                                        <WallpaperLibraryItem
+                                            asset=asset
+                                            selected_asset_id=selected_asset_id
+                                            on_preview=Callback::new(move |asset| preview_asset(&asset))
+                                        />
+                                    </For>
+                                </div>
+                            </Panel>
+
+                            <DisclosurePanel
+                                title="Library maintenance"
+                                description="Rename assets, update tags, favorites, and collection membership only when needed."
+                                expanded=Signal::derive(move || settings_state.get().wallpaper_library_open)
+                                on_toggle=Callback::new(move |_| {
+                                    settings_state.update(|state| {
+                                        state.wallpaper_library_open = !state.wallpaper_library_open
+                                    });
+                                })
+                            >
+                                <Show when=move || selected_asset.get().is_some() fallback=|| {
+                                    view! { <Text tone=TextTone::Secondary>"Select a wallpaper to manage its metadata."</Text> }
+                                }>
+                                    <Grid layout_class="settings-form-grid">
+                                        <label class="settings-field">
+                                            <Text role=TextRole::Label>"Name"</Text>
+                                            <TextField
+                                                value=Signal::derive(move || rename_value.get())
+                                                on_input=Callback::new(move |ev| {
+                                                    rename_value.set(event_target_value(&ev));
+                                                })
+                                            />
+                                        </label>
+                                        <Button on_click=Callback::new(save_rename)>"Rename"</Button>
+
+                                        <label class="settings-field">
+                                            <Text role=TextRole::Label>"Tags"</Text>
+                                            <TextField
+                                                placeholder="comma, separated, tags"
+                                                value=Signal::derive(move || tags_value.get())
+                                                on_input=Callback::new(move |ev| {
+                                                    tags_value.set(event_target_value(&ev));
+                                                })
+                                            />
+                                        </label>
+                                        <Button on_click=Callback::new(save_tags)>"Save Tags"</Button>
+                                    </Grid>
+
+                                    <Cluster layout_class="settings-toolbar">
+                                        <Button
+                                            variant=ButtonVariant::Quiet
+                                            on_click=Callback::new(toggle_favorite)
+                                        >
+                                            {move || if selected_asset.get().map(|asset| asset.favorite).unwrap_or(false) {
+                                                "Remove Favorite"
+                                            } else {
+                                                "Mark Favorite"
+                                            }}
+                                        </Button>
+                                        <Show
+                                            when=move || {
+                                                selected_asset
+                                                    .get()
+                                                    .map(|asset| {
+                                                        asset.source_kind == WallpaperSourceKind::Imported
+                                                    })
+                                                    .unwrap_or(false)
+                                            }
+                                            fallback=|| ()
+                                        >
+                                            <Button
+                                                variant=ButtonVariant::Danger
+                                                on_click=Callback::new(delete_asset)
+                                            >
+                                                "Delete Imported Asset"
+                                            </Button>
+                                        </Show>
+                                    </Cluster>
+
+                                    <Heading layout_class="settings-heading" role=TextRole::Title>
+                                        "Collections"
+                                    </Heading>
+                                    <div class="settings-option-grid">
+                                        <For
+                                            each=move || wallpaper_library.get().collections
+                                            key=|collection| collection.collection_id.clone()
+                                            let:collection
+                                        >
+                                            <WallpaperCollectionItem
+                                                collection=collection
+                                                selected_asset=selected_asset
+                                                on_toggle=Callback::new(move |collection_id: String| {
+                                                    if let Some(asset) = selected_asset.get_untracked() {
+                                                        let mut collection_ids = asset.collection_ids.clone();
+                                                        if collection_ids.iter().any(|id| *id == collection_id)
+                                                        {
+                                                            collection_ids.retain(|id| *id != collection_id);
+                                                        } else {
+                                                            collection_ids.push(collection_id);
+                                                        }
+                                                        services.wallpaper.set_collections(
+                                                            asset.asset_id,
+                                                            collection_ids,
+                                                        );
+                                                    }
+                                                })
+                                            />
+                                        </For>
+                                    </div>
+                                    <Cluster layout_class="settings-toolbar">
+                                        <TextField
+                                            layout_class="settings-search"
+                                            placeholder="New collection"
+                                            value=Signal::derive(move || new_collection_name.get())
+                                            on_input=Callback::new(move |ev| {
+                                                new_collection_name.set(event_target_value(&ev));
+                                            })
+                                        />
+                                        <Button on_click=Callback::new(create_collection)>
+                                            "Create Collection"
+                                        </Button>
+                                    </Cluster>
+                                </Show>
+                            </DisclosurePanel>
+
+                            <StepFlowActions>
+                                <span></span>
+                                <Button
+                                    variant=ButtonVariant::Primary
+                                    disabled=Signal::derive(move || selected_asset.get().is_none())
+                                    on_click=Callback::new(move |_| {
+                                        settings_state.update(|state| {
+                                            state.wallpaper_step = WallpaperFlowStep::Framing;
+                                        });
+                                    })
+                                >
+                                    "Next: Framing"
+                                </Button>
+                            </StepFlowActions>
+                        </StepFlowStep>
+
+                        <StepFlowStep
+                            title="Adjust framing"
+                            description="Set the display mode and placement before review."
+                            status=Signal::derive(move || {
+                                wallpaper_step_status(
+                                    settings_state.get().wallpaper_step,
+                                    WallpaperFlowStep::Framing,
+                                )
+                            })
+                        >
+                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
+                                <Heading layout_class="settings-heading" role=TextRole::Title>
+                                    "Display Mode"
+                                </Heading>
+                                <div class="settings-option-grid">
+                                    <For
+                                        each=move || wallpaper_display_modes()
+                                        key=|mode| *mode as u8
+                                        let:mode
+                                    >
+                                        <Button
+                                            layout_class="settings-option"
+                                            variant=ButtonVariant::Quiet
+                                            selected=Signal::derive(move || active_wallpaper.get().display_mode == mode)
+                                            on_click=Callback::new(move |_| preview_mode(mode))
+                                        >
+                                            {wallpaper_display_mode_label(mode)}
+                                        </Button>
+                                    </For>
+                                </div>
+
+                                <Heading layout_class="settings-heading" role=TextRole::Title>
+                                    "Position"
+                                </Heading>
+                                <div class="settings-option-grid">
+                                    <For
+                                        each=move || wallpaper_positions()
+                                        key=|position| *position as u8
+                                        let:position
+                                    >
+                                        <Button
+                                            layout_class="settings-option"
+                                            variant=ButtonVariant::Quiet
+                                            selected=Signal::derive(move || active_wallpaper.get().position == position)
+                                            on_click=Callback::new(move |_| preview_position(position))
+                                        >
+                                            {wallpaper_position_label(position)}
+                                        </Button>
+                                    </For>
+                                </div>
+                            </Panel>
+
+                            <StepFlowActions>
+                                <Button
+                                    variant=ButtonVariant::Quiet
+                                    on_click=Callback::new(move |_| {
+                                        settings_state.update(|state| {
+                                            state.wallpaper_step = WallpaperFlowStep::Source;
+                                        });
+                                    })
+                                >
+                                    "Back"
+                                </Button>
+                                <Button
+                                    variant=ButtonVariant::Primary
+                                    on_click=Callback::new(move |_| {
+                                        settings_state.update(|state| {
+                                            state.wallpaper_step = WallpaperFlowStep::Review;
+                                        });
+                                    })
+                                >
+                                    "Next: Review"
+                                </Button>
+                            </StepFlowActions>
+                        </StepFlowStep>
+
+                        <StepFlowStep
+                            title="Review and apply"
+                            description="Confirm the selected wallpaper and commit the staged preview when ready."
+                            status=Signal::derive(move || {
+                                wallpaper_step_status(
+                                    settings_state.get().wallpaper_step,
+                                    WallpaperFlowStep::Review,
+                                )
+                            })
+                        >
+                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
+                                <div class="display-preview-screen">
+                                    <WallpaperPreview config=active_wallpaper />
+                                </div>
+                                <Show when=move || selected_asset.get().is_some() fallback=|| ()>
+                                    <Stack layout_class="settings-review-copy" gap=LayoutGap::Sm>
+                                        <Text role=TextRole::Label>"Selected wallpaper"</Text>
+                                        <Text>{move || selected_asset.get().map(|asset| asset.display_name).unwrap_or_default()}</Text>
+                                        <Text tone=TextTone::Secondary>
+                                            {move || {
+                                                let config = active_wallpaper.get();
+                                                format!(
+                                                    "{} / {}",
+                                                    wallpaper_display_mode_label(config.display_mode),
+                                                    wallpaper_position_label(config.position),
+                                                )
+                                            }}
+                                        </Text>
+                                    </Stack>
+                                </Show>
+                            </Panel>
+
+                            <StepFlowActions>
+                                <Cluster>
+                                    <Button
+                                        variant=ButtonVariant::Quiet
+                                        on_click=Callback::new(move |_| {
+                                            settings_state.update(|state| {
+                                                state.wallpaper_step = WallpaperFlowStep::Framing;
+                                            });
+                                        })
+                                    >
+                                        "Back"
+                                    </Button>
+                                    <Button
+                                        variant=ButtonVariant::Quiet
+                                        disabled=Signal::derive(move || services.wallpaper.preview.get().is_none())
+                                        on_click=Callback::new(revert_preview)
+                                    >
+                                        "Cancel Draft"
+                                    </Button>
+                                </Cluster>
+                                <Button
+                                    variant=ButtonVariant::Primary
+                                    disabled=Signal::derive(move || services.wallpaper.preview.get().is_none())
+                                    on_click=Callback::new(apply_preview)
+                                >
+                                    "Apply Wallpaper"
+                                </Button>
+                            </StepFlowActions>
+                        </StepFlowStep>
+                    </StepFlow>
+                </Surface>
+            </Show>
+
+            <Show when=move || settings_state.get().active_section == SettingsSection::Appearance fallback=|| ()>
+                <Surface
+                    layout_class="settings-content settings-content--appearance"
+                    variant=SurfaceVariant::Muted
+                    elevation=Elevation::Inset
+                >
+                    <Stack gap=LayoutGap::Lg>
+                        <Panel layout_class="settings-panel" variant=SurfaceVariant::Standard>
+                            <Heading role=TextRole::Title>"Choose a shell skin"</Heading>
+                            <Text tone=TextTone::Secondary>
+                                "Use the curated shell presets below. Advanced tuning stays tucked away unless you need it."
+                            </Text>
+                            <div class="settings-option-grid">
+                                <For
+                                    each=move || SKIN_PRESETS.into_iter()
+                                    key=|preset| preset.id
+                                    let:preset
+                                >
+                                    <Button
+                                        layout_class="settings-option"
+                                        variant=ButtonVariant::Quiet
+                                        selected=Signal::derive(move || theme_skin_id.get() == preset.id)
+                                        on_click=Callback::new(move |_| services.theme.set_skin(preset.id))
+                                    >
+                                        <span class="settings-option-title">{preset.label}</span>
+                                        <span class="settings-option-note">{preset.note}</span>
+                                    </Button>
                                 </For>
                             </div>
-                            <div class="settings-toolbar">
+                        </Panel>
+
+                        <DisclosurePanel
+                            title="Advanced appearance details"
+                            description="Keep the shell calm by default. Open this only when you need to inspect the current skin state."
+                            expanded=Signal::derive(move || settings_state.get().appearance_advanced_open)
+                            on_toggle=Callback::new(move |_| {
+                                settings_state.update(|state| {
+                                    state.appearance_advanced_open = !state.appearance_advanced_open
+                                });
+                            })
+                        >
+                            <Cluster>
+                                <Text role=TextRole::Label>"Active skin"</Text>
+                                <Text>{move || theme_skin_id.get()}</Text>
+                            </Cluster>
+                        </DisclosurePanel>
+                    </Stack>
+                </Surface>
+            </Show>
+
+            <Show when=move || settings_state.get().active_section == SettingsSection::Accessibility fallback=|| ()>
+                <Surface
+                    layout_class="settings-content settings-content--accessibility"
+                    variant=SurfaceVariant::Muted
+                    elevation=Elevation::Inset
+                >
+                    <Stack gap=LayoutGap::Md>
+                        <Panel layout_class="settings-panel" variant=SurfaceVariant::Standard>
+                            <Heading role=TextRole::Title>"Visibility"</Heading>
+                            <label class="settings-toggle">
                                 <input
-                                    type="text"
-                                    class="settings-search"
-                                    placeholder="New collection"
-                                    prop:value=move || new_collection_name.get()
-                                    on:input=move |ev| new_collection_name.set(event_target_value(&ev))
-                                />
-                                <button type="button" class="ui-button" on:click=create_collection>"Create collection"</button>
-                            </div>
-                        </Show>
-                    </section>
-                </Show>
-
-                <Show when=move || settings_state.get().active_tab == SettingsTab::Theme fallback=|| ()>
-                    <section class="settings-panel" aria-label="Theme settings">
-                        <h3 class="settings-heading">"Desktop skin"</h3>
-                        <div class="settings-option-grid">
-                            <For each=move || SKIN_PRESETS.into_iter() key=|preset| preset.id let:preset>
-                                <button
-                                    type="button"
-                                    class=move || if theme_skin_id.get() == preset.id {
-                                        "settings-option selected"
-                                    } else {
-                                        "settings-option"
+                                    type="checkbox"
+                                    checked=move || theme_high_contrast.get()
+                                    on:change=move |ev| {
+                                        services.theme.set_high_contrast(event_target_checked(&ev))
                                     }
-                                    on:click=move |_| services_for_skin_click.theme.set_skin(preset.id)
-                                >
-                                    <span class="settings-option-title">{preset.label}</span>
-                                    <span class="settings-option-note">{preset.note}</span>
-                                </button>
-                            </For>
-                        </div>
-                    </section>
-                </Show>
+                                />
+                                <span>
+                                    <strong>"High contrast"</strong>
+                                    <small>"Increase separation between borders, text, and focus states."</small>
+                                </span>
+                            </label>
+                        </Panel>
 
-                <Show when=move || settings_state.get().active_tab == SettingsTab::Accessibility fallback=|| ()>
-                    <section class="settings-panel" aria-label="Accessibility settings">
-                        <h3 class="settings-heading">"Accessibility"</h3>
-                        <label class="settings-toggle">
-                            <input
-                                type="checkbox"
-                                checked=move || theme_high_contrast.get()
-                                on:change=move |ev| services_for_high_contrast.theme.set_high_contrast(event_target_checked(&ev))
-                            />
-                            <span>
-                                <strong>"High contrast"</strong>
-                                <small>"Increase shell contrast for stronger visual separation."</small>
-                            </span>
-                        </label>
-                        <label class="settings-toggle">
-                            <input
-                                type="checkbox"
-                                checked=move || theme_reduced_motion.get()
-                                on:change=move |ev| services_for_reduced_motion.theme.set_reduced_motion(event_target_checked(&ev))
-                            />
-                            <span>
-                                <strong>"Reduced motion"</strong>
-                                <small>"Render animated wallpaper media using static fallback."</small>
-                            </span>
-                        </label>
-                    </section>
-                </Show>
-            </div>
+                        <Panel layout_class="settings-panel" variant=SurfaceVariant::Standard>
+                            <Heading role=TextRole::Title>"Motion"</Heading>
+                            <label class="settings-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked=move || theme_reduced_motion.get()
+                                    on:change=move |ev| {
+                                        services.theme.set_reduced_motion(event_target_checked(&ev))
+                                    }
+                                />
+                                <span>
+                                    <strong>"Reduced motion"</strong>
+                                    <small>"Replace animated wallpaper playback and shorten non-essential transitions."</small>
+                                </span>
+                            </label>
+                        </Panel>
+                    </Stack>
+                </Surface>
+            </Show>
 
-            <footer class="ui-statusbar" data-ui-primitive="true" data-ui-kind="statusbar">
+            <StatusBar>
                 <span>{move || format!("Skin: {}", theme_skin_id.get())}</span>
                 <span>
                     {move || {
                         let config = active_wallpaper.get();
                         match config.selection {
-                            WallpaperSelection::BuiltIn { wallpaper_id } => format!("Wallpaper: {wallpaper_id}"),
-                            WallpaperSelection::Imported { asset_id } => format!("Wallpaper: {asset_id}"),
+                            WallpaperSelection::BuiltIn { wallpaper_id } => {
+                                format!("Wallpaper: {wallpaper_id}")
+                            }
+                            WallpaperSelection::Imported { asset_id } => {
+                                format!("Wallpaper: {asset_id}")
+                            }
                         }
                     }}
                 </span>
                 <span>{move || format!("Library assets: {}", wallpaper_library.get().assets.len())}</span>
-            </footer>
-        </div>
+            </StatusBar>
+        </AppShell>
     }
 }
 
@@ -578,14 +858,11 @@ fn WallpaperLibraryItem(
     );
 
     view! {
-        <button
-            type="button"
-            class=move || if selected_asset_id.get() == asset_id {
-                "wallpaper-picker-item selected"
-            } else {
-                "wallpaper-picker-item"
-            }
-            on:click=move |_| on_preview.call(asset_for_click.clone())
+        <Button
+            layout_class="wallpaper-picker-item"
+            variant=ButtonVariant::Quiet
+            selected=Signal::derive(move || selected_asset_id.get() == asset_id)
+            on_click=Callback::new(move |_| on_preview.call(asset_for_click.clone()))
         >
             <span class="wallpaper-preview-thumb">
                 <WallpaperThumb asset=asset.clone() />
@@ -594,7 +871,7 @@ fn WallpaperLibraryItem(
                 <span class="wallpaper-picker-item-label">{display_name}</span>
                 <span class="wallpaper-picker-item-meta">{meta}</span>
             </span>
-        </button>
+        </Button>
     }
 }
 
@@ -607,23 +884,19 @@ fn WallpaperCollectionItem(
     let collection_id = collection.collection_id.clone();
 
     view! {
-        <button
-            type="button"
-            class=move || {
-                let is_member = selected_asset
+        <Button
+            layout_class="settings-option"
+            variant=ButtonVariant::Quiet
+            selected=Signal::derive(move || {
+                selected_asset
                     .get()
                     .map(|asset| asset.collection_ids.iter().any(|id| *id == collection_id))
-                    .unwrap_or(false);
-                if is_member {
-                    "settings-option selected"
-                } else {
-                    "settings-option"
-                }
-            }
-            on:click=move |_| on_toggle.call(collection.collection_id.clone())
+                    .unwrap_or(false)
+            })
+            on_click=Callback::new(move |_| on_toggle.call(collection.collection_id.clone()))
         >
             <span class="settings-option-title">{collection.display_name}</span>
-        </button>
+        </Button>
     }
 }
 

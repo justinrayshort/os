@@ -192,7 +192,11 @@
 .desktop-shell[data-skin="soft-neumorphic"] .display-footer-button,
 .desktop-shell[data-skin="soft-neumorphic"] .display-properties-tab,
 .desktop-shell[data-skin="soft-neumorphic"] .app-action,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-button,
+.desktop-shell[data-skin="soft-neumorphic"] [data-ui-kind="button"],
 .desktop-shell[data-skin="soft-neumorphic"] .app-field,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-field,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-textarea,
 .desktop-shell[data-skin="soft-neumorphic"] .settings-option,
 .desktop-shell[data-skin="soft-neumorphic"] .settings-toggle,
 .desktop-shell[data-skin="soft-neumorphic"] .notepad-tab,
@@ -254,6 +258,7 @@
 .desktop-shell[data-skin="soft-neumorphic"] .taskbar-menu-item:hover:not(:disabled),
 .desktop-shell[data-skin="soft-neumorphic"] .start-menu button:hover:not(:disabled),
 .desktop-shell[data-skin="soft-neumorphic"] .app-action:hover:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .ui-button:hover:not(:disabled),
 .desktop-shell[data-skin="soft-neumorphic"] .tree-node:hover:not(:disabled),
 .desktop-shell[data-skin="soft-neumorphic"] .settings-option:hover:not(:disabled) {
   border-color: var(--neuro-border-accent);
@@ -267,6 +272,7 @@
 .desktop-shell[data-skin="soft-neumorphic"] .taskbar-menu-item:active:not(:disabled),
 .desktop-shell[data-skin="soft-neumorphic"] .start-menu button:active:not(:disabled),
 .desktop-shell[data-skin="soft-neumorphic"] .app-action:active:not(:disabled),
+.desktop-shell[data-skin="soft-neumorphic"] .ui-button:active:not(:disabled),
 .desktop-shell[data-skin="soft-neumorphic"] .display-properties-close:active:not(:disabled),
 .desktop-shell[data-skin="soft-neumorphic"] .display-action-button:active:not(:disabled),
 .desktop-shell[data-skin="soft-neumorphic"] .display-footer-button:active:not(:disabled),
@@ -293,6 +299,9 @@
 .desktop-shell[data-skin="soft-neumorphic"] .taskbar-app.minimized,
 .desktop-shell[data-skin="soft-neumorphic"] .taskbar-clock-date,
 .desktop-shell[data-skin="soft-neumorphic"] .settings-heading,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-step-flow-description,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-step-flow-step-description,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-disclosure-description,
 .desktop-shell[data-skin="soft-neumorphic"] .settings-option-note,
 .desktop-shell[data-skin="soft-neumorphic"] .settings-toggle small,
 .desktop-shell[data-skin="soft-neumorphic"] .calc-display-meta,
@@ -462,6 +471,8 @@
 
 .desktop-shell[data-skin="soft-neumorphic"] .app-field,
 .desktop-shell[data-skin="soft-neumorphic"] .app-editor,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-field,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-textarea,
 .desktop-shell[data-skin="soft-neumorphic"] .explorer-create-name,
 .desktop-shell[data-skin="soft-neumorphic"] .explorer-file-editor,
 .desktop-shell[data-skin="soft-neumorphic"] .terminal-input {
@@ -516,6 +527,24 @@
   padding: var(--neuro-space-2);
   border-top: 1px solid var(--neuro-border-soft);
   color: var(--neuro-text-2);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .ui-step-flow-step,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-disclosure,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-panel,
+.desktop-shell[data-skin="soft-neumorphic"] .ui-surface {
+  border-color: var(--neuro-border-soft);
+  border-radius: var(--neuro-radius-md);
+  background: var(--neuro-surface-panel);
+  box-shadow: var(--neuro-elevation-raised-1);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .ui-step-flow-step[data-ui-state="current"] {
+  border-color: var(--neuro-border-accent);
+}
+
+.desktop-shell[data-skin="soft-neumorphic"] .ui-disclosure-toggle {
+  color: var(--neuro-text-1);
 }
 
 .desktop-shell[data-skin="soft-neumorphic"] .tree-node,

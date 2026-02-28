@@ -42,6 +42,7 @@ This repository is maintained with help from automated agents. Use this file as 
   - `docs/sop/ui-design-conformance-review-sop.md`
 - UI conformance claims must be evidence-based (checklist status updates plus keyboard/focus/motion/responsive validation and contrast measurements when colors/focus/borders change), not subjective visual approval alone.
 - Preserve centralized shared icon usage (`crates/system_ui/src/icon.rs`), the `system_ui` primitive library, theme-scoped tokenization, and accessibility behavior during visual refinements; document any intentional deviations.
+- `cargo xtask docs ui-conformance` also enforces shared primitive token hygiene inside `system_ui` and rejects placeholder-grade copy in built-in app surfaces; keep those checks passing when refining shell or app UI.
 - Preserve documentation contracts enforced by `tools/docs/doc_contracts.json` and `cargo xtask docs`.
 - Do not weaken validation rules or local verification workflows unless explicitly requested.
 - Avoid destructive git commands unless explicitly requested.

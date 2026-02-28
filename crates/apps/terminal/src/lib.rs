@@ -16,6 +16,7 @@ use system_shell_contract::{
     ExecutionId, ShellRequest, ShellStreamEvent, StructuredData, StructuredRecord,
     StructuredScalar, StructuredTable, StructuredValue,
 };
+use system_ui::prelude::*;
 
 const MAX_TERMINAL_ENTRIES: usize = 200;
 const AUTO_FOLLOW_THRESHOLD_PX: i32 = 32;
@@ -612,7 +613,7 @@ pub fn TerminalApp(
     let indexed_entries = move || transcript.get().into_iter().enumerate().collect::<Vec<_>>();
 
     view! {
-        <div class="ui-app-shell app-terminal-shell" data-ui-primitive="true" data-ui-kind="app-shell">
+        <AppShell layout_class="app-terminal-shell">
             <div
                 class="terminal-screen"
                 role="log"
@@ -632,16 +633,16 @@ pub fn TerminalApp(
                 <Show when=move || !suggestions.get().is_empty() fallback=|| ()>
                     <div class="terminal-completions" role="listbox" aria-label="Completions">
                         <For each=move || suggestions.get() key=|item| item.value.clone() let:item>
-                            <button
-                                type="button"
-                                class="terminal-completion"
-                                on:click=move |_| {
+                            <Button
+                                layout_class="terminal-completion"
+                                variant=ButtonVariant::Quiet
+                                on_click=Callback::new(move |_| {
                                     input.set(format!("{} ", item.value));
                                     suggestions.set(Vec::new());
-                                }
+                                })
                             >
                                 {item.label}
-                            </button>
+                            </Button>
                         </For>
                     </div>
                 </Show>
@@ -660,19 +661,19 @@ pub fn TerminalApp(
                             <span class="terminal-prompt-mode">{move || prompt_mode()}</span>
                             <span class="terminal-prompt-separator">"\u{203a}"</span>
                         </div>
-                        <input
+                        <TextField
+                            layout_class="terminal-input terminal-command-input terminal-live-input"
                             id=input_id.clone()
-                            class="terminal-input terminal-command-input terminal-live-input"
-                            type="text"
-                            prop:value=move || input.get()
+                            input_type="text"
+                            value=Signal::derive(move || input.get())
                             autocomplete="off"
-                            spellcheck="false"
-                            aria-label=move || format!("Shell prompt at {} in {} mode", cwd.get(), prompt_mode())
-                            on:input=move |ev| {
+                            spellcheck=false
+                            aria_label="Terminal command input"
+                            on_input=Callback::new(move |ev| {
                                 input.set(event_target_value(&ev));
                                 suggestions.set(Vec::new());
-                            }
-                            on:keydown=move |ev: KeyboardEvent| match ev.key().as_str() {
+                            })
+                            on_keydown=Callback::new(move |ev: KeyboardEvent| match ev.key().as_str() {
                                 "Enter" => {
                                     ev.prevent_default();
                                     ev.stop_propagation();
@@ -702,11 +703,11 @@ pub fn TerminalApp(
                                     transcript.set(default_terminal_transcript());
                                 }
                                 _ => {}
-                            }
+                            })
                         />
                     </div>
                 </div>
             </div>
-        </div>
+        </AppShell>
     }
 }

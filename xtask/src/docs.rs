@@ -2040,6 +2040,8 @@ fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
 
     problems.extend(validate_shell_icon_standardization(root));
     problems.extend(validate_shared_primitive_usage(root));
+    problems.extend(validate_system_ui_token_usage(root));
+    problems.extend(validate_placeholder_surface_copy(root));
 
     problems
 }
@@ -2566,6 +2568,105 @@ fn validate_shared_primitive_usage(root: &Path) -> Vec<Problem> {
                         Some(line_no),
                     ));
                 }
+            }
+        }
+    }
+
+    problems
+}
+
+fn validate_system_ui_token_usage(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    let dir = root.join("crates/system_ui/src");
+    let mut files = match collect_files_with_suffix(&dir, ".rs") {
+        Ok(files) => files,
+        Err(err) => {
+            problems.push(Problem::new(
+                "ui-conformance",
+                "crates/system_ui/src",
+                format!("failed to scan shared primitive sources: {err}"),
+                None,
+            ));
+            return problems;
+        }
+    };
+    files.sort();
+
+    for path in files {
+        let rel_path = rel_posix(root, &path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            problems.push(Problem::new(
+                "ui-conformance",
+                rel_path,
+                "failed to read shared primitive source for token validation",
+                None,
+            ));
+            continue;
+        };
+
+        for (idx, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("//") {
+                continue;
+            }
+            if trimmed.contains("--neuro-")
+                || trimmed.contains("--fluent-")
+                || trimmed.contains("--ui-")
+            {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    rel_path.clone(),
+                    "shared primitive sources must not depend on skin-specific token families",
+                    Some(idx + 1),
+                ));
+            }
+        }
+    }
+
+    problems
+}
+
+fn validate_placeholder_surface_copy(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    let scan_files = [
+        "crates/desktop_runtime/src/apps/placeholders.rs",
+        "crates/apps/settings/src/lib.rs",
+        "crates/apps/explorer/src/lib.rs",
+        "crates/apps/notepad/src/lib.rs",
+        "crates/apps/calculator/src/lib.rs",
+        "crates/apps/terminal/src/lib.rs",
+    ];
+    let forbidden_markers = [
+        "coming soon",
+        "negotiating connection...",
+        "placeholder ready",
+        "placeholder save slot",
+        "(Placeholder)",
+    ];
+
+    for rel_path in scan_files {
+        let path = root.join(rel_path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            problems.push(Problem::new(
+                "ui-conformance",
+                rel_path,
+                "failed to read app surface source for placeholder copy validation",
+                None,
+            ));
+            continue;
+        };
+        for (idx, line) in text.lines().enumerate() {
+            let lowered = line.to_ascii_lowercase();
+            if forbidden_markers
+                .iter()
+                .any(|marker| lowered.contains(marker))
+            {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    rel_path,
+                    "placeholder-grade copy detected in built-in app surface; replace with truthful limited-scope copy or real state",
+                    Some(idx + 1),
+                ));
             }
         }
     }

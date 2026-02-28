@@ -13,6 +13,7 @@ use platform_host::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use system_ui::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ExplorerPersistedState {
@@ -52,6 +53,26 @@ struct ExplorerSignals {
     error: RwSignal<Option<String>>,
     notice: RwSignal<Option<String>>,
     busy: RwSignal<bool>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExplorerSetupStep {
+    Source,
+    Access,
+    Open,
+}
+
+fn setup_step_status(active: ExplorerSetupStep, step: ExplorerSetupStep) -> StepStatus {
+    match (active, step) {
+        (ExplorerSetupStep::Source, ExplorerSetupStep::Source)
+        | (ExplorerSetupStep::Access, ExplorerSetupStep::Access)
+        | (ExplorerSetupStep::Open, ExplorerSetupStep::Open) => StepStatus::Current,
+        (ExplorerSetupStep::Access, ExplorerSetupStep::Source)
+        | (ExplorerSetupStep::Open, ExplorerSetupStep::Source | ExplorerSetupStep::Access) => {
+            StepStatus::Complete
+        }
+        _ => StepStatus::Pending,
+    }
 }
 
 fn normalize_path(path: &str) -> String {
@@ -525,6 +546,10 @@ pub fn ExplorerApp(
         .get::<String>("explorer.ui.new_entry_name")
         .unwrap_or_default();
     let new_entry_name = create_rw_signal(initial_draft_name);
+    let setup_step = create_rw_signal(ExplorerSetupStep::Source);
+    let show_create_panel = create_rw_signal(false);
+    let show_workspace_controls = create_rw_signal(false);
+    let show_view_controls = create_rw_signal(false);
 
     let signals = ExplorerSignals {
         status,
@@ -658,6 +683,20 @@ pub fn ExplorerApp(
         }
     });
 
+    create_effect(move |_| {
+        if !hydrated.get() || !entries.get().is_empty() || busy.get() {
+            return;
+        }
+        if status.get().is_some() {
+            return;
+        }
+        refresh_directory(
+            signals,
+            explorer_service.get_value(),
+            Some(cwd.get_untracked()),
+        );
+    });
+
     let visible_entries = Signal::derive(move || {
         let show_hidden = prefs.get().show_hidden;
         entries
@@ -738,295 +777,622 @@ pub fn ExplorerApp(
         }
     };
 
+    let show_setup = Signal::derive(move || {
+        if busy.get() {
+            return false;
+        }
+        match status.get() {
+            None => entries.get().is_empty(),
+            Some(status) => !status.has_native_root && entries.get().is_empty(),
+        }
+    });
+
     view! {
-        <div class="ui-app-shell app-explorer-shell" data-ui-primitive="true" data-ui-kind="app-shell">
-            <div class="ui-menubar" data-ui-primitive="true" data-ui-kind="menubar">
-                <button type="button" class="ui-button">"File"</button>
-                <button type="button" class="ui-button">"Edit"</button>
-                <button type="button" class="ui-button">"View"</button>
-                <button type="button" class="ui-button">"Tools"</button>
-                <button type="button" class="ui-button">"Help"</button>
-            </div>
+        <AppShell layout_class="app-explorer-shell">
+            <MenuBar aria_label="Explorer menu">
+                <Button variant=ButtonVariant::Quiet>"File"</Button>
+                <Button variant=ButtonVariant::Quiet>"View"</Button>
+                <Button variant=ButtonVariant::Quiet>"Help"</Button>
+            </MenuBar>
 
-            <div class="ui-toolbar" data-ui-primitive="true" data-ui-kind="toolbar">
-                <button
-                    type="button"
-                    class="ui-button"
-                    title=native_explorer_status_label(native_explorer)
-                    disabled=!can_connect_native_folder(native_explorer)
-                    on:click=move |_| connect_native_folder(signals, explorer_service.get_value())
-                >
-                    "Connect Folder"
-                </button>
-                <button type="button" class="ui-button" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), None)>
-                    "Refresh"
-                </button>
-                <button type="button" class="ui-button" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), Some(parent_path(&cwd.get_untracked())))>
-                    "Up"
-                </button>
-                <button
-                    type="button"
-                    class="ui-button"
-                    title=native_explorer_status_label(native_explorer)
-                    disabled=!can_connect_native_folder(native_explorer)
-                    on:click=move |_| request_rw_permission(signals, explorer_service.get_value())
-                >
-                    "Request RW"
-                </button>
-                <button type="button" class="ui-button" on:click=move |_| save_editor(signals, explorer_service.get_value(), cache_service.get_value()) disabled=move || !editor_dirty.get()>
-                    "Save"
-                </button>
-                <button type="button" class="ui-button" on:click=move |_| delete_selected(signals, explorer_service.get_value(), cache_service.get_value())>
-                    "Delete"
-                </button>
-                <button type="button" class="ui-button" on:click=move |_| prefs.update(|p| p.details_visible = !p.details_visible)>
-                    {move || if prefs.get().details_visible { "Details On" } else { "Details Off" }}
-                </button>
-                <button type="button" class="ui-button" on:click=move |_| prefs.update(|p| p.show_hidden = !p.show_hidden)>
-                    {move || if prefs.get().show_hidden { "Hidden On" } else { "Hidden Off" }}
-                </button>
-            </div>
+            <Show
+                when=move || show_setup.get()
+                fallback=move || {
+                    view! {
+                        <>
+                            <ToolBar layout_class="explorer-primary-toolbar" aria_label="Primary explorer actions">
+                                <Button
+                                    variant=ButtonVariant::Quiet
+                                    on_click=Callback::new(move |_| {
+                                        refresh_directory(
+                                            signals,
+                                            explorer_service.get_value(),
+                                            Some(parent_path(&cwd.get_untracked())),
+                                        );
+                                    })
+                                >
+                                    "Up"
+                                </Button>
+                                <Button
+                                    variant=ButtonVariant::Quiet
+                                    on_click=Callback::new(move |_| {
+                                        refresh_directory(signals, explorer_service.get_value(), None);
+                                    })
+                                >
+                                    "Refresh"
+                                </Button>
+                                <Button
+                                    variant=ButtonVariant::Primary
+                                    on_click=Callback::new(move |_| {
+                                        show_create_panel.update(|open| *open = !*open);
+                                    })
+                                >
+                                    {move || if show_create_panel.get() { "Hide New" } else { "New" }}
+                                </Button>
+                                <Button
+                                    variant=ButtonVariant::Quiet
+                                    disabled=Signal::derive(move || !editor_dirty.get())
+                                    on_click=Callback::new(move |_| {
+                                        save_editor(
+                                            signals,
+                                            explorer_service.get_value(),
+                                            cache_service.get_value(),
+                                        );
+                                    })
+                                >
+                                    "Save"
+                                </Button>
+                            </ToolBar>
 
-            <div class="ui-toolbar" data-ui-primitive="true" data-ui-kind="toolbar">
-                <input
-                    type="text"
-                    class="explorer-create-name ui-field"
-                    placeholder="new-file.txt or folder"
-                    value=move || new_entry_name.get()
-                    on:input=move |ev| new_entry_name.set(event_target_value(&ev))
-                    aria-label="New item name"
-                />
-                <button type="button" class="ui-button" on:click=move |_| {
-                    let name = new_entry_name.get_untracked();
-                    if name.trim().is_empty() {
-                        set_error(signals, "Enter a name first");
-                        return;
-                    }
-                    create_file(
-                        signals,
-                        explorer_service.get_value(),
-                        cache_service.get_value(),
-                        cwd.get_untracked(),
-                        name,
-                    );
-                }>
-                    "New File"
-                </button>
-                <button type="button" class="ui-button" on:click=move |_| {
-                    let name = new_entry_name.get_untracked();
-                    if name.trim().is_empty() {
-                        set_error(signals, "Enter a name first");
-                        return;
-                    }
-                    create_folder(signals, explorer_service.get_value(), cwd.get_untracked(), name);
-                }>
-                    "New Folder"
-                </button>
-                <button type="button" class="ui-button" on:click=move |_| {
-                    signals.editor_path.set(None);
-                    signals.editor_text.set(String::new());
-                    signals.editor_dirty.set(false);
-                }>
-                    "Close Editor"
-                </button>
-            </div>
+                        <DisclosurePanel
+                                layout_class="explorer-disclosure"
+                                title="Workspace actions"
+                                description="Advanced filesystem and permission actions stay here until they are needed."
+                                expanded=Signal::derive(move || show_workspace_controls.get())
+                                on_toggle=Callback::new(move |_| {
+                                    show_workspace_controls.update(|open| *open = !*open);
+                                })
+                            >
+                                <Cluster layout_class="settings-toolbar">
+                                    <Button
+                                        variant=ButtonVariant::Quiet
+                                        title=native_explorer_status_label(native_explorer)
+                                        disabled=!can_connect_native_folder(native_explorer)
+                                        on_click=Callback::new(move |_| {
+                                            connect_native_folder(signals, explorer_service.get_value())
+                                        })
+                                    >
+                                        "Connect Folder"
+                                    </Button>
+                                    <Button
+                                        variant=ButtonVariant::Quiet
+                                        title=native_explorer_status_label(native_explorer)
+                                        disabled=!can_connect_native_folder(native_explorer)
+                                        on_click=Callback::new(move |_| {
+                                            request_rw_permission(signals, explorer_service.get_value())
+                                        })
+                                    >
+                                        "Request RW"
+                                    </Button>
+                                    <Button
+                                        variant=ButtonVariant::Danger
+                                        on_click=Callback::new(move |_| {
+                                            delete_selected(
+                                                signals,
+                                                explorer_service.get_value(),
+                                                cache_service.get_value(),
+                                            );
+                                        })
+                                    >
+                                        "Delete Selection"
+                                    </Button>
+                                    <Button
+                                        variant=ButtonVariant::Quiet
+                                        on_click=Callback::new(move |_| {
+                                            signals.editor_path.set(None);
+                                            signals.editor_text.set(String::new());
+                                            signals.editor_dirty.set(false);
+                                        })
+                                    >
+                                        "Close Editor"
+                                    </Button>
+                                </Cluster>
+                            </DisclosurePanel>
 
-            <div class="explorer-workspace">
-                <aside class="explorer-tree" aria-label="Explorer status and path">
-                    <div class="tree-header">"Storage"</div>
-                    <div class="explorer-status-card">
-                        <div><strong>"Backend"</strong></div>
-                        <div>{move || {
-                            status
-                                .get()
-                                .map(|s| format!("{:?}", s.backend))
-                                .unwrap_or_else(|| "Unknown".to_string())
-                        }}</div>
-                        <div><strong>"Permission"</strong></div>
-                        <div>{move || {
-                            status
-                                .get()
-                                .map(|s| format!("{:?}", s.permission))
-                                .unwrap_or_else(|| "Unknown".to_string())
-                        }}</div>
-                        <div><strong>"Root"</strong></div>
-                        <div>{move || {
-                            status
-                                .get()
-                                .and_then(|s| s.root_path_hint)
-                                .unwrap_or_else(|| "(virtual root)".to_string())
-                        }}</div>
-                    </div>
+                        <DisclosurePanel
+                                layout_class="explorer-disclosure"
+                                title="View options"
+                                description="Toggle metadata and hidden-file visibility without crowding the main toolbar."
+                                expanded=Signal::derive(move || show_view_controls.get())
+                                on_toggle=Callback::new(move |_| {
+                                    show_view_controls.update(|open| *open = !*open);
+                                })
+                            >
+                                <Cluster layout_class="settings-toolbar">
+                                    <Button
+                                        variant=ButtonVariant::Quiet
+                                        selected=Signal::derive(move || prefs.get().details_visible)
+                                        on_click=Callback::new(move |_| {
+                                            prefs.update(|p| p.details_visible = !p.details_visible)
+                                        })
+                                    >
+                                        {move || if prefs.get().details_visible { "Details Visible" } else { "Show Details" }}
+                                    </Button>
+                                    <Button
+                                        variant=ButtonVariant::Quiet
+                                        selected=Signal::derive(move || prefs.get().show_hidden)
+                                        on_click=Callback::new(move |_| {
+                                            prefs.update(|p| p.show_hidden = !p.show_hidden)
+                                        })
+                                    >
+                                        {move || if prefs.get().show_hidden { "Hidden Visible" } else { "Show Hidden" }}
+                                    </Button>
+                                </Cluster>
+                            </DisclosurePanel>
 
-                    <div class="tree-header">"Path Segments"</div>
-                    <ul class="tree-list">
-                        <li>
-                            <button type="button" class="tree-node ui-button" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), Some("/".to_string()))>
-                                <span class="tree-glyph">"[]"</span>
-                                <span>"/"</span>
-                            </button>
-                        </li>
-                        <For
-                            each=move || {
-                                let current = cwd.get();
-                                let mut segments = Vec::new();
-                                let mut running = String::new();
-                                for seg in current.trim_start_matches('/').split('/') {
-                                    if seg.is_empty() {
-                                        continue;
-                                    }
-                                    running = join_path(&running, seg);
-                                    segments.push((seg.to_string(), running.clone()));
-                                }
-                                segments
-                            }
-                            key=|(_, path)| path.clone()
-                            let:item
-                        >
-                            <li>
-                                <button type="button" class="tree-node ui-button" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), Some(item.1.clone()))>
-                                    <span class="tree-glyph">">"</span>
-                                    <span>{item.0.clone()}</span>
-                                </button>
-                            </li>
-                        </For>
-                    </ul>
-                </aside>
+                            <Show when=move || show_create_panel.get() fallback=|| ()>
+                                <Panel layout_class="explorer-create-panel" variant=SurfaceVariant::Muted>
+                                    <Cluster justify=LayoutJustify::Between>
+                                        <Text role=TextRole::Label>"Create a new item"</Text>
+                                        <Text tone=TextTone::Secondary>"Enter a file or folder name, then create it in the current location."</Text>
+                                    </Cluster>
+                                    <Cluster>
+                                        <TextField
+                                            layout_class="explorer-create-name"
+                                            placeholder="new-file.txt or folder"
+                                            value=Signal::derive(move || new_entry_name.get())
+                                            on_input=Callback::new(move |ev| {
+                                                new_entry_name.set(event_target_value(&ev));
+                                            })
+                                        />
+                                        <Button
+                                            variant=ButtonVariant::Primary
+                                            on_click=Callback::new(move |_| {
+                                                let name = new_entry_name.get_untracked();
+                                                if name.trim().is_empty() {
+                                                    set_error(signals, "Enter a name first");
+                                                    return;
+                                                }
+                                                create_file(
+                                                    signals,
+                                                    explorer_service.get_value(),
+                                                    cache_service.get_value(),
+                                                    cwd.get_untracked(),
+                                                    name,
+                                                );
+                                            })
+                                        >
+                                            "New File"
+                                        </Button>
+                                        <Button
+                                            variant=ButtonVariant::Quiet
+                                            on_click=Callback::new(move |_| {
+                                                let name = new_entry_name.get_untracked();
+                                                if name.trim().is_empty() {
+                                                    set_error(signals, "Enter a name first");
+                                                    return;
+                                                }
+                                                create_folder(
+                                                    signals,
+                                                    explorer_service.get_value(),
+                                                    cwd.get_untracked(),
+                                                    name,
+                                                );
+                                            })
+                                        >
+                                            "New Folder"
+                                        </Button>
+                                    </Cluster>
+                                </Panel>
+                            </Show>
 
-                <section class="explorer-pane">
-                    <div class="pane-header">
-                        <div class="pane-title">"Contents"</div>
-                        <div class="pane-path">{move || format!("Path: {}", cwd.get())}</div>
-                    </div>
+                            <div class="explorer-workspace explorer-workspace--three-pane">
+                                <aside class="explorer-tree" aria-label="Explorer status and path">
+                                    <div class="tree-header">"Workspace"</div>
+                                    <div class="explorer-status-card">
+                                        <div><strong>"Backend"</strong></div>
+                                        <div>{move || {
+                                            status
+                                                .get()
+                                                .map(|s| format!("{:?}", s.backend))
+                                                .unwrap_or_else(|| "Unknown".to_string())
+                                        }}</div>
+                                        <div><strong>"Permission"</strong></div>
+                                        <div>{move || {
+                                            status
+                                                .get()
+                                                .map(|s| format!("{:?}", s.permission))
+                                                .unwrap_or_else(|| "Unknown".to_string())
+                                        }}</div>
+                                        <div><strong>"Root"</strong></div>
+                                        <div>{move || {
+                                            status
+                                                .get()
+                                                .and_then(|s| s.root_path_hint)
+                                                .unwrap_or_else(|| "(virtual root)".to_string())
+                                        }}</div>
+                                    </div>
 
-                    <div class="explorer-listwrap">
-                        <table
-                            class="explorer-list"
-                            role="grid"
-                            aria-label="Explorer list view"
-                            tabindex="0"
-                            aria-activedescendant=move || {
-                                selected_path.get().map(|path| explorer_row_dom_id(&path)).unwrap_or_default()
-                            }
-                            on:keydown=on_list_grid_keydown
-                        >
-                            <thead>
-                                <tr>
-                                    <th>"Name"</th>
-                                    <th>"Type"</th>
-                                    <th>"Modified"</th>
-                                    <th>"Size"</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <For each=move || visible_entries.get() key=|entry| entry.path.clone() let:entry>
-                                    {move || {
-                                        let entry_for_select = entry.clone();
-                                        let entry_for_open = entry.clone();
-                                        let explorer_for_select = explorer_service.get_value();
-                                        let explorer_for_open = explorer_service.get_value();
-                                        let cache_for_open = cache_service.get_value();
-                                        let row_selected = selected_path.get() == Some(entry.path.clone());
-                                        view! {
-                                            <tr
-                                                id=explorer_row_dom_id(&entry.path)
-                                                class=if row_selected { "selected" } else { "" }
-                                                aria-selected=row_selected
-                                                on:mousedown=move |_| {
-                                                    signals.selected_path.set(Some(entry_for_select.path.clone()));
-                                                    inspect_path(
+                                    <div class="tree-header">"Path Segments"</div>
+                                    <ul class="tree-list">
+                                        <li>
+                                            <Button
+                                                layout_class="tree-node"
+                                                variant=ButtonVariant::Quiet
+                                                on_click=Callback::new(move |_| {
+                                                    refresh_directory(
                                                         signals,
-                                                        explorer_for_select.clone(),
-                                                        entry_for_select.path.clone(),
-                                                    );
-                                                }
-                                                on:dblclick=move |_| {
-                                                    signals.selected_path.set(Some(entry_for_open.path.clone()));
-                                                    match entry_for_open.kind {
-                                                        ExplorerEntryKind::Directory => {
-                                                            refresh_directory(
-                                                                signals,
-                                                                explorer_for_open.clone(),
-                                                                Some(entry_for_open.path.clone()),
-                                                            );
-                                                        }
-                                                        ExplorerEntryKind::File => {
-                                                            open_file(
-                                                                signals,
-                                                                explorer_for_open.clone(),
-                                                                cache_for_open.clone(),
-                                                                entry_for_open.path.clone(),
-                                                            );
-                                                        }
-                                                    }
-                                                }
+                                                        explorer_service.get_value(),
+                                                        Some("/".to_string()),
+                                                    )
+                                                })
                                             >
-                                                <td>{entry.name.clone()}</td>
-                                                <td>{match entry.kind { ExplorerEntryKind::Directory => "Folder", ExplorerEntryKind::File => "File" }}</td>
-                                                <td>{entry.modified_at_unix_ms.map(format_timestamp).unwrap_or_else(|| "-".to_string())}</td>
-                                                <td>{entry.size.map(format_bytes).unwrap_or_else(|| "-".to_string())}</td>
-                                            </tr>
-                                        }
-                                    }}
-                                </For>
-                            </tbody>
-                        </table>
-                    </div>
+                                                <span class="tree-glyph">"[]"</span>
+                                                <span>"/"</span>
+                                            </Button>
+                                        </li>
+                                        <For
+                                            each=move || {
+                                                let current = cwd.get();
+                                                let mut segments = Vec::new();
+                                                let mut running = String::new();
+                                                for seg in current.trim_start_matches('/').split('/') {
+                                                    if seg.is_empty() {
+                                                        continue;
+                                                    }
+                                                    running = join_path(&running, seg);
+                                                    segments.push((seg.to_string(), running.clone()));
+                                                }
+                                                segments
+                                            }
+                                            key=|(_, path)| path.clone()
+                                            let:item
+                                        >
+                                            <li>
+                                                <Button
+                                                    layout_class="tree-node"
+                                                    variant=ButtonVariant::Quiet
+                                                    on_click=Callback::new(move |_| {
+                                                        refresh_directory(
+                                                            signals,
+                                                            explorer_service.get_value(),
+                                                            Some(item.1.clone()),
+                                                        )
+                                                    })
+                                                >
+                                                    <span class="tree-glyph">">"</span>
+                                                    <span>{item.0.clone()}</span>
+                                                </Button>
+                                            </li>
+                                        </For>
+                                    </ul>
+                                </aside>
 
-                    <Show when=move || editor_path.get().is_some() fallback=|| ()>
-                        <div class="explorer-editor">
-                            <div class="pane-header">
-                                <div class="pane-title">{move || {
-                                    editor_path
-                                        .get()
-                                        .map(|path| format!("Editor: {}", entry_name(&path)))
-                                        .unwrap_or_else(|| "Editor".to_string())
-                                }}</div>
-                                <div class="pane-path">{move || {
-                                    if editor_dirty.get() { "Unsaved changes".to_string() } else { "Saved".to_string() }
-                                }}</div>
-                            </div>
-                            <textarea
-                                class="explorer-file-editor ui-textarea"
-                                prop:value=move || editor_text.get()
-                                on:input=move |ev| {
-                                    editor_text.set(event_target_value(&ev));
-                                    editor_dirty.set(true);
-                                }
-                                spellcheck="false"
-                                autocomplete="off"
-                                aria-label="Explorer text file editor"
-                            />
-                        </div>
-                    </Show>
+                                <section class="explorer-pane">
+                                    <div class="pane-header">
+                                        <div class="pane-title">"Contents"</div>
+                                        <div class="pane-path">{move || format!("Path: {}", cwd.get())}</div>
+                                    </div>
 
-                    <Show when=move || prefs.get().details_visible fallback=|| ()>
-                        <div class="explorer-details">
-                            {move || {
-                                if let Some(meta) = selected_metadata.get() {
-                                    view! {
-                                        <div class="details-grid">
-                                            <div>"Name"</div><div>{meta.name.clone()}</div>
-                                            <div>"Path"</div><div>{meta.path.clone()}</div>
-                                            <div>"Kind"</div><div>{format!("{:?}", meta.kind)}</div>
-                                            <div>"Backend"</div><div>{format!("{:?}", meta.backend)}</div>
-                                            <div>"Permission"</div><div>{format!("{:?}", meta.permission)}</div>
-                                            <div>"Modified"</div><div>{meta.modified_at_unix_ms.map(format_timestamp).unwrap_or_else(|| "-".to_string())}</div>
-                                            <div>"Size"</div><div>{meta.size.map(format_bytes).unwrap_or_else(|| "-".to_string())}</div>
+                                    <div class="explorer-listwrap">
+                                        <table
+                                            class="explorer-list"
+                                            role="grid"
+                                            aria-label="Explorer list view"
+                                            tabindex="0"
+                                            aria-activedescendant=move || {
+                                                selected_path
+                                                    .get()
+                                                    .map(|path| explorer_row_dom_id(&path))
+                                                    .unwrap_or_default()
+                                            }
+                                            on:keydown=on_list_grid_keydown
+                                        >
+                                            <thead>
+                                                <tr>
+                                                    <th>"Name"</th>
+                                                    <th>"Type"</th>
+                                                    <th>"Modified"</th>
+                                                    <th>"Size"</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <For
+                                                    each=move || visible_entries.get()
+                                                    key=|entry| entry.path.clone()
+                                                    let:entry
+                                                >
+                                                    {move || {
+                                                        let entry_for_select = entry.clone();
+                                                        let entry_for_open = entry.clone();
+                                                        let explorer_for_select = explorer_service.get_value();
+                                                        let explorer_for_open = explorer_service.get_value();
+                                                        let cache_for_open = cache_service.get_value();
+                                                        let row_selected =
+                                                            selected_path.get() == Some(entry.path.clone());
+                                                        view! {
+                                                            <tr
+                                                                id=explorer_row_dom_id(&entry.path)
+                                                                class=if row_selected { "selected" } else { "" }
+                                                                aria-selected=row_selected
+                                                                on:mousedown=move |_| {
+                                                                    signals.selected_path.set(Some(
+                                                                        entry_for_select.path.clone(),
+                                                                    ));
+                                                                    inspect_path(
+                                                                        signals,
+                                                                        explorer_for_select.clone(),
+                                                                        entry_for_select.path.clone(),
+                                                                    );
+                                                                }
+                                                                on:dblclick=move |_| {
+                                                                    signals.selected_path.set(Some(
+                                                                        entry_for_open.path.clone(),
+                                                                    ));
+                                                                    match entry_for_open.kind {
+                                                                        ExplorerEntryKind::Directory => {
+                                                                            refresh_directory(
+                                                                                signals,
+                                                                                explorer_for_open.clone(),
+                                                                                Some(entry_for_open.path.clone()),
+                                                                            );
+                                                                        }
+                                                                        ExplorerEntryKind::File => {
+                                                                            open_file(
+                                                                                signals,
+                                                                                explorer_for_open.clone(),
+                                                                                cache_for_open.clone(),
+                                                                                entry_for_open.path.clone(),
+                                                                            );
+                                                                        }
+                                                                    }
+                                                                }
+                                                            >
+                                                                <td>{entry.name.clone()}</td>
+                                                                <td>{match entry.kind {
+                                                                    ExplorerEntryKind::Directory => "Folder",
+                                                                    ExplorerEntryKind::File => "File",
+                                                                }}</td>
+                                                                <td>{entry
+                                                                    .modified_at_unix_ms
+                                                                    .map(format_timestamp)
+                                                                    .unwrap_or_else(|| "-".to_string())}</td>
+                                                                <td>{entry
+                                                                    .size
+                                                                    .map(format_bytes)
+                                                                    .unwrap_or_else(|| "-".to_string())}</td>
+                                                            </tr>
+                                                        }
+                                                    }}
+                                                </For>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </section>
+
+                                <aside class="explorer-pane explorer-inspector">
+                                    <div class="pane-header">
+                                        <div class="pane-title">"Inspector"</div>
+                                        <div class="pane-path">{move || {
+                                            selected_path
+                                                .get()
+                                                .map(|path| entry_name(&path))
+                                                .unwrap_or_else(|| "No selection".to_string())
+                                        }}</div>
+                                    </div>
+
+                                    <Show when=move || editor_path.get().is_some() fallback=|| ()>
+                                        <div class="explorer-editor">
+                                            <div class="pane-header">
+                                                <div class="pane-title">{move || {
+                                                    editor_path
+                                                        .get()
+                                                        .map(|path| format!("Editor: {}", entry_name(&path)))
+                                                        .unwrap_or_else(|| "Editor".to_string())
+                                                }}</div>
+                                                <div class="pane-path">{move || {
+                                                    if editor_dirty.get() {
+                                                        "Unsaved changes".to_string()
+                                                    } else {
+                                                        "Saved".to_string()
+                                                    }
+                                                }}</div>
+                                            </div>
+                                            <TextArea
+                                                layout_class="explorer-file-editor"
+                                                value=Signal::derive(move || editor_text.get())
+                                                on_input=Callback::new(move |ev| {
+                                                    editor_text.set(event_target_value(&ev));
+                                                    editor_dirty.set(true);
+                                                })
+                                            />
                                         </div>
-                                    }
-                                    .into_view()
-                                } else {
-                                    view! { <div class="details-empty">"Select an item to view metadata."</div> }
-                                        .into_view()
-                                }
-                            }}
-                        </div>
-                    </Show>
-                </section>
-            </div>
+                                    </Show>
 
-            <div class="ui-statusbar" data-ui-primitive="true" data-ui-kind="statusbar">
+                                    <Show when=move || prefs.get().details_visible fallback=|| ()>
+                                        <div class="explorer-details">
+                                            {move || {
+                                                if let Some(meta) = selected_metadata.get() {
+                                                    view! {
+                                                        <div class="details-grid">
+                                                            <div>"Name"</div><div>{meta.name.clone()}</div>
+                                                            <div>"Path"</div><div>{meta.path.clone()}</div>
+                                                            <div>"Kind"</div><div>{format!("{:?}", meta.kind)}</div>
+                                                            <div>"Backend"</div><div>{format!("{:?}", meta.backend)}</div>
+                                                            <div>"Permission"</div><div>{format!("{:?}", meta.permission)}</div>
+                                                            <div>"Modified"</div><div>{meta
+                                                                .modified_at_unix_ms
+                                                                .map(format_timestamp)
+                                                                .unwrap_or_else(|| "-".to_string())}</div>
+                                                            <div>"Size"</div><div>{meta
+                                                                .size
+                                                                .map(format_bytes)
+                                                                .unwrap_or_else(|| "-".to_string())}</div>
+                                                        </div>
+                                                    }
+                                                    .into_view()
+                                                } else {
+                                                    view! {
+                                                        <div class="details-empty">
+                                                            "Select an item to view metadata."
+                                                        </div>
+                                                    }
+                                                    .into_view()
+                                                }
+                                            }}
+                                        </div>
+                                    </Show>
+                                </aside>
+                            </div>
+                        </>
+                    }
+                }
+            >
+                <Surface layout_class="explorer-setup-shell" variant=SurfaceVariant::Muted elevation=Elevation::Inset>
+                    <StepFlow layout_class="explorer-setup-flow">
+                        <StepFlowHeader
+                            title="Set up a workspace"
+                            description="Explorer only asks for setup details when it cannot open a usable workspace on its own."
+                        />
+
+                        <StepFlowStep
+                            title="Choose a source"
+                            description="Connect a native folder when available, or continue with the virtual workspace."
+                            status=Signal::derive(move || {
+                                setup_step_status(setup_step.get(), ExplorerSetupStep::Source)
+                            })
+                        >
+                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
+                                <Stack gap=LayoutGap::Sm>
+                                    <Text>{native_explorer_status_label(native_explorer)}</Text>
+                                    <Cluster>
+                                        <Button
+                                            variant=ButtonVariant::Primary
+                                            title=native_explorer_status_label(native_explorer)
+                                            disabled=!can_connect_native_folder(native_explorer)
+                                            on_click=Callback::new(move |_| {
+                                                connect_native_folder(signals, explorer_service.get_value());
+                                                setup_step.set(ExplorerSetupStep::Access);
+                                            })
+                                        >
+                                            "Connect Folder"
+                                        </Button>
+                                        <Button
+                                            variant=ButtonVariant::Quiet
+                                            on_click=Callback::new(move |_| {
+                                                refresh_directory(
+                                                    signals,
+                                                    explorer_service.get_value(),
+                                                    Some("/".to_string()),
+                                                );
+                                                setup_step.set(ExplorerSetupStep::Access);
+                                            })
+                                        >
+                                            "Use Virtual Workspace"
+                                        </Button>
+                                    </Cluster>
+                                </Stack>
+                            </Panel>
+                            <StepFlowActions>
+                                <span></span>
+                                <Button
+                                    variant=ButtonVariant::Primary
+                                    on_click=Callback::new(move |_| setup_step.set(ExplorerSetupStep::Access))
+                                >
+                                    "Next"
+                                </Button>
+                            </StepFlowActions>
+                        </StepFlowStep>
+
+                        <StepFlowStep
+                            title="Confirm access"
+                            description="Escalate to read-write only if the workspace actually needs edits."
+                            status=Signal::derive(move || {
+                                setup_step_status(setup_step.get(), ExplorerSetupStep::Access)
+                            })
+                        >
+                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
+                                <Cluster justify=LayoutJustify::Between>
+                                    <Text>{move || {
+                                        status
+                                            .get()
+                                            .map(|s| format!("Current permission: {:?}", s.permission))
+                                            .unwrap_or_else(|| "Permission unknown until the first refresh completes.".to_string())
+                                    }}</Text>
+                                    <Button
+                                        variant=ButtonVariant::Quiet
+                                        title=native_explorer_status_label(native_explorer)
+                                        disabled=!can_connect_native_folder(native_explorer)
+                                        on_click=Callback::new(move |_| {
+                                            request_rw_permission(signals, explorer_service.get_value());
+                                        })
+                                    >
+                                        "Request RW"
+                                    </Button>
+                                </Cluster>
+                            </Panel>
+                            <StepFlowActions>
+                                <Button
+                                    variant=ButtonVariant::Quiet
+                                    on_click=Callback::new(move |_| setup_step.set(ExplorerSetupStep::Source))
+                                >
+                                    "Back"
+                                </Button>
+                                <Button
+                                    variant=ButtonVariant::Primary
+                                    on_click=Callback::new(move |_| setup_step.set(ExplorerSetupStep::Open))
+                                >
+                                    "Next"
+                                </Button>
+                            </StepFlowActions>
+                        </StepFlowStep>
+
+                        <StepFlowStep
+                            title="Open workspace"
+                            description="Refresh the current root and transition into the normal explorer layout."
+                            status=Signal::derive(move || {
+                                setup_step_status(setup_step.get(), ExplorerSetupStep::Open)
+                            })
+                        >
+                            <Panel layout_class="settings-step-panel" variant=SurfaceVariant::Standard>
+                                <Stack gap=LayoutGap::Sm>
+                                    <Text>{move || format!("Workspace target: {}", cwd.get())}</Text>
+                                    <Text tone=TextTone::Secondary>
+                                        {move || {
+                                            status
+                                                .get()
+                                                .and_then(|s| s.root_path_hint)
+                                                .unwrap_or_else(|| "Using the virtual root.".to_string())
+                                        }}
+                                    </Text>
+                                </Stack>
+                            </Panel>
+                            <StepFlowActions>
+                                <Button
+                                    variant=ButtonVariant::Quiet
+                                    on_click=Callback::new(move |_| setup_step.set(ExplorerSetupStep::Access))
+                                >
+                                    "Back"
+                                </Button>
+                                <Button
+                                    variant=ButtonVariant::Primary
+                                    on_click=Callback::new(move |_| {
+                                        refresh_directory(
+                                            signals,
+                                            explorer_service.get_value(),
+                                            Some(cwd.get_untracked()),
+                                        );
+                                    })
+                                >
+                                    "Open Workspace"
+                                </Button>
+                            </StepFlowActions>
+                        </StepFlowStep>
+                    </StepFlow>
+                </Surface>
+            </Show>
+
+            <StatusBar>
                 <span>{move || format!("{} item(s)", visible_entries.get().len())}</span>
                 <span>{move || {
                     status
@@ -1047,8 +1413,8 @@ pub fn ExplorerApp(
                         "Hydrating...".to_string()
                     }
                 }}</span>
-            </div>
-        </div>
+            </StatusBar>
+        </AppShell>
     }
 }
 

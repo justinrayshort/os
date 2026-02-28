@@ -235,10 +235,10 @@ pub fn NotepadApp(
     view! {
         <AppShell layout_class="app-notepad-shell">
             <MenuBar>
-                <Button>"File"</Button>
-                <Button>"Edit"</Button>
-                <Button>"Search"</Button>
-                <Button>"Help"</Button>
+                <Button variant=ButtonVariant::Quiet>"File"</Button>
+                <Button variant=ButtonVariant::Quiet>"Edit"</Button>
+                <Button variant=ButtonVariant::Quiet>"Search"</Button>
+                <Button variant=ButtonVariant::Quiet>"Help"</Button>
             </MenuBar>
 
             <ToolBar>
@@ -259,27 +259,20 @@ pub fn NotepadApp(
                     "New Scratch"
                 </Button>
                 <Button
+                    variant=ButtonVariant::Primary
                     on_click=Callback::new(move |_| {
                         transient_notice.set(Some("Auto-save is enabled (IndexedDB)".to_string()));
                     })
                 >
                     "Save"
                 </Button>
-                <Button
-                    on_click=Callback::new(move |_| workspace.update(|w| w.move_active_by(-1)))
-                >
+                <Button variant=ButtonVariant::Quiet on_click=Callback::new(move |_| workspace.update(|w| w.move_active_by(-1)))>
                     "Prev"
                 </Button>
-                <Button
-                    on_click=Callback::new(move |_| workspace.update(|w| w.move_active_by(1)))
-                >
+                <Button variant=ButtonVariant::Quiet on_click=Callback::new(move |_| workspace.update(|w| w.move_active_by(1)))>
                     "Next"
                 </Button>
             </ToolBar>
-
-            <div class="notepad-ruler" aria-hidden="true">
-                "1    10   20   30   40   50   60   70"
-            </div>
 
             <div class="notepad-document">
                 <div class="notepad-document-header">
@@ -320,6 +313,7 @@ pub fn NotepadApp(
                                     class="ui-button notepad-tab"
                                     data-ui-primitive="true"
                                     data-ui-kind="button"
+                                    data-ui-variant="quiet"
                                     data-ui-selected=move || if workspace.get().active_slug == class_slug { "true" } else { "false" }
                                     id=move || tab_dom_id(&tab_id_slug)
                                     role="tab"
