@@ -371,22 +371,30 @@ pub fn DesktopShell() -> impl IntoView {
                     }
                 />
                 <div class="desktop-icons">
-                    <For each=move || apps::desktop_icon_apps() key=|app| app.app_id as u8 let:app>
-                        <button
-                            class="desktop-icon"
-                            data-app=app.app_id.icon_id()
-                            on:click=move |_| {
-                                runtime.dispatch_action(DesktopAction::ActivateApp {
-                                    app_id: app.app_id,
-                                    viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
-                                });
+                    <For each=move || apps::desktop_icon_apps() key=|app| app.app_id.to_string() let:app>
+                        {{
+                            let app_id = app.app_id.clone();
+                            let app_data_id = app_id.to_string();
+                            let app_icon = app_icon_name(&app_id);
+                            let desktop_icon_label = app.desktop_icon_label;
+                            view! {
+                                <button
+                                    class="desktop-icon"
+                                    data-app=app_data_id.clone()
+                                    on:click=move |_| {
+                                        runtime.dispatch_action(DesktopAction::ActivateApp {
+                                            app_id: app_id.clone(),
+                                            viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
+                                        });
+                                    }
+                                >
+                                    <span class="icon" data-app=app_data_id.clone()>
+                                        <FluentIcon icon=app_icon size=IconSize::Lg />
+                                    </span>
+                                    <span>{desktop_icon_label}</span>
+                                </button>
                             }
-                        >
-                            <span class="icon" data-app=app.app_id.icon_id()>
-                                <FluentIcon icon=app_icon_name(app.app_id) size=IconSize::Lg />
-                            </span>
-                            <span>{app.desktop_icon_label}</span>
-                        </button>
+                        }}
                     </For>
                 </div>
 
@@ -757,7 +765,7 @@ fn activate_pinned_taskbar_app(runtime: DesktopRuntimeContext, app_id: AppId) {
     }
 
     runtime.dispatch_action(DesktopAction::ActivateApp {
-        app_id,
+        app_id: apps::builtin_application_id(app_id),
         viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
     });
 }

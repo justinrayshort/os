@@ -29,10 +29,12 @@ pub use fs::types::{
 pub use notifications::{NoopNotificationService, NotificationFuture, NotificationService};
 pub use session::{session_store, MemorySessionStore};
 pub use storage::app_state::{
-    build_app_state_envelope, migrate_envelope_payload, AppStateEnvelope, AppStateStore,
-    AppStateStoreFuture, MemoryAppStateStore, NoopAppStateStore, APP_STATE_ENVELOPE_VERSION,
-    CALCULATOR_STATE_NAMESPACE, DESKTOP_STATE_NAMESPACE, EXPLORER_STATE_NAMESPACE,
-    NOTEPAD_STATE_NAMESPACE, PAINT_STATE_NAMESPACE, TERMINAL_STATE_NAMESPACE,
+    build_app_state_envelope, load_app_state_typed_with, load_app_state_with_migration,
+    migrate_envelope_payload, save_app_state_with, AppStateEnvelope, AppStateSchemaPolicy,
+    AppStateStore, AppStateStoreFuture, MemoryAppStateStore, NoopAppStateStore,
+    APP_STATE_ENVELOPE_VERSION, CALCULATOR_STATE_NAMESPACE, DESKTOP_STATE_NAMESPACE,
+    EXPLORER_STATE_NAMESPACE, NOTEPAD_STATE_NAMESPACE, PAINT_STATE_NAMESPACE,
+    TERMINAL_STATE_NAMESPACE,
 };
 pub use storage::prefs::{
     load_pref_with, save_pref_with, MemoryPrefsStore, NoopPrefsStore, PrefsStore, PrefsStoreFuture,

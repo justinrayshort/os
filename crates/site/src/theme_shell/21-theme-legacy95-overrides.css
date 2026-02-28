@@ -617,6 +617,11 @@
   outline-offset: -3px;
 }
 
+.desktop-shell[data-skin="classic-95"] .terminal-input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 /* UI refinement pass (non-destructive overrides for final active theme) */
 .desktop-shell[data-skin="classic-95"] {
   color-scheme: light;

@@ -2,7 +2,7 @@ use super::*;
 use crate::app_runtime::ensure_window_session;
 use crate::shell;
 use desktop_app_calculator::CalculatorApp;
-use desktop_app_contract::{AppMountContext, AppServices, ApplicationId};
+use desktop_app_contract::{AppMountContext, AppServices};
 use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
 use desktop_app_settings::SettingsApp;
@@ -132,12 +132,12 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                     <div class="titlebar-title">
                         <span class="titlebar-app-icon" aria-hidden="true">
                             <FluentIcon
-                                icon=app_icon_name(
+                                icon=app_icon_name(&apps::builtin_application_id(
                                     window
                                         .get_untracked()
                                         .expect("window exists while shown")
                                         .app_id,
-                                )
+                                ))
                                 size=IconSize::Sm
                             />
                         </span>
@@ -355,7 +355,7 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
         <MountedManagedApp
             app_id=mounted_window.app_id
             context=AppMountContext {
-                app_id: ApplicationId::trusted(mounted_window.app_id.canonical_id()),
+                app_id: apps::builtin_application_id(mounted_window.app_id),
                 window_id: mounted_window.id.0,
                 launch_params: mounted_window.launch_params.clone(),
                 restored_state: mounted_window.app_state.clone(),

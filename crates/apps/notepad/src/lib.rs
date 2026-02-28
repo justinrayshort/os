@@ -6,7 +6,11 @@ use std::collections::BTreeMap;
 
 use desktop_app_contract::AppServices;
 use leptos::*;
-use platform_storage::{self, NOTEPAD_STATE_NAMESPACE};
+use platform_host::{
+    load_app_state_with_migration, migrate_envelope_payload, save_app_state_with,
+    NOTEPAD_STATE_NAMESPACE,
+};
+use platform_host_web::app_state_store;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -14,10 +18,10 @@ const NOTEPAD_STATE_SCHEMA_VERSION: u32 = 1;
 
 fn migrate_notepad_state(
     schema_version: u32,
-    envelope: &platform_storage::AppStateEnvelope,
+    envelope: &platform_host::AppStateEnvelope,
 ) -> Result<Option<NotepadWorkspaceState>, String> {
     match schema_version {
-        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        0 => migrate_envelope_payload(envelope).map(Some),
         _ => Ok(None),
     }
 }
@@ -153,7 +157,7 @@ fn tab_dom_id(slug: &str) -> String {
 /// Notepad app window contents.
 ///
 /// The component restores and persists a lightweight tabbed note workspace via
-/// [`platform_storage`].
+/// typed host contracts.
 pub fn NotepadApp(
     /// App launch parameters (for example, the initial note slug).
     launch_params: Value,
@@ -192,7 +196,9 @@ pub fn NotepadApp(
         let last_saved = last_saved;
         let requested_slug = requested_slug.clone();
         spawn_local(async move {
-            match platform_storage::load_app_state_with_migration::<NotepadWorkspaceState, _>(
+            let store = app_state_store();
+            match load_app_state_with_migration(
+                &store,
                 NOTEPAD_STATE_NAMESPACE,
                 NOTEPAD_STATE_SCHEMA_VERSION,
                 migrate_notepad_state,
@@ -240,7 +246,9 @@ pub fn NotepadApp(
         }
 
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state(
+            let store = app_state_store();
+            if let Err(err) = save_app_state_with(
+                &store,
                 NOTEPAD_STATE_NAMESPACE,
                 NOTEPAD_STATE_SCHEMA_VERSION,
                 &snapshot,
@@ -426,7 +434,7 @@ mod tests {
 
     #[test]
     fn notepad_namespace_migration_supports_schema_zero() {
-        let envelope = platform_storage::build_app_state_envelope(
+        let envelope = platform_host::build_app_state_envelope(
             NOTEPAD_STATE_NAMESPACE,
             0,
             &NotepadWorkspaceState::new("welcome"),

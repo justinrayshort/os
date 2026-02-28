@@ -4,6 +4,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use desktop_app_contract::{AppEvent, AppLifecycleEvent};
 use leptos::*;
+use platform_host::unix_time_ms_now;
 
 use crate::model::{WindowId, WindowRecord};
 const MAX_INBOX_EVENTS: usize = 256;
@@ -98,7 +99,7 @@ impl AppRuntimeState {
                 let mut event = AppEvent::new(topic, payload.clone(), Some(source_window_id.0));
                 event.correlation_id = correlation_id.clone();
                 event.reply_to = reply_to.clone();
-                event.timestamp_unix_ms = Some(platform_storage::unix_time_ms_now());
+                event.timestamp_unix_ms = Some(unix_time_ms_now());
                 self.deliver_event(target, event);
             } else {
                 stale_subscribers.push(target);

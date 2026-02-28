@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use desktop_app_contract::{WallpaperConfig, WallpaperLibrarySnapshot};
+use desktop_app_contract::{ApplicationId, WallpaperConfig, WallpaperLibrarySnapshot};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -532,7 +532,7 @@ pub struct InteractionState {
 /// Deep-link targets that can be translated into window-open requests.
 pub enum DeepLinkOpenTarget {
     /// Open an app by id.
-    App(AppId),
+    App(ApplicationId),
     /// Open a notepad window for a note slug.
     NotesSlug(String),
     /// Open an explorer window scoped to a project slug.

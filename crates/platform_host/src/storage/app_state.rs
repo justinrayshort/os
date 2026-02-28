@@ -194,6 +194,125 @@ pub fn migrate_envelope_payload<T: DeserializeOwned>(
     serde_json::from_value(envelope.payload.clone()).map_err(|e| e.to_string())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Schema compatibility policy used by [`load_app_state_typed_with`].
+pub enum AppStateSchemaPolicy {
+    /// Accept only an exact schema version.
+    Exact(u32),
+    /// Accept any schema version up to and including this maximum.
+    UpTo(u32),
+    /// Accept any schema version.
+    Any,
+}
+
+impl AppStateSchemaPolicy {
+    const fn allows(self, schema_version: u32) -> bool {
+        match self {
+            Self::Exact(expected) => schema_version == expected,
+            Self::UpTo(max_supported) => schema_version <= max_supported,
+            Self::Any => true,
+        }
+    }
+}
+
+/// Serializes and saves an app-state payload under `namespace`.
+///
+/// # Errors
+///
+/// Returns an error when payload serialization or storage fails.
+pub async fn save_app_state_with<S: AppStateStore + ?Sized, T: Serialize>(
+    store: &S,
+    namespace: &str,
+    schema_version: u32,
+    payload: &T,
+) -> Result<(), String> {
+    let envelope = build_app_state_envelope(namespace, schema_version, payload)?;
+    store.save_app_state_envelope(&envelope).await
+}
+
+/// Loads and deserializes typed app-state data through a specific store implementation.
+///
+/// Returns `Ok(None)` when:
+/// - the namespace is not present
+/// - envelope metadata version is incompatible
+/// - the persisted schema version does not satisfy `schema_policy`
+///
+/// # Errors
+///
+/// Returns an error when the underlying storage load fails or payload deserialization fails.
+pub async fn load_app_state_typed_with<S: AppStateStore + ?Sized, T: DeserializeOwned>(
+    store: &S,
+    namespace: &str,
+    schema_policy: AppStateSchemaPolicy,
+) -> Result<Option<T>, String> {
+    let Some(envelope) = store.load_app_state_envelope(namespace).await? else {
+        return Ok(None);
+    };
+    decode_typed_app_state_envelope(&envelope, schema_policy)
+}
+
+/// Loads typed app-state data while applying explicit legacy-schema migration hooks.
+///
+/// This is the preferred API for app/runtime hydration. It enforces envelope compatibility and
+/// requires callers to handle legacy schemas intentionally instead of relying on broad
+/// schema-policy acceptance.
+///
+/// # Errors
+///
+/// Returns an error when storage access fails, current-schema deserialization fails, or a caller
+/// migration hook returns an error.
+pub async fn load_app_state_with_migration<S, T, F>(
+    store: &S,
+    namespace: &str,
+    current_schema_version: u32,
+    migrate_legacy: F,
+) -> Result<Option<T>, String>
+where
+    S: AppStateStore + ?Sized,
+    T: DeserializeOwned,
+    F: Fn(u32, &AppStateEnvelope) -> Result<Option<T>, String>,
+{
+    let Some(envelope) = store.load_app_state_envelope(namespace).await? else {
+        return Ok(None);
+    };
+    decode_typed_app_state_with_migration(&envelope, current_schema_version, migrate_legacy)
+}
+
+fn decode_typed_app_state_envelope<T: DeserializeOwned>(
+    envelope: &AppStateEnvelope,
+    schema_policy: AppStateSchemaPolicy,
+) -> Result<Option<T>, String> {
+    if envelope.envelope_version != APP_STATE_ENVELOPE_VERSION {
+        return Ok(None);
+    }
+    if !schema_policy.allows(envelope.schema_version) {
+        return Ok(None);
+    }
+    migrate_envelope_payload(envelope).map(Some)
+}
+
+fn decode_typed_app_state_with_migration<T, F>(
+    envelope: &AppStateEnvelope,
+    current_schema_version: u32,
+    migrate_legacy: F,
+) -> Result<Option<T>, String>
+where
+    T: DeserializeOwned,
+    F: Fn(u32, &AppStateEnvelope) -> Result<Option<T>, String>,
+{
+    if envelope.envelope_version != APP_STATE_ENVELOPE_VERSION {
+        return Ok(None);
+    }
+
+    if envelope.schema_version == current_schema_version {
+        return migrate_envelope_payload(envelope).map(Some);
+    }
+    if envelope.schema_version > current_schema_version {
+        return Ok(None);
+    }
+    migrate_legacy(envelope.schema_version, envelope)
+}
+
 #[cfg(test)]
 mod tests {
     use futures::executor::block_on;

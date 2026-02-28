@@ -3,6 +3,11 @@ name = "platform_host_web"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+desktop-host-stub = []
+desktop-host-tauri = []
+
 [dependencies]
 desktop_app_contract = { path = "../desktop_app_contract", default-features = false }
 futures = "0.3"

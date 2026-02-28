@@ -949,7 +949,8 @@ version = "0.1.0"
 dependencies = [
  "desktop_app_contract",
  "leptos",
- "platform_storage",
+ "platform_host",
+ "platform_host_web",
  "serde",
  "serde_json",
 ]
@@ -971,7 +972,8 @@ version = "0.1.0"
 dependencies = [
  "desktop_app_contract",
  "leptos",
- "platform_storage",
+ "platform_host",
+ "platform_host_web",
  "serde",
  "serde_json",
 ]
@@ -982,7 +984,8 @@ version = "0.1.0"
 dependencies = [
  "desktop_app_contract",
  "leptos",
- "platform_storage",
+ "platform_host",
+ "platform_host_web",
  "serde",
  "serde_json",
 ]
@@ -1003,7 +1006,8 @@ version = "0.1.0"
 dependencies = [
  "desktop_app_contract",
  "leptos",
- "platform_storage",
+ "platform_host",
+ "platform_host_web",
  "serde",
  "serde_json",
  "system_shell_contract",
@@ -1026,7 +1030,8 @@ dependencies = [
  "nu-ansi-term",
  "nu-protocol",
  "nu-table",
- "platform_storage",
+ "platform_host",
+ "platform_host_web",
  "pretty_assertions",
  "serde",
  "serde_json",
@@ -3799,19 +3804,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "platform_storage"
-version = "0.1.0"
-dependencies = [
- "desktop_app_contract",
- "leptos",
- "platform_host",
- "platform_host_web",
- "serde",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
 name = "plist"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4832,6 +4824,7 @@ name = "site"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
+ "desktop_app_contract",
  "desktop_runtime",
  "leptos",
  "leptos_meta",

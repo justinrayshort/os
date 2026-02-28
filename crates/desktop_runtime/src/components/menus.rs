@@ -164,25 +164,33 @@ pub(super) fn StartMenu(
                 }
                 on:mousedown=move |ev| ev.stop_propagation()
             >
-                <For each=move || apps::launcher_apps() key=|app| app.app_id as u8 let:app>
-                    <button
-                        id=format!("desktop-launcher-item-{}", app.app_id.icon_id())
-                        role="menuitem"
-                        on:click=move |_| {
-                            window_context_menu.set(None);
-                            overflow_menu_open.set(false);
-                            clock_menu_open.set(false);
-                            runtime.dispatch_action(DesktopAction::ActivateApp {
-                                app_id: app.app_id,
-                                viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
-                            });
+                <For each=move || apps::launcher_apps() key=|app| app.app_id.to_string() let:app>
+                    {{
+                        let app_id = app.app_id.clone();
+                        let app_dom_id = format!("desktop-launcher-item-{}", app_id.as_str());
+                        let app_icon = app_icon_name(&app_id);
+                        let launcher_label = app.launcher_label;
+                        view! {
+                            <button
+                                id=app_dom_id
+                                role="menuitem"
+                                on:click=move |_| {
+                                    window_context_menu.set(None);
+                                    overflow_menu_open.set(false);
+                                    clock_menu_open.set(false);
+                                    runtime.dispatch_action(DesktopAction::ActivateApp {
+                                        app_id: app_id.clone(),
+                                        viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
+                                    });
+                                }
+                            >
+                                <span class="taskbar-app-icon" aria-hidden="true">
+                                    <FluentIcon icon=app_icon size=IconSize::Sm />
+                                </span>
+                                <span>{format!("Open {}", launcher_label)}</span>
+                            </button>
                         }
-                    >
-                        <span class="taskbar-app-icon" aria-hidden="true">
-                            <FluentIcon icon=app_icon_name(app.app_id) size=IconSize::Sm />
-                        </span>
-                        <span>{format!("Open {}", app.launcher_label)}</span>
-                    </button>
+                    }}
                 </For>
                 <button
                     id="desktop-launcher-item-close"
@@ -282,7 +290,10 @@ pub(super) fn OverflowMenu(
                         }
                     >
                         <span class="taskbar-app-icon" aria-hidden="true">
-                            <FluentIcon icon=app_icon_name(win.app_id) size=IconSize::Sm />
+                            <FluentIcon
+                                icon=app_icon_name(&apps::builtin_application_id(win.app_id))
+                                size=IconSize::Sm
+                            />
                         </span>
                         <span class="taskbar-menu-item-label">{win.title.clone()}</span>
                     </button>

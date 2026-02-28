@@ -10,7 +10,11 @@ use crate::engine::{
 use desktop_app_contract::AppServices;
 use leptos::ev::KeyboardEvent;
 use leptos::*;
-use platform_storage::{self, CALCULATOR_STATE_NAMESPACE};
+use platform_host::{
+    load_app_state_with_migration, migrate_envelope_payload, save_app_state_with,
+    CALCULATOR_STATE_NAMESPACE,
+};
+use platform_host_web::app_state_store;
 use serde_json::Value;
 
 #[derive(Clone, Copy)]
@@ -239,10 +243,10 @@ const CALCULATOR_STATE_SCHEMA_VERSION: u32 = 1;
 
 fn migrate_calculator_state(
     schema_version: u32,
-    envelope: &platform_storage::AppStateEnvelope,
+    envelope: &platform_host::AppStateEnvelope,
 ) -> Result<Option<CalculatorState>, String> {
     match schema_version {
-        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        0 => migrate_envelope_payload(envelope).map(Some),
         _ => Ok(None),
     }
 }
@@ -250,7 +254,7 @@ fn migrate_calculator_state(
 #[component]
 /// Calculator app window contents.
 ///
-/// The component restores and persists calculator state through [`platform_storage`].
+/// The component restores and persists calculator state through typed host contracts.
 pub fn CalculatorApp(
     /// App launch parameters from the desktop runtime (currently unused).
     launch_params: Value,
@@ -278,7 +282,9 @@ pub fn CalculatorApp(
         let hydrated = hydrated;
         let last_saved = last_saved;
         spawn_local(async move {
-            match platform_storage::load_app_state_with_migration::<CalculatorState, _>(
+            let store = app_state_store();
+            match load_app_state_with_migration(
+                &store,
                 CALCULATOR_STATE_NAMESPACE,
                 CALCULATOR_STATE_SCHEMA_VERSION,
                 migrate_calculator_state,
@@ -325,7 +331,9 @@ pub fn CalculatorApp(
         }
 
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state(
+            let store = app_state_store();
+            if let Err(err) = save_app_state_with(
+                &store,
                 CALCULATOR_STATE_NAMESPACE,
                 CALCULATOR_STATE_SCHEMA_VERSION,
                 &snapshot,
@@ -474,7 +482,7 @@ mod tests {
 
     #[test]
     fn calculator_namespace_migration_supports_schema_zero() {
-        let envelope = platform_storage::build_app_state_envelope(
+        let envelope = platform_host::build_app_state_envelope(
             CALCULATOR_STATE_NAMESPACE,
             0,
             &CalculatorState::default(),

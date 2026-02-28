@@ -8,7 +8,11 @@ use desktop_app_contract::{window_primary_input_dom_id, AppServices, WindowRunti
 use leptos::ev::KeyboardEvent;
 use leptos::html;
 use leptos::*;
-use platform_storage::{self, TERMINAL_STATE_NAMESPACE};
+use platform_host::{
+    load_app_state_with_migration, migrate_envelope_payload, save_app_state_with,
+    TERMINAL_STATE_NAMESPACE,
+};
+use platform_host_web::app_state_store;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use system_shell_contract::{
@@ -114,12 +118,12 @@ struct TerminalPersistedState {
 
 fn migrate_terminal_state(
     schema_version: u32,
-    envelope: &platform_storage::AppStateEnvelope,
+    envelope: &platform_host::AppStateEnvelope,
 ) -> Result<Option<TerminalPersistedState>, String> {
     match schema_version {
         0 | 1 => {
             let legacy: LegacyTerminalPersistedState =
-                platform_storage::migrate_envelope_payload(envelope)?;
+                migrate_envelope_payload(envelope)?;
             Ok(Some(TerminalPersistedState {
                 cwd: legacy.cwd,
                 input: legacy.input,
@@ -134,7 +138,7 @@ fn migrate_terminal_state(
         }
         2 => {
             let legacy: LegacyTerminalPersistedStateV2 =
-                platform_storage::migrate_envelope_payload(envelope)?;
+                migrate_envelope_payload(envelope)?;
             Ok(Some(TerminalPersistedState {
                 cwd: legacy.cwd,
                 input: legacy.input,
@@ -473,7 +477,7 @@ fn render_entry(entry: TerminalTranscriptEntry) -> View {
 /// Terminal app window contents.
 ///
 /// This component presents a browser-native shell backed by runtime-owned commands and persists
-/// transcript state via [`platform_storage`].
+/// transcript state via typed host contracts.
 pub fn TerminalApp(
     /// Stable runtime window id used to expose the primary input focus target.
     window_id: WindowRuntimeId,
@@ -545,7 +549,9 @@ pub fn TerminalApp(
         let hydrate_alive = hydrate_alive.clone();
         let launch_cwd = launch_cwd.clone();
         spawn_local(async move {
-            match platform_storage::load_app_state_with_migration::<TerminalPersistedState, _>(
+            let store = app_state_store();
+            match load_app_state_with_migration(
+                &store,
                 TERMINAL_STATE_NAMESPACE,
                 TERMINAL_STATE_SCHEMA_VERSION,
                 migrate_terminal_state,
@@ -609,7 +615,9 @@ pub fn TerminalApp(
         last_saved.set(Some(serialized));
 
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state(
+            let store = app_state_store();
+            if let Err(err) = save_app_state_with(
+                &store,
                 TERMINAL_STATE_NAMESPACE,
                 TERMINAL_STATE_SCHEMA_VERSION,
                 &snapshot,

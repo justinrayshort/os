@@ -1,9 +1,10 @@
 //! Reducer actions, side-effect intents, and transition logic for the desktop runtime.
 
 use desktop_app_contract::{
-    AppCapability, AppCommand, AppEvent, AppLifecycleEvent, WallpaperConfig, WallpaperDisplayMode,
-    WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperSelection,
+    AppCapability, AppCommand, AppEvent, AppLifecycleEvent, ApplicationId, WallpaperConfig,
+    WallpaperDisplayMode, WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperSelection,
 };
+use platform_host::WallpaperAssetMetadataPatch;
 use serde_json::{json, Value};
 use thiserror::Error;
 
@@ -27,7 +28,7 @@ pub enum DesktopAction {
     /// For multi-instance apps (or when no instance exists), this opens a new window.
     ActivateApp {
         /// Application to activate.
-        app_id: AppId,
+        app_id: ApplicationId,
         /// Optional desktop viewport hint for adaptive default window sizing.
         viewport: Option<WindowRect>,
     },
@@ -182,7 +183,7 @@ pub enum DesktopAction {
     /// Replace app-shared state payload for `<app_id>:<key>`.
     SetSharedAppState {
         /// Source app id.
-        app_id: AppId,
+        app_id: ApplicationId,
         /// Shared state key.
         key: String,
         /// Shared state payload.
@@ -281,7 +282,7 @@ pub enum RuntimeEffect {
         /// Managed asset identifier.
         asset_id: String,
         /// Metadata patch payload.
-        patch: platform_storage::WallpaperAssetMetadataPatch,
+        patch: WallpaperAssetMetadataPatch,
     },
     /// Create a wallpaper collection.
     CreateWallpaperCollection {
@@ -432,10 +433,10 @@ pub fn reduce_desktop(
     let mut effects = Vec::new();
     match action {
         DesktopAction::ActivateApp { app_id, viewport } => {
-            let descriptor = apps::app_descriptor(app_id);
+            let descriptor = apps::app_descriptor_by_id(&app_id);
 
             if descriptor.single_instance {
-                if let Some(window_id) = preferred_window_for_app(state, app_id) {
+                if let Some(window_id) = preferred_window_for_app(state, &app_id) {
                     let nested = if state
                         .windows
                         .iter()
@@ -465,7 +466,10 @@ pub fn reduce_desktop(
             let nested = reduce_desktop(
                 state,
                 interaction,
-                DesktopAction::OpenWindow(apps::default_open_request(app_id, viewport)),
+                DesktopAction::OpenWindow(
+                    apps::default_open_request_by_id(&app_id, viewport)
+                        .expect("built-in app id"),
+                ),
             )?;
             effects.extend(nested);
             return Ok(effects);
@@ -845,7 +849,7 @@ pub fn reduce_desktop(
                         .windows
                         .iter()
                         .find(|w| w.id == window_id)
-                        .map(|w| w.app_id)
+                        .map(|w| apps::builtin_application_id(w.app_id))
                         .ok_or(ReducerError::WindowNotFound)?;
                     let nested = reduce_desktop(
                         state,
@@ -942,7 +946,7 @@ pub fn reduce_desktop(
                 } => {
                     effects.push(RuntimeEffect::UpdateWallpaperAssetMetadata {
                         asset_id,
-                        patch: platform_storage::WallpaperAssetMetadataPatch {
+                        patch: WallpaperAssetMetadataPatch {
                             display_name: Some(display_name),
                             ..Default::default()
                         },
@@ -951,7 +955,7 @@ pub fn reduce_desktop(
                 AppCommand::SetWallpaperFavorite { asset_id, favorite } => {
                     effects.push(RuntimeEffect::UpdateWallpaperAssetMetadata {
                         asset_id,
-                        patch: platform_storage::WallpaperAssetMetadataPatch {
+                        patch: WallpaperAssetMetadataPatch {
                             favorite: Some(favorite),
                             ..Default::default()
                         },
@@ -960,7 +964,7 @@ pub fn reduce_desktop(
                 AppCommand::SetWallpaperTags { asset_id, tags } => {
                     effects.push(RuntimeEffect::UpdateWallpaperAssetMetadata {
                         asset_id,
-                        patch: platform_storage::WallpaperAssetMetadataPatch {
+                        patch: WallpaperAssetMetadataPatch {
                             tags: Some(tags),
                             ..Default::default()
                         },
@@ -972,7 +976,7 @@ pub fn reduce_desktop(
                 } => {
                     effects.push(RuntimeEffect::UpdateWallpaperAssetMetadata {
                         asset_id,
-                        patch: platform_storage::WallpaperAssetMetadataPatch {
+                        patch: WallpaperAssetMetadataPatch {
                             collection_ids: Some(collection_ids),
                             ..Default::default()
                         },
@@ -1081,7 +1085,7 @@ pub fn reduce_desktop(
             key,
             state: shared,
         } => {
-            let storage_key = format!("{}:{}", app_id.canonical_id(), key.trim());
+            let storage_key = format!("{}:{}", app_id.as_str(), key.trim());
             state.app_shared_state.insert(storage_key, shared);
             effects.push(RuntimeEffect::PersistLayout);
         }
@@ -1130,7 +1134,9 @@ pub fn reduce_desktop(
 /// Converts a parsed deep-link target into an [`OpenWindowRequest`].
 pub fn build_open_request_from_deeplink(target: DeepLinkOpenTarget) -> OpenWindowRequest {
     match target {
-        DeepLinkOpenTarget::App(app_id) => OpenWindowRequest::new(app_id),
+        DeepLinkOpenTarget::App(app_id) => OpenWindowRequest::new(
+            apps::resolve_builtin_app_id(&app_id).expect("built-in app id"),
+        ),
         DeepLinkOpenTarget::NotesSlug(slug) => {
             let mut req = OpenWindowRequest::new(AppId::Notepad);
             req.title = Some(format!("Note - {slug}"));
@@ -1154,20 +1160,26 @@ fn next_window_id(state: &mut DesktopState) -> WindowId {
     id
 }
 
-fn preferred_window_for_app(state: &DesktopState, app_id: AppId) -> Option<WindowId> {
+fn preferred_window_for_app(state: &DesktopState, app_id: &ApplicationId) -> Option<WindowId> {
     state
         .windows
         .iter()
         .rev()
-        .find(|win| win.app_id == app_id && !win.minimized && win.is_focused)
+        .find(|win| apps::builtin_application_id(win.app_id) == *app_id && !win.minimized && win.is_focused)
         .or_else(|| {
             state
                 .windows
                 .iter()
                 .rev()
-                .find(|win| win.app_id == app_id && !win.minimized)
+                .find(|win| apps::builtin_application_id(win.app_id) == *app_id && !win.minimized)
         })
-        .or_else(|| state.windows.iter().rev().find(|win| win.app_id == app_id))
+        .or_else(|| {
+            state
+                .windows
+                .iter()
+                .rev()
+                .find(|win| apps::builtin_application_id(win.app_id) == *app_id)
+        })
         .map(|win| win.id)
 }
 
@@ -1366,7 +1378,7 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: AppId::Terminal,
+                app_id: apps::builtin_application_id(AppId::Terminal),
                 viewport: None,
             },
         )
@@ -1379,7 +1391,7 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: AppId::Terminal,
+                app_id: apps::builtin_application_id(AppId::Terminal),
                 viewport: None,
             },
         )
@@ -1399,7 +1411,7 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: AppId::Explorer,
+                app_id: apps::builtin_application_id(AppId::Explorer),
                 viewport: None,
             },
         )
@@ -1408,7 +1420,7 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: AppId::Explorer,
+                app_id: apps::builtin_application_id(AppId::Explorer),
                 viewport: None,
             },
         )
@@ -1430,7 +1442,7 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: AppId::Settings,
+                app_id: apps::builtin_application_id(AppId::Settings),
                 viewport: None,
             },
         )

@@ -1,19 +1,37 @@
 //! Desktop app registry metadata and app-content mounting helpers.
 
-use std::{cell::Cell, rc::Rc};
+use std::{cell::Cell, rc::Rc, sync::OnceLock};
 
-use crate::model::{AppId, OpenWindowRequest};
+use crate::model::{AppId, OpenWindowRequest, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
 use desktop_app_calculator::CalculatorApp;
-use desktop_app_contract::{AppCapability, AppModule, AppMountContext, SuspendPolicy};
+use desktop_app_contract::{AppCapability, AppModule, AppMountContext, ApplicationId, SuspendPolicy};
 use desktop_app_explorer::ExplorerApp;
 use desktop_app_notepad::NotepadApp;
 use desktop_app_settings::SettingsApp;
 use desktop_app_terminal::TerminalApp;
 use leptos::*;
-use platform_storage::{self};
+use platform_host::{
+    load_app_state_with_migration, migrate_envelope_payload, save_app_state_with,
+    AppStateEnvelope, PAINT_STATE_NAMESPACE,
+};
+#[cfg(test)]
+use platform_host::build_app_state_envelope;
+use platform_host_web::app_state_store;
 use serde::{Deserialize, Serialize};
 
 const PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Copy)]
+struct GeneratedAppManifestMetadata {
+    display_name: &'static str,
+    requested_capabilities: &'static [AppCapability],
+    single_instance: bool,
+    suspend_policy: SuspendPolicy,
+    show_in_launcher: bool,
+    show_on_desktop: bool,
+    window_defaults: (i32, i32),
+}
+
 include!(concat!(env!("OUT_DIR"), "/app_catalog_generated.rs"));
 
 /// Returns the generated manifest catalog payload used for build-time discovery validation.
@@ -23,19 +41,19 @@ pub fn app_manifest_catalog_json() -> &'static str {
 
 fn migrate_paint_placeholder_state(
     schema_version: u32,
-    envelope: &platform_storage::AppStateEnvelope,
+    envelope: &AppStateEnvelope,
 ) -> Result<Option<PaintPlaceholderState>, String> {
     match schema_version {
-        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        0 => migrate_envelope_payload(envelope).map(Some),
         _ => Ok(None),
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 /// Metadata describing how an app appears in the launcher/desktop and how it is instantiated.
 pub struct AppDescriptor {
     /// Stable runtime application identifier.
-    pub app_id: AppId,
+    pub app_id: ApplicationId,
     /// Label shown in the start/launcher menu.
     pub launcher_label: &'static str,
     /// Label shown under the desktop icon.
@@ -54,48 +72,43 @@ pub struct AppDescriptor {
     pub requested_capabilities: &'static [AppCapability],
 }
 
-const APP_REGISTRY: [AppDescriptor; 7] = [
+fn build_app_registry() -> Vec<AppDescriptor> {
+    vec![
     AppDescriptor {
-        app_id: AppId::Calculator,
-        launcher_label: "Calculator",
-        desktop_icon_label: "Calculator",
-        show_in_launcher: true,
-        show_on_desktop: true,
-        single_instance: true,
+        app_id: builtin_application_id(AppId::Calculator),
+        launcher_label: SYSTEM_CALCULATOR_MANIFEST.display_name,
+        desktop_icon_label: SYSTEM_CALCULATOR_MANIFEST.display_name,
+        show_in_launcher: SYSTEM_CALCULATOR_MANIFEST.show_in_launcher,
+        show_on_desktop: SYSTEM_CALCULATOR_MANIFEST.show_on_desktop,
+        single_instance: SYSTEM_CALCULATOR_MANIFEST.single_instance,
         module: AppModule::new(mount_calculator_app),
-        suspend_policy: SuspendPolicy::OnMinimize,
-        requested_capabilities: &[AppCapability::Window, AppCapability::State],
+        suspend_policy: SYSTEM_CALCULATOR_MANIFEST.suspend_policy,
+        requested_capabilities: SYSTEM_CALCULATOR_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: AppId::Explorer,
-        launcher_label: "Explorer",
-        desktop_icon_label: "Explorer",
-        show_in_launcher: true,
-        show_on_desktop: true,
-        single_instance: false,
+        app_id: builtin_application_id(AppId::Explorer),
+        launcher_label: SYSTEM_EXPLORER_MANIFEST.display_name,
+        desktop_icon_label: SYSTEM_EXPLORER_MANIFEST.display_name,
+        show_in_launcher: SYSTEM_EXPLORER_MANIFEST.show_in_launcher,
+        show_on_desktop: SYSTEM_EXPLORER_MANIFEST.show_on_desktop,
+        single_instance: SYSTEM_EXPLORER_MANIFEST.single_instance,
         module: AppModule::new(mount_explorer_app),
-        suspend_policy: SuspendPolicy::OnMinimize,
-        requested_capabilities: &[
-            AppCapability::Window,
-            AppCapability::State,
-            AppCapability::Config,
-            AppCapability::Ipc,
-            AppCapability::ExternalUrl,
-        ],
+        suspend_policy: SYSTEM_EXPLORER_MANIFEST.suspend_policy,
+        requested_capabilities: SYSTEM_EXPLORER_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: AppId::Notepad,
-        launcher_label: "Notepad",
+        app_id: builtin_application_id(AppId::Notepad),
+        launcher_label: SYSTEM_NOTEPAD_MANIFEST.display_name,
         desktop_icon_label: "Notes",
-        show_in_launcher: true,
-        show_on_desktop: false,
-        single_instance: false,
+        show_in_launcher: SYSTEM_NOTEPAD_MANIFEST.show_in_launcher,
+        show_on_desktop: SYSTEM_NOTEPAD_MANIFEST.show_on_desktop,
+        single_instance: SYSTEM_NOTEPAD_MANIFEST.single_instance,
         module: AppModule::new(mount_notepad_app),
-        suspend_policy: SuspendPolicy::OnMinimize,
-        requested_capabilities: &[AppCapability::Window, AppCapability::State],
+        suspend_policy: SYSTEM_NOTEPAD_MANIFEST.suspend_policy,
+        requested_capabilities: SYSTEM_NOTEPAD_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: AppId::Paint,
+        app_id: builtin_application_id(AppId::Paint),
         launcher_label: "Paint",
         desktop_icon_label: "Paint",
         show_in_launcher: true,
@@ -106,34 +119,29 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
         requested_capabilities: &[AppCapability::Window, AppCapability::State],
     },
     AppDescriptor {
-        app_id: AppId::Terminal,
-        launcher_label: "Terminal",
-        desktop_icon_label: "Terminal",
-        show_in_launcher: true,
-        show_on_desktop: true,
-        single_instance: true,
+        app_id: builtin_application_id(AppId::Terminal),
+        launcher_label: SYSTEM_TERMINAL_MANIFEST.display_name,
+        desktop_icon_label: SYSTEM_TERMINAL_MANIFEST.display_name,
+        show_in_launcher: SYSTEM_TERMINAL_MANIFEST.show_in_launcher,
+        show_on_desktop: SYSTEM_TERMINAL_MANIFEST.show_on_desktop,
+        single_instance: SYSTEM_TERMINAL_MANIFEST.single_instance,
         module: AppModule::new(mount_terminal_app),
-        suspend_policy: SuspendPolicy::Never,
-        requested_capabilities: &[AppCapability::Window, AppCapability::State],
+        suspend_policy: SYSTEM_TERMINAL_MANIFEST.suspend_policy,
+        requested_capabilities: SYSTEM_TERMINAL_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: AppId::Settings,
-        launcher_label: "System Settings",
+        app_id: builtin_application_id(AppId::Settings),
+        launcher_label: SYSTEM_SETTINGS_MANIFEST.display_name,
         desktop_icon_label: "Settings",
-        show_in_launcher: true,
-        show_on_desktop: false,
-        single_instance: true,
+        show_in_launcher: SYSTEM_SETTINGS_MANIFEST.show_in_launcher,
+        show_on_desktop: SYSTEM_SETTINGS_MANIFEST.show_on_desktop,
+        single_instance: SYSTEM_SETTINGS_MANIFEST.single_instance,
         module: AppModule::new(mount_settings_app),
-        suspend_policy: SuspendPolicy::OnMinimize,
-        requested_capabilities: &[
-            AppCapability::Window,
-            AppCapability::State,
-            AppCapability::Theme,
-            AppCapability::Wallpaper,
-        ],
+        suspend_policy: SYSTEM_SETTINGS_MANIFEST.suspend_policy,
+        requested_capabilities: SYSTEM_SETTINGS_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: AppId::Dialup,
+        app_id: builtin_application_id(AppId::Dialup),
         launcher_label: "Dial-up",
         desktop_icon_label: "Connect",
         show_in_launcher: true,
@@ -143,20 +151,26 @@ const APP_REGISTRY: [AppDescriptor; 7] = [
         suspend_policy: SuspendPolicy::OnMinimize,
         requested_capabilities: &[AppCapability::Window],
     },
-];
+    ]
+}
+
+fn app_registry_storage() -> &'static OnceLock<Vec<AppDescriptor>> {
+    static APP_REGISTRY: OnceLock<Vec<AppDescriptor>> = OnceLock::new();
+    &APP_REGISTRY
+}
 
 const BUILTIN_PRIVILEGED_APP_IDS: &[&str] = &["system.settings"];
 
 /// Returns the static app registry used by the desktop shell.
 pub fn app_registry() -> &'static [AppDescriptor] {
-    &APP_REGISTRY
+    app_registry_storage().get_or_init(build_app_registry).as_slice()
 }
 
 /// Returns app descriptors that should appear in launcher menus.
 pub fn launcher_apps() -> Vec<AppDescriptor> {
     app_registry()
         .iter()
-        .copied()
+        .cloned()
         .filter(|entry| entry.show_in_launcher)
         .collect()
 }
@@ -165,7 +179,7 @@ pub fn launcher_apps() -> Vec<AppDescriptor> {
 pub fn desktop_icon_apps() -> Vec<AppDescriptor> {
     app_registry()
         .iter()
-        .copied()
+        .cloned()
         .filter(|entry| entry.show_on_desktop)
         .collect()
 }
@@ -176,9 +190,19 @@ pub fn desktop_icon_apps() -> Vec<AppDescriptor> {
 ///
 /// Panics if the app id is not present in the registry.
 pub fn app_descriptor(app_id: AppId) -> &'static AppDescriptor {
+    let app_id = builtin_application_id(app_id);
+    app_descriptor_by_id(&app_id)
+}
+
+/// Returns the descriptor for a canonical application id.
+///
+/// # Panics
+///
+/// Panics if the app id is not present in the registry.
+pub fn app_descriptor_by_id(app_id: &ApplicationId) -> &'static AppDescriptor {
     app_registry()
         .iter()
-        .find(|entry| entry.app_id == app_id)
+        .find(|entry| &entry.app_id == app_id)
         .expect("app descriptor exists")
 }
 
@@ -199,9 +223,37 @@ pub fn app_requested_capabilities(app_id: AppId) -> &'static [AppCapability] {
 
 /// Returns whether `app_id` is privileged in shell policy.
 pub fn app_is_privileged(app_id: AppId) -> bool {
+    let app_id = builtin_application_id(app_id);
     BUILTIN_PRIVILEGED_APP_IDS
         .iter()
-        .any(|id| *id == app_id.canonical_id())
+        .any(|id| *id == app_id.as_str())
+}
+
+/// Returns the canonical [`ApplicationId`] for one built-in runtime app enum.
+pub fn builtin_application_id(app_id: AppId) -> ApplicationId {
+    ApplicationId::trusted(match app_id {
+        AppId::Calculator => "system.calculator",
+        AppId::Explorer => "system.explorer",
+        AppId::Notepad => "system.notepad",
+        AppId::Paint => "system.paint",
+        AppId::Terminal => "system.terminal",
+        AppId::Settings => "system.settings",
+        AppId::Dialup => "system.dialup",
+    })
+}
+
+/// Resolves a built-in runtime enum from a canonical [`ApplicationId`].
+pub fn resolve_builtin_app_id(app_id: &ApplicationId) -> Option<AppId> {
+    match app_id.as_str() {
+        "system.calculator" => Some(AppId::Calculator),
+        "system.explorer" => Some(AppId::Explorer),
+        "system.notepad" => Some(AppId::Notepad),
+        "system.paint" => Some(AppId::Paint),
+        "system.terminal" => Some(AppId::Terminal),
+        "system.settings" => Some(AppId::Settings),
+        "system.dialup" => Some(AppId::Dialup),
+        _ => None,
+    }
 }
 
 /// Builds the default [`OpenWindowRequest`] for a given app.
@@ -214,14 +266,23 @@ pub fn default_open_request(
     app_id: AppId,
     viewport: Option<crate::model::WindowRect>,
 ) -> OpenWindowRequest {
+    let runtime_app_id = builtin_application_id(app_id);
     let mut req = OpenWindowRequest::new(app_id);
-    req.rect = Some(default_window_rect_for_app(app_id, viewport));
+    req.rect = Some(default_window_rect_for_app(&runtime_app_id, viewport));
     req.viewport = viewport;
     req
 }
 
+/// Builds the default [`OpenWindowRequest`] for a canonical application id.
+pub fn default_open_request_by_id(
+    app_id: &ApplicationId,
+    viewport: Option<crate::model::WindowRect>,
+) -> Option<OpenWindowRequest> {
+    resolve_builtin_app_id(app_id).map(|builtin| default_open_request(builtin, viewport))
+}
+
 fn default_window_rect_for_app(
-    app_id: AppId,
+    app_id: &ApplicationId,
     viewport: Option<crate::model::WindowRect>,
 ) -> crate::model::WindowRect {
     let vp = viewport.unwrap_or(crate::model::WindowRect {
@@ -231,14 +292,50 @@ fn default_window_rect_for_app(
         h: 760,
     });
 
-    let (min_w, min_h, max_w_ratio, max_h_ratio, default_w_ratio, default_h_ratio) = match app_id {
-        AppId::Explorer => (620, 420, 0.92, 0.92, 0.80, 0.78),
-        AppId::Notepad => (560, 380, 0.88, 0.88, 0.74, 0.74),
-        AppId::Terminal => (560, 360, 0.88, 0.86, 0.74, 0.70),
-        AppId::Settings => (680, 480, 0.92, 0.92, 0.82, 0.82),
-        AppId::Calculator => (460, 360, 0.78, 0.86, 0.56, 0.74),
-        AppId::Paint => (620, 420, 0.92, 0.92, 0.78, 0.78),
-        AppId::Dialup => (420, 300, 0.66, 0.68, 0.48, 0.50),
+    let (min_w, min_h, max_w_ratio, max_h_ratio, default_w_ratio, default_h_ratio) = match resolve_builtin_app_id(app_id) {
+        Some(AppId::Explorer) => (
+            SYSTEM_EXPLORER_MANIFEST.window_defaults.0,
+            SYSTEM_EXPLORER_MANIFEST.window_defaults.1,
+            0.92,
+            0.92,
+            0.80,
+            0.78,
+        ),
+        Some(AppId::Notepad) => (
+            SYSTEM_NOTEPAD_MANIFEST.window_defaults.0,
+            SYSTEM_NOTEPAD_MANIFEST.window_defaults.1,
+            0.88,
+            0.88,
+            0.74,
+            0.74,
+        ),
+        Some(AppId::Terminal) => (
+            SYSTEM_TERMINAL_MANIFEST.window_defaults.0,
+            SYSTEM_TERMINAL_MANIFEST.window_defaults.1,
+            0.88,
+            0.86,
+            0.74,
+            0.70,
+        ),
+        Some(AppId::Settings) => (
+            SYSTEM_SETTINGS_MANIFEST.window_defaults.0,
+            SYSTEM_SETTINGS_MANIFEST.window_defaults.1,
+            0.92,
+            0.92,
+            0.82,
+            0.82,
+        ),
+        Some(AppId::Calculator) => (
+            SYSTEM_CALCULATOR_MANIFEST.window_defaults.0,
+            SYSTEM_CALCULATOR_MANIFEST.window_defaults.1,
+            0.78,
+            0.86,
+            0.56,
+            0.74,
+        ),
+        Some(AppId::Paint) => (620, 420, 0.92, 0.92, 0.78, 0.78),
+        Some(AppId::Dialup) => (420, 300, 0.66, 0.68, 0.48, 0.50),
+        None => (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, 0.80, 0.80, 0.70, 0.70),
     };
 
     let max_w = ((vp.w as f32) * max_w_ratio) as i32;
@@ -444,8 +541,10 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
         let last_saved = last_saved;
         let hydrate_alive = hydrate_alive.clone();
         spawn_local(async move {
-            match platform_storage::load_app_state_with_migration::<PaintPlaceholderState, _>(
-                platform_storage::PAINT_STATE_NAMESPACE,
+            let store = app_state_store();
+            match load_app_state_with_migration(
+                &store,
+                PAINT_STATE_NAMESPACE,
                 PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION,
                 migrate_paint_placeholder_state,
             )
@@ -498,8 +597,10 @@ fn PaintPlaceholderApp(context: AppMountContext) -> impl IntoView {
 
         // Legacy namespace persistence retained for migration compatibility.
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state(
-                platform_storage::PAINT_STATE_NAMESPACE,
+            let store = app_state_store();
+            if let Err(err) = save_app_state_with(
+                &store,
+                PAINT_STATE_NAMESPACE,
                 PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION,
                 &snapshot,
             )
@@ -615,8 +716,8 @@ mod tests {
 
     #[test]
     fn paint_namespace_migration_supports_schema_zero() {
-        let envelope = platform_storage::build_app_state_envelope(
-            platform_storage::PAINT_STATE_NAMESPACE,
+        let envelope = build_app_state_envelope(
+            PAINT_STATE_NAMESPACE,
             0,
             &PaintPlaceholderState::default(),
         )

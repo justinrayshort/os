@@ -4,7 +4,9 @@ use desktop_runtime::{
     use_desktop_runtime, DeepLinkState, DesktopAction, DesktopProvider, DesktopShell,
 };
 #[cfg(any(test, target_arch = "wasm32"))]
-use desktop_runtime::{AppId, DeepLinkOpenTarget};
+use desktop_app_contract::ApplicationId;
+#[cfg(any(test, target_arch = "wasm32"))]
+use desktop_runtime::DeepLinkOpenTarget;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
@@ -197,8 +199,8 @@ fn parse_open_target(raw: &str) -> Option<DeepLinkOpenTarget> {
 }
 
 #[cfg(any(test, target_arch = "wasm32"))]
-fn parse_app_id(raw: &str) -> Option<AppId> {
-    AppId::from_canonical_id(raw.trim())
+fn parse_app_id(raw: &str) -> Option<ApplicationId> {
+    ApplicationId::new(raw.trim()).ok()
 }
 
 #[cfg(test)]
@@ -212,7 +214,7 @@ mod tests {
             parsed.open,
             vec![
                 DeepLinkOpenTarget::NotesSlug("hello-world".to_string()),
-                DeepLinkOpenTarget::App(AppId::Terminal),
+                DeepLinkOpenTarget::App(ApplicationId::trusted("system.terminal")),
             ]
         );
     }
@@ -224,7 +226,7 @@ mod tests {
             parsed.open,
             vec![
                 DeepLinkOpenTarget::ProjectSlug("alpha".to_string()),
-                DeepLinkOpenTarget::App(AppId::Dialup),
+                DeepLinkOpenTarget::App(ApplicationId::trusted("system.dialup")),
             ]
         );
     }
@@ -245,8 +247,8 @@ mod tests {
         assert_eq!(
             parsed.open,
             vec![
-                DeepLinkOpenTarget::App(AppId::Explorer),
-                DeepLinkOpenTarget::App(AppId::Terminal),
+                DeepLinkOpenTarget::App(ApplicationId::trusted("system.explorer")),
+                DeepLinkOpenTarget::App(ApplicationId::trusted("system.terminal")),
                 DeepLinkOpenTarget::ProjectSlug("beta".to_string()),
             ]
         );

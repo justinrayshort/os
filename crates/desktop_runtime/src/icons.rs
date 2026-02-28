@@ -7,7 +7,9 @@
 
 use leptos::*;
 
-use crate::model::AppId;
+use desktop_app_contract::ApplicationId;
+
+use crate::{apps, model::AppId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 /// Semantic icon identifiers used by shell components.
@@ -187,15 +189,16 @@ impl IconSize {
 }
 
 /// Returns the semantic Fluent icon mapped to an application id.
-pub const fn app_icon_name(app_id: AppId) -> IconName {
-    match app_id {
-        AppId::Calculator => IconName::Calculator,
-        AppId::Explorer => IconName::ExplorerFolder,
-        AppId::Notepad => IconName::DocumentText,
-        AppId::Paint => IconName::PaintBrush,
-        AppId::Terminal => IconName::Terminal,
-        AppId::Settings => IconName::Settings,
-        AppId::Dialup => IconName::Connect,
+pub fn app_icon_name(app_id: &ApplicationId) -> IconName {
+    match apps::resolve_builtin_app_id(app_id) {
+        Some(AppId::Calculator) => IconName::Calculator,
+        Some(AppId::Explorer) => IconName::ExplorerFolder,
+        Some(AppId::Notepad) => IconName::DocumentText,
+        Some(AppId::Paint) => IconName::PaintBrush,
+        Some(AppId::Terminal) => IconName::Terminal,
+        Some(AppId::Settings) => IconName::Settings,
+        Some(AppId::Dialup) => IconName::Connect,
+        None => IconName::WindowMultiple,
     }
 }
 

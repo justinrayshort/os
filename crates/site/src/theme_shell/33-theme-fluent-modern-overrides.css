@@ -557,6 +557,11 @@
   outline-offset: 2px;
 }
 
+.desktop-shell[data-skin="modern-adaptive"] .terminal-input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 .desktop-shell[data-skin="modern-adaptive"] .desktop-icon:focus-visible,
 .desktop-shell[data-skin="modern-adaptive"] .taskbar-app.keyboard-selected {
   outline-offset: -2px;

@@ -573,3 +573,8 @@
   outline: 1px dotted #0f3278;
   outline-offset: -3px;
 }
+
+.desktop-shell[data-skin="classic-xp"] .terminal-input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}

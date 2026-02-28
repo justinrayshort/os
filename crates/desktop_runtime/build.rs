@@ -82,10 +82,15 @@ fn main() {
 
     manifests.sort_by(|a, b| a.app_id.cmp(&b.app_id));
     let json = serde_json::to_string_pretty(&manifests).expect("serialize app manifest catalog");
+    let manifest_metadata_consts = manifests
+        .iter()
+        .map(render_manifest_metadata_const)
+        .collect::<Vec<_>>()
+        .join("\n\n");
     let generated = format!(
         "/// Build-time generated app manifest catalog JSON.\n\
-pub const APP_MANIFEST_CATALOG_JSON: &str = r##\"{}\"##;\n",
-        json
+pub const APP_MANIFEST_CATALOG_JSON: &str = r##\"{}\"##;\n\n{}\n",
+        json, manifest_metadata_consts
     );
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
@@ -136,6 +141,63 @@ pub const BUILTIN_WALLPAPER_CATALOG_JSON: &str = r##\"{}\"##;\n",
     let out_file = out_dir.join("wallpaper_catalog_generated.rs");
     fs::write(&out_file, generated)
         .unwrap_or_else(|err| panic!("failed to write {}: {err}", out_file.display()));
+}
+
+fn render_manifest_metadata_const(manifest: &AppManifest) -> String {
+    let ident = manifest
+        .app_id
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch.to_ascii_uppercase() } else { '_' })
+        .collect::<String>();
+    let requested_capabilities = manifest
+        .requested_capabilities
+        .iter()
+        .map(|capability| match capability.as_str() {
+            "window" => "AppCapability::Window",
+            "state" => "AppCapability::State",
+            "config" => "AppCapability::Config",
+            "theme" => "AppCapability::Theme",
+            "wallpaper" => "AppCapability::Wallpaper",
+            "notifications" => "AppCapability::Notifications",
+            "ipc" => "AppCapability::Ipc",
+            "external-url" => "AppCapability::ExternalUrl",
+            "commands" => "AppCapability::Commands",
+            other => panic!(
+                "unsupported requested capability `{other}` in manifest {}",
+                manifest.app_id
+            ),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let suspend_policy = match manifest.suspend_policy.as_str() {
+        "never" => "SuspendPolicy::Never",
+        "on-minimize" => "SuspendPolicy::OnMinimize",
+        other => panic!(
+            "unsupported suspend policy `{other}` in manifest {}",
+            manifest.app_id
+        ),
+    };
+
+    format!(
+        "const {ident}_MANIFEST: GeneratedAppManifestMetadata = GeneratedAppManifestMetadata {{
+    display_name: \"{display_name}\",
+    requested_capabilities: &[{requested_capabilities}],
+    single_instance: {single_instance},
+    suspend_policy: {suspend_policy},
+    show_in_launcher: {show_in_launcher},
+    show_on_desktop: {show_on_desktop},
+    window_defaults: ({window_width}, {window_height}),
+}};",
+        ident = ident,
+        display_name = manifest.display_name,
+        requested_capabilities = requested_capabilities,
+        single_instance = manifest.single_instance,
+        suspend_policy = suspend_policy,
+        show_in_launcher = manifest.show_in_launcher,
+        show_on_desktop = manifest.show_on_desktop,
+        window_width = manifest.window_defaults.width,
+        window_height = manifest.window_defaults.height,
+    )
 }
 
 fn validate_wallpaper_catalog(crate_root: &Path, catalog: &WallpaperCatalog) {

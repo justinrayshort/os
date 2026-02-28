@@ -12,6 +12,7 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
+pub mod adapters;
 mod bridge;
 pub mod cache;
 pub mod fs;
@@ -19,6 +20,12 @@ pub mod notifications;
 pub mod storage;
 pub mod wallpaper;
 
+pub use adapters::{
+    app_state_store, content_cache, explorer_fs_service, host_strategy_name,
+    notification_service, prefs_store, selected_host_strategy, wallpaper_asset_service,
+    AppStateStoreAdapter, ContentCacheAdapter, ExplorerFsServiceAdapter, HostStrategy,
+    NotificationServiceAdapter, PrefsStoreAdapter, WallpaperAssetServiceAdapter,
+};
 pub use cache::cache_api::WebContentCache;
 pub use cache::tauri_cache_api::TauriContentCache;
 pub use fs::explorer::{TauriExplorerFsService, WebExplorerFsService};

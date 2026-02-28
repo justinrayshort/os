@@ -1,4 +1,4 @@
-//! Explorer desktop app UI component backed by [`platform_storage`].
+//! Explorer desktop app UI component backed by typed host contracts.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
@@ -6,11 +6,15 @@ use std::{cell::Cell, rc::Rc};
 
 use desktop_app_contract::{AppEvent, AppServices};
 use leptos::*;
-use platform_storage::{
-    self, ExplorerBackend, ExplorerBackendStatus, ExplorerEntry, ExplorerEntryKind,
+use platform_host::{
+    explorer_preview_cache_key, save_app_state_with, save_pref_with, session_store, ContentCache,
+    ExplorerBackend, ExplorerBackendStatus, ExplorerEntry, ExplorerEntryKind, ExplorerFsService,
     ExplorerMetadata, ExplorerPermissionMode, ExplorerPrefs, EXPLORER_CACHE_NAME,
     EXPLORER_PREFS_KEY, EXPLORER_STATE_NAMESPACE,
 };
+#[cfg(test)]
+use platform_host::{migrate_envelope_payload, AppStateEnvelope};
+use platform_host_web::{app_state_store, content_cache, explorer_fs_service, prefs_store};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -19,10 +23,10 @@ const EXPLORER_STATE_SCHEMA_VERSION: u32 = 1;
 #[cfg(test)]
 fn migrate_explorer_state(
     schema_version: u32,
-    envelope: &platform_storage::AppStateEnvelope,
+    envelope: &AppStateEnvelope,
 ) -> Result<Option<ExplorerPersistedState>, String> {
     match schema_version {
-        0 => platform_storage::migrate_envelope_payload(envelope).map(Some),
+        0 => migrate_envelope_payload(envelope).map(Some),
         _ => Ok(None),
     }
 }
@@ -169,7 +173,7 @@ fn refresh_directory(signals: ExplorerSignals, path: Option<String>) {
     let target = normalize_path(&target);
     signals.busy.set(true);
     spawn_local(async move {
-        let list_result = platform_storage::explorer_list_dir(&target).await;
+        let list_result = explorer_fs_service().list_dir(&target).await;
         match list_result {
             Ok(result) => {
                 let cwd = result.cwd.clone();
@@ -209,7 +213,7 @@ fn refresh_directory(signals: ExplorerSignals, path: Option<String>) {
 fn inspect_path(signals: ExplorerSignals, path: String) {
     let path = normalize_path(&path);
     spawn_local(async move {
-        match platform_storage::explorer_stat(&path).await {
+        match explorer_fs_service().stat(&path).await {
             Ok(meta) => signals.selected_metadata.set(Some(meta)),
             Err(err) => set_error(signals, format!("metadata failed: {err}")),
         }
@@ -220,7 +224,7 @@ fn open_file(signals: ExplorerSignals, path: String) {
     let path = normalize_path(&path);
     signals.busy.set(true);
     spawn_local(async move {
-        match platform_storage::explorer_read_text_file(&path).await {
+        match explorer_fs_service().read_text_file(&path).await {
             Ok(file) => {
                 signals.editor_path.set(Some(file.path.clone()));
                 signals.editor_text.set(file.text.clone());
@@ -233,8 +237,8 @@ fn open_file(signals: ExplorerSignals, path: String) {
                 );
             }
             Err(err) => {
-                let cache_key = platform_storage::explorer_preview_cache_key(&path);
-                match platform_storage::cache_get_text(EXPLORER_CACHE_NAME, &cache_key).await {
+                let cache_key = explorer_preview_cache_key(&path);
+                match content_cache().get_text(EXPLORER_CACHE_NAME, &cache_key).await {
                     Ok(Some(cached)) => {
                         signals.editor_path.set(Some(path.clone()));
                         signals.editor_text.set(cached);
@@ -264,7 +268,7 @@ fn save_editor(signals: ExplorerSignals) {
     let text = signals.editor_text.get_untracked();
     signals.busy.set(true);
     spawn_local(async move {
-        match platform_storage::explorer_write_text_file(&path, &text).await {
+        match explorer_fs_service().write_text_file(&path, &text).await {
             Ok(meta) => {
                 signals.editor_dirty.set(false);
                 signals.selected_metadata.set(Some(meta.clone()));
@@ -281,7 +285,7 @@ fn create_folder(signals: ExplorerSignals, cwd: String, name: String) {
     let path = join_path(&cwd, &name);
     signals.busy.set(true);
     spawn_local(async move {
-        match platform_storage::explorer_create_dir(&path).await {
+        match explorer_fs_service().create_dir(&path).await {
             Ok(meta) => {
                 set_notice(signals, format!("Created folder {}", meta.path));
                 refresh_directory(signals, Some(parent_path(&meta.path)));
@@ -296,7 +300,7 @@ fn create_file(signals: ExplorerSignals, cwd: String, name: String) {
     let path = join_path(&cwd, &name);
     signals.busy.set(true);
     spawn_local(async move {
-        match platform_storage::explorer_create_file(&path, "").await {
+        match explorer_fs_service().create_file(&path, "").await {
             Ok(meta) => {
                 signals.selected_path.set(Some(meta.path.clone()));
                 signals.selected_metadata.set(Some(meta.clone()));
@@ -321,7 +325,7 @@ fn delete_selected(signals: ExplorerSignals) {
     }
     signals.busy.set(true);
     spawn_local(async move {
-        match platform_storage::explorer_delete(&path, true).await {
+        match explorer_fs_service().delete(&path, true).await {
             Ok(()) => {
                 if signals.editor_path.get_untracked() == Some(path.clone()) {
                     signals.editor_path.set(None);
@@ -341,7 +345,9 @@ fn delete_selected(signals: ExplorerSignals) {
 
 fn request_rw_permission(signals: ExplorerSignals) {
     spawn_local(async move {
-        match platform_storage::explorer_request_permission(ExplorerPermissionMode::Readwrite).await
+        match explorer_fs_service()
+            .request_permission(ExplorerPermissionMode::Readwrite)
+            .await
         {
             Ok(permission) => {
                 if let Some(mut status) = signals.status.get_untracked() {
@@ -358,7 +364,7 @@ fn request_rw_permission(signals: ExplorerSignals) {
 fn connect_native_folder(signals: ExplorerSignals) {
     signals.busy.set(true);
     spawn_local(async move {
-        match platform_storage::explorer_pick_native_directory().await {
+        match explorer_fs_service().pick_native_directory().await {
             Ok(status) => {
                 signals.status.set(Some(status));
                 signals.cwd.set("/".to_string());
@@ -375,7 +381,7 @@ fn connect_native_folder(signals: ExplorerSignals) {
 /// Explorer app window contents.
 ///
 /// The component hydrates persisted UI state and proxies filesystem/cache operations through
-/// [`platform_storage`].
+/// typed host contracts.
 pub fn ExplorerApp(
     /// App launch parameters (for example, initial project slug hints).
     launch_params: Value,
@@ -411,7 +417,7 @@ pub fn ExplorerApp(
     let services_for_persist = services.clone();
     let services_for_publish = services.clone();
 
-    let session_store = platform_storage::session_store();
+    let session_store = session_store();
     let initial_draft_name = session_store
         .get::<String>("explorer.ui.new_entry_name")
         .unwrap_or_default();
@@ -489,7 +495,7 @@ pub fn ExplorerApp(
         let prefs_value = prefs.get();
         spawn_local(async move {
             if let Err(err) =
-                platform_storage::save_pref_typed(EXPLORER_PREFS_KEY, &prefs_value).await
+                save_pref_with(&prefs_store(), EXPLORER_PREFS_KEY, &prefs_value).await
             {
                 logging::warn!("explorer prefs persist failed: {err}");
             }
@@ -542,7 +548,9 @@ pub fn ExplorerApp(
         }
 
         spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state(
+            let store = app_state_store();
+            if let Err(err) = save_app_state_with(
+                &store,
                 EXPLORER_STATE_NAMESPACE,
                 EXPLORER_STATE_SCHEMA_VERSION,
                 &snapshot,
@@ -913,7 +921,7 @@ mod tests {
 
     #[test]
     fn explorer_namespace_migration_supports_schema_zero() {
-        let envelope = platform_storage::build_app_state_envelope(
+        let envelope = platform_host::build_app_state_envelope(
             EXPLORER_STATE_NAMESPACE,
             0,
             &ExplorerPersistedState::default(),

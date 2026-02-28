@@ -5,12 +5,13 @@ edition = "2021"
 
 [features]
 default = ["csr"]
-csr = ["leptos/csr", "platform_storage/csr", "desktop_app_contract/csr"]
+csr = ["leptos/csr", "desktop_app_contract/csr"]
 
 [dependencies]
 desktop_app_contract = { path = "../../desktop_app_contract", default-features = false }
 leptos = { version = "0.6", default-features = false }
-platform_storage = { path = "../../platform_storage", default-features = false }
+platform_host = { path = "../../platform_host" }
+platform_host_web = { path = "../../platform_host_web", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 system_shell_contract = { path = "../../system_shell_contract" }

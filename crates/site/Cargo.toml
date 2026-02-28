@@ -17,6 +17,7 @@ csr = ["desktop_runtime/csr", "leptos/csr", "leptos_meta/csr", "leptos_router/cs
 desktop-tauri = ["desktop_runtime/desktop-tauri"]
 
 [dependencies]
+desktop_app_contract = { path = "../desktop_app_contract" }
 desktop_runtime = { path = "../desktop_runtime", default-features = false }
 leptos = { version = "0.6", default-features = false }
 leptos_meta = { version = "0.6", default-features = false }

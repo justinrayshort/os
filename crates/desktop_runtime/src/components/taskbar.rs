@@ -298,7 +298,10 @@ pub(super) fn Taskbar() -> impl IntoView {
                                 }
                             >
                                 <span class="taskbar-app-icon" aria-hidden="true">
-                                    <FluentIcon icon=app_icon_name(app_id) size=IconSize::Sm />
+                                    <FluentIcon
+                                        icon=app_icon_name(&apps::builtin_application_id(app_id))
+                                        size=IconSize::Sm
+                                    />
                                 </span>
                                 <span class="visually-hidden">{app_id.title()}</span>
                             </button>
@@ -332,7 +335,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                                     selected_running_window.get() == Some(win.id),
                                 )
                             }
-                            data-app=win.app_id.icon_id()
+                            data-app=win.icon_id.clone()
                             aria-pressed=move || win.is_focused && !win.minimized
                             aria-label=taskbar_window_aria_label(&win)
                             title=taskbar_window_aria_label(&win)
@@ -363,7 +366,10 @@ pub(super) fn Taskbar() -> impl IntoView {
                             }
                         >
                             <span class="taskbar-app-icon" aria-hidden="true">
-                                <FluentIcon icon=app_icon_name(win.app_id) size=IconSize::Sm />
+                                <FluentIcon
+                                    icon=app_icon_name(&apps::builtin_application_id(win.app_id))
+                                    size=IconSize::Sm
+                                />
                             </span>
                             <span class="taskbar-app-label">{win.title.clone()}</span>
                         </button>
