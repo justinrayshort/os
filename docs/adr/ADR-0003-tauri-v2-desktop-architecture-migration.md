@@ -3,7 +3,7 @@ title: "ADR-0003 Tauri v2 Desktop Architecture Migration"
 category: "adr"
 owner: "architecture-owner"
 status: "draft"
-last_reviewed: "2026-02-27"
+last_reviewed: "2026-02-28"
 audience: ["engineering", "platform", "release"]
 invariants:
   - "Desktop reducer semantics remain platform-agnostic and independent of direct Tauri command implementations."
@@ -24,9 +24,8 @@ Proposed
 ## Context
 
 The current system is a browser-hosted desktop shell built with Rust, Leptos, and WASM. The runtime
-and app layers are largely host-agnostic, but persistence and filesystem behavior are still implemented
-through browser APIs (IndexedDB, Cache API, localStorage, File System Access API) behind
-`platform_storage` and `platform_host_web`.
+and app layers are largely host-agnostic, while persistence and filesystem behavior are modeled
+through `platform_host` contracts and implemented through `platform_host_web` and `desktop_tauri`.
 
 The project now requires a production-ready desktop distribution with:
 
@@ -43,8 +42,8 @@ flag-day rewrite.
 
 Adopt a staged migration to a Tauri v2 desktop architecture that preserves existing runtime/app crates,
 keeps `platform_host` as the canonical typed contract layer, introduces Tauri-native command-backed
-host implementations, and refactors `platform_storage` so host adapters are selected by explicit target
-strategy rather than hardwired browser-only bindings.
+host implementations, and converges host adapter selection in `platform_host_web` plus desktop
+transport wiring in `desktop_tauri`.
 
 ## Decision Details
 
@@ -56,7 +55,7 @@ strategy rather than hardwired browser-only bindings.
   - `crates/apps/*`
 - Preserve `crates/platform_host` as the canonical typed host-domain boundary.
 - Introduce Tauri-native host implementation crate(s) for app state, prefs, cache, and explorer FS.
-- Refactor `crates/platform_storage` adapter binding so browser and Tauri transports are selectable.
+- Keep browser/Tauri transport selection explicit in host wiring rather than baking it into runtime crates.
 - Keep browser (`platform_host_web`) support for web distribution and parity testing.
 
 ### 2) IPC command interface contract
@@ -117,7 +116,7 @@ All request/response payloads MUST use `platform_host` models to avoid contract 
 
 ### Stage 1: Adapter decoupling
 
-- Refactor `platform_storage` to remove hardwired dependency on browser host adapters.
+- Refactor browser host bindings behind `platform_host_web` adapters.
 - Add explicit host strategy selection for browser vs desktop distributions.
 - Keep existing browser behavior unchanged as the first acceptance gate.
 
@@ -133,9 +132,9 @@ All request/response payloads MUST use `platform_host` models to avoid contract 
 - Implement explorer filesystem command handlers with scoped-root enforcement.
 - Add native folder selection flow and root-state persistence.
 
-## Implementation Status Snapshot (2026-02-27)
+## Implementation Status Snapshot (2026-02-28)
 
-- Stage 1 complete: `platform_storage` host-strategy selection landed.
+- Stage 1 complete: explicit browser/desktop host-strategy selection landed in `platform_host_web`.
 - Stage 2 complete: `desktop_tauri` crate/config and command entrypoints landed.
 - Stage 3 in progress:
   - landed: typed `app_state_load` / `app_state_save` / `app_state_delete` /
@@ -144,16 +143,17 @@ All request/response payloads MUST use `platform_host` models to avoid contract 
     and explorer command handlers (`explorer_status`, `explorer_list_dir`,
     `explorer_read_text_file`, `explorer_write_text_file`, `explorer_create_dir`,
     `explorer_create_file`, `explorer_delete`, `explorer_stat`) with scoped-root enforcement.
-  - landed: desktop feature wiring (`site` -> `desktop_runtime` ->
-    `platform_storage/desktop-host-tauri`) now routes app-state/prefs/cache/explorer.
+  - landed: desktop feature wiring (`site` -> `desktop_runtime` -> `platform_host_web` /
+    `desktop_tauri`) now routes app-state/prefs/cache/explorer.
   - landed: explorer UI preference hydrate/persist plus runtime theme/terminal-history compatibility
     paths now use typed host prefs helpers.
+  - landed: the temporary `platform_storage` facade has been removed from the workspace.
   - pending: hardening/cross-platform validation phases.
 
 ### Stage 4: Frontend IPC transport and runtime integration
 
 - Implement WASM-side Tauri transport adapter for command invocation.
-- Wire `platform_storage` to use Tauri transport in desktop distribution.
+- Wire browser/desktop host selection entirely through host adapter composition.
 - Integrate desktop deep-link event handling into runtime action dispatch.
 
 ### Stage 5: Hardening and cross-platform validation

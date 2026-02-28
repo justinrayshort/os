@@ -177,9 +177,9 @@ The terminal does not call Tauri or browser host APIs directly.
 
 Host-backed commands route through:
 
-- `platform_storage::load_pref_typed` / `save_pref_typed`
-- `platform_storage::list_app_state_namespaces`
-- `platform_storage::explorer_*`
+- `platform_host::load_pref_with` / `save_pref_with` via the configured prefs store
+- `platform_host::AppStateStore` helpers via the configured app-state store
+- `platform_host::ExplorerFsService` via the configured explorer service
 - existing runtime reducer actions for app/window/theme control
 
-This keeps browser and Tauri behavior aligned with the existing host adapter strategy.
+This keeps browser and Tauri behavior aligned through the shared `platform_host` contract surface.

@@ -110,7 +110,7 @@ Fast inner-loop validation scoped to changed packages/docs:
 cargo flow
 ```
 
-Fast verification (workspace Rust + docs, including explicit `platform_storage` feature-set matrix):
+Fast verification (workspace Rust + docs):
 
 ```bash
 cargo verify-fast
@@ -255,7 +255,6 @@ cargo xtask docs all
 - `crates/desktop_tauri` - Tauri desktop shell host crate/configuration (`tauri.conf.json`, capabilities, CLI hooks)
 - `crates/platform_host` - API-first host contracts/types crate (Phase 1 migration foundation)
 - `crates/platform_host_web` - browser (`wasm32`) implementations of `platform_host` services (app-state/cache/prefs/explorer)
-- `crates/platform_storage` - storage-adapter and compatibility facade around host implementations during migration
 - `crates/apps/explorer` - Explorer app UI crate
 - `crates/apps/notepad` - Notepad app UI crate
 - `crates/apps/calculator` - Calculator app UI crate

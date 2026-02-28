@@ -1,7 +1,7 @@
 //! Browser capability bridge implementations for `platform_host_web` service adapters.
 //!
 //! This module is organized by host domain (`app_state`, `prefs`, `cache`, `fs`) while preserving a
-//! stable public API for callers in `platform_storage` and `platform_host_web` adapters.
+//! stable internal API for the browser and desktop adapter wiring in `platform_host_web`.
 
 mod app_state;
 mod cache;

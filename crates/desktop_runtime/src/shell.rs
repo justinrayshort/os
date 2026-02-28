@@ -34,7 +34,7 @@ use tabled::grid::records::vec_records::Text;
 use crate::{
     apps,
     components::DesktopRuntimeContext,
-    model::{AppId, WindowId},
+    model::WindowId,
     reducer::DesktopAction,
 };
 
@@ -44,7 +44,7 @@ const TABLE_RENDER_WIDTH: usize = 120;
 /// Builds a command service for one mounted window/app.
 pub fn build_command_service(
     runtime: DesktopRuntimeContext,
-    app_id: AppId,
+    app_id: ApplicationId,
     window_id: WindowId,
     history: leptos::ReadSignal<Vec<String>>,
 ) -> CommandService {
@@ -82,18 +82,20 @@ pub fn build_command_service(
         }),
         Rc::new({
             let runtime = runtime.clone();
+            let app_id = app_id.clone();
             move |registration| {
-                register_app_command(runtime.clone(), app_id, window_id, registration)
+                register_app_command(runtime.clone(), app_id.clone(), window_id, registration)
             }
         }),
         Rc::new({
             let runtime = runtime.clone();
+            let app_id = app_id.clone();
             move |provider: Rc<dyn AppCommandProvider>| {
                 let mut handles = Vec::new();
                 for registration in provider.commands() {
                     handles.push(register_app_command(
                         runtime.clone(),
-                        app_id,
+                        app_id.clone(),
                         window_id,
                         registration,
                     )?);
@@ -129,7 +131,7 @@ pub fn register_builtin_commands(runtime: DesktopRuntimeContext) -> Vec<CommandR
 
 fn register_app_command(
     runtime: DesktopRuntimeContext,
-    app_id: AppId,
+    app_id: ApplicationId,
     window_id: WindowId,
     registration: AppCommandRegistration,
 ) -> Result<AppCommandRegistrationHandle, String> {
@@ -547,7 +549,7 @@ fn window_row(window: &crate::model::WindowRecord) -> StructuredRecord {
     StructuredRecord {
         fields: vec![
             int_field("id", window.id.0 as i64),
-            string_field("app_id", window.app_id.canonical_id()),
+            string_field("app_id", window.app_id.as_str()),
             string_field("title", window.title.clone()),
             bool_field("focused", window.is_focused),
             bool_field("minimized", window.minimized),

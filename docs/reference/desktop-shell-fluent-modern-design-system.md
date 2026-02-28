@@ -47,7 +47,7 @@ The module provides:
 - `IconName`: semantic icon identifiers (app icons, window controls, tray/status icons, launcher/overflow icons)
 - `IconSize`: standardized shell icon sizes (`Xs`, `Sm`, `Md`, `Lg`)
 - `FluentIcon`: single SVG rendering component for shell usage
-- `app_icon_name(AppId)`: semantic app-to-icon mapping for desktop/taskbar/window reuse
+- `app_icon_name_by_id(ApplicationId)`: semantic app-to-icon mapping for desktop/taskbar/window reuse
 
 Implementation notes:
 

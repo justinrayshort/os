@@ -9,7 +9,8 @@ mod window;
 use std::time::Duration;
 
 use desktop_app_contract::{
-    WallpaperAnimationPolicy, WallpaperDisplayMode, WallpaperMediaKind, WallpaperPosition,
+    ApplicationId, WallpaperAnimationPolicy, WallpaperDisplayMode, WallpaperMediaKind,
+    WallpaperPosition,
 };
 use leptos::*;
 
@@ -26,9 +27,7 @@ use crate::{
     apps,
     host::DesktopHostContext,
     icons::{app_icon_name, FluentIcon, IconName, IconSize},
-    model::{
-        AppId, DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord,
-    },
+    model::{DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord},
     reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
     shell, wallpaper,
 };
@@ -318,16 +317,17 @@ pub fn DesktopShell() -> impl IntoView {
         desktop_context_menu.set(None);
         runtime.dispatch_action(DesktopAction::CloseStartMenu);
         let desktop = runtime.state.get_untracked();
-        if let Some(window_id) = preferred_window_for_app(&desktop, AppId::Settings) {
+        let app_id = apps::settings_application_id();
+        if let Some(window_id) = preferred_window_for_app(&desktop, &app_id) {
             focus_or_unminimize_window(runtime, &desktop, window_id);
             return;
         }
 
         let viewport = runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX);
-        runtime.dispatch_action(DesktopAction::OpenWindow(apps::default_open_request(
-            AppId::Settings,
-            Some(viewport),
-        )));
+        runtime.dispatch_action(DesktopAction::OpenWindow(
+            apps::default_open_request_by_id(&app_id, Some(viewport))
+                .expect("system settings app exists"),
+        ));
     });
 
     view! {
@@ -498,9 +498,9 @@ struct PinnedTaskbarAppState {
     all_minimized: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum TaskbarShortcutTarget {
-    Pinned(AppId),
+    Pinned(ApplicationId),
     Window(WindowId),
 }
 
@@ -521,14 +521,8 @@ struct TaskbarTrayWidget {
     action: TaskbarTrayWidgetAction,
 }
 
-fn pinned_taskbar_apps() -> &'static [AppId] {
-    const PINNED: &[AppId] = &[
-        AppId::Explorer,
-        AppId::Terminal,
-        AppId::Notepad,
-        AppId::Calculator,
-    ];
-    PINNED
+fn pinned_taskbar_apps() -> Vec<ApplicationId> {
+    apps::pinned_taskbar_app_ids()
 }
 
 fn ordered_taskbar_windows(state: &DesktopState) -> Vec<WindowRecord> {
@@ -537,28 +531,31 @@ fn ordered_taskbar_windows(state: &DesktopState) -> Vec<WindowRecord> {
     windows
 }
 
-fn preferred_window_for_app(state: &DesktopState, app_id: AppId) -> Option<WindowId> {
+fn preferred_window_for_app(state: &DesktopState, app_id: &ApplicationId) -> Option<WindowId> {
     state
         .windows
         .iter()
         .rev()
-        .find(|win| win.app_id == app_id && !win.minimized && win.is_focused)
+        .find(|win| win.app_id == *app_id && !win.minimized && win.is_focused)
         .or_else(|| {
             state
                 .windows
                 .iter()
                 .rev()
-                .find(|win| win.app_id == app_id && !win.minimized)
+                .find(|win| win.app_id == *app_id && !win.minimized)
         })
-        .or_else(|| state.windows.iter().rev().find(|win| win.app_id == app_id))
+        .or_else(|| state.windows.iter().rev().find(|win| win.app_id == *app_id))
         .map(|win| win.id)
 }
 
-fn pinned_taskbar_app_state(state: &DesktopState, app_id: AppId) -> PinnedTaskbarAppState {
+fn pinned_taskbar_app_state(
+    state: &DesktopState,
+    app_id: &ApplicationId,
+) -> PinnedTaskbarAppState {
     let windows: Vec<&WindowRecord> = state
         .windows
         .iter()
-        .filter(|win| win.app_id == app_id)
+        .filter(|win| win.app_id == *app_id)
         .collect();
     let running_count = windows.len();
     let focused = windows.iter().any(|win| win.is_focused && !win.minimized);
@@ -729,18 +726,19 @@ fn taskbar_window_aria_label(win: &WindowRecord) -> String {
     parts.join(", ")
 }
 
-fn taskbar_pinned_aria_label(app_id: AppId, status: PinnedTaskbarAppState) -> String {
+fn taskbar_pinned_aria_label(app_id: &ApplicationId, status: PinnedTaskbarAppState) -> String {
+    let title = apps::app_title_by_id(app_id);
     match status.running_count {
-        0 => format!("Pinned {} (not running)", app_id.title()),
-        1 => format!("Pinned {} (1 window running)", app_id.title()),
-        count => format!("Pinned {} ({} windows running)", app_id.title(), count),
+        0 => format!("Pinned {} (not running)", title),
+        1 => format!("Pinned {} (1 window running)", title),
+        count => format!("Pinned {} ({} windows running)", title, count),
     }
 }
 
 fn build_taskbar_shortcut_targets(state: &DesktopState) -> Vec<TaskbarShortcutTarget> {
     let mut targets: Vec<TaskbarShortcutTarget> = pinned_taskbar_apps()
         .iter()
-        .copied()
+        .cloned()
         .map(TaskbarShortcutTarget::Pinned)
         .collect();
 
@@ -753,19 +751,19 @@ fn build_taskbar_shortcut_targets(state: &DesktopState) -> Vec<TaskbarShortcutTa
     targets
 }
 
-fn activate_pinned_taskbar_app(runtime: DesktopRuntimeContext, app_id: AppId) {
+fn activate_pinned_taskbar_app(runtime: DesktopRuntimeContext, app_id: ApplicationId) {
     let state = runtime.state.get_untracked();
-    let descriptor = apps::app_descriptor(app_id);
+    let descriptor = apps::app_descriptor_by_id(&app_id);
 
     if descriptor.single_instance {
-        if let Some(window_id) = preferred_window_for_app(&state, app_id) {
+        if let Some(window_id) = preferred_window_for_app(&state, &app_id) {
             focus_or_unminimize_window(runtime, &state, window_id);
             return;
         }
     }
 
     runtime.dispatch_action(DesktopAction::ActivateApp {
-        app_id: apps::builtin_application_id(app_id),
+        app_id,
         viewport: Some(runtime.host.desktop_viewport_rect(TASKBAR_HEIGHT_PX)),
     });
 }
@@ -869,7 +867,7 @@ fn build_taskbar_tray_widgets(state: &DesktopState) -> Vec<TaskbarTrayWidget> {
     let dialup_online = state
         .windows
         .iter()
-        .any(|win| matches!(win.app_id, AppId::Dialup) && !win.minimized);
+        .any(|win| apps::is_dialup_application_id(&win.app_id) && !win.minimized);
 
     vec![
         TaskbarTrayWidget {

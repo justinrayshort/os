@@ -270,41 +270,54 @@ pub(super) fn Taskbar() -> impl IntoView {
                     <div class="taskbar-pins" role="group" aria-label="Pinned apps">
                         <For
                             each=move || pinned_taskbar_apps().to_vec()
-                            key=|app_id| *app_id as u8
+                            key=|app_id| app_id.to_string()
                             let:app_id
                         >
-                            <button
-                                class=move || {
-                                    let desktop = state.get();
-                                    taskbar_pinned_button_class(pinned_taskbar_app_state(&desktop, app_id))
+                            {{
+                                let app_id_for_class = app_id.clone();
+                                let app_id_for_title = app_id.clone();
+                                let app_id_for_aria = app_id.clone();
+                                let app_id_for_click = app_id.clone();
+                                let app_icon_name_value = app_icon_name(&app_id);
+                                let app_data_id = apps::app_icon_id_by_id(&app_id).to_string();
+                                let app_title = apps::app_title_by_id(&app_id).to_string();
+                                view! {
+                                    <button
+                                        class=move || {
+                                            let desktop = state.get();
+                                            taskbar_pinned_button_class(
+                                                pinned_taskbar_app_state(&desktop, &app_id_for_class),
+                                            )
+                                        }
+                                        data-app=app_data_id.clone()
+                                        title=move || {
+                                            let desktop = state.get();
+                                            let status = pinned_taskbar_app_state(&desktop, &app_id_for_title);
+                                            taskbar_pinned_aria_label(&app_id_for_title, status)
+                                        }
+                                        aria-label=move || {
+                                            let desktop = state.get();
+                                            let status = pinned_taskbar_app_state(&desktop, &app_id_for_aria);
+                                            taskbar_pinned_aria_label(&app_id_for_aria, status)
+                                        }
+                                        on:click=move |_| {
+                                            window_context_menu.set(None);
+                                            overflow_menu_open.set(false);
+                                            clock_menu_open.set(false);
+                                            runtime.dispatch_action(DesktopAction::CloseStartMenu);
+                                            activate_pinned_taskbar_app(runtime, app_id_for_click.clone());
+                                        }
+                                    >
+                                        <span class="taskbar-app-icon" aria-hidden="true">
+                                            <FluentIcon
+                                                icon=app_icon_name_value
+                                                size=IconSize::Sm
+                                            />
+                                        </span>
+                                        <span class="visually-hidden">{app_title}</span>
+                                    </button>
                                 }
-                                data-app=app_id.icon_id()
-                                title=move || {
-                                    let desktop = state.get();
-                                    let status = pinned_taskbar_app_state(&desktop, app_id);
-                                    taskbar_pinned_aria_label(app_id, status)
-                                }
-                                aria-label=move || {
-                                    let desktop = state.get();
-                                    let status = pinned_taskbar_app_state(&desktop, app_id);
-                                    taskbar_pinned_aria_label(app_id, status)
-                                }
-                                on:click=move |_| {
-                                    window_context_menu.set(None);
-                                    overflow_menu_open.set(false);
-                                    clock_menu_open.set(false);
-                                    runtime.dispatch_action(DesktopAction::CloseStartMenu);
-                                    activate_pinned_taskbar_app(runtime, app_id);
-                                }
-                            >
-                                <span class="taskbar-app-icon" aria-hidden="true">
-                                    <FluentIcon
-                                        icon=app_icon_name(&apps::builtin_application_id(app_id))
-                                        size=IconSize::Sm
-                                    />
-                                </span>
-                                <span class="visually-hidden">{app_id.title()}</span>
-                            </button>
+                            }}
                         </For>
                     </div>
                 </Show>
@@ -367,7 +380,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                         >
                             <span class="taskbar-app-icon" aria-hidden="true">
                                 <FluentIcon
-                                    icon=app_icon_name(&apps::builtin_application_id(win.app_id))
+                                    icon=app_icon_name(&win.app_id)
                                     size=IconSize::Sm
                                 />
                             </span>

@@ -3,10 +3,11 @@
 use std::collections::BTreeMap;
 
 use desktop_app_contract::{ApplicationId, WallpaperConfig, WallpaperLibrarySnapshot};
+use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::wallpaper;
+use crate::{apps, wallpaper};
 
 /// Schema version for serialized [`DesktopSnapshot`] layout payloads.
 pub const DESKTOP_LAYOUT_SCHEMA_VERSION: u32 = 2;
@@ -22,78 +23,17 @@ pub struct WindowId(
     pub u64,
 );
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-/// Application ids supported by the desktop shell.
-pub enum AppId {
-    /// Calculator app.
-    Calculator,
-    /// Explorer app.
-    Explorer,
-    /// Notepad app.
-    Notepad,
-    /// Paint placeholder app.
-    Paint,
-    /// Terminal app.
-    Terminal,
-    /// System Settings app.
-    Settings,
-    /// Dial-up placeholder app.
-    Dialup,
+fn parse_application_id_compat(raw: &str) -> Option<ApplicationId> {
+    apps::parse_application_id_compat(raw)
 }
 
-impl AppId {
-    /// Human-readable app title for window chrome and launcher entries.
-    pub fn title(self) -> &'static str {
-        match self {
-            Self::Calculator => "Calculator",
-            Self::Explorer => "Explorer",
-            Self::Notepad => "Notepad",
-            Self::Paint => "Paint",
-            Self::Terminal => "Terminal",
-            Self::Settings => "System Settings",
-            Self::Dialup => "Dial-up",
-        }
-    }
-
-    /// Stable icon id used by shell icon renderers.
-    pub fn icon_id(self) -> &'static str {
-        match self {
-            Self::Calculator => "calculator",
-            Self::Explorer => "folder",
-            Self::Notepad => "notepad",
-            Self::Paint => "paint",
-            Self::Terminal => "terminal",
-            Self::Settings => "settings",
-            Self::Dialup => "modem",
-        }
-    }
-
-    /// Canonical namespaced identifier used by manifest/catalog/deep-link integration.
-    pub const fn canonical_id(self) -> &'static str {
-        match self {
-            Self::Calculator => "system.calculator",
-            Self::Explorer => "system.explorer",
-            Self::Notepad => "system.notepad",
-            Self::Paint => "system.paint",
-            Self::Terminal => "system.terminal",
-            Self::Settings => "system.settings",
-            Self::Dialup => "system.dialup",
-        }
-    }
-
-    /// Resolves a canonical namespaced id into an [`AppId`].
-    pub fn from_canonical_id(raw: &str) -> Option<Self> {
-        match raw.trim() {
-            "system.calculator" => Some(Self::Calculator),
-            "system.explorer" => Some(Self::Explorer),
-            "system.notepad" => Some(Self::Notepad),
-            "system.paint" => Some(Self::Paint),
-            "system.terminal" => Some(Self::Terminal),
-            "system.settings" => Some(Self::Settings),
-            "system.dialup" => Some(Self::Dialup),
-            _ => None,
-        }
-    }
+fn deserialize_application_id_compat<'de, D>(deserializer: D) -> Result<ApplicationId, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    parse_application_id_compat(&raw)
+        .ok_or_else(|| D::Error::custom(format!("unknown application id `{raw}`")))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -170,7 +110,8 @@ pub struct WindowRecord {
     /// Unique runtime id for this window.
     pub id: WindowId,
     /// Application id rendered by the window.
-    pub app_id: AppId,
+    #[serde(deserialize_with = "deserialize_application_id_compat")]
+    pub app_id: ApplicationId,
     /// Current window title shown in the chrome.
     pub title: String,
     /// Current icon id used in window chrome/taskbar.
@@ -413,7 +354,8 @@ pub struct DesktopSnapshot {
 /// Request payload used by the reducer to open a new window.
 pub struct OpenWindowRequest {
     /// Target application id.
-    pub app_id: AppId,
+    #[serde(deserialize_with = "deserialize_application_id_compat")]
+    pub app_id: ApplicationId,
     /// Optional window title override.
     pub title: Option<String>,
     /// Optional icon id override.
@@ -440,15 +382,15 @@ impl OpenWindowRequest {
     /// # Example
     ///
     /// ```rust
-    /// use desktop_runtime::{AppId, OpenWindowRequest};
+    /// use desktop_runtime::{ApplicationId, OpenWindowRequest};
     ///
-    /// let request = OpenWindowRequest::new(AppId::Explorer);
-    /// assert_eq!(request.app_id, AppId::Explorer);
+    /// let request = OpenWindowRequest::new(ApplicationId::trusted("system.explorer"));
+    /// assert_eq!(request.app_id, ApplicationId::trusted("system.explorer"));
     /// assert!(request.rect.is_none());
     /// ```
-    pub fn new(app_id: AppId) -> Self {
+    pub fn new(app_id: impl Into<ApplicationId>) -> Self {
         Self {
-            app_id,
+            app_id: app_id.into(),
             title: None,
             icon_id: None,
             rect: None,
@@ -631,7 +573,7 @@ mod tests {
             windows: vec![
                 WindowRecord {
                     id: WindowId(4),
-                    app_id: AppId::Explorer,
+                    app_id: ApplicationId::trusted("system.explorer"),
                     title: "Explorer".to_string(),
                     icon_id: "folder".to_string(),
                     rect: WindowRect::default(),
@@ -649,7 +591,7 @@ mod tests {
                 },
                 WindowRecord {
                     id: WindowId(11),
-                    app_id: AppId::Terminal,
+                    app_id: ApplicationId::trusted("system.terminal"),
                     title: "Terminal".to_string(),
                     icon_id: "terminal".to_string(),
                     rect: WindowRect::default(),

@@ -118,7 +118,7 @@ pub(crate) fn print_docs_usage() {
            mermaid [--require-renderer]      Validate Mermaid blocks/files (structural checks)\n\
            openapi [--require-validator]     Validate OpenAPI specs (Rust-native parse/sanity)\n\
            ui-conformance                    Validate machine-checkable UI conformance token/literal rules\n\
-           storage-boundary                  Enforce typed app-state load boundary in app/runtime crates\n\
+           storage-boundary                  Enforce typed app-state envelope boundary in app/runtime crates\n\
            app-contract                      Validate app manifest and contract conventions\n\
            all [flags]                       Run all docs checks\n\
              Flags: --require-renderer --require-openapi-validator\n\
@@ -2196,7 +2196,7 @@ fn validate_typed_persistence_boundary(root: &Path) -> Vec<Problem> {
                     continue;
                 }
             };
-            let imports_low_level_load = imports_platform_storage_low_level_load(&text);
+            let imports_low_level_load = imports_legacy_low_level_app_state_load(&text);
 
             for (idx, line) in text.lines().enumerate() {
                 if uses_forbidden_envelope_load_call(line, imports_low_level_load) {
@@ -2351,7 +2351,7 @@ fn is_valid_namespaced_app_id(id: &str) -> bool {
     })
 }
 
-fn imports_platform_storage_low_level_load(text: &str) -> bool {
+fn imports_legacy_low_level_app_state_load(text: &str) -> bool {
     text.lines().any(|line| {
         let compact = line
             .chars()
@@ -2790,14 +2790,14 @@ Continue.
     }
 
     #[test]
-    fn storage_boundary_detects_platform_storage_import_patterns() {
-        assert!(imports_platform_storage_low_level_load(
+    fn storage_boundary_detects_legacy_low_level_import_patterns() {
+        assert!(imports_legacy_low_level_app_state_load(
             "use platform_storage::load_app_state_envelope;"
         ));
-        assert!(imports_platform_storage_low_level_load(
+        assert!(imports_legacy_low_level_app_state_load(
             "use platform_storage::{load_app_state_envelope, save_app_state_typed};"
         ));
-        assert!(!imports_platform_storage_low_level_load(
+        assert!(!imports_legacy_low_level_app_state_load(
             "use platform_storage::load_app_state_typed;"
         ));
     }

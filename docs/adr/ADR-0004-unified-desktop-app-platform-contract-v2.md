@@ -8,7 +8,7 @@ audience: ["engineering", "platform", "release"]
 invariants:
   - "Desktop apps integrate only through desktop_app_contract v2 (`ApplicationId`, `AppServices`, lifecycle/inbox context, and registration descriptors)."
   - "desktop_runtime owns lifecycle orchestration, focus/window-manager semantics, app catalog loading, policy evaluation, and IPC routing."
-  - "Host-dependent capability implementations remain behind platform host boundaries (`platform_host`, `platform_host_web`, `desktop_tauri`, `platform_storage`)."
+  - "Host-dependent capability implementations remain behind platform host boundaries (`platform_host`, `platform_host_web`, `desktop_tauri`)."
   - "All built-in apps are manifest-backed and declare requested capabilities used for runtime enforcement and policy evaluation."
 tags: ["adr", "architecture", "desktop-runtime", "contracts", "capabilities", "ipc"]
 domain: "architecture"
@@ -48,7 +48,7 @@ Adopt `desktop_app_contract` v2 as the mandatory desktop app integration surface
 ### Boundary ownership
 
 - `desktop_runtime` owns window manager semantics, lifecycle orchestration, focus behavior, app catalog consumption, capability/policy enforcement, and IPC routing.
-- `platform_host`, `platform_host_web`, `platform_storage`, and `desktop_tauri` own host-dependent capability implementations and transport boundaries.
+- `platform_host`, `platform_host_web`, and `desktop_tauri` own host-dependent capability implementations and transport boundaries.
 - `crates/apps/*` consume only `desktop_app_contract` lifecycle and services APIs.
 
 ### Packaging/discovery model
@@ -75,7 +75,7 @@ Adopt `desktop_app_contract` v2 as the mandatory desktop app integration surface
 ### Trade-offs
 
 - Contract cutover is breaking for app modules using legacy `AppHost` usage patterns.
-- Runtime still carries internal enum app IDs for some internal-only paths; this is acceptable in the current phase because external boundaries now use canonical IDs.
+- Runtime no longer exposes a separate public app-id enum at its external boundaries; canonical `ApplicationId` is the control-plane identity across runtime, manifests, and deep links.
 - Capability policy overlays are intentionally simple for this phase and may be extended in follow-up ADRs.
 
 ## Alternatives Considered

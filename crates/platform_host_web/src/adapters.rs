@@ -63,10 +63,14 @@ pub fn host_strategy_name() -> &'static str {
     }
 }
 
+/// Adapter enum that erases the concrete app-state backend behind [`AppStateStore`].
 #[derive(Debug, Clone, Copy)]
 pub enum AppStateStoreAdapter {
+    /// Browser-backed IndexedDB app-state persistence.
     Browser(WebAppStateStore),
+    /// Native desktop transport app-state persistence.
     DesktopTauri(TauriAppStateStore),
+    /// No-op fallback used when desktop transport is intentionally stubbed.
     DesktopStub(NoopAppStateStore),
 }
 
@@ -115,10 +119,14 @@ impl AppStateStore for AppStateStoreAdapter {
     }
 }
 
+/// Adapter enum that erases the concrete content-cache backend behind [`ContentCache`].
 #[derive(Debug, Clone, Copy)]
 pub enum ContentCacheAdapter {
+    /// Browser Cache API-backed content cache.
     Browser(WebContentCache),
+    /// Native desktop transport content cache.
     DesktopTauri(TauriContentCache),
+    /// No-op fallback used when desktop transport is intentionally stubbed.
     DesktopStub(NoopContentCache),
 }
 
@@ -161,10 +169,15 @@ impl ContentCache for ContentCacheAdapter {
     }
 }
 
+/// Adapter enum that erases the concrete explorer/filesystem backend behind
+/// [`ExplorerFsService`].
 #[derive(Debug, Clone, Copy)]
 pub enum ExplorerFsServiceAdapter {
+    /// Browser-backed virtual/native filesystem integration.
     Browser(WebExplorerFsService),
+    /// Native desktop explorer/filesystem transport.
     DesktopTauri(TauriExplorerFsService),
+    /// No-op fallback used when desktop transport is intentionally stubbed.
     DesktopStub(NoopExplorerFsService),
 }
 
@@ -276,14 +289,22 @@ impl ExplorerFsService for ExplorerFsServiceAdapter {
     }
 }
 
+/// Adapter enum that erases the concrete preferences backend behind [`PrefsStore`].
 #[derive(Debug, Clone, Copy)]
 pub enum PrefsStoreAdapter {
+    /// Browser-backed preference storage.
     Browser(WebPrefsStore),
+    /// Native desktop transport preference storage.
     DesktopTauri(TauriPrefsStore),
+    /// No-op fallback used when desktop transport is intentionally stubbed.
     DesktopStub(NoopPrefsStore),
 }
 
 impl PrefsStoreAdapter {
+    /// Loads a browser-local typed preference value.
+    ///
+    /// Returns `None` for transport-backed desktop strategies because typed local helpers are only
+    /// available on the browser implementation.
     pub fn load_typed<T: DeserializeOwned>(self, key: &str) -> Option<T> {
         match self {
             Self::Browser(store) => store.load_typed(key),
@@ -291,6 +312,10 @@ impl PrefsStoreAdapter {
         }
     }
 
+    /// Saves a browser-local typed preference value.
+    ///
+    /// Desktop transport strategies accept the call as a no-op because callers should use the
+    /// trait-based async [`PrefsStore`] path for cross-host persistence.
     pub fn save_typed<T: Serialize>(self, key: &str, value: &T) -> Result<(), String> {
         match self {
             Self::Browser(store) => store.save_typed(key, value),
@@ -335,10 +360,15 @@ impl PrefsStore for PrefsStoreAdapter {
     }
 }
 
+/// Adapter enum that erases the concrete notification backend behind
+/// [`NotificationService`].
 #[derive(Debug, Clone, Copy)]
 pub enum NotificationServiceAdapter {
+    /// Browser Notification API-backed delivery.
     Browser(WebNotificationService),
+    /// Native desktop transport-backed delivery.
     DesktopTauri(TauriNotificationService),
+    /// No-op fallback used when desktop transport is intentionally stubbed.
     DesktopStub(NoopNotificationService),
 }
 
@@ -356,10 +386,15 @@ impl NotificationService for NotificationServiceAdapter {
     }
 }
 
+/// Adapter enum that erases the concrete wallpaper-library backend behind
+/// [`WallpaperAssetService`].
 #[derive(Debug, Clone, Copy)]
 pub enum WallpaperAssetServiceAdapter {
+    /// Browser-backed wallpaper library implementation.
     Browser(WebWallpaperAssetService),
+    /// Desktop transport build that currently reuses the browser wallpaper implementation.
     DesktopTauri(WebWallpaperAssetService),
+    /// No-op fallback used when desktop transport is intentionally stubbed.
     DesktopStub(NoopWallpaperAssetService),
 }
 
@@ -458,6 +493,7 @@ impl WallpaperAssetService for WallpaperAssetServiceAdapter {
     }
 }
 
+/// Builds the app-state adapter for the compile-time selected host strategy.
 pub fn app_state_store() -> AppStateStoreAdapter {
     match selected_host_strategy() {
         HostStrategy::Browser => AppStateStoreAdapter::Browser(WebAppStateStore),
@@ -466,6 +502,7 @@ pub fn app_state_store() -> AppStateStoreAdapter {
     }
 }
 
+/// Builds the content-cache adapter for the compile-time selected host strategy.
 pub fn content_cache() -> ContentCacheAdapter {
     match selected_host_strategy() {
         HostStrategy::Browser => ContentCacheAdapter::Browser(WebContentCache),
@@ -474,6 +511,7 @@ pub fn content_cache() -> ContentCacheAdapter {
     }
 }
 
+/// Builds the explorer/filesystem adapter for the compile-time selected host strategy.
 pub fn explorer_fs_service() -> ExplorerFsServiceAdapter {
     match selected_host_strategy() {
         HostStrategy::Browser => ExplorerFsServiceAdapter::Browser(WebExplorerFsService),
@@ -484,6 +522,7 @@ pub fn explorer_fs_service() -> ExplorerFsServiceAdapter {
     }
 }
 
+/// Builds the preferences adapter for the compile-time selected host strategy.
 pub fn prefs_store() -> PrefsStoreAdapter {
     match selected_host_strategy() {
         HostStrategy::Browser => PrefsStoreAdapter::Browser(WebPrefsStore),
@@ -492,6 +531,7 @@ pub fn prefs_store() -> PrefsStoreAdapter {
     }
 }
 
+/// Builds the notification adapter for the compile-time selected host strategy.
 pub fn notification_service() -> NotificationServiceAdapter {
     match selected_host_strategy() {
         HostStrategy::Browser => NotificationServiceAdapter::Browser(WebNotificationService),
@@ -502,6 +542,7 @@ pub fn notification_service() -> NotificationServiceAdapter {
     }
 }
 
+/// Builds the wallpaper-library adapter for the compile-time selected host strategy.
 pub fn wallpaper_asset_service() -> WallpaperAssetServiceAdapter {
     match selected_host_strategy() {
         HostStrategy::Browser => WallpaperAssetServiceAdapter::Browser(WebWallpaperAssetService),

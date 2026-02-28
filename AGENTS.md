@@ -9,7 +9,6 @@ This repository is maintained with help from automated agents. Use this file as 
   - `crates/desktop_runtime` (desktop state model, reducer/effects, shell UI, app registry)
   - `crates/platform_host` (typed host-domain contracts and shared models)
   - `crates/platform_host_web` (browser/wasm implementations of `platform_host` services)
-  - `crates/platform_storage` (compatibility facade + host adapters around browser capabilities and platform contracts)
   - `crates/apps/*` (desktop app crates such as calculator, explorer, notepad, terminal)
   - `xtask` (local workflow orchestration for docs, perf, verification, dev-server tasks)
 - Documentation system split across:
@@ -35,7 +34,7 @@ This repository is maintained with help from automated agents. Use this file as 
 - Preserve the host-boundary layering:
   - `platform_host` defines typed contracts/models
   - `platform_host_web` provides browser/wasm implementations
-  - `platform_storage` remains the compatibility facade and adapter layer during migration
+  - `desktop_tauri` owns native transport/bootstrap integration
 - When editing Wiki tutorial/how-to pages, preserve the shared instructional template headings and order (validated by `cargo xtask docs wiki`).
 - Material shell/UI design-system changes (theme tokens, shell component visuals, interaction patterns, iconography, responsive behavior, accessibility-affecting UI) must be reviewed against Apple HIG principles and Fluent UI integration standards using:
   - `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`
@@ -234,7 +233,7 @@ cargo xtask docs audit-report --output .artifacts/docs-audit.json
 
 ### 5.5 Rust Workspace Commands
 
-Prefer direct Cargo commands for clarity (there is no `package.json` script wrapper in this repo). A root `Makefile` exists for convenience and mirrors common verification/docs/prototype commands:
+Prefer direct Cargo commands for clarity (there is no `package.json` script wrapper in this repo). A root `Makefile` remains only as a small compatibility shell over the primary Cargo aliases:
 
 ```bash
 cargo check --workspace
@@ -286,31 +285,17 @@ cargo check-all
 cargo test-all
 ```
 
-Common `make` wrappers (delegating to Cargo aliases / `xtask` docs commands):
+Compatibility `make` wrappers:
 
 ```bash
-make flow
-make doctor
 make verify-fast
 make verify
 make wiki-init
 make rustdoc-check
 make docs-check
-make docs-audit
-make perf-doctor
-make perf-check
-make perf-bench
-make perf-baseline BASELINE=<name>
-make perf-compare BASELINE=<name>
-make proto-check
-make proto-build
-make proto-build-dev
 make proto-serve
-make proto-start
 make proto-stop
 make proto-status
-make proto-logs
-make proto-restart
 ```
 
 ### 5.8 `xtask` / Validator Development Checks
@@ -369,7 +354,7 @@ Run `cargo xtask docs wiki` in addition when validating staged wiki-only diagnos
 
 ### 6.4 Host Boundary / Storage Migration Changes (Code + Docs)
 
-When changing `platform_host`, `platform_host_web`, or `platform_storage` contracts/behavior:
+When changing `platform_host`, `platform_host_web`, or `desktop_tauri` contracts/behavior:
 
 1. Preserve documented compatibility invariants unless an explicit migration plan is part of the change (namespaces, envelope semantics, explorer cache/prefs conventions, IndexedDB/object-store names where applicable).
 2. Update rustdoc for affected contracts and adapters (traits, models, error semantics, examples if user-facing).
@@ -397,10 +382,9 @@ When changing `platform_host`, `platform_host_web`, or `platform_storage` contra
 - `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md` (objective HIG + Fluent conformance status checklist)
 - `docs/sop/ui-design-conformance-review-sop.md` (repeatable UI conformance review and change-control procedure)
 - `.cargo/config.toml` (Cargo aliases for local workflows)
-- `Makefile` (optional convenience wrappers delegating to Cargo aliases)
+- `Makefile` (minimal compatibility wrappers delegating to Cargo aliases)
 - `crates/platform_host/src/` (typed host contracts and shared models)
 - `crates/platform_host_web/src/` (browser/wasm implementations of `platform_host` services)
-- `crates/platform_storage/src/host_adapters.rs` (compatibility/adaptation layer between runtime callers and host services)
 
 ## 8) Final Response Expectations (for agents)
 

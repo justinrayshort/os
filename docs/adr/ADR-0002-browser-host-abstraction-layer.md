@@ -3,7 +3,7 @@ title: "ADR-0002 Unified Browser Host Abstraction Layer"
 category: "adr"
 owner: "architecture-owner"
 status: "draft"
-last_reviewed: "2026-02-26"
+last_reviewed: "2026-02-28"
 audience: ["engineering", "platform"]
 invariants:
   - "Desktop reducer semantics remain independent of direct browser API calls."
@@ -19,6 +19,13 @@ lifecycle: "draft"
 ## Status
 
 Proposed
+
+## Current State Note
+
+This ADR records the migration plan that introduced `platform_host` and `platform_host_web`.
+The temporary `platform_storage` compatibility facade described below has since been removed after
+the host-boundary migration completed. Historical discussion of that facade remains in this ADR as
+implementation history and rationale, not as the current target-state architecture.
 
 ## Problem Statement
 
@@ -633,4 +640,3 @@ The following are mandatory during phases 1-6 unless superseded by a later ADR:
 - Add a follow-up ADR (or update this ADR status) when the compatibility facade is removed.
 - Document capability detection and fallback policy in `docs/reference/` once phase 5 begins.
 - Add a contributor guide snippet covering "where browser APIs may be introduced" in code review.
-

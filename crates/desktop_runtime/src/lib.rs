@@ -14,7 +14,8 @@
 //!
 //! ```rust
 //! use desktop_runtime::{
-//!     reduce_desktop, AppId, DesktopAction, DesktopState, InteractionState, OpenWindowRequest,
+//!     reduce_desktop, ApplicationId, DesktopAction, DesktopState, InteractionState,
+//!     OpenWindowRequest,
 //! };
 //!
 //! let mut state = DesktopState::default();
@@ -23,7 +24,9 @@
 //! let effects = reduce_desktop(
 //!     &mut state,
 //!     &mut interaction,
-//!     DesktopAction::OpenWindow(OpenWindowRequest::new(AppId::Calculator)),
+//!     DesktopAction::OpenWindow(OpenWindowRequest::new(
+//!         ApplicationId::trusted("system.calculator"),
+//!     )),
 //! )
 //! .expect("reducer should open a window");
 //!

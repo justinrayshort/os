@@ -7,7 +7,7 @@ last_reviewed: "2026-02-27"
 audience: ["engineering", "platform"]
 invariants:
   - "Cargo aliases in .cargo/config.toml remain the preferred stable entry points for common project workflows."
-  - "Root Makefile targets delegate to Cargo aliases or `xtask` docs commands and must not diverge silently."
+  - "Root Makefile targets remain a minimal compatibility shell over Cargo aliases and must not diverge silently."
 tags: ["reference", "commands", "tooling", "developer-workflow"]
 domain: "docs"
 lifecycle: "ga"
@@ -51,7 +51,7 @@ This page documents the supported top-level commands for local development, veri
 
 - `cargo flow`: Run scoped inner-loop validation (`xtask flow`) using changed files (`git status --porcelain`) to target affected workspace crates.
 - `cargo doctor` / `cargo doctor --fix`: Validate local automation prerequisites (tooling, wiki wiring, managed state) and optionally apply safe fixes.
-- `cargo verify-fast`: Run fast workspace verification (`xtask verify fast`) with explicit handling for mutually-exclusive `platform_storage` host feature sets and conditional desktop host checks.
+- `cargo verify-fast`: Run fast workspace verification (`xtask verify fast`) with conditional desktop host checks.
   - `cargo verify-fast --with-desktop`: Force include desktop host checks.
   - `cargo verify-fast --without-desktop`: Force skip desktop host checks.
 - `cargo verify`: Run full project verification (`xtask verify`, default mode `full`) including prototype compile checks, optional clippy, and always-on desktop host coverage.
@@ -79,7 +79,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo docs-check`: Run `cargo xtask docs all` (Cargo alias convenience wrapper).
 - `cargo docs-audit`: Generate `.artifacts/docs-audit.json` via `cargo xtask docs audit-report`.
 - `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages (useful for staged/isolated wiki diagnostics).
-- `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries (disallow direct `platform_storage::load_app_state_envelope(...)` usage in `crates/apps`, `crates/desktop_runtime`, and `crates/site`).
+- `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries by flagging legacy low-level envelope access patterns in `crates/apps`, `crates/desktop_runtime`, and `crates/site`.
 - `cargo xtask docs app-contract`: Validate app manifest contract shape, app-id conventions, and forbidden ad hoc app integration patterns.
 - `scripts/ui/capture-skin-matrix.sh [base_url] [output_dir]`: Capture screenshot evidence matrix across skins (`modern-adaptive`, `classic-xp`, `classic-95`) and breakpoints (`desktop`, `tablet`, `mobile`) into `.artifacts/ui-conformance/screenshots/`.
 - `scripts/ui/keyboard-flow-smoke.sh [base_url] [output_dir]`: Run keyboard traversal smoke checks for context menu and system-surface settings flows across all skins, writing `.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json`.
@@ -89,35 +89,16 @@ This page documents the supported top-level commands for local development, veri
 
 ## Root `make` Compatibility Targets
 
-These targets exist for operator convenience and local muscle memory. They delegate to Cargo aliases or `xtask` docs commands.
+These targets exist only as a small compatibility shell for operator convenience and local muscle memory. Prefer the Cargo aliases above for everyday use.
 
 - `make verify-fast` -> `cargo verify-fast`
 - `make verify` -> `cargo verify`
-- `make flow` -> `cargo flow`
-- `make doctor` -> `cargo doctor`
 - `make wiki-init` -> `git submodule sync --recursive && git submodule update --init --recursive`
+- `make docs-check` -> `cargo docs-check`
 - `make rustdoc-check` -> `cargo doc --workspace --no-deps && cargo test --workspace --doc`
-- `make docs-check` -> `cargo xtask docs all` + `make rustdoc-check`
-- `make docs-audit` -> `cargo xtask docs audit-report --output .artifacts/docs-audit.json`
-- `make perf-doctor` -> `cargo perf doctor`
-- `make perf-check` -> `cargo perf check`
-- `make perf-bench` -> `cargo perf bench`
-- `make perf-baseline BASELINE=<name>` -> `cargo perf baseline <name>`
-- `make perf-compare BASELINE=<name>` -> `cargo perf compare <name>`
-- `make perf-flamegraph ARGS='--bench <bench_name>'` -> `cargo perf flamegraph <args>`
-- `make perf-heaptrack [ARGS='-- cargo bench --workspace']` -> `cargo perf heaptrack <args>`
-- `make proto-check` -> `cargo web-check`
-- `make proto-build` -> `cargo web-build`
-- `make proto-build-dev` -> `cargo dev build`
 - `make proto-serve` -> `cargo dev serve`
-- `make proto-start` -> `cargo dev start`
 - `make proto-stop` -> `cargo dev stop`
 - `make proto-status` -> `cargo dev status`
-- `make proto-logs` -> `cargo dev logs`
-- `make proto-restart` -> `cargo dev restart`
-- `make tauri-check` -> `cargo xtask tauri check`
-- `make tauri-dev` -> `cargo tauri-dev`
-- `make tauri-build` -> `cargo tauri-build`
 
 ## Local Browser Automation (Playwright CLI Wrapper)
 
@@ -162,7 +143,7 @@ Expected viewport result with the current local config: `"1440x900"`.
 ## Guidance
 
 - Prefer Cargo aliases in automation and documentation because they are defined in-repo and map directly to `xtask`.
-- Use `make` targets when you want shorter commands or to align with existing shell habits.
+- Use `make` targets only when you need compatibility with existing local shell habits.
 - When adding or changing a top-level command, update this page, `README.md`, and `AGENTS.md` in the same change.
 - When public APIs change, update rustdoc comments and run doctests in the same change.
 - When tutorials/how-to/explanations change, update the `wiki/` submodule in the same review cycle.

@@ -1,7 +1,7 @@
 //! Browser (`wasm32`) implementations of [`platform_host`] service contracts.
 //!
-//! This phase exports app-state, cache, prefs, and explorer/filesystem implementations while
-//! `platform_storage` remains the temporary compatibility facade.
+//! This crate is the concrete browser-side host wiring layer for app-state, cache, prefs,
+//! explorer/filesystem, notifications, and wallpaper services.
 //!
 //! Bridge bindings are split by domain under `bridge/`:
 //! - `bridge::app_state`
@@ -12,6 +12,7 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
+/// Compile-time host-strategy selection and concrete adapter factories for runtime wiring.
 pub mod adapters;
 mod bridge;
 pub mod cache;

@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use thiserror::Error;
 
 use crate::model::{
-    AppId, DeepLinkOpenTarget, DeepLinkState, DesktopSkin, DesktopSnapshot, DesktopState,
+    DeepLinkOpenTarget, DeepLinkState, DesktopSkin, DesktopSnapshot, DesktopState,
     DesktopTheme, InteractionState, OpenWindowRequest, PointerPosition, ResizeEdge, ResizeSession,
     WindowId, WindowRecord, WindowRect, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
 };
@@ -497,11 +497,13 @@ pub fn reduce_desktop(
             let rect = clamp_window_rect_to_viewport(rect, viewport);
             let record = WindowRecord {
                 id: window_id,
-                app_id: req.app_id,
-                title: req.title.unwrap_or_else(|| req.app_id.title().to_string()),
+                app_id: req.app_id.clone(),
+                title: req
+                    .title
+                    .unwrap_or_else(|| apps::app_title_by_id(&req.app_id).to_string()),
                 icon_id: req
                     .icon_id
-                    .unwrap_or_else(|| req.app_id.icon_id().to_string()),
+                    .unwrap_or_else(|| apps::app_icon_id_by_id(&req.app_id).to_string()),
                 rect,
                 restore_rect: None,
                 z_index: 0,
@@ -528,7 +530,7 @@ pub fn reduce_desktop(
             emit_focus_transition(previously_focused, Some(window_id), state, &mut effects);
             effects.push(RuntimeEffect::PersistLayout);
             effects.push(RuntimeEffect::FocusWindowInput(window_id));
-            if matches!(req.app_id, AppId::Dialup) && state.theme.audio_enabled {
+            if apps::is_dialup_application_id(&req.app_id) && state.theme.audio_enabled {
                 effects.push(RuntimeEffect::PlaySound("dialup-open"));
             }
         }
@@ -573,7 +575,7 @@ pub fn reduce_desktop(
                 window.minimized = true;
                 window.is_focused = false;
                 let should_suspend = matches!(
-                    apps::app_suspend_policy(window.app_id),
+                    apps::app_suspend_policy_by_id(&window.app_id),
                     desktop_app_contract::SuspendPolicy::OnMinimize
                 ) && !window.suspended;
                 if should_suspend {
@@ -817,10 +819,10 @@ pub fn reduce_desktop(
                 .windows
                 .iter()
                 .find(|w| w.id == window_id)
-                .map(|w| w.app_id)
+                .map(|w| w.app_id.clone())
                 .ok_or(ReducerError::WindowNotFound)?;
             if let Some(required) = command_required_capability(&command) {
-                if !command_allowed_for_app(source_app_id, required) {
+                if !command_allowed_for_app(&source_app_id, required) {
                     return Ok(effects);
                 }
             }
@@ -849,7 +851,7 @@ pub fn reduce_desktop(
                         .windows
                         .iter()
                         .find(|w| w.id == window_id)
-                        .map(|w| apps::builtin_application_id(w.app_id))
+                        .map(|w| w.app_id.clone())
                         .ok_or(ReducerError::WindowNotFound)?;
                     let nested = reduce_desktop(
                         state,
@@ -1134,18 +1136,16 @@ pub fn reduce_desktop(
 /// Converts a parsed deep-link target into an [`OpenWindowRequest`].
 pub fn build_open_request_from_deeplink(target: DeepLinkOpenTarget) -> OpenWindowRequest {
     match target {
-        DeepLinkOpenTarget::App(app_id) => OpenWindowRequest::new(
-            apps::resolve_builtin_app_id(&app_id).expect("built-in app id"),
-        ),
+        DeepLinkOpenTarget::App(app_id) => OpenWindowRequest::new(app_id),
         DeepLinkOpenTarget::NotesSlug(slug) => {
-            let mut req = OpenWindowRequest::new(AppId::Notepad);
+            let mut req = OpenWindowRequest::new(ApplicationId::trusted("system.notepad"));
             req.title = Some(format!("Note - {slug}"));
             req.persist_key = Some(format!("notes:{slug}"));
             req.launch_params = json!({ "slug": slug });
             req
         }
         DeepLinkOpenTarget::ProjectSlug(slug) => {
-            let mut req = OpenWindowRequest::new(AppId::Explorer);
+            let mut req = OpenWindowRequest::new(ApplicationId::trusted("system.explorer"));
             req.title = Some(format!("Project - {slug}"));
             req.persist_key = Some(format!("projects:{slug}"));
             req.launch_params = json!({ "project_slug": slug });
@@ -1165,20 +1165,20 @@ fn preferred_window_for_app(state: &DesktopState, app_id: &ApplicationId) -> Opt
         .windows
         .iter()
         .rev()
-        .find(|win| apps::builtin_application_id(win.app_id) == *app_id && !win.minimized && win.is_focused)
+        .find(|win| win.app_id == *app_id && !win.minimized && win.is_focused)
         .or_else(|| {
             state
                 .windows
                 .iter()
                 .rev()
-                .find(|win| apps::builtin_application_id(win.app_id) == *app_id && !win.minimized)
+                .find(|win| win.app_id == *app_id && !win.minimized)
         })
         .or_else(|| {
             state
                 .windows
                 .iter()
                 .rev()
-                .find(|win| apps::builtin_application_id(win.app_id) == *app_id)
+                .find(|win| win.app_id == *app_id)
         })
         .map(|win| win.id)
 }
@@ -1266,11 +1266,11 @@ fn command_required_capability(command: &AppCommand) -> Option<AppCapability> {
     }
 }
 
-fn command_allowed_for_app(app_id: AppId, required: AppCapability) -> bool {
-    if apps::app_is_privileged(app_id) {
+fn command_allowed_for_app(app_id: &ApplicationId, required: AppCapability) -> bool {
+    if apps::app_is_privileged_by_id(app_id) {
         return true;
     }
-    apps::app_requested_capabilities(app_id)
+    apps::app_requested_capabilities_by_id(app_id)
         .iter()
         .any(|cap| *cap == required)
 }
@@ -1280,12 +1280,13 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
-    use crate::model::{AppId, InteractionState, OpenWindowRequest};
+    use crate::model::{InteractionState, OpenWindowRequest};
+    use desktop_app_contract::ApplicationId;
 
     fn open(
         state: &mut DesktopState,
         interaction: &mut InteractionState,
-        app_id: AppId,
+        app_id: impl Into<ApplicationId>,
     ) -> WindowId {
         let _ = reduce_desktop(
             state,
@@ -1301,8 +1302,8 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let first = open(&mut state, &mut interaction, AppId::Explorer);
-        let second = open(&mut state, &mut interaction, AppId::Notepad);
+        let first = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
+        let second = open(&mut state, &mut interaction, ApplicationId::trusted("system.notepad"));
 
         assert_eq!(state.focused_window_id(), Some(second));
         assert_eq!(state.windows.len(), 2);
@@ -1316,7 +1317,7 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let win = open(&mut state, &mut interaction, AppId::Explorer);
+        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
         reduce_desktop(
             &mut state,
             &mut interaction,
@@ -1344,7 +1345,7 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let win = open(&mut state, &mut interaction, AppId::Explorer);
+        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
         reduce_desktop(
             &mut state,
             &mut interaction,
@@ -1378,7 +1379,7 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: apps::builtin_application_id(AppId::Terminal),
+                app_id: ApplicationId::trusted("system.terminal"),
                 viewport: None,
             },
         )
@@ -1391,7 +1392,7 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: apps::builtin_application_id(AppId::Terminal),
+                app_id: ApplicationId::trusted("system.terminal"),
                 viewport: None,
             },
         )
@@ -1411,7 +1412,7 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: apps::builtin_application_id(AppId::Explorer),
+                app_id: ApplicationId::trusted("system.explorer"),
                 viewport: None,
             },
         )
@@ -1420,14 +1421,17 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: apps::builtin_application_id(AppId::Explorer),
+                app_id: ApplicationId::trusted("system.explorer"),
                 viewport: None,
             },
         )
-        .expect("activate explorer second");
+            .expect("activate explorer second");
 
         assert_eq!(state.windows.len(), 2);
-        assert!(state.windows.iter().all(|w| w.app_id == AppId::Explorer));
+        assert!(state
+            .windows
+            .iter()
+            .all(|w| w.app_id == ApplicationId::trusted("system.explorer")));
     }
 
     #[test]
@@ -1442,7 +1446,7 @@ mod tests {
             &mut state,
             &mut interaction,
             DesktopAction::ActivateApp {
-                app_id: apps::builtin_application_id(AppId::Settings),
+                app_id: ApplicationId::trusted("system.settings"),
                 viewport: None,
             },
         )
@@ -1456,8 +1460,8 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let first = open(&mut state, &mut interaction, AppId::Explorer);
-        let second = open(&mut state, &mut interaction, AppId::Calculator);
+        let first = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
+        let second = open(&mut state, &mut interaction, ApplicationId::trusted("system.calculator"));
         let before = state.windows.clone();
 
         let effects = reduce_desktop(
@@ -1478,7 +1482,7 @@ mod tests {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
 
-        let win = open(&mut state, &mut interaction, AppId::Terminal);
+        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.terminal"));
         let original = state.windows.iter().find(|w| w.id == win).unwrap().rect;
 
         reduce_desktop(
@@ -1517,7 +1521,7 @@ mod tests {
             h: 700,
         };
 
-        let win = open(&mut state, &mut interaction, AppId::Explorer);
+        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
         reduce_desktop(
             &mut state,
             &mut interaction,
@@ -1562,7 +1566,7 @@ mod tests {
             h: 760,
         };
 
-        let win = open(&mut state, &mut interaction, AppId::Terminal);
+        let win = open(&mut state, &mut interaction, ApplicationId::trusted("system.terminal"));
         reduce_desktop(
             &mut state,
             &mut interaction,
@@ -1691,7 +1695,7 @@ mod tests {
     fn handle_app_command_persist_state_updates_window_record_and_persists() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let window_id = open(&mut state, &mut interaction, AppId::Explorer);
+        let window_id = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
         let payload = serde_json::json!({ "cwd": "/Projects" });
 
         let effects = reduce_desktop(
@@ -1715,7 +1719,7 @@ mod tests {
     fn handle_app_command_set_window_title_updates_taskbar_and_chrome_title() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let window_id = open(&mut state, &mut interaction, AppId::Notepad);
+        let window_id = open(&mut state, &mut interaction, ApplicationId::trusted("system.notepad"));
 
         let effects = reduce_desktop(
             &mut state,
@@ -1738,8 +1742,8 @@ mod tests {
     fn minimize_applies_suspend_policy() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let explorer = open(&mut state, &mut interaction, AppId::Explorer);
-        let terminal = open(&mut state, &mut interaction, AppId::Terminal);
+        let explorer = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
+        let terminal = open(&mut state, &mut interaction, ApplicationId::trusted("system.terminal"));
 
         let explorer_effects = reduce_desktop(
             &mut state,
@@ -1780,8 +1784,8 @@ mod tests {
     fn close_flow_emits_closing_then_closed() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let _first = open(&mut state, &mut interaction, AppId::Explorer);
-        let second = open(&mut state, &mut interaction, AppId::Notepad);
+        let _first = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
+        let second = open(&mut state, &mut interaction, ApplicationId::trusted("system.notepad"));
 
         let effects = reduce_desktop(
             &mut state,
@@ -1824,7 +1828,7 @@ mod tests {
     fn app_bus_commands_emit_window_manager_effects() {
         let mut state = DesktopState::default();
         let mut interaction = InteractionState::default();
-        let window_id = open(&mut state, &mut interaction, AppId::Explorer);
+        let window_id = open(&mut state, &mut interaction, ApplicationId::trusted("system.explorer"));
         let payload = serde_json::json!({ "path": "/Projects/demo" });
 
         let subscribe_effects = reduce_desktop(

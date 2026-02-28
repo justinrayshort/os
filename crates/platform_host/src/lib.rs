@@ -1,8 +1,9 @@
 //! Typed host-domain contracts and shared models used across runtime and browser adapters.
 //!
-//! This crate is the API-first boundary for platform services. Phase 1a exposes shared
-//! persistence/explorer models, time/session helpers, and app-state service traits while existing
-//! browser implementations remain in `platform_storage`.
+//! This crate is the API-first boundary for platform services. It exposes shared
+//! persistence/explorer models, time/session helpers, and app-state service traits while concrete
+//! browser adapters live in `platform_host_web` and desktop transport remains behind
+//! `desktop_tauri`.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

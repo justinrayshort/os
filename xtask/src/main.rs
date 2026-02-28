@@ -26,7 +26,6 @@ const DEV_SERVER_DEFAULT_PORT: u16 = 8080;
 const DEV_SERVER_START_POLL: Duration = Duration::from_secs(8);
 const DEV_SERVER_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 const SITE_CARGO_FEATURE: &str = "csr";
-const PLATFORM_STORAGE_PACKAGE: &str = "platform_storage";
 const DESKTOP_TAURI_PACKAGE: &str = "desktop_tauri";
 const AUTOMATION_RUNS_DIR: &str = ".artifacts/automation/runs";
 const VERIFY_PROFILES_FILE: &str = "tools/automation/verify_profiles.toml";
@@ -1401,7 +1400,6 @@ fn looks_like_desktop_host_change(path: &str) -> bool {
     path.starts_with("crates/desktop_tauri/")
         || path.starts_with("crates/platform_host/")
         || path.starts_with("crates/platform_host_web/")
-        || path.starts_with("crates/platform_storage/")
         || matches!(path, "Cargo.toml" | "Cargo.lock" | ".cargo/config.toml")
 }
 
@@ -1486,131 +1484,20 @@ fn run_cargo_default_matrix_full(root: &Path) -> Result<(), String> {
 }
 
 fn run_rust_feature_matrix_fast(root: &Path, include_desktop: bool) -> Result<(), String> {
-    let mut workspace_feature_test_args = vec![
-        "test",
-        "--workspace",
-        "--all-features",
-        "--exclude",
-        PLATFORM_STORAGE_PACKAGE,
-        "--lib",
-        "--tests",
-    ];
+    let mut workspace_feature_test_args = vec!["test", "--workspace", "--all-features", "--lib", "--tests"];
     if !include_desktop {
         workspace_feature_test_args.extend(["--exclude", DESKTOP_TAURI_PACKAGE]);
     }
 
-    run(root, "cargo", workspace_feature_test_args)?;
-    run(
-        root,
-        "cargo",
-        vec![
-            "test",
-            "-p",
-            PLATFORM_STORAGE_PACKAGE,
-            "--no-default-features",
-            "--features",
-            "csr,desktop-host-stub",
-            "--lib",
-            "--tests",
-        ],
-    )?;
-
-    run(
-        root,
-        "cargo",
-        vec![
-            "test",
-            "-p",
-            PLATFORM_STORAGE_PACKAGE,
-            "--no-default-features",
-            "--features",
-            "csr,desktop-host-tauri",
-            "--lib",
-            "--tests",
-        ],
-    )?;
-
-    Ok(())
+    run(root, "cargo", workspace_feature_test_args)
 }
 
 fn run_rust_feature_matrix_full(root: &Path) -> Result<(), String> {
+    run(root, "cargo", vec!["check", "--workspace", "--all-features"])?;
     run(
         root,
         "cargo",
-        vec![
-            "check",
-            "--workspace",
-            "--all-features",
-            "--exclude",
-            PLATFORM_STORAGE_PACKAGE,
-        ],
-    )?;
-    run(
-        root,
-        "cargo",
-        vec![
-            "test",
-            "--workspace",
-            "--all-features",
-            "--exclude",
-            PLATFORM_STORAGE_PACKAGE,
-            "--lib",
-            "--tests",
-        ],
-    )?;
-
-    run(
-        root,
-        "cargo",
-        vec![
-            "check",
-            "-p",
-            PLATFORM_STORAGE_PACKAGE,
-            "--no-default-features",
-            "--features",
-            "csr,desktop-host-stub",
-        ],
-    )?;
-    run(
-        root,
-        "cargo",
-        vec![
-            "test",
-            "-p",
-            PLATFORM_STORAGE_PACKAGE,
-            "--no-default-features",
-            "--features",
-            "csr,desktop-host-stub",
-            "--lib",
-            "--tests",
-        ],
-    )?;
-
-    run(
-        root,
-        "cargo",
-        vec![
-            "check",
-            "-p",
-            PLATFORM_STORAGE_PACKAGE,
-            "--no-default-features",
-            "--features",
-            "csr,desktop-host-tauri",
-        ],
-    )?;
-    run(
-        root,
-        "cargo",
-        vec![
-            "test",
-            "-p",
-            PLATFORM_STORAGE_PACKAGE,
-            "--no-default-features",
-            "--features",
-            "csr,desktop-host-tauri",
-            "--lib",
-            "--tests",
-        ],
+        vec!["test", "--workspace", "--all-features", "--lib", "--tests"],
     )?;
 
     Ok(())

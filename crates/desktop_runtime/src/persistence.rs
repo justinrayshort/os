@@ -118,7 +118,8 @@ pub async fn load_boot_snapshot() -> Option<DesktopSnapshot> {
     }
 }
 
-/// Loads the durable boot snapshot from [`platform_storage`] (IndexedDB-backed).
+/// Loads the durable boot snapshot from the configured [`platform_host::AppStateStore`]
+/// implementation (IndexedDB-backed in the browser host).
 pub async fn load_durable_boot_snapshot() -> Option<DesktopSnapshot> {
     let store = app_state_store();
     match load_app_state_with_migration(
@@ -137,7 +138,8 @@ pub async fn load_durable_boot_snapshot() -> Option<DesktopSnapshot> {
     }
 }
 
-/// Persists a durable desktop layout snapshot through [`platform_storage`].
+/// Persists a durable desktop layout snapshot through the configured
+/// [`platform_host::AppStateStore`] implementation.
 pub async fn persist_durable_layout_snapshot(state: &DesktopState) -> Result<(), String> {
     let snapshot = state.snapshot();
     let store = app_state_store();
@@ -152,12 +154,13 @@ pub async fn persist_durable_layout_snapshot(state: &DesktopState) -> Result<(),
 
 /// Persists compatibility layout state.
 ///
-/// The current implementation keeps full layout persistence in [`platform_storage`] and reserves
-/// localStorage for lightweight compatibility/prefs state.
+/// The current implementation keeps full layout persistence in the configured app-state store and
+/// reserves localStorage for lightweight compatibility/prefs state.
 pub fn persist_layout_snapshot(state: &DesktopState) -> Result<(), String> {
     #[cfg(target_arch = "wasm32")]
     {
-        // Full desktop layout is durably persisted in IndexedDB via `platform_storage`.
+        // Full desktop layout is durably persisted in IndexedDB via the configured app-state
+        // store.
         // Keep localStorage reserved for lightweight compatibility/prefs paths.
         let _ = state;
     }

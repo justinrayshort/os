@@ -1,12 +1,7 @@
 use super::*;
 use crate::app_runtime::ensure_window_session;
 use crate::shell;
-use desktop_app_calculator::CalculatorApp;
-use desktop_app_contract::{AppMountContext, AppServices};
-use desktop_app_explorer::ExplorerApp;
-use desktop_app_notepad::NotepadApp;
-use desktop_app_settings::SettingsApp;
-use desktop_app_terminal::TerminalApp;
+use desktop_app_contract::{AppMountContext, AppServices, ApplicationId};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
@@ -132,12 +127,13 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                     <div class="titlebar-title">
                         <span class="titlebar-app-icon" aria-hidden="true">
                             <FluentIcon
-                                icon=app_icon_name(&apps::builtin_application_id(
-                                    window
+                                icon={{
+                                    let app_id = window
                                         .get_untracked()
                                         .expect("window exists while shown")
-                                        .app_id,
-                                ))
+                                        .app_id;
+                                    app_icon_name(&app_id)
+                                }}
                                 size=IconSize::Sm
                             />
                         </span>
@@ -353,9 +349,9 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
         .expect("window exists while body is mounted");
     let contents = view! {
         <MountedManagedApp
-            app_id=mounted_window.app_id
+            app_id=mounted_window.app_id.clone()
             context=AppMountContext {
-                app_id: apps::builtin_application_id(mounted_window.app_id),
+                app_id: mounted_window.app_id.clone(),
                 window_id: mounted_window.id.0,
                 launch_params: mounted_window.launch_params.clone(),
                 restored_state: mounted_window.app_state.clone(),
@@ -374,50 +370,6 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
 }
 
 #[component]
-fn MountedManagedApp(app_id: AppId, context: AppMountContext) -> impl IntoView {
-    match app_id {
-        AppId::Calculator => view! {
-            <CalculatorApp
-                launch_params=context.launch_params.clone()
-                restored_state=Some(context.restored_state.clone())
-                services=Some(context.services.clone())
-            />
-        }
-        .into_view(),
-        AppId::Explorer => view! {
-            <ExplorerApp
-                launch_params=context.launch_params.clone()
-                restored_state=Some(context.restored_state.clone())
-                services=Some(context.services.clone())
-                inbox=Some(context.inbox)
-            />
-        }
-        .into_view(),
-        AppId::Notepad => view! {
-            <NotepadApp
-                launch_params=context.launch_params.clone()
-                restored_state=Some(context.restored_state.clone())
-                services=Some(context.services.clone())
-            />
-        }
-        .into_view(),
-        AppId::Terminal => view! {
-            <TerminalApp
-                window_id=context.window_id
-                launch_params=context.launch_params.clone()
-                restored_state=Some(context.restored_state.clone())
-                services=Some(context.services.clone())
-            />
-        }
-        .into_view(),
-        AppId::Settings => view! {
-            <SettingsApp
-                _launch_params=context.launch_params.clone()
-                restored_state=Some(context.restored_state.clone())
-                services=Some(context.services.clone())
-            />
-        }
-        .into_view(),
-        _ => apps::app_module(app_id).mount(context),
-    }
+fn MountedManagedApp(app_id: ApplicationId, context: AppMountContext) -> impl IntoView {
+    apps::app_module_by_id(&app_id).mount(context)
 }

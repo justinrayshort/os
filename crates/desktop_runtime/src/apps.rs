@@ -2,7 +2,8 @@
 
 use std::{cell::Cell, rc::Rc, sync::OnceLock};
 
-use crate::model::{AppId, OpenWindowRequest, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
+use crate::icons::IconName;
+use crate::model::{OpenWindowRequest, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
 use desktop_app_calculator::CalculatorApp;
 use desktop_app_contract::{AppCapability, AppModule, AppMountContext, ApplicationId, SuspendPolicy};
 use desktop_app_explorer::ExplorerApp;
@@ -20,6 +21,13 @@ use platform_host_web::app_state_store;
 use serde::{Deserialize, Serialize};
 
 const PAINT_PLACEHOLDER_STATE_SCHEMA_VERSION: u32 = 1;
+const APP_ID_CALCULATOR: &str = "system.calculator";
+const APP_ID_EXPLORER: &str = "system.explorer";
+const APP_ID_NOTEPAD: &str = "system.notepad";
+const APP_ID_PAINT: &str = "system.paint";
+const APP_ID_TERMINAL: &str = "system.terminal";
+const APP_ID_SETTINGS: &str = "system.settings";
+const APP_ID_DIALUP: &str = "system.dialup";
 
 #[derive(Debug, Clone, Copy)]
 struct GeneratedAppManifestMetadata {
@@ -33,6 +41,10 @@ struct GeneratedAppManifestMetadata {
 }
 
 include!(concat!(env!("OUT_DIR"), "/app_catalog_generated.rs"));
+
+fn builtin_app_id(raw: &'static str) -> ApplicationId {
+    ApplicationId::trusted(raw)
+}
 
 /// Returns the generated manifest catalog payload used for build-time discovery validation.
 pub fn app_manifest_catalog_json() -> &'static str {
@@ -75,7 +87,7 @@ pub struct AppDescriptor {
 fn build_app_registry() -> Vec<AppDescriptor> {
     vec![
     AppDescriptor {
-        app_id: builtin_application_id(AppId::Calculator),
+        app_id: builtin_app_id(APP_ID_CALCULATOR),
         launcher_label: SYSTEM_CALCULATOR_MANIFEST.display_name,
         desktop_icon_label: SYSTEM_CALCULATOR_MANIFEST.display_name,
         show_in_launcher: SYSTEM_CALCULATOR_MANIFEST.show_in_launcher,
@@ -86,7 +98,7 @@ fn build_app_registry() -> Vec<AppDescriptor> {
         requested_capabilities: SYSTEM_CALCULATOR_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: builtin_application_id(AppId::Explorer),
+        app_id: builtin_app_id(APP_ID_EXPLORER),
         launcher_label: SYSTEM_EXPLORER_MANIFEST.display_name,
         desktop_icon_label: SYSTEM_EXPLORER_MANIFEST.display_name,
         show_in_launcher: SYSTEM_EXPLORER_MANIFEST.show_in_launcher,
@@ -97,7 +109,7 @@ fn build_app_registry() -> Vec<AppDescriptor> {
         requested_capabilities: SYSTEM_EXPLORER_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: builtin_application_id(AppId::Notepad),
+        app_id: builtin_app_id(APP_ID_NOTEPAD),
         launcher_label: SYSTEM_NOTEPAD_MANIFEST.display_name,
         desktop_icon_label: "Notes",
         show_in_launcher: SYSTEM_NOTEPAD_MANIFEST.show_in_launcher,
@@ -108,7 +120,7 @@ fn build_app_registry() -> Vec<AppDescriptor> {
         requested_capabilities: SYSTEM_NOTEPAD_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: builtin_application_id(AppId::Paint),
+        app_id: builtin_app_id(APP_ID_PAINT),
         launcher_label: "Paint",
         desktop_icon_label: "Paint",
         show_in_launcher: true,
@@ -119,7 +131,7 @@ fn build_app_registry() -> Vec<AppDescriptor> {
         requested_capabilities: &[AppCapability::Window, AppCapability::State],
     },
     AppDescriptor {
-        app_id: builtin_application_id(AppId::Terminal),
+        app_id: builtin_app_id(APP_ID_TERMINAL),
         launcher_label: SYSTEM_TERMINAL_MANIFEST.display_name,
         desktop_icon_label: SYSTEM_TERMINAL_MANIFEST.display_name,
         show_in_launcher: SYSTEM_TERMINAL_MANIFEST.show_in_launcher,
@@ -130,7 +142,7 @@ fn build_app_registry() -> Vec<AppDescriptor> {
         requested_capabilities: SYSTEM_TERMINAL_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: builtin_application_id(AppId::Settings),
+        app_id: builtin_app_id(APP_ID_SETTINGS),
         launcher_label: SYSTEM_SETTINGS_MANIFEST.display_name,
         desktop_icon_label: "Settings",
         show_in_launcher: SYSTEM_SETTINGS_MANIFEST.show_in_launcher,
@@ -141,7 +153,7 @@ fn build_app_registry() -> Vec<AppDescriptor> {
         requested_capabilities: SYSTEM_SETTINGS_MANIFEST.requested_capabilities,
     },
     AppDescriptor {
-        app_id: builtin_application_id(AppId::Dialup),
+        app_id: builtin_app_id(APP_ID_DIALUP),
         launcher_label: "Dial-up",
         desktop_icon_label: "Connect",
         show_in_launcher: true,
@@ -160,6 +172,15 @@ fn app_registry_storage() -> &'static OnceLock<Vec<AppDescriptor>> {
 }
 
 const BUILTIN_PRIVILEGED_APP_IDS: &[&str] = &["system.settings"];
+const LEGACY_BUILTIN_APP_ID_MAPPINGS: &[(&str, &str)] = &[
+    ("Calculator", APP_ID_CALCULATOR),
+    ("Explorer", APP_ID_EXPLORER),
+    ("Notepad", APP_ID_NOTEPAD),
+    ("Paint", APP_ID_PAINT),
+    ("Terminal", APP_ID_TERMINAL),
+    ("Settings", APP_ID_SETTINGS),
+    ("Dialup", APP_ID_DIALUP),
+];
 
 /// Returns the static app registry used by the desktop shell.
 pub fn app_registry() -> &'static [AppDescriptor] {
@@ -184,16 +205,6 @@ pub fn desktop_icon_apps() -> Vec<AppDescriptor> {
         .collect()
 }
 
-/// Returns the descriptor for `app_id`.
-///
-/// # Panics
-///
-/// Panics if the app id is not present in the registry.
-pub fn app_descriptor(app_id: AppId) -> &'static AppDescriptor {
-    let app_id = builtin_application_id(app_id);
-    app_descriptor_by_id(&app_id)
-}
-
 /// Returns the descriptor for a canonical application id.
 ///
 /// # Panics
@@ -206,71 +217,87 @@ pub fn app_descriptor_by_id(app_id: &ApplicationId) -> &'static AppDescriptor {
         .expect("app descriptor exists")
 }
 
-/// Returns the managed app module descriptor for `app_id`.
-pub fn app_module(app_id: AppId) -> AppModule {
-    app_descriptor(app_id).module
+/// Returns the managed app module descriptor for one canonical app id.
+pub fn app_module_by_id(app_id: &ApplicationId) -> AppModule {
+    app_descriptor_by_id(app_id).module
 }
 
-/// Returns the window-manager suspend policy for `app_id`.
-pub fn app_suspend_policy(app_id: AppId) -> SuspendPolicy {
-    app_descriptor(app_id).suspend_policy
+/// Returns the window-manager suspend policy for one canonical app id.
+pub fn app_suspend_policy_by_id(app_id: &ApplicationId) -> SuspendPolicy {
+    app_descriptor_by_id(app_id).suspend_policy
 }
 
-/// Returns declared capability scopes for `app_id`.
-pub fn app_requested_capabilities(app_id: AppId) -> &'static [AppCapability] {
-    app_descriptor(app_id).requested_capabilities
+/// Returns declared capability scopes for one canonical app id.
+pub fn app_requested_capabilities_by_id(app_id: &ApplicationId) -> &'static [AppCapability] {
+    app_descriptor_by_id(app_id).requested_capabilities
 }
 
 /// Returns whether `app_id` is privileged in shell policy.
-pub fn app_is_privileged(app_id: AppId) -> bool {
-    let app_id = builtin_application_id(app_id);
+pub fn app_is_privileged_by_id(app_id: &ApplicationId) -> bool {
     BUILTIN_PRIVILEGED_APP_IDS
         .iter()
         .any(|id| *id == app_id.as_str())
 }
 
-/// Returns the canonical [`ApplicationId`] for one built-in runtime app enum.
-pub fn builtin_application_id(app_id: AppId) -> ApplicationId {
-    ApplicationId::trusted(match app_id {
-        AppId::Calculator => "system.calculator",
-        AppId::Explorer => "system.explorer",
-        AppId::Notepad => "system.notepad",
-        AppId::Paint => "system.paint",
-        AppId::Terminal => "system.terminal",
-        AppId::Settings => "system.settings",
-        AppId::Dialup => "system.dialup",
+/// Parses a canonical or legacy serialized app id into an [`ApplicationId`].
+pub fn parse_application_id_compat(raw: &str) -> Option<ApplicationId> {
+    ApplicationId::new(raw.trim()).ok().or_else(|| {
+        LEGACY_BUILTIN_APP_ID_MAPPINGS
+            .iter()
+            .find_map(|(legacy, canonical)| (*legacy == raw.trim()).then_some(*canonical))
+            .map(ApplicationId::trusted)
     })
 }
 
-/// Resolves a built-in runtime enum from a canonical [`ApplicationId`].
-pub fn resolve_builtin_app_id(app_id: &ApplicationId) -> Option<AppId> {
+/// Returns the shell title for one canonical app id.
+pub fn app_title_by_id(app_id: &ApplicationId) -> &'static str {
+    app_descriptor_by_id(app_id).launcher_label
+}
+
+/// Returns the default icon id string for one canonical app id.
+pub fn app_icon_id_by_id(app_id: &ApplicationId) -> &'static str {
     match app_id.as_str() {
-        "system.calculator" => Some(AppId::Calculator),
-        "system.explorer" => Some(AppId::Explorer),
-        "system.notepad" => Some(AppId::Notepad),
-        "system.paint" => Some(AppId::Paint),
-        "system.terminal" => Some(AppId::Terminal),
-        "system.settings" => Some(AppId::Settings),
-        "system.dialup" => Some(AppId::Dialup),
-        _ => None,
+        APP_ID_CALCULATOR => "calculator",
+        APP_ID_EXPLORER => "folder",
+        APP_ID_NOTEPAD => "notepad",
+        APP_ID_PAINT => "paint",
+        APP_ID_TERMINAL => "terminal",
+        APP_ID_SETTINGS => "settings",
+        APP_ID_DIALUP => "modem",
+        _ => "window",
     }
 }
 
-/// Builds the default [`OpenWindowRequest`] for a given app.
-///
-/// Some apps override the default geometry to better fit their UI.
-///
-/// When `viewport` is provided, the returned request uses adaptive default sizing and placement
-/// heuristics so app windows open with readable dimensions while respecting available space.
-pub fn default_open_request(
-    app_id: AppId,
-    viewport: Option<crate::model::WindowRect>,
-) -> OpenWindowRequest {
-    let runtime_app_id = builtin_application_id(app_id);
-    let mut req = OpenWindowRequest::new(app_id);
-    req.rect = Some(default_window_rect_for_app(&runtime_app_id, viewport));
-    req.viewport = viewport;
-    req
+/// Returns the semantic shell icon for one canonical app id.
+pub fn app_icon_name_by_id(app_id: &ApplicationId) -> IconName {
+    match app_id.as_str() {
+        APP_ID_CALCULATOR => IconName::Calculator,
+        APP_ID_EXPLORER => IconName::ExplorerFolder,
+        APP_ID_NOTEPAD => IconName::DocumentText,
+        APP_ID_PAINT => IconName::PaintBrush,
+        APP_ID_TERMINAL => IconName::Terminal,
+        APP_ID_SETTINGS => IconName::Settings,
+        APP_ID_DIALUP => IconName::Connect,
+        _ => IconName::WindowMultiple,
+    }
+}
+
+/// Returns the canonical system settings application id.
+pub fn settings_application_id() -> ApplicationId {
+    builtin_app_id(APP_ID_SETTINGS)
+}
+
+/// Returns whether `app_id` refers to the built-in dial-up app.
+pub fn is_dialup_application_id(app_id: &ApplicationId) -> bool {
+    app_id.as_str() == APP_ID_DIALUP
+}
+
+/// Returns the canonical pinned taskbar application ids in display order.
+pub fn pinned_taskbar_app_ids() -> Vec<ApplicationId> {
+    [APP_ID_EXPLORER, APP_ID_TERMINAL, APP_ID_NOTEPAD, APP_ID_CALCULATOR]
+        .into_iter()
+        .map(builtin_app_id)
+        .collect()
 }
 
 /// Builds the default [`OpenWindowRequest`] for a canonical application id.
@@ -278,7 +305,15 @@ pub fn default_open_request_by_id(
     app_id: &ApplicationId,
     viewport: Option<crate::model::WindowRect>,
 ) -> Option<OpenWindowRequest> {
-    resolve_builtin_app_id(app_id).map(|builtin| default_open_request(builtin, viewport))
+    app_registry()
+        .iter()
+        .any(|entry| entry.app_id == *app_id)
+        .then(|| {
+            let mut req = OpenWindowRequest::new(app_id.clone());
+            req.rect = Some(default_window_rect_for_app(app_id, viewport));
+            req.viewport = viewport;
+            req
+        })
 }
 
 fn default_window_rect_for_app(
@@ -292,8 +327,8 @@ fn default_window_rect_for_app(
         h: 760,
     });
 
-    let (min_w, min_h, max_w_ratio, max_h_ratio, default_w_ratio, default_h_ratio) = match resolve_builtin_app_id(app_id) {
-        Some(AppId::Explorer) => (
+    let (min_w, min_h, max_w_ratio, max_h_ratio, default_w_ratio, default_h_ratio) = match app_id.as_str() {
+        APP_ID_EXPLORER => (
             SYSTEM_EXPLORER_MANIFEST.window_defaults.0,
             SYSTEM_EXPLORER_MANIFEST.window_defaults.1,
             0.92,
@@ -301,7 +336,7 @@ fn default_window_rect_for_app(
             0.80,
             0.78,
         ),
-        Some(AppId::Notepad) => (
+        APP_ID_NOTEPAD => (
             SYSTEM_NOTEPAD_MANIFEST.window_defaults.0,
             SYSTEM_NOTEPAD_MANIFEST.window_defaults.1,
             0.88,
@@ -309,7 +344,7 @@ fn default_window_rect_for_app(
             0.74,
             0.74,
         ),
-        Some(AppId::Terminal) => (
+        APP_ID_TERMINAL => (
             SYSTEM_TERMINAL_MANIFEST.window_defaults.0,
             SYSTEM_TERMINAL_MANIFEST.window_defaults.1,
             0.88,
@@ -317,7 +352,7 @@ fn default_window_rect_for_app(
             0.74,
             0.70,
         ),
-        Some(AppId::Settings) => (
+        APP_ID_SETTINGS => (
             SYSTEM_SETTINGS_MANIFEST.window_defaults.0,
             SYSTEM_SETTINGS_MANIFEST.window_defaults.1,
             0.92,
@@ -325,7 +360,7 @@ fn default_window_rect_for_app(
             0.82,
             0.82,
         ),
-        Some(AppId::Calculator) => (
+        APP_ID_CALCULATOR => (
             SYSTEM_CALCULATOR_MANIFEST.window_defaults.0,
             SYSTEM_CALCULATOR_MANIFEST.window_defaults.1,
             0.78,
@@ -333,9 +368,9 @@ fn default_window_rect_for_app(
             0.56,
             0.74,
         ),
-        Some(AppId::Paint) => (620, 420, 0.92, 0.92, 0.78, 0.78),
-        Some(AppId::Dialup) => (420, 300, 0.66, 0.68, 0.48, 0.50),
-        None => (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, 0.80, 0.80, 0.70, 0.70),
+        APP_ID_PAINT => (620, 420, 0.92, 0.92, 0.78, 0.78),
+        APP_ID_DIALUP => (420, 300, 0.66, 0.68, 0.48, 0.50),
+        _ => (DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, 0.80, 0.80, 0.70, 0.70),
     };
 
     let max_w = ((vp.w as f32) * max_w_ratio) as i32;
@@ -353,14 +388,15 @@ mod default_open_request_tests {
     use super::*;
 
     #[test]
-    fn default_open_request_scales_to_viewport() {
+    fn default_open_request_by_id_scales_to_viewport() {
         let viewport = crate::model::WindowRect {
             x: 0,
             y: 0,
             w: 900,
             h: 620,
         };
-        let req = default_open_request(AppId::Explorer, Some(viewport));
+        let req = default_open_request_by_id(&builtin_app_id(APP_ID_EXPLORER), Some(viewport))
+            .expect("default request");
         let rect = req.rect.expect("default rect");
 
         assert!(rect.w <= ((viewport.w as f32) * 0.92) as i32);
@@ -370,17 +406,19 @@ mod default_open_request_tests {
     }
 
     #[test]
-    fn calculator_defaults_are_more_compact_than_explorer() {
+    fn calculator_defaults_are_more_compact_than_explorer_by_id() {
         let viewport = crate::model::WindowRect {
             x: 0,
             y: 0,
             w: 1280,
             h: 760,
         };
-        let calc = default_open_request(AppId::Calculator, Some(viewport))
+        let calc = default_open_request_by_id(&builtin_app_id(APP_ID_CALCULATOR), Some(viewport))
+            .expect("calculator request")
             .rect
             .expect("calculator rect");
-        let explorer = default_open_request(AppId::Explorer, Some(viewport))
+        let explorer = default_open_request_by_id(&builtin_app_id(APP_ID_EXPLORER), Some(viewport))
+            .expect("explorer request")
             .rect
             .expect("explorer rect");
 

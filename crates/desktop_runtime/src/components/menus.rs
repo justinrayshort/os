@@ -291,7 +291,7 @@ pub(super) fn OverflowMenu(
                     >
                         <span class="taskbar-app-icon" aria-hidden="true">
                             <FluentIcon
-                                icon=app_icon_name(&apps::builtin_application_id(win.app_id))
+                                icon=app_icon_name(&win.app_id)
                                 size=IconSize::Sm
                             />
                         </span>
