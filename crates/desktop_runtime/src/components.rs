@@ -78,6 +78,8 @@ fn wallpaper_object_fit(display_mode: WallpaperDisplayMode) -> &'static str {
 pub struct DesktopRuntimeContext {
     /// Host service bundle for executing runtime side effects and environment queries.
     pub host: DesktopHostContext,
+    /// Long-lived reactive owner for runtime-managed resources that must outlive transient app views.
+    pub owner: Owner,
     /// Reactive desktop state signal.
     pub state: RwSignal<DesktopState>,
     /// Reactive pointer/drag/resize interaction state signal.
@@ -103,6 +105,7 @@ impl DesktopRuntimeContext {
 /// Provides [`DesktopRuntimeContext`] to descendant components and boots persisted state.
 pub fn DesktopProvider(children: Children) -> impl IntoView {
     let host = DesktopHostContext::default();
+    let owner = Owner::current().expect("DesktopProvider owner");
     let state = create_rw_signal(DesktopState::default());
     let interaction = create_rw_signal(InteractionState::default());
     let effects = create_rw_signal(Vec::<RuntimeEffect>::new());
@@ -139,6 +142,7 @@ pub fn DesktopProvider(children: Children) -> impl IntoView {
 
     let runtime = DesktopRuntimeContext {
         host,
+        owner,
         state,
         interaction,
         effects,

@@ -1,7 +1,12 @@
 use super::*;
 use crate::app_runtime::ensure_window_session;
 use crate::shell;
+use desktop_app_calculator::CalculatorApp;
 use desktop_app_contract::{AppMountContext, AppServices, ApplicationId};
+use desktop_app_explorer::ExplorerApp;
+use desktop_app_notepad::NotepadApp;
+use desktop_app_settings::SettingsApp;
+use desktop_app_terminal::TerminalApp;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
@@ -90,123 +95,162 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
 
     view! {
         <Show when=move || window.get().is_some() fallback=|| ()>
-            {move || {
-                let win = window.get().expect("window exists while shown");
-                let style = format!(
-                    "left:{}px;top:{}px;width:{}px;height:{}px;z-index:{};",
-                    win.rect.x, win.rect.y, win.rect.w, win.rect.h, win.z_index
-                );
-                let focused_class = if win.is_focused { " focused" } else { "" };
-                let minimized_class = if win.minimized { " minimized" } else { "" };
-                let maximized_class = if win.maximized { " maximized" } else { "" };
-
-                view! {
-                    <section
-                        class=format!(
-                            "desktop-window{}{}{}",
-                            focused_class,
-                            minimized_class,
-                            maximized_class
-                        )
-                        style=style
-                        on:pointerdown=focus
-                        role="dialog"
-                        aria-label=win.title.clone()
-                    >
-                        <header
-                            class="titlebar"
-                            on:pointerdown=begin_move
-                            on:dblclick=titlebar_double_click
-                        >
-                            <div class="titlebar-title">
-                                <span class="titlebar-app-icon" aria-hidden="true">
-                                    <FluentIcon icon=app_icon_name(win.app_id) size=IconSize::Sm />
-                                </span>
-                                <span>{win.title.clone()}</span>
-                            </div>
-                            <div class="titlebar-controls">
-                                <button
-                                    disabled=!win.flags.minimizable
-                                    aria-label="Minimize window"
-                                    on:pointerdown=move |ev: web_sys::PointerEvent| {
-                                        ev.prevent_default();
-                                        ev.stop_propagation();
-                                    }
-                                    on:mousedown=move |ev| stop_mouse_event(&ev)
-                                    on:click=move |ev| {
-                                        stop_mouse_event(&ev);
-                                        minimize(ev);
-                                    }
-                                >
-                                    <FluentIcon icon=IconName::WindowMinimize size=IconSize::Xs />
-                                </button>
-                                <button
-                                    disabled=!win.flags.maximizable
-                                    aria-label=if win.maximized {
-                                        "Restore window"
-                                    } else {
-                                        "Maximize window"
-                                    }
-                                    on:pointerdown=move |ev: web_sys::PointerEvent| {
-                                        ev.prevent_default();
-                                        ev.stop_propagation();
-                                    }
-                                    on:mousedown=move |ev| stop_mouse_event(&ev)
-                                    on:click=move |ev| {
-                                        stop_mouse_event(&ev);
-                                        toggle_maximize(ev);
-                                    }
-                                >
-                                    <FluentIcon
-                                        icon=if win.maximized {
-                                            IconName::WindowRestore
-                                        } else {
-                                            IconName::WindowMaximize
-                                        }
-                                        size=IconSize::Xs
-                                    />
-                                </button>
-                                <button
-                                    aria-label="Close window"
-                                    on:pointerdown=move |ev: web_sys::PointerEvent| {
-                                        ev.prevent_default();
-                                        ev.stop_propagation();
-                                    }
-                                    on:mousedown=move |ev| stop_mouse_event(&ev)
-                                    on:click=move |ev| {
-                                        stop_mouse_event(&ev);
-                                        close(ev);
-                                    }
-                                >
-                                    <FluentIcon icon=IconName::Dismiss size=IconSize::Xs />
-                                </button>
-                            </div>
-                        </header>
-                        <div class="window-body">
-                            <WindowBody window_id=window_id />
-                        </div>
-                        <Show
-                            when=move || {
+            <section
+                class=move || {
+                    let win = window.get().expect("window exists while shown");
+                    let focused_class = if win.is_focused { " focused" } else { "" };
+                    let minimized_class = if win.minimized { " minimized" } else { "" };
+                    let maximized_class = if win.maximized { " maximized" } else { "" };
+                    format!(
+                        "desktop-window{}{}{}",
+                        focused_class,
+                        minimized_class,
+                        maximized_class
+                    )
+                }
+                style=move || {
+                    let win = window.get().expect("window exists while shown");
+                    format!(
+                        "left:{}px;top:{}px;width:{}px;height:{}px;z-index:{};",
+                        win.rect.x, win.rect.y, win.rect.w, win.rect.h, win.z_index
+                    )
+                }
+                on:pointerdown=focus
+                role="dialog"
+                aria-label=move || {
+                    window
+                        .get()
+                        .map(|win| win.title)
+                        .unwrap_or_default()
+                }
+            >
+                <header
+                    class="titlebar"
+                    on:pointerdown=begin_move
+                    on:dblclick=titlebar_double_click
+                >
+                    <div class="titlebar-title">
+                        <span class="titlebar-app-icon" aria-hidden="true">
+                            <FluentIcon
+                                icon=app_icon_name(
+                                    window
+                                        .get_untracked()
+                                        .expect("window exists while shown")
+                                        .app_id,
+                                )
+                                size=IconSize::Sm
+                            />
+                        </span>
+                        <span>
+                            {move || {
                                 window
                                     .get()
-                                    .map(|w| w.flags.resizable && !w.maximized)
-                                    .unwrap_or(false)
+                                    .map(|win| win.title)
+                                    .unwrap_or_default()
+                            }}
+                        </span>
+                    </div>
+                    <div class="titlebar-controls">
+                        <button
+                            disabled=move || {
+                                !window
+                                    .get()
+                                    .expect("window exists while shown")
+                                    .flags
+                                    .minimizable
                             }
-                            fallback=|| ()
+                            aria-label="Minimize window"
+                            on:pointerdown=move |ev: web_sys::PointerEvent| {
+                                ev.prevent_default();
+                                ev.stop_propagation();
+                            }
+                            on:mousedown=move |ev| stop_mouse_event(&ev)
+                            on:click=move |ev| {
+                                stop_mouse_event(&ev);
+                                minimize(ev);
+                            }
                         >
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::North />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::South />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::East />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::West />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::NorthEast />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::NorthWest />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::SouthEast />
-                            <WindowResizeHandle window_id=window_id edge=ResizeEdge::SouthWest />
-                        </Show>
-                    </section>
-                }
-                    .into_view()
-            }}
+                            <FluentIcon icon=IconName::WindowMinimize size=IconSize::Xs />
+                        </button>
+                        <button
+                            disabled=move || {
+                                !window
+                                    .get()
+                                    .expect("window exists while shown")
+                                    .flags
+                                    .maximizable
+                            }
+                            aria-label=move || {
+                                if window
+                                    .get()
+                                    .expect("window exists while shown")
+                                    .maximized
+                                {
+                                    "Restore window"
+                                } else {
+                                    "Maximize window"
+                                }
+                            }
+                            on:pointerdown=move |ev: web_sys::PointerEvent| {
+                                ev.prevent_default();
+                                ev.stop_propagation();
+                            }
+                            on:mousedown=move |ev| stop_mouse_event(&ev)
+                            on:click=move |ev| {
+                                stop_mouse_event(&ev);
+                                toggle_maximize(ev);
+                            }
+                        >
+                            {move || {
+                                if window
+                                    .get()
+                                    .expect("window exists while shown")
+                                    .maximized
+                                {
+                                    view! { <FluentIcon icon=IconName::WindowRestore size=IconSize::Xs /> }
+                                } else {
+                                    view! { <FluentIcon icon=IconName::WindowMaximize size=IconSize::Xs /> }
+                                }
+                            }}
+                        </button>
+                        <button
+                            aria-label="Close window"
+                            on:pointerdown=move |ev: web_sys::PointerEvent| {
+                                ev.prevent_default();
+                                ev.stop_propagation();
+                            }
+                            on:mousedown=move |ev| stop_mouse_event(&ev)
+                            on:click=move |ev| {
+                                stop_mouse_event(&ev);
+                                close(ev);
+                            }
+                        >
+                            <FluentIcon icon=IconName::Dismiss size=IconSize::Xs />
+                        </button>
+                    </div>
+                </header>
+                <div class="window-body">
+                    <WindowBody window_id=window_id />
+                </div>
+                <Show
+                    when=move || {
+                        window
+                            .get()
+                            .map(|w| w.flags.resizable && !w.maximized)
+                            .unwrap_or(false)
+                    }
+                    fallback=|| ()
+                >
+                    <WindowResizeHandle window_id=window_id edge=ResizeEdge::North />
+                    <WindowResizeHandle window_id=window_id edge=ResizeEdge::South />
+                    <WindowResizeHandle window_id=window_id edge=ResizeEdge::East />
+                    <WindowResizeHandle window_id=window_id edge=ResizeEdge::West />
+                    <WindowResizeHandle window_id=window_id edge=ResizeEdge::NorthEast />
+                    <WindowResizeHandle window_id=window_id edge=ResizeEdge::NorthWest />
+                    <WindowResizeHandle window_id=window_id edge=ResizeEdge::SouthEast />
+                    <WindowResizeHandle window_id=window_id edge=ResizeEdge::SouthWest />
+                </Show>
+            </section>
         </Show>
     }
 }
@@ -280,7 +324,7 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
             runtime.dispatch_action(DesktopAction::HandleAppCommand { window_id, command });
         });
     });
-    let services = AppServices::new(
+    let services = store_value(AppServices::new(
         command_sender,
         theme_skin_id.read_only(),
         theme_high_contrast.read_only(),
@@ -300,29 +344,80 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
             window_id,
             terminal_history.read_only(),
         ),
-    );
-    let contents = state
+    ));
+    let mounted_window = state
         .get_untracked()
         .windows
         .into_iter()
-        .find(|w| w.id == window_id)
-        .map(|w| {
-            let module = apps::app_module(w.app_id);
-            module.mount(AppMountContext {
-                app_id: ApplicationId::trusted(w.app_id.canonical_id()),
-                window_id: w.id.0,
-                launch_params: w.launch_params.clone(),
-                restored_state: w.app_state.clone(),
+        .find(|window| window.id == window_id)
+        .expect("window exists while body is mounted");
+    let contents = view! {
+        <MountedManagedApp
+            app_id=mounted_window.app_id
+            context=AppMountContext {
+                app_id: ApplicationId::trusted(mounted_window.app_id.canonical_id()),
+                window_id: mounted_window.id.0,
+                launch_params: mounted_window.launch_params.clone(),
+                restored_state: mounted_window.app_state.clone(),
                 lifecycle,
                 inbox,
-                services,
-            })
-        })
-        .unwrap_or_else(|| view! { <p>"Closed"</p> }.into_view());
+                services: services.get_value(),
+            }
+        />
+    };
 
     view! {
         <div class="window-body-content">
             {contents}
         </div>
+    }
+}
+
+#[component]
+fn MountedManagedApp(app_id: AppId, context: AppMountContext) -> impl IntoView {
+    match app_id {
+        AppId::Calculator => view! {
+            <CalculatorApp
+                launch_params=context.launch_params.clone()
+                restored_state=Some(context.restored_state.clone())
+                services=Some(context.services.clone())
+            />
+        }
+        .into_view(),
+        AppId::Explorer => view! {
+            <ExplorerApp
+                launch_params=context.launch_params.clone()
+                restored_state=Some(context.restored_state.clone())
+                services=Some(context.services.clone())
+                inbox=Some(context.inbox)
+            />
+        }
+        .into_view(),
+        AppId::Notepad => view! {
+            <NotepadApp
+                launch_params=context.launch_params.clone()
+                restored_state=Some(context.restored_state.clone())
+                services=Some(context.services.clone())
+            />
+        }
+        .into_view(),
+        AppId::Terminal => view! {
+            <TerminalApp
+                window_id=context.window_id
+                launch_params=context.launch_params.clone()
+                restored_state=Some(context.restored_state.clone())
+                services=Some(context.services.clone())
+            />
+        }
+        .into_view(),
+        AppId::Settings => view! {
+            <SettingsApp
+                _launch_params=context.launch_params.clone()
+                restored_state=Some(context.restored_state.clone())
+                services=Some(context.services.clone())
+            />
+        }
+        .into_view(),
+        _ => apps::app_module(app_id).mount(context),
     }
 }

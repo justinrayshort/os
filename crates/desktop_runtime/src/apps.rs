@@ -329,6 +329,7 @@ fn mount_notepad_app(context: AppMountContext) -> View {
 fn mount_terminal_app(context: AppMountContext) -> View {
     view! {
         <TerminalApp
+            window_id=context.window_id
             launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
             services=Some(context.services)

@@ -1,21 +1,22 @@
-//! Runtime-agnostic browser-native shell engine with dynamic command registration.
+//! Runtime-agnostic browser-native shell engine with hierarchical command registration.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
 use std::{
     cell::{Cell, RefCell},
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     rc::Rc,
 };
 
 use futures::future::LocalBoxFuture;
-use leptos::{create_rw_signal, ReadSignal, RwSignal, SignalGetUntracked, SignalSet, SignalUpdate};
-use serde_json::Value;
-use shrs_core_headless::{eval_line, HeadlessEvalInput, HeadlessShellState};
+use leptos::{ReadSignal, RwSignal, SignalGetUntracked, SignalSet, SignalUpdate, create_rw_signal};
 use system_shell_contract::{
-    CommandDescriptor, CommandRegistrationToken, CommandScope, CompletionItem, CompletionRequest,
-    ExecutionId, ShellError, ShellErrorCode, ShellExecutionSummary, ShellExit, ShellRequest,
-    ShellStreamEvent,
+    CommandDataShape, CommandDescriptor, CommandInputShape, CommandNotice, CommandNoticeLevel,
+    CommandPath, CommandRegistrationToken, CommandResult, CommandScope, CommandVisibility,
+    CompletionItem, CompletionRequest, DisplayPreference, ExecutionId, ParsedCommandLine,
+    ParsedInvocation, ParsedLiteral, ParsedOption, ParsedValue, ShellError, ShellErrorCode,
+    ShellExecutionSummary, ShellExit, ShellRequest, ShellStreamEvent, StructuredData,
+    StructuredRecord, StructuredScalar, StructuredTable, StructuredValue,
 };
 
 /// Async completion provider.
@@ -25,7 +26,7 @@ pub type CompletionHandler = Rc<
 
 /// Async command handler.
 pub type CommandHandler =
-    Rc<dyn Fn(CommandExecutionContext) -> LocalBoxFuture<'static, Result<ShellExit, ShellError>>>;
+    Rc<dyn Fn(CommandExecutionContext) -> LocalBoxFuture<'static, Result<CommandResult, ShellError>>>;
 
 /// Shared command execution context for handlers.
 #[derive(Clone)]
@@ -34,10 +35,16 @@ pub struct CommandExecutionContext {
     pub execution_id: ExecutionId,
     /// Canonical descriptor for the resolved command.
     pub descriptor: CommandDescriptor,
-    /// Full argv for the command line.
+    /// Parsed invocation metadata.
+    pub invocation: ParsedInvocation,
+    /// Full token vector for the invocation.
     pub argv: Vec<String>,
+    /// Positional argument tokens after command-path resolution.
+    pub args: Vec<String>,
     /// Current logical cwd.
     pub cwd: String,
+    /// Structured input from the previous pipeline stage.
+    pub input: StructuredData,
     /// Optional source window identifier.
     pub source_window_id: Option<u64>,
     emitter: EventEmitter,
@@ -46,24 +53,35 @@ pub struct CommandExecutionContext {
 }
 
 impl CommandExecutionContext {
-    /// Emits a stdout chunk.
-    pub fn stdout(&self, text: impl Into<String>) {
-        self.emitter.stdout(self.execution_id, text.into());
+    /// Emits an informational notice.
+    pub fn info(&self, message: impl Into<String>) {
+        self.notice(CommandNoticeLevel::Info, message);
     }
 
-    /// Emits a stderr chunk.
-    pub fn stderr(&self, text: impl Into<String>) {
-        self.emitter.stderr(self.execution_id, text.into());
+    /// Emits a warning notice.
+    pub fn warn(&self, message: impl Into<String>) {
+        self.notice(CommandNoticeLevel::Warning, message);
     }
 
-    /// Emits a status update.
-    pub fn status(&self, text: impl Into<String>) {
-        self.emitter.status(self.execution_id, text.into());
+    /// Emits an error notice.
+    pub fn error(&self, message: impl Into<String>) {
+        self.notice(CommandNoticeLevel::Error, message);
     }
 
-    /// Emits a structured JSON payload.
-    pub fn json(&self, value: Value) {
-        self.emitter.json(self.execution_id, value);
+    /// Emits a structured notice.
+    pub fn notice(&self, level: CommandNoticeLevel, message: impl Into<String>) {
+        self.emitter.notice(
+            self.execution_id,
+            CommandNotice {
+                level,
+                message: message.into(),
+            },
+        );
+    }
+
+    /// Emits a progress update.
+    pub fn progress(&self, value: Option<f32>, label: Option<String>) {
+        self.emitter.progress(self.execution_id, value, label);
     }
 
     /// Updates the logical cwd for the active session.
@@ -87,22 +105,26 @@ impl EventEmitter {
         self.events.update(|events| events.push(event));
     }
 
-    fn stdout(&self, execution_id: ExecutionId, text: String) {
-        self.push(ShellStreamEvent::StdoutChunk { execution_id, text });
+    fn notice(&self, execution_id: ExecutionId, notice: CommandNotice) {
+        self.push(ShellStreamEvent::Notice {
+            execution_id,
+            notice,
+        });
     }
 
-    fn stderr(&self, execution_id: ExecutionId, text: String) {
-        self.push(ShellStreamEvent::StderrChunk { execution_id, text });
-    }
-
-    fn status(&self, execution_id: ExecutionId, text: String) {
-        self.push(ShellStreamEvent::Status { execution_id, text });
-    }
-
-    fn json(&self, execution_id: ExecutionId, value: Value) {
-        self.push(ShellStreamEvent::Json {
+    fn progress(&self, execution_id: ExecutionId, value: Option<f32>, label: Option<String>) {
+        self.push(ShellStreamEvent::Progress {
             execution_id,
             value,
+            label,
+        });
+    }
+
+    fn data(&self, execution_id: ExecutionId, data: StructuredData, display: DisplayPreference) {
+        self.push(ShellStreamEvent::Data {
+            execution_id,
+            data,
+            display,
         });
     }
 }
@@ -159,10 +181,13 @@ impl CommandRegistry {
 
     /// Returns the currently registered command descriptors.
     pub fn descriptors(&self) -> Vec<CommandDescriptor> {
-        self.visible_commands()
+        let mut descriptors = self
+            .visible_commands()
             .into_iter()
             .map(|registered| registered.descriptor)
-            .collect()
+            .collect::<Vec<_>>();
+        descriptors.sort_by(|left, right| left.path.display().cmp(&right.path.display()));
+        descriptors
     }
 }
 
@@ -191,7 +216,6 @@ impl Drop for CommandRegistryHandle {
 
 #[derive(Clone)]
 struct SessionState {
-    parser_state: Rc<RefCell<HeadlessShellState>>,
     cwd: RwSignal<String>,
     events: RwSignal<Vec<ShellStreamEvent>>,
     active_execution: RwSignal<Option<ExecutionId>>,
@@ -234,166 +258,39 @@ impl ShellSessionHandle {
         &self,
         request: CompletionRequest,
     ) -> Result<Vec<CompletionItem>, ShellError> {
-        let commands = self.registry.visible_commands();
-        if request.argv.len() <= 1 {
-            let prefix = request.argv.first().cloned().unwrap_or_default();
-            let mut items = Vec::new();
-            for registered in commands {
-                let descriptor = registered.descriptor;
-                let summary = descriptor.help.summary.clone();
-                if descriptor.path.as_str().starts_with(&prefix) {
-                    items.push(CompletionItem {
-                        value: descriptor.path.as_str().to_string(),
-                        label: descriptor.path.as_str().to_string(),
-                        detail: Some(summary.clone()),
-                    });
-                }
-                for alias in descriptor.aliases {
-                    if alias.starts_with(&prefix) {
-                        items.push(CompletionItem {
-                            value: alias.clone(),
-                            label: alias,
-                            detail: Some(summary.clone()),
-                        });
-                    }
-                }
-            }
-            return Ok(items);
-        }
-
-        let matched = self.resolve_command(&request.argv[0])?;
-        if let Some(completion) = matched.completion {
-            return completion(request).await;
-        }
-        Ok(Vec::new())
+        let snapshot = RegistrySnapshot::new(self.registry.visible_commands());
+        snapshot.complete(request).await
     }
 
     /// Parses and executes one command request.
     pub fn submit(&self, request: ShellRequest) {
         if self.state.active_execution.get_untracked().is_some() {
             self.state.events.update(|events| {
-                events.push(ShellStreamEvent::Status {
+                events.push(ShellStreamEvent::Notice {
                     execution_id: ExecutionId(0),
-                    text: "another command is already running".to_string(),
+                    notice: CommandNotice {
+                        level: CommandNoticeLevel::Warning,
+                        message: "another command is already running".to_string(),
+                    },
                 });
             });
             return;
         }
 
-        let parsed = {
-            let mut parser_state = self.state.parser_state.borrow_mut();
-            eval_line(
-                &mut parser_state,
-                HeadlessEvalInput {
-                    line: request.line.clone(),
-                },
-            )
-        };
-
-        let output = match parsed {
-            Ok(output) => output,
+        let parsed = match parse_command_line(&request.line) {
+            Ok(parsed) => parsed,
             Err(err) => {
                 let execution_id = self.next_execution_id();
                 self.state.events.update(|events| {
                     events.push(ShellStreamEvent::Started { execution_id });
-                    events.push(ShellStreamEvent::StderrChunk {
+                    events.push(ShellStreamEvent::Notice {
                         execution_id,
-                        text: err.message.clone(),
-                    });
-                    events.push(ShellStreamEvent::Completed {
-                        summary: ShellExecutionSummary {
-                            execution_id,
-                            command_path: None,
-                            exit: ShellExit {
-                                code: 2,
-                                message: Some(err.message),
-                            },
+                        notice: CommandNotice {
+                            level: CommandNoticeLevel::Error,
+                            message: err.message.clone(),
                         },
                     });
-                });
-                return;
-            }
-        };
-
-        if output.is_empty {
-            return;
-        }
-
-        let execution_id = self.next_execution_id();
-        self.state.cancel_flag.set(false);
-        self.state.active_execution.set(Some(execution_id));
-        let descriptor_result = self.resolve_command(&output.argv[0]);
-        let state = self.state.clone();
-        let registry = self.registry.clone();
-        let request_cwd = request.cwd.clone();
-        leptos::spawn_local(async move {
-            let emitter = EventEmitter {
-                events: state.events,
-            };
-            emitter.push(ShellStreamEvent::Started { execution_id });
-
-            match descriptor_result {
-                Ok(registered) => {
-                    let command_path = registered.descriptor.path.clone();
-                    if output.wants_help && output.argv[0] != "help" {
-                        emitter.stdout(execution_id, render_help(&registered.descriptor));
-                        emitter.push(ShellStreamEvent::Completed {
-                            summary: ShellExecutionSummary {
-                                execution_id,
-                                command_path: Some(command_path.clone()),
-                                exit: ShellExit::success(),
-                            },
-                        });
-                    } else {
-                        let context = CommandExecutionContext {
-                            execution_id,
-                            descriptor: registered.descriptor.clone(),
-                            argv: output.argv.clone(),
-                            cwd: request_cwd,
-                            source_window_id: request.source_window_id,
-                            emitter: emitter.clone(),
-                            session_cwd: state.cwd,
-                            cancelled: state.cancel_flag.clone(),
-                        };
-                        let result = (registered.handler)(context).await;
-                        if state.cancel_flag.get() {
-                            emitter.push(ShellStreamEvent::Cancelled { execution_id });
-                            emitter.push(ShellStreamEvent::Completed {
-                                summary: ShellExecutionSummary {
-                                    execution_id,
-                                    command_path: Some(command_path.clone()),
-                                    exit: ShellExit::cancelled(),
-                                },
-                            });
-                        } else {
-                            match result {
-                                Ok(exit) => emitter.push(ShellStreamEvent::Completed {
-                                    summary: ShellExecutionSummary {
-                                        execution_id,
-                                        command_path: Some(command_path.clone()),
-                                        exit,
-                                    },
-                                }),
-                                Err(err) => {
-                                    emitter.stderr(execution_id, err.message.clone());
-                                    emitter.push(ShellStreamEvent::Completed {
-                                        summary: ShellExecutionSummary {
-                                            execution_id,
-                                            command_path: Some(command_path.clone()),
-                                            exit: ShellExit {
-                                                code: err.exit_code(),
-                                                message: Some(err.message),
-                                            },
-                                        },
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(err) => {
-                    emitter.stderr(execution_id, err.message.clone());
-                    emitter.push(ShellStreamEvent::Completed {
+                    events.push(ShellStreamEvent::Completed {
                         summary: ShellExecutionSummary {
                             execution_id,
                             command_path: None,
@@ -403,11 +300,164 @@ impl ShellSessionHandle {
                             },
                         },
                     });
+                });
+                return;
+            }
+        };
+
+        if parsed.pipeline.is_empty() {
+            return;
+        }
+
+        let execution_id = self.next_execution_id();
+        self.state.cancel_flag.set(false);
+        self.state.active_execution.set(Some(execution_id));
+        let state = self.state.clone();
+        let registry = self.registry.clone();
+        leptos::spawn_local(async move {
+            let emitter = EventEmitter {
+                events: state.events,
+            };
+            emitter.push(ShellStreamEvent::Started { execution_id });
+
+            let snapshot = RegistrySnapshot::new(registry.visible_commands());
+            let mut piped_input = StructuredData::Empty;
+            let mut final_summary = ShellExecutionSummary {
+                execution_id,
+                command_path: None,
+                exit: ShellExit::success(),
+            };
+
+            for stage in parsed.pipeline {
+                if state.cancel_flag.get() {
+                    emitter.push(ShellStreamEvent::Cancelled { execution_id });
+                    final_summary.exit = ShellExit::cancelled();
+                    break;
+                }
+
+                match snapshot.resolve_stage(&stage.tokens) {
+                    Ok(ResolvedStage::Namespace { path }) => {
+                        let result = snapshot.namespace_result(&path);
+                        for notice in &result.notices {
+                            emitter.notice(execution_id, notice.clone());
+                        }
+                        if !matches!(result.output, StructuredData::Empty) {
+                            emitter.data(execution_id, result.output.clone(), result.display);
+                            piped_input = result.output;
+                        }
+                        final_summary.command_path = Some(path);
+                        final_summary.exit = result.exit;
+                    }
+                    Ok(ResolvedStage::Leaf { registered, matched_len }) => {
+                        let (options, values, args) =
+                            parse_invocation_arguments(&stage.tokens[matched_len..]);
+                        let invocation = ParsedInvocation {
+                            tokens: stage.tokens.clone(),
+                            options,
+                            values,
+                        };
+
+                        if wants_help(&invocation) {
+                            let result = snapshot.command_help_result(&registered.descriptor);
+                            emitter.data(execution_id, result.output.clone(), result.display);
+                            piped_input = result.output;
+                            final_summary.command_path = Some(registered.descriptor.path.clone());
+                            final_summary.exit = result.exit;
+                            continue;
+                        }
+
+                        let input_shape = registered.descriptor.input_shape.clone();
+                        if let Err(err) = validate_input_shape(&piped_input, &input_shape) {
+                            emitter.notice(
+                                execution_id,
+                                CommandNotice {
+                                    level: CommandNoticeLevel::Error,
+                                    message: err.message.clone(),
+                                },
+                            );
+                            final_summary.command_path = Some(registered.descriptor.path.clone());
+                            final_summary.exit = ShellExit {
+                                code: err.exit_code(),
+                                message: Some(err.message),
+                            };
+                            break;
+                        }
+
+                        let context = CommandExecutionContext {
+                            execution_id,
+                            descriptor: registered.descriptor.clone(),
+                            invocation,
+                            argv: stage.tokens.clone(),
+                            args,
+                            cwd: state.cwd.get_untracked(),
+                            input: piped_input.clone(),
+                            source_window_id: request.source_window_id,
+                            emitter: emitter.clone(),
+                            session_cwd: state.cwd,
+                            cancelled: state.cancel_flag.clone(),
+                        };
+                        match (registered.handler)(context).await {
+                            Ok(result) => {
+                                if let Some(cwd) = result.cwd.clone() {
+                                    state.cwd.set(cwd);
+                                }
+                                for notice in &result.notices {
+                                    emitter.notice(execution_id, notice.clone());
+                                }
+                                if !matches!(result.output, StructuredData::Empty) {
+                                    emitter.data(
+                                        execution_id,
+                                        result.output.clone(),
+                                        result.display,
+                                    );
+                                }
+                                piped_input = result.output;
+                                final_summary.command_path =
+                                    Some(registered.descriptor.path.clone());
+                                final_summary.exit = result.exit.clone();
+                                if final_summary.exit.code != 0 {
+                                    break;
+                                }
+                            }
+                            Err(err) => {
+                                emitter.notice(
+                                    execution_id,
+                                    CommandNotice {
+                                        level: CommandNoticeLevel::Error,
+                                        message: err.message.clone(),
+                                    },
+                                );
+                                final_summary.command_path =
+                                    Some(registered.descriptor.path.clone());
+                                final_summary.exit = ShellExit {
+                                    code: err.exit_code(),
+                                    message: Some(err.message),
+                                };
+                                break;
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        emitter.notice(
+                            execution_id,
+                            CommandNotice {
+                                level: CommandNoticeLevel::Error,
+                                message: err.message.clone(),
+                            },
+                        );
+                        final_summary.exit = ShellExit {
+                            code: err.exit_code(),
+                            message: Some(err.message),
+                        };
+                        break;
+                    }
                 }
             }
 
+            emitter.push(ShellStreamEvent::Completed {
+                summary: final_summary,
+            });
             state.active_execution.set(None);
-            let _ = registry;
         });
     }
 
@@ -416,86 +466,517 @@ impl ShellSessionHandle {
         self.state.next_execution_id.set(next);
         ExecutionId(next)
     }
+}
 
-    fn resolve_command(&self, token: &str) -> Result<RegisteredCommand, ShellError> {
-        let commands = self.registry.visible_commands();
-        let mut best_scope_rank = None::<u8>;
-        let mut matches = Vec::new();
+#[derive(Clone)]
+struct RegistrySnapshot {
+    commands: Vec<RegisteredCommand>,
+}
 
-        for registered in commands {
-            let matches_token = registered.descriptor.path.as_str() == token
-                || registered
-                    .descriptor
-                    .aliases
-                    .iter()
-                    .any(|alias| alias == token);
-            if !matches_token {
+impl RegistrySnapshot {
+    fn new(commands: Vec<RegisteredCommand>) -> Self {
+        Self { commands }
+    }
+
+    async fn complete(&self, request: CompletionRequest) -> Result<Vec<CompletionItem>, ShellError> {
+        let parsed = tokenize_line(&request.line)?;
+        let stages = split_pipeline_tokens(parsed)?;
+        let current_stage = stages.last().cloned().unwrap_or_default();
+        let ends_with_space = request
+            .line
+            .chars()
+            .last()
+            .map(|ch| ch.is_whitespace())
+            .unwrap_or(false);
+        let (base_tokens, prefix) = if ends_with_space {
+            (current_stage.clone(), String::new())
+        } else if let Some(last) = current_stage.last() {
+            (
+                current_stage[..current_stage.len().saturating_sub(1)].to_vec(),
+                last.clone(),
+            )
+        } else {
+            (Vec::new(), String::new())
+        };
+
+        if let Ok(ResolvedStage::Leaf { registered, matched_len }) = self.resolve_stage(&base_tokens) {
+            if base_tokens.len() >= matched_len {
+                if let Some(completion) = registered.completion {
+                    return completion(request).await;
+                }
+            }
+        }
+
+        let mut items = Vec::new();
+        for (segment, descriptor) in self.child_segments(&base_tokens, &prefix) {
+            items.push(CompletionItem {
+                value: segment.clone(),
+                label: segment,
+                detail: descriptor.map(|descriptor| descriptor.help.summary.clone()),
+            });
+        }
+        items.sort_by(|left, right| left.label.cmp(&right.label));
+        items.dedup_by(|left, right| left.value == right.value);
+        Ok(items)
+    }
+
+    fn descriptors(&self) -> Vec<CommandDescriptor> {
+        let mut descriptors = self
+            .commands
+            .iter()
+            .filter(|registered| registered.descriptor.visibility == CommandVisibility::Public)
+            .map(|registered| registered.descriptor.clone())
+            .collect::<Vec<_>>();
+        descriptors.sort_by(|left, right| left.path.display().cmp(&right.path.display()));
+        descriptors
+    }
+
+    fn child_segments(
+        &self,
+        base_tokens: &[String],
+        prefix: &str,
+    ) -> Vec<(String, Option<CommandDescriptor>)> {
+        let mut out = Vec::new();
+        let mut seen = BTreeSet::new();
+        for descriptor in self.descriptors() {
+            let tokens = descriptor_path_tokens(&descriptor);
+            if tokens.len() <= base_tokens.len() || !tokens.starts_with(base_tokens) {
                 continue;
             }
-
-            let rank = match registered.descriptor.scope {
-                CommandScope::Window { .. } => 3,
-                CommandScope::App { .. } => 2,
-                CommandScope::Global => 1,
-            };
-            match best_scope_rank {
-                Some(best) if rank < best => continue,
-                Some(best) if rank > best => {
-                    best_scope_rank = Some(rank);
-                    matches.clear();
-                }
-                None => best_scope_rank = Some(rank),
-                _ => {}
+            let next = tokens[base_tokens.len()].clone();
+            if next.starts_with(prefix) && seen.insert(next.clone()) {
+                out.push((next, Some(descriptor.clone())));
             }
-            matches.push(registered);
+        }
+        out
+    }
+
+    fn command_help_result(&self, descriptor: &CommandDescriptor) -> CommandResult {
+        let aliases = if descriptor.aliases.is_empty() {
+            StructuredValue::List(Vec::new())
+        } else {
+            StructuredValue::List(
+                descriptor
+                    .aliases
+                    .iter()
+                    .cloned()
+                    .map(|alias| StructuredValue::Scalar(StructuredScalar::String(alias)))
+                    .collect(),
+            )
+        };
+        let examples = StructuredValue::List(
+            descriptor
+                .help
+                .examples
+                .iter()
+                .map(|example| {
+                    StructuredValue::Record(StructuredRecord {
+                        fields: vec![
+                            field_string("command", example.command.clone()),
+                            field_string("summary", example.summary.clone()),
+                        ],
+                    })
+                })
+                .collect(),
+        );
+        CommandResult {
+            output: StructuredData::Record(StructuredRecord {
+                fields: vec![
+                    field_string("path", descriptor.path.display()),
+                    field_string("summary", descriptor.help.summary.clone()),
+                    field_string("usage", descriptor.help.usage.clone()),
+                    StructuredFieldBuilder::new("aliases", aliases).build(),
+                    StructuredFieldBuilder::new("examples", examples).build(),
+                ],
+            }),
+            display: DisplayPreference::Help,
+            notices: Vec::new(),
+            cwd: None,
+            exit: ShellExit::success(),
+        }
+    }
+
+    fn namespace_result(&self, path: &CommandPath) -> CommandResult {
+        let prefix = path
+            .segments()
+            .iter()
+            .map(|segment| segment.as_str().to_string())
+            .collect::<Vec<_>>();
+        let mut rows = Vec::new();
+        let mut seen = BTreeSet::new();
+        for descriptor in self.descriptors() {
+            let tokens = descriptor_path_tokens(&descriptor);
+            if tokens.len() <= prefix.len() || !tokens.starts_with(&prefix) {
+                continue;
+            }
+            let name = tokens[prefix.len()].clone();
+            if !seen.insert(name.clone()) {
+                continue;
+            }
+            rows.push(StructuredRecord {
+                fields: vec![
+                    field_string("name", name),
+                    field_string("summary", descriptor.help.summary.clone()),
+                ],
+            });
+        }
+        let table = StructuredTable {
+            columns: vec!["name".to_string(), "summary".to_string()],
+            rows,
+            schema: None,
+            source_command: Some(path.clone()),
+            fallback_text: None,
+        };
+        CommandResult {
+            output: StructuredData::Table(table),
+            display: DisplayPreference::Help,
+            notices: Vec::new(),
+            cwd: None,
+            exit: ShellExit::success(),
+        }
+    }
+
+    fn resolve_stage(&self, tokens: &[String]) -> Result<ResolvedStage, ShellError> {
+        let mut best_match: Option<(RegisteredCommand, usize, u8)> = None;
+        let mut ambiguous = false;
+
+        for registered in &self.commands {
+            for candidate in candidate_paths(&registered.descriptor) {
+                if tokens.len() < candidate.len() || !tokens.starts_with(&candidate) {
+                    continue;
+                }
+                let score = (candidate.len(), scope_rank(&registered.descriptor.scope));
+                match best_match.as_ref() {
+                    Some((_, best_len, best_scope))
+                        if score.0 < *best_len || (score.0 == *best_len && score.1 < *best_scope) =>
+                    {
+                        continue;
+                    }
+                    Some((_, best_len, best_scope))
+                        if score.0 == *best_len && score.1 == *best_scope =>
+                    {
+                        ambiguous = true;
+                    }
+                    _ => {
+                        ambiguous = false;
+                        best_match = Some((registered.clone(), candidate.len(), score.1));
+                    }
+                }
+            }
         }
 
-        match matches.len() {
-            0 => Err(ShellError::new(
-                ShellErrorCode::NotFound,
-                format!("command not found: {token}"),
-            )),
-            1 => Ok(matches.remove(0)),
-            _ => Err(ShellError::new(
+        if ambiguous {
+            return Err(ShellError::new(
                 ShellErrorCode::Usage,
-                format!("ambiguous command `{token}`"),
-            )),
+                format!("ambiguous command `{}`", tokens.join(" ")),
+            ));
         }
+
+        if let Some((registered, matched_len, _)) = best_match {
+            return Ok(ResolvedStage::Leaf {
+                registered,
+                matched_len,
+            });
+        }
+
+        if prefix_exists(&self.descriptors(), tokens) {
+            return Ok(ResolvedStage::Namespace {
+                path: CommandPath::from_segments(tokens.iter().cloned().map(system_shell_contract::CommandSegment::new)),
+            });
+        }
+
+        Err(ShellError::new(
+            ShellErrorCode::NotFound,
+            format!("command not found: {}", tokens.join(" ")),
+        ))
     }
 }
 
-fn render_help(descriptor: &CommandDescriptor) -> String {
-    let mut lines = vec![
-        descriptor.path.as_str().to_string(),
-        descriptor.help.summary.clone(),
-        format!("Usage: {}", descriptor.help.usage),
-    ];
-    if !descriptor.aliases.is_empty() {
-        lines.push(format!("Aliases: {}", descriptor.aliases.join(", ")));
+#[derive(Clone)]
+enum ResolvedStage {
+    Namespace { path: CommandPath },
+    Leaf { registered: RegisteredCommand, matched_len: usize },
+}
+
+fn scope_rank(scope: &CommandScope) -> u8 {
+    match scope {
+        CommandScope::Window { .. } => 3,
+        CommandScope::App { .. } => 2,
+        CommandScope::Global => 1,
     }
-    if !descriptor.args.is_empty() {
-        lines.push("Arguments:".to_string());
-        for arg in &descriptor.args {
-            lines.push(format!("  {} - {}", arg.name, arg.summary));
+}
+
+fn descriptor_path_tokens(descriptor: &CommandDescriptor) -> Vec<String> {
+    descriptor
+        .path
+        .segments()
+        .iter()
+        .map(|segment| segment.as_str().to_string())
+        .collect()
+}
+
+fn candidate_paths(descriptor: &CommandDescriptor) -> Vec<Vec<String>> {
+    let mut candidates = vec![descriptor_path_tokens(descriptor)];
+    candidates.extend(
+        descriptor
+            .aliases
+            .iter()
+            .map(|alias| alias.split_whitespace().map(str::to_string).collect()),
+    );
+    candidates
+}
+
+fn prefix_exists(descriptors: &[CommandDescriptor], prefix: &[String]) -> bool {
+    descriptors.iter().any(|descriptor| {
+        candidate_paths(descriptor)
+            .into_iter()
+            .any(|candidate| candidate.len() > prefix.len() && candidate.starts_with(prefix))
+    })
+}
+
+fn wants_help(invocation: &ParsedInvocation) -> bool {
+    invocation.options.iter().any(|option| {
+        option.name == "help" || option.short == Some('h')
+    })
+}
+
+fn validate_input_shape(input: &StructuredData, shape: &CommandInputShape) -> Result<(), ShellError> {
+    if !shape.accepts_pipeline_input {
+        if matches!(input, StructuredData::Empty) {
+            return Ok(());
+        }
+        return Err(ShellError::new(
+            ShellErrorCode::Usage,
+            "command does not accept piped input",
+        ));
+    }
+
+    if shape.shape == CommandDataShape::Any || matches!(input, StructuredData::Empty) {
+        return Ok(());
+    }
+
+    if input.shape() == shape.shape {
+        return Ok(());
+    }
+
+    Err(ShellError::new(
+        ShellErrorCode::Usage,
+        format!(
+            "expected {:?} pipeline input, got {:?}",
+            shape.shape,
+            input.shape()
+        ),
+    ))
+}
+
+fn tokenize_line(line: &str) -> Result<Vec<Token>, ShellError> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut chars = line.chars().peekable();
+    let mut quote = None::<char>;
+
+    while let Some(ch) = chars.next() {
+        match quote {
+            Some(active) if ch == active => quote = None,
+            Some(_) if ch == '\\' => {
+                let Some(next) = chars.next() else {
+                    return Err(ShellError::new(
+                        ShellErrorCode::Usage,
+                        "dangling escape sequence",
+                    ));
+                };
+                current.push(next);
+            }
+            Some(_) => current.push(ch),
+            None if ch == '"' || ch == '\'' => quote = Some(ch),
+            None if ch == '|' => {
+                if !current.is_empty() {
+                    tokens.push(Token::Word(std::mem::take(&mut current)));
+                }
+                tokens.push(Token::Pipe);
+            }
+            None if ch.is_whitespace() => {
+                if !current.is_empty() {
+                    tokens.push(Token::Word(std::mem::take(&mut current)));
+                }
+            }
+            None if ch == '\\' => {
+                let Some(next) = chars.next() else {
+                    return Err(ShellError::new(
+                        ShellErrorCode::Usage,
+                        "dangling escape sequence",
+                    ));
+                };
+                current.push(next);
+            }
+            None => current.push(ch),
         }
     }
-    if !descriptor.options.is_empty() {
-        lines.push("Options:".to_string());
-        for option in &descriptor.options {
-            let short = option
-                .short
-                .map(|short| format!("-{}, ", short))
-                .unwrap_or_default();
-            lines.push(format!("  {}--{} - {}", short, option.name, option.summary));
+
+    if quote.is_some() {
+        return Err(ShellError::new(
+            ShellErrorCode::Usage,
+            "unterminated quoted string",
+        ));
+    }
+
+    if !current.is_empty() {
+        tokens.push(Token::Word(current));
+    }
+
+    Ok(tokens)
+}
+
+fn split_pipeline_tokens(tokens: Vec<Token>) -> Result<Vec<Vec<String>>, ShellError> {
+    let mut stages = Vec::new();
+    let mut current = Vec::new();
+    for token in tokens {
+        match token {
+            Token::Pipe => {
+                if current.is_empty() {
+                    return Err(ShellError::new(
+                        ShellErrorCode::Usage,
+                        "empty pipeline stage",
+                    ));
+                }
+                stages.push(std::mem::take(&mut current));
+            }
+            Token::Word(word) => current.push(word),
         }
     }
-    if !descriptor.help.examples.is_empty() {
-        lines.push("Examples:".to_string());
-        for example in &descriptor.help.examples {
-            lines.push(format!("  {}  # {}", example.command, example.summary));
+    if current.is_empty() && !stages.is_empty() {
+        return Err(ShellError::new(
+            ShellErrorCode::Usage,
+            "pipeline cannot end with `|`",
+        ));
+    }
+    if !current.is_empty() {
+        stages.push(current);
+    }
+    Ok(stages)
+}
+
+fn parse_command_line(line: &str) -> Result<ParsedCommandLine, ShellError> {
+    let stages = split_pipeline_tokens(tokenize_line(line)?)?;
+    Ok(ParsedCommandLine {
+        pipeline: stages
+            .into_iter()
+            .map(|tokens| ParsedInvocation {
+                tokens,
+                options: Vec::new(),
+                values: Vec::new(),
+            })
+            .collect(),
+    })
+}
+
+fn parse_invocation_arguments(
+    tokens: &[String],
+) -> (Vec<ParsedOption>, Vec<ParsedValue>, Vec<String>) {
+    let mut options = Vec::new();
+    let mut values = Vec::new();
+    let mut args = Vec::new();
+    let mut index = 0usize;
+
+    while index < tokens.len() {
+        let token = &tokens[index];
+        if let Some(rest) = token.strip_prefix("--") {
+            if !rest.is_empty() {
+                if let Some((name, raw_value)) = rest.split_once('=') {
+                    options.push(ParsedOption {
+                        name: name.to_string(),
+                        short: None,
+                        value: Some(parse_value(raw_value)),
+                    });
+                } else {
+                    let takes_value =
+                        index + 1 < tokens.len() && !tokens[index + 1].starts_with('-');
+                    let value = takes_value.then(|| {
+                        index += 1;
+                        parse_value(&tokens[index])
+                    });
+                    options.push(ParsedOption {
+                        name: rest.to_string(),
+                        short: None,
+                        value,
+                    });
+                }
+                index += 1;
+                continue;
+            }
+        }
+
+        if token.starts_with('-') && token.len() > 1 {
+            for short in token.trim_start_matches('-').chars() {
+                options.push(ParsedOption {
+                    name: short.to_string(),
+                    short: Some(short),
+                    value: None,
+                });
+            }
+            index += 1;
+            continue;
+        }
+
+        args.push(token.clone());
+        values.push(parse_value(token));
+        index += 1;
+    }
+
+    (options, values, args)
+}
+
+fn parse_value(raw: &str) -> ParsedValue {
+    let literal = if raw == "null" {
+        ParsedLiteral::Null
+    } else if matches!(raw, "true" | "on") {
+        ParsedLiteral::Bool(true)
+    } else if matches!(raw, "false" | "off") {
+        ParsedLiteral::Bool(false)
+    } else if let Ok(value) = raw.parse::<i64>() {
+        ParsedLiteral::Int(value)
+    } else if let Ok(value) = raw.parse::<f64>() {
+        ParsedLiteral::Float(value)
+    } else {
+        ParsedLiteral::String(raw.to_string())
+    };
+
+    ParsedValue {
+        raw: raw.to_string(),
+        literal,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Token {
+    Pipe,
+    Word(String),
+}
+
+fn field_string(name: &str, value: String) -> system_shell_contract::StructuredField {
+    StructuredFieldBuilder::new(name, StructuredValue::Scalar(StructuredScalar::String(value)))
+        .build()
+}
+
+struct StructuredFieldBuilder {
+    name: String,
+    value: StructuredValue,
+}
+
+impl StructuredFieldBuilder {
+    fn new(name: &str, value: StructuredValue) -> Self {
+        Self {
+            name: name.to_string(),
+            value,
         }
     }
-    lines.join("\n")
+
+    fn build(self) -> system_shell_contract::StructuredField {
+        system_shell_contract::StructuredField {
+            name: self.name,
+            value: self.value,
+        }
+    }
 }
 
 /// Root shell engine used by the runtime.
@@ -539,7 +1020,6 @@ impl ShellEngine {
     pub fn new_session(&self, cwd: impl Into<String>) -> ShellSessionHandle {
         let cwd = cwd.into();
         let state = SessionState {
-            parser_state: Rc::new(RefCell::new(HeadlessShellState::default())),
             cwd: create_rw_signal(cwd),
             events: create_rw_signal(Vec::new()),
             active_execution: create_rw_signal(None),
@@ -557,17 +1037,24 @@ impl ShellEngine {
 mod tests {
     use super::*;
     use system_shell_contract::{
-        CommandArgSpec, CommandExample, CommandId, CommandOptionSpec, CommandPath,
-        CommandVisibility, HelpDoc,
+        CommandArgSpec, CommandExample, CommandId, CommandInteractionKind, CommandOutputShape,
+        CommandOptionSpec, HelpDoc,
     };
 
     fn descriptor(path: &str, aliases: &[&str], scope: CommandScope) -> CommandDescriptor {
+        let path = CommandPath::new(path);
+        let display = path.display();
         CommandDescriptor {
-            id: CommandId::new(path),
-            path: CommandPath::new(path),
+            id: CommandId::new(display.clone()),
+            parent_path: path.parent(),
+            path,
             aliases: aliases.iter().map(|alias| alias.to_string()).collect(),
             scope,
             visibility: CommandVisibility::Public,
+            interaction_kind: CommandInteractionKind::Hierarchical,
+            discoverable_children: true,
+            input_shape: CommandInputShape::none(),
+            output_shape: CommandOutputShape::new(CommandDataShape::Table),
             args: vec![CommandArgSpec {
                 name: "value".to_string(),
                 summary: "value".to_string(),
@@ -583,9 +1070,9 @@ mod tests {
             help: HelpDoc {
                 summary: "summary".to_string(),
                 description: None,
-                usage: path.to_string(),
+                usage: display.clone(),
                 examples: vec![CommandExample {
-                    command: path.to_string(),
+                    command: display,
                     summary: "example".to_string(),
                 }],
             },
@@ -594,15 +1081,23 @@ mod tests {
 
     #[test]
     fn registration_handle_unregisters() {
-        leptos::create_runtime();
+        let _ = leptos::create_runtime();
         let engine = ShellEngine::new();
         let handle = engine.register_command(
-            descriptor("apps.list", &[], CommandScope::Global),
+            descriptor("apps list", &[], CommandScope::Global),
             None,
-            Rc::new(|_| Box::pin(async { Ok(ShellExit::success()) })),
+            Rc::new(|_| Box::pin(async { Ok(CommandResult::success(StructuredData::Empty)) })),
         );
         assert_eq!(engine.registry.visible_commands().len(), 1);
         handle.unregister();
         assert_eq!(engine.registry.visible_commands().len(), 0);
+    }
+
+    #[test]
+    fn parser_splits_pipelines() {
+        let parsed = parse_command_line("ls | data select name").expect("parse");
+        assert_eq!(parsed.pipeline.len(), 2);
+        assert_eq!(parsed.pipeline[0].tokens, vec!["ls"]);
+        assert_eq!(parsed.pipeline[1].tokens, vec!["data", "select", "name"]);
     }
 }

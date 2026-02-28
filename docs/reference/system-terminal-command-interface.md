@@ -18,7 +18,6 @@ lifecycle: "ga"
 
 This page documents the browser-native terminal command surface implemented by the shared shell stack:
 
-- `crates/shrs_core_headless`
 - `crates/system_shell_contract`
 - `crates/system_shell`
 - `crates/desktop_runtime/src/shell.rs`
@@ -26,39 +25,61 @@ This page documents the browser-native terminal command surface implemented by t
 
 ## Architecture Split
 
-- `shrs_core_headless`: parses shell input into argv without native TTY dependencies.
-- `system_shell_contract`: defines command metadata, shell requests, completion payloads, errors, and stream events.
-- `system_shell`: owns command registration, command lookup, async execution, cancellation, and per-session event streams.
+- `system_shell_contract`: defines segmented command paths, parser payloads, structured command data, completion payloads, errors, and stream events.
+- `system_shell`: owns command registration, parsing, hierarchical lookup, pipeline execution, cancellation, and per-session event streams.
 - `desktop_runtime`: owns built-in system commands and the runtime bridge to reducer actions and platform storage.
-- `desktop_app_terminal`: renders transcript state and forwards browser input into a runtime-created shell session.
+- `desktop_app_terminal`: renders typed transcript state and forwards browser input into a runtime-created shell session.
+
+## Command Naming and Grammar
+
+The terminal now uses a mixed command model:
+
+- hierarchical commands use space-delimited namespace/action paths (`theme show`, `windows focus`, `data where`)
+- familiar shell verbs remain single-token where expected (`pwd`, `cd`, `ls`, `open`, `clear`)
+
+Shell input is parsed as:
+
+- one or more pipeline stages separated by `|`
+- each stage resolved against the longest matching registered command path
+- remaining tokens parsed as typed literals and options
+
+Namespace prefixes are discoverable. Entering `theme` or `windows` without a leaf command returns structured subcommand help instead of a plain "command not found" error.
 
 ## Built-in Commands
 
-The initial runtime-owned command pack includes:
+The current runtime-owned command pack includes:
 
-- `help`
-- `clear`
-- `history`
+- `help list`
+- `help show <command...>`
+- `terminal clear` (alias: `clear`)
+- `history list`
 - `open`
-- `apps.list`
-- `apps.open`
-- `windows.list`
-- `windows.focus`
-- `windows.close`
-- `windows.minimize`
-- `windows.restore`
-- `theme.show`
-- `theme.set.skin`
-- `theme.set.high-contrast`
-- `theme.set.reduced-motion`
-- `config.get`
-- `config.set`
-- `inspect.runtime`
-- `inspect.windows`
-- `inspect.storage`
-- `fs.pwd`
-- `fs.cd`
-- `fs.ls`
+- `apps list`
+- `apps open`
+- `windows list`
+- `windows focus`
+- `windows close`
+- `windows minimize`
+- `windows restore`
+- `theme show`
+- `theme set skin`
+- `theme set high-contrast`
+- `theme set reduced-motion`
+- `config get`
+- `config set`
+- `inspect runtime`
+- `inspect windows`
+- `inspect storage`
+- `pwd`
+- `cd`
+- `ls`
+- `data select`
+- `data where`
+- `data sort`
+- `data first`
+- `data get`
+
+`ls`, `windows list`, and `apps list` return table-shaped data. `theme show` and `inspect runtime` return record-shaped data. `pwd` returns a scalar string value. `data *` commands accept structured piped input and transform it.
 
 ## Command Registration
 
@@ -77,15 +98,32 @@ Rules:
 Command output is streamed into the terminal UI using `system_shell_contract::ShellStreamEvent`:
 
 - `Started`
-- `StdoutChunk`
-- `StderrChunk`
-- `Status`
+- `Notice`
 - `Progress`
-- `Json`
+- `Data`
 - `Completed`
 - `Cancelled`
 
-The terminal app converts those events into persisted transcript entries rather than rendering directly from command handlers.
+Command handlers return `CommandResult` values with typed `StructuredData` payloads, optional notices, and an explicit display preference. The terminal app converts those events into persisted transcript entries rather than rendering directly from command handlers.
+
+## Structured Data Model
+
+Terminal command results are data-first rather than text-first.
+
+Supported top-level result shapes:
+
+- scalar values
+- records
+- lists
+- tables
+- empty results with notices only
+
+The shell stack uses:
+
+- project-owned serializable `StructuredData` contracts at the runtime/UI boundary
+- Nushell `nu-protocol` values as the typed-value reference model inside the shell/runtime adapters
+- `nu-table` fallback rendering for deterministic plain-text table output
+- `nu-ansi-term` styling utilities for consistent fallback formatting
 
 ## UI Structure
 
@@ -99,13 +137,15 @@ Persistent toolbar buttons, run buttons, and status chrome are intentionally abs
 Transcript rendering is semantic rather than decorative:
 
 - `Prompt` -> `.terminal-line-prompt`
-- `Stdout` -> `.terminal-line-stdout`
-- `Stderr` -> `.terminal-line-stderr`
-- `Status` -> `.terminal-line-status`
-- `Json` -> `.terminal-line-json`
+- `Notice` -> `.terminal-line-status` / `.terminal-line-stderr`
+- `Value` -> `.terminal-line-value`
+- `Record` -> `.terminal-data-record`
+- `Table` -> `.terminal-data-table` / `.terminal-table`
 - `System` -> `.terminal-line-system`
 
 The prompt is rendered as a structured current-working-directory segment plus a separator glyph and a native text input, preserving browser caret/input behavior.
+
+The command input uses `desktop_app_contract::window_primary_input_dom_id(window_id)` as its DOM id so the runtime host can restore keyboard focus when the terminal window opens or regains focus.
 
 ## Completion and Scroll Behavior
 
@@ -113,11 +153,12 @@ The prompt is rendered as a structured current-working-directory segment plus a 
 - Single matches fill the input immediately.
 - Multiple matches render in a compact overlay (`.terminal-completions`) anchored above the composer.
 - `Escape` dismisses the completion overlay.
+- `ls` and `cd` completions prefer path-like candidates from the explorer backend.
 - Transcript scrolling auto-follows new output only while the viewport is already at or near the bottom; manual review scroll position is preserved when the user scrolls upward.
 
 ## Persistence
 
-Terminal state is persisted under `app.terminal` (`TERMINAL_STATE_NAMESPACE`) with schema version `2`.
+Terminal state is persisted under `app.terminal` (`TERMINAL_STATE_NAMESPACE`) with schema version `3`.
 
 Persisted fields:
 
@@ -128,6 +169,7 @@ Persisted fields:
 - `active_execution`
 
 Legacy schema `0`/`1` terminal transcripts using plain `lines: Vec<String>` are migrated into typed `System` transcript entries.
+Legacy schema `2` transcript lines using `Stdout`/`Stderr`/`Status`/`Json` entries are migrated into typed `Notice` and `Data` entries.
 
 ## Host Boundary
 

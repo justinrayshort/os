@@ -13,12 +13,21 @@ use leptos::{Callable, Callback, ReadSignal, RwSignal, View};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use system_shell_contract::{
-    CommandDescriptor, CompletionItem, CompletionRequest, ExecutionId, ShellError, ShellExit,
-    ShellRequest, ShellStreamEvent,
+    CommandDescriptor, CommandNotice, CommandNoticeLevel, CommandResult, CompletionItem,
+    CompletionRequest, DisplayPreference, ExecutionId, ParsedInvocation, ShellError, ShellRequest,
+    ShellStreamEvent, StructuredData,
 };
 
 /// Stable identifier for a runtime-managed window.
 pub type WindowRuntimeId = u64;
+
+/// Returns the canonical DOM id for a window's primary keyboard input.
+///
+/// Runtime-managed apps can render this id on their preferred text field so the desktop host can
+/// restore keyboard focus when a window opens or becomes focused again.
+pub fn window_primary_input_dom_id(window_id: WindowRuntimeId) -> String {
+    format!("window-primary-input-{window_id}")
+}
 
 /// Stable identifier for an app package/module.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -839,17 +848,23 @@ pub type AppCommandCompletion = Rc<
 
 /// Async command handler used by app command registrations.
 pub type AppCommandHandler =
-    Rc<dyn Fn(AppCommandContext) -> LocalBoxFuture<'static, Result<ShellExit, ShellError>>>;
+    Rc<dyn Fn(AppCommandContext) -> LocalBoxFuture<'static, Result<CommandResult, ShellError>>>;
 
 /// Execution context supplied to app-registered command handlers.
 #[derive(Clone)]
 pub struct AppCommandContext {
     /// Execution identifier for the current command.
     pub execution_id: ExecutionId,
+    /// Parsed invocation metadata for the current pipeline stage.
+    pub invocation: ParsedInvocation,
     /// Full parsed argv payload.
     pub argv: Vec<String>,
+    /// Positional argument tokens after command-path resolution.
+    pub args: Vec<String>,
     /// Current logical cwd.
     pub cwd: String,
+    /// Structured input passed from the previous pipeline stage.
+    pub input: StructuredData,
     /// Optional source window identifier.
     pub source_window_id: Option<WindowRuntimeId>,
     emit: Rc<dyn Fn(ShellStreamEvent)>,
@@ -858,35 +873,47 @@ pub struct AppCommandContext {
 }
 
 impl AppCommandContext {
-    /// Emits a stdout chunk for the current execution.
-    pub fn stdout(&self, text: impl Into<String>) {
-        self.emit(ShellStreamEvent::StdoutChunk {
+    /// Emits an informational notice for the current execution.
+    pub fn info(&self, message: impl Into<String>) {
+        self.notice(CommandNoticeLevel::Info, message);
+    }
+
+    /// Emits a warning notice for the current execution.
+    pub fn warn(&self, message: impl Into<String>) {
+        self.notice(CommandNoticeLevel::Warning, message);
+    }
+
+    /// Emits an error notice for the current execution.
+    pub fn error(&self, message: impl Into<String>) {
+        self.notice(CommandNoticeLevel::Error, message);
+    }
+
+    /// Emits a structured notice for the current execution.
+    pub fn notice(&self, level: CommandNoticeLevel, message: impl Into<String>) {
+        self.emit(ShellStreamEvent::Notice {
             execution_id: self.execution_id,
-            text: text.into(),
+            notice: CommandNotice {
+                level,
+                message: message.into(),
+            },
         });
     }
 
-    /// Emits a stderr chunk for the current execution.
-    pub fn stderr(&self, text: impl Into<String>) {
-        self.emit(ShellStreamEvent::StderrChunk {
-            execution_id: self.execution_id,
-            text: text.into(),
-        });
-    }
-
-    /// Emits a status update for the current execution.
-    pub fn status(&self, text: impl Into<String>) {
-        self.emit(ShellStreamEvent::Status {
-            execution_id: self.execution_id,
-            text: text.into(),
-        });
-    }
-
-    /// Emits a structured JSON payload for the current execution.
-    pub fn json(&self, value: Value) {
-        self.emit(ShellStreamEvent::Json {
+    /// Emits a progress update for the current execution.
+    pub fn progress(&self, value: Option<f32>, label: Option<String>) {
+        self.emit(ShellStreamEvent::Progress {
             execution_id: self.execution_id,
             value,
+            label,
+        });
+    }
+
+    /// Emits a structured data frame for the current execution.
+    pub fn data(&self, data: StructuredData, display: DisplayPreference) {
+        self.emit(ShellStreamEvent::Data {
+            execution_id: self.execution_id,
+            data,
+            display,
         });
     }
 
@@ -908,8 +935,11 @@ impl AppCommandContext {
     /// Creates a new command context from runtime-provided callbacks.
     pub fn new(
         execution_id: ExecutionId,
+        invocation: ParsedInvocation,
         argv: Vec<String>,
+        args: Vec<String>,
         cwd: String,
+        input: StructuredData,
         source_window_id: Option<WindowRuntimeId>,
         emit: Rc<dyn Fn(ShellStreamEvent)>,
         set_cwd: Rc<dyn Fn(String)>,
@@ -917,8 +947,11 @@ impl AppCommandContext {
     ) -> Self {
         Self {
             execution_id,
+            invocation,
             argv,
+            args,
             cwd,
+            input,
             source_window_id,
             emit,
             set_cwd,
@@ -1248,5 +1281,10 @@ mod tests {
             envelope.reply_to.as_deref(),
             Some("app.system.calc.reply.v1")
         );
+    }
+
+    #[test]
+    fn primary_input_dom_id_uses_window_id() {
+        assert_eq!(window_primary_input_dom_id(42), "window-primary-input-42");
     }
 }

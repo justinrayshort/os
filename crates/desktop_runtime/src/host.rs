@@ -4,7 +4,11 @@
 //! semantics unchanged while moving effect execution and viewport/window queries behind a typed
 //! boundary that can later be injected and mocked.
 
+#[cfg(target_arch = "wasm32")]
+use desktop_app_contract::window_primary_input_dom_id;
 use leptos::*;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::{closure::Closure, JsCast};
 
 use crate::{
     app_runtime::{
@@ -332,9 +336,36 @@ impl DesktopHostContext {
 
     /// Handles a request to focus the active window's primary input.
     ///
-    /// The reducer emits this intent when a window opens or is focused. The desktop shell does not
-    /// yet assign stable DOM anchors per app window, so this remains a no-op host hook for now.
-    pub fn focus_window_input(self, _window_id: crate::model::WindowId) {}
+    /// The reducer emits this intent when a window opens or is focused. Apps opt in by rendering
+    /// [`desktop_app_contract::window_primary_input_dom_id`] on their primary text field.
+    pub fn focus_window_input(self, window_id: crate::model::WindowId) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let Some(window) = web_sys::window() else {
+                return;
+            };
+            let Some(document) = window.document() else {
+                return;
+            };
+            let Some(element) =
+                document.get_element_by_id(&window_primary_input_dom_id(window_id.0))
+            else {
+                return;
+            };
+            let Ok(element) = element.dyn_into::<web_sys::HtmlElement>() else {
+                return;
+            };
+            // Defer focus until after the current effect/render turn so app blur/focus handlers do
+            // not re-enter runtime updates while the shell is still processing reducer effects.
+            let callback = Closure::once_into_js(move || {
+                let _ = element.focus();
+            });
+            let _ = window
+                .set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), 0);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = window_id;
+    }
 
     /// Handles requests to open a URL outside the desktop shell.
     ///

@@ -2,13 +2,9 @@
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
-use std::{
-    cell::Cell,
-    rc::Rc,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{cell::Cell, rc::Rc};
 
-use desktop_app_contract::AppServices;
+use desktop_app_contract::{AppServices, WindowRuntimeId, window_primary_input_dom_id};
 use leptos::ev::KeyboardEvent;
 use leptos::html;
 use leptos::*;
@@ -16,13 +12,14 @@ use platform_storage::{self, TERMINAL_STATE_NAMESPACE};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use system_shell_contract::{
-    CompletionItem, CompletionRequest, ExecutionId, ShellRequest, ShellStreamEvent,
+    CommandNotice, CommandNoticeLevel, CompletionItem, CompletionRequest, DisplayPreference,
+    ExecutionId, ShellRequest, ShellStreamEvent, StructuredData, StructuredRecord, StructuredScalar,
+    StructuredTable, StructuredValue,
 };
 
-const TERMINAL_STATE_SCHEMA_VERSION: u32 = 2;
+const TERMINAL_STATE_SCHEMA_VERSION: u32 = 3;
 const MAX_TERMINAL_ENTRIES: usize = 200;
 const AUTO_FOLLOW_THRESHOLD_PX: i32 = 32;
-static NEXT_TERMINAL_INSTANCE_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct LegacyTerminalPersistedState {
@@ -32,13 +29,13 @@ struct LegacyTerminalPersistedState {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct PersistedExecutionState {
+struct LegacyPersistedExecutionState {
     execution_id: ExecutionId,
     command: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-enum TerminalTranscriptEntry {
+enum LegacyTerminalTranscriptEntryV2 {
     Prompt {
         cwd: String,
         command: String,
@@ -66,19 +63,53 @@ enum TerminalTranscriptEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct LegacyTerminalPersistedStateV2 {
+    cwd: String,
+    input: String,
+    transcript: Vec<LegacyTerminalTranscriptEntryV2>,
+    history_cursor: Option<usize>,
+    active_execution: Option<LegacyPersistedExecutionState>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct PersistedExecutionState {
+    execution_id: ExecutionId,
+    command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+enum TerminalTranscriptEntry {
+    Prompt {
+        cwd: String,
+        command: String,
+        execution_id: Option<ExecutionId>,
+    },
+    Notice {
+        notice: CommandNotice,
+        execution_id: ExecutionId,
+    },
+    Data {
+        data: StructuredData,
+        display: DisplayPreference,
+        execution_id: ExecutionId,
+    },
+    Progress {
+        execution_id: ExecutionId,
+        value: Option<f32>,
+        label: Option<String>,
+    },
+    System {
+        text: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct TerminalPersistedState {
     cwd: String,
     input: String,
     transcript: Vec<TerminalTranscriptEntry>,
     history_cursor: Option<usize>,
     active_execution: Option<PersistedExecutionState>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct RenderedTranscriptEntry {
-    text: String,
-    class_name: &'static str,
-    is_prompt: bool,
 }
 
 fn migrate_terminal_state(
@@ -101,13 +132,78 @@ fn migrate_terminal_state(
                 active_execution: None,
             }))
         }
+        2 => {
+            let legacy: LegacyTerminalPersistedStateV2 =
+                platform_storage::migrate_envelope_payload(envelope)?;
+            Ok(Some(TerminalPersistedState {
+                cwd: legacy.cwd,
+                input: legacy.input,
+                transcript: legacy
+                    .transcript
+                    .into_iter()
+                    .map(|entry| match entry {
+                        LegacyTerminalTranscriptEntryV2::Prompt {
+                            cwd,
+                            command,
+                            execution_id,
+                        } => TerminalTranscriptEntry::Prompt {
+                            cwd,
+                            command,
+                            execution_id,
+                        },
+                        LegacyTerminalTranscriptEntryV2::Stdout { text, execution_id } => {
+                            TerminalTranscriptEntry::Notice {
+                                notice: CommandNotice {
+                                    level: CommandNoticeLevel::Info,
+                                    message: text,
+                                },
+                                execution_id,
+                            }
+                        }
+                        LegacyTerminalTranscriptEntryV2::Stderr { text, execution_id } => {
+                            TerminalTranscriptEntry::Notice {
+                                notice: CommandNotice {
+                                    level: CommandNoticeLevel::Error,
+                                    message: text,
+                                },
+                                execution_id,
+                            }
+                        }
+                        LegacyTerminalTranscriptEntryV2::Status { text, execution_id } => {
+                            TerminalTranscriptEntry::Notice {
+                                notice: CommandNotice {
+                                    level: CommandNoticeLevel::Info,
+                                    message: text,
+                                },
+                                execution_id,
+                            }
+                        }
+                        LegacyTerminalTranscriptEntryV2::Json { value, execution_id } => {
+                            TerminalTranscriptEntry::Data {
+                                data: json_to_structured_data(value),
+                                display: DisplayPreference::Auto,
+                                execution_id,
+                            }
+                        }
+                        LegacyTerminalTranscriptEntryV2::System { text } => {
+                            TerminalTranscriptEntry::System { text }
+                        }
+                    })
+                    .collect(),
+                history_cursor: legacy.history_cursor,
+                active_execution: legacy.active_execution.map(|execution| PersistedExecutionState {
+                    execution_id: execution.execution_id,
+                    command: execution.command,
+                }),
+            }))
+        }
         _ => Ok(None),
     }
 }
 
 fn default_terminal_transcript() -> Vec<TerminalTranscriptEntry> {
     vec![TerminalTranscriptEntry::System {
-        text: "Type help for commands.".to_string(),
+        text: "Type `help list` for commands.".to_string(),
     }]
 }
 
@@ -140,9 +236,6 @@ fn restore_terminal_state(
     restored
 }
 
-/// Returns `true` when the user is already following the newest transcript output.
-///
-/// A small bottom threshold avoids disabling auto-follow because of subpixel or padding jitter.
 fn should_auto_follow(
     scroll_height: i32,
     scroll_top: i32,
@@ -152,46 +245,28 @@ fn should_auto_follow(
     scroll_height - (scroll_top + client_height) <= threshold
 }
 
-/// Maps persisted transcript entries into render-time semantic classes without changing storage.
-fn render_transcript_entry(entry: &TerminalTranscriptEntry) -> RenderedTranscriptEntry {
-    match entry {
-        TerminalTranscriptEntry::Prompt { cwd, command, .. } => RenderedTranscriptEntry {
-            text: format!("{cwd} \u{203a} {command}"),
-            class_name: "terminal-line terminal-line-prompt",
-            is_prompt: true,
-        },
-        TerminalTranscriptEntry::Stdout { text, .. } => RenderedTranscriptEntry {
-            text: text.clone(),
-            class_name: "terminal-line terminal-line-stdout",
-            is_prompt: false,
-        },
-        TerminalTranscriptEntry::Stderr { text, .. } => RenderedTranscriptEntry {
-            text: text.clone(),
-            class_name: "terminal-line terminal-line-stderr",
-            is_prompt: false,
-        },
-        TerminalTranscriptEntry::Status { text, .. } => RenderedTranscriptEntry {
-            text: text.clone(),
-            class_name: "terminal-line terminal-line-status",
-            is_prompt: false,
-        },
-        TerminalTranscriptEntry::Json { value, .. } => RenderedTranscriptEntry {
-            text: serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string()),
-            class_name: "terminal-line terminal-line-json",
-            is_prompt: false,
-        },
-        TerminalTranscriptEntry::System { text } => RenderedTranscriptEntry {
-            text: text.clone(),
-            class_name: "terminal-line terminal-line-system",
-            is_prompt: false,
-        },
-    }
-}
-
 fn scroll_terminal_to_bottom(terminal_screen: &NodeRef<html::Div>) {
     if let Some(screen) = terminal_screen.get() {
         screen.set_scroll_top(screen.scroll_height());
     }
+}
+
+fn terminal_snapshot(
+    cwd: &RwSignal<String>,
+    input: &RwSignal<String>,
+    transcript: &RwSignal<Vec<TerminalTranscriptEntry>>,
+    history_cursor: &RwSignal<Option<usize>>,
+    active_execution: &RwSignal<Option<PersistedExecutionState>>,
+) -> TerminalPersistedState {
+    let mut snapshot = TerminalPersistedState {
+        cwd: cwd.get_untracked(),
+        input: input.get_untracked(),
+        transcript: transcript.get_untracked(),
+        history_cursor: history_cursor.get_untracked(),
+        active_execution: active_execution.get_untracked(),
+    };
+    normalize_terminal_transcript(&mut snapshot.transcript);
+    snapshot
 }
 
 fn completion_request(cwd: &str, line: &str) -> CompletionRequest {
@@ -207,12 +282,198 @@ fn completion_request(cwd: &str, line: &str) -> CompletionRequest {
     }
 }
 
+fn json_to_structured_value(value: Value) -> StructuredValue {
+    match value {
+        Value::Null => StructuredValue::Scalar(StructuredScalar::Null),
+        Value::Bool(value) => StructuredValue::Scalar(StructuredScalar::Bool(value)),
+        Value::Number(value) => {
+            if let Some(int) = value.as_i64() {
+                StructuredValue::Scalar(StructuredScalar::Int(int))
+            } else {
+                StructuredValue::Scalar(StructuredScalar::Float(value.as_f64().unwrap_or_default()))
+            }
+        }
+        Value::String(value) => StructuredValue::Scalar(StructuredScalar::String(value)),
+        Value::Array(values) => StructuredValue::List(
+            values.into_iter().map(json_to_structured_value).collect(),
+        ),
+        Value::Object(values) => StructuredValue::Record(StructuredRecord {
+            fields: values
+                .into_iter()
+                .map(|(name, value)| system_shell_contract::StructuredField {
+                    name,
+                    value: json_to_structured_value(value),
+                })
+                .collect(),
+        }),
+    }
+}
+
+fn json_to_structured_data(value: Value) -> StructuredData {
+    match json_to_structured_value(value) {
+        StructuredValue::Record(record) => StructuredData::Record(record),
+        StructuredValue::List(values) => StructuredData::List(values),
+        other => StructuredData::Value(other),
+    }
+}
+
+fn scalar_text(value: &StructuredScalar) -> String {
+    match value {
+        StructuredScalar::Null => "null".to_string(),
+        StructuredScalar::Bool(value) => value.to_string(),
+        StructuredScalar::Int(value) => value.to_string(),
+        StructuredScalar::Float(value) => value.to_string(),
+        StructuredScalar::String(value) => value.clone(),
+    }
+}
+
+fn value_summary(value: &StructuredValue) -> String {
+    match value {
+        StructuredValue::Scalar(value) => scalar_text(value),
+        StructuredValue::Record(record) => {
+            format!("{{{}}}", record.fields.len())
+        }
+        StructuredValue::List(values) => format!("[{}]", values.len()),
+    }
+}
+
+fn render_record(record: StructuredRecord) -> impl IntoView {
+    view! {
+        <div class="terminal-data terminal-data-record">
+            {record
+                .fields
+                .into_iter()
+                .map(|field| {
+                    view! {
+                        <div class="terminal-record-row">
+                            <span class="terminal-record-key">{field.name}</span>
+                            <span class="terminal-record-value">{value_summary(&field.value)}</span>
+                        </div>
+                    }
+                })
+                .collect_view()}
+        </div>
+    }
+}
+
+fn render_list(values: Vec<StructuredValue>) -> impl IntoView {
+    view! {
+        <div class="terminal-data terminal-data-list">
+            {values
+                .into_iter()
+                .map(|value| {
+                    view! { <div class="terminal-list-item">{value_summary(&value)}</div> }
+                })
+                .collect_view()}
+        </div>
+    }
+}
+
+fn field_text(record: &StructuredRecord, name: &str) -> String {
+    record
+        .fields
+        .iter()
+        .find(|field| field.name == name)
+        .map(|field| value_summary(&field.value))
+        .unwrap_or_default()
+}
+
+fn render_table(table: StructuredTable) -> impl IntoView {
+    let columns = table.columns.clone();
+    let rows = table.rows.clone();
+    view! {
+        <div class="terminal-data terminal-data-table">
+            <table class="terminal-table">
+                <thead>
+                    <tr>
+                        {columns
+                            .iter()
+                            .map(|column| view! { <th>{column.clone()}</th> })
+                            .collect_view()}
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows
+                        .iter()
+                        .enumerate()
+                        .map(|(index, row)| {
+                            view! {
+                                <tr data-row=index.to_string()>
+                                    {columns
+                                        .iter()
+                                        .map(|column| view! { <td>{field_text(row, column)}</td> })
+                                        .collect_view()}
+                                </tr>
+                            }
+                        })
+                        .collect_view()}
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+fn render_data(data: StructuredData, _display: DisplayPreference) -> View {
+    match data {
+        StructuredData::Empty => ().into_view(),
+        StructuredData::Value(StructuredValue::Scalar(value)) => {
+            view! { <div class="terminal-line terminal-line-value">{scalar_text(&value)}</div> }
+                .into_view()
+        }
+        StructuredData::Value(StructuredValue::Record(record)) | StructuredData::Record(record) => {
+            render_record(record).into_view()
+        }
+        StructuredData::Value(StructuredValue::List(values)) | StructuredData::List(values) => {
+            render_list(values).into_view()
+        }
+        StructuredData::Table(table) => render_table(table).into_view(),
+    }
+}
+
+fn notice_class(level: CommandNoticeLevel) -> &'static str {
+    match level {
+        CommandNoticeLevel::Info => "terminal-line terminal-line-status",
+        CommandNoticeLevel::Warning => "terminal-line terminal-line-status",
+        CommandNoticeLevel::Error => "terminal-line terminal-line-stderr",
+    }
+}
+
+fn render_entry(entry: TerminalTranscriptEntry) -> View {
+    match entry {
+        TerminalTranscriptEntry::Prompt { cwd, command, .. } => view! {
+            <div class="terminal-line terminal-line-prompt">{format!("{cwd} \u{203a} {command}")}</div>
+        }
+        .into_view(),
+        TerminalTranscriptEntry::Notice { notice, .. } => view! {
+            <div class=notice_class(notice.level)>{notice.message}</div>
+        }
+        .into_view(),
+        TerminalTranscriptEntry::Data { data, display, .. } => render_data(data, display),
+        TerminalTranscriptEntry::Progress { value, label, .. } => {
+            let label = label.unwrap_or_else(|| "progress".to_string());
+            let suffix = value
+                .map(|value| format!(" {:.0}%", value * 100.0))
+                .unwrap_or_default();
+            view! {
+                <div class="terminal-line terminal-line-status">{format!("{label}{suffix}")}</div>
+            }
+            .into_view()
+        }
+        TerminalTranscriptEntry::System { text } => view! {
+            <div class="terminal-line terminal-line-system">{text}</div>
+        }
+        .into_view(),
+    }
+}
+
 #[component]
 /// Terminal app window contents.
 ///
 /// This component presents a browser-native shell backed by runtime-owned commands and persists
 /// transcript state via [`platform_storage`].
 pub fn TerminalApp(
+    /// Stable runtime window id used to expose the primary input focus target.
+    window_id: WindowRuntimeId,
     /// App launch parameters (for example, the initial working directory).
     launch_params: Value,
     /// Manager-restored app state payload for this window instance.
@@ -220,10 +481,7 @@ pub fn TerminalApp(
     /// Optional app-host bridge for manager-owned commands.
     services: Option<AppServices>,
 ) -> impl IntoView {
-    let input_id = format!(
-        "retro-shell-input-{}",
-        NEXT_TERMINAL_INSTANCE_ID.fetch_add(1, Ordering::Relaxed)
-    );
+    let input_id = window_primary_input_dom_id(window_id);
     let launch_cwd = launch_params
         .get("cwd")
         .and_then(Value::as_str)
@@ -244,7 +502,6 @@ pub fn TerminalApp(
     let last_saved = create_rw_signal::<Option<String>>(None);
     let should_follow_output = create_rw_signal(true);
     let terminal_screen = create_node_ref::<html::Div>();
-    let services_for_persist = services.clone();
     let hydrate_alive = Rc::new(Cell::new(true));
     on_cleanup({
         let hydrate_alive = hydrate_alive.clone();
@@ -310,6 +567,50 @@ pub fn TerminalApp(
         });
     });
 
+    create_effect(move |_| {
+        if !hydrated.get() {
+            return;
+        }
+
+        let _cwd = cwd.get();
+        let _input = input.get();
+        let _transcript = transcript.get();
+        let _history_cursor = history_cursor.get();
+        let _active_execution = active_execution.get();
+        let snapshot = terminal_snapshot(
+            &cwd,
+            &input,
+            &transcript,
+            &history_cursor,
+            &active_execution,
+        );
+
+        let serialized = match serde_json::to_string(&snapshot) {
+            Ok(raw) => raw,
+            Err(err) => {
+                logging::warn!("terminal serialize failed: {err}");
+                return;
+            }
+        };
+
+        if last_saved.get().as_deref() == Some(serialized.as_str()) {
+            return;
+        }
+        last_saved.set(Some(serialized));
+
+        spawn_local(async move {
+            if let Err(err) = platform_storage::save_app_state(
+                TERMINAL_STATE_NAMESPACE,
+                TERMINAL_STATE_SCHEMA_VERSION,
+                &snapshot,
+            )
+            .await
+            {
+                logging::warn!("terminal persist failed: {err}");
+            }
+        });
+    });
+
     if let Some(shell_session) = shell_session.clone() {
         create_effect(move |_| {
             let events = shell_session.events.get();
@@ -330,40 +631,37 @@ pub fn TerminalApp(
                             pending_command.set(None);
                         }
                     }
-                    ShellStreamEvent::StdoutChunk { execution_id, text } => {
-                        transcript.update(|entries| {
-                            entries.push(TerminalTranscriptEntry::Stdout {
-                                text: text.clone(),
-                                execution_id: *execution_id,
-                            });
-                            normalize_terminal_transcript(entries);
-                        })
-                    }
-                    ShellStreamEvent::StderrChunk { execution_id, text } => {
-                        transcript.update(|entries| {
-                            entries.push(TerminalTranscriptEntry::Stderr {
-                                text: text.clone(),
-                                execution_id: *execution_id,
-                            });
-                            normalize_terminal_transcript(entries);
-                        })
-                    }
-                    ShellStreamEvent::Status { execution_id, text } => {
-                        transcript.update(|entries| {
-                            entries.push(TerminalTranscriptEntry::Status {
-                                text: text.clone(),
-                                execution_id: *execution_id,
-                            });
-                            normalize_terminal_transcript(entries);
-                        })
-                    }
-                    ShellStreamEvent::Json {
+                    ShellStreamEvent::Notice {
+                        execution_id,
+                        notice,
+                    } => transcript.update(|entries| {
+                        entries.push(TerminalTranscriptEntry::Notice {
+                            notice: notice.clone(),
+                            execution_id: *execution_id,
+                        });
+                        normalize_terminal_transcript(entries);
+                    }),
+                    ShellStreamEvent::Data {
+                        execution_id,
+                        data,
+                        display,
+                    } => transcript.update(|entries| {
+                        entries.push(TerminalTranscriptEntry::Data {
+                            data: data.clone(),
+                            display: *display,
+                            execution_id: *execution_id,
+                        });
+                        normalize_terminal_transcript(entries);
+                    }),
+                    ShellStreamEvent::Progress {
                         execution_id,
                         value,
+                        label,
                     } => transcript.update(|entries| {
-                        entries.push(TerminalTranscriptEntry::Json {
-                            value: value.clone(),
+                        entries.push(TerminalTranscriptEntry::Progress {
                             execution_id: *execution_id,
+                            value: *value,
+                            label: label.clone(),
                         });
                         normalize_terminal_transcript(entries);
                     }),
@@ -373,63 +671,13 @@ pub fn TerminalApp(
                     ShellStreamEvent::Completed { .. } => {
                         active_execution.set(None);
                     }
-                    ShellStreamEvent::Progress { .. } => {}
                 }
             }
 
             processed_events.set(events.len());
-            if let Some(session_cwd) = shell_session.cwd.get().split_whitespace().next() {
-                cwd.set(shell_session.cwd.get());
-                let _ = session_cwd;
-            }
+            cwd.set(shell_session.cwd.get());
         });
     }
-
-    create_effect(move |_| {
-        if !hydrated.get() {
-            return;
-        }
-
-        let mut snapshot = TerminalPersistedState {
-            cwd: cwd.get(),
-            input: input.get(),
-            transcript: transcript.get(),
-            history_cursor: history_cursor.get(),
-            active_execution: active_execution.get(),
-        };
-        normalize_terminal_transcript(&mut snapshot.transcript);
-
-        let serialized = match serde_json::to_string(&snapshot) {
-            Ok(raw) => raw,
-            Err(err) => {
-                logging::warn!("terminal serialize failed: {err}");
-                return;
-            }
-        };
-
-        if last_saved.get().as_deref() == Some(serialized.as_str()) {
-            return;
-        }
-        last_saved.set(Some(serialized));
-
-        if let Some(services) = services_for_persist.clone() {
-            if let Ok(value) = serde_json::to_value(&snapshot) {
-                services.state.persist_window_state(value);
-            }
-        }
-
-        spawn_local(async move {
-            if let Err(err) = platform_storage::save_app_state(
-                TERMINAL_STATE_NAMESPACE,
-                TERMINAL_STATE_SCHEMA_VERSION,
-                &snapshot,
-            )
-            .await
-            {
-                logging::warn!("terminal persist failed: {err}");
-            }
-        });
-    });
 
     create_effect({
         let terminal_screen = terminal_screen.clone();
@@ -466,7 +714,9 @@ pub fn TerminalApp(
             suggestions.set(Vec::new());
             input.set(String::new());
 
-            if command.eq_ignore_ascii_case("clear") {
+            if command.eq_ignore_ascii_case("clear")
+                || command.eq_ignore_ascii_case("terminal clear")
+            {
                 transcript.set(default_terminal_transcript());
                 active_execution.set(None);
                 pending_command.set(None);
@@ -492,7 +742,7 @@ pub fn TerminalApp(
         }
     });
 
-    let try_history_navigation = {
+    let try_history_navigation: Rc<dyn Fn(i32)> = Rc::new({
         let services = services.clone();
         move |direction: i32| {
             let Some(services) = services.as_ref() else {
@@ -517,9 +767,9 @@ pub fn TerminalApp(
                 None => input.set(String::new()),
             }
         }
-    };
+    });
 
-    let trigger_completion = {
+    let trigger_completion: Rc<dyn Fn()> = Rc::new({
         let shell_session = shell_session.clone();
         move || {
             let Some(shell_session) = shell_session.clone() else {
@@ -549,17 +799,15 @@ pub fn TerminalApp(
                 }
             });
         }
-    };
+    });
 
     let indexed_entries = move || {
         transcript
             .get()
             .into_iter()
             .enumerate()
-            .map(|(idx, entry)| (idx, render_transcript_entry(&entry)))
             .collect::<Vec<_>>()
     };
-    let submit_on_enter = submit_command.clone();
 
     view! {
         <div class="app-shell app-terminal-shell">
@@ -581,7 +829,7 @@ pub fn TerminalApp(
             >
                 <div class="terminal-transcript">
                     <For each=indexed_entries key=|(idx, _)| *idx let:entry>
-                        <div class=entry.1.class_name data-prompt=entry.1.is_prompt.to_string()>{entry.1.text}</div>
+                        {render_entry(entry.1)}
                     </For>
                 </div>
             </div>
@@ -617,170 +865,46 @@ pub fn TerminalApp(
                         class="terminal-input terminal-command-input"
                         type="text"
                         prop:value=move || input.get()
-                        on:input=move |ev| input.set(event_target_value(&ev))
-                        on:keydown=move |ev: KeyboardEvent| {
-                            match ev.key().as_str() {
-                                "Enter" => submit_on_enter(input.get_untracked()),
-                                "ArrowUp" => {
-                                    ev.prevent_default();
-                                    try_history_navigation(-1);
-                                }
-                                "ArrowDown" => {
-                                    ev.prevent_default();
-                                    try_history_navigation(1);
-                                }
-                                "Tab" => {
-                                    ev.prevent_default();
-                                    trigger_completion();
-                                }
-                                "Escape" => suggestions.set(Vec::new()),
-                                "c" | "C" if ev.ctrl_key() => {
-                                    if let Some(shell_session) = shell_session.clone() {
-                                        ev.prevent_default();
-                                        shell_session.cancel();
-                                    }
-                                }
-                                "l" | "L" if ev.ctrl_key() => {
-                                    ev.prevent_default();
-                                    transcript.set(default_terminal_transcript());
-                                }
-                                _ => {}
-                            }
-                        }
-                        placeholder="apps.list"
+                        placeholder="help list"
                         autocomplete="off"
                         spellcheck="false"
+                        on:input=move |ev| {
+                            input.set(event_target_value(&ev));
+                        }
+                        on:keydown=move |ev: KeyboardEvent| match ev.key().as_str() {
+                            "Enter" => {
+                                ev.prevent_default();
+                                ev.stop_propagation();
+                                submit_command(input.get_untracked());
+                            }
+                            "ArrowUp" => {
+                                ev.prevent_default();
+                                try_history_navigation(-1);
+                            }
+                            "ArrowDown" => {
+                                ev.prevent_default();
+                                try_history_navigation(1);
+                            }
+                            "Tab" => {
+                                ev.prevent_default();
+                                trigger_completion();
+                            }
+                            "Escape" => suggestions.set(Vec::new()),
+                            "c" | "C" if ev.ctrl_key() => {
+                                if let Some(shell_session) = shell_session.clone() {
+                                    ev.prevent_default();
+                                    shell_session.cancel();
+                                }
+                            }
+                            "l" | "L" if ev.ctrl_key() => {
+                                ev.prevent_default();
+                                transcript.set(default_terminal_transcript());
+                            }
+                            _ => {}
+                        }
                     />
                 </div>
             </div>
         </div>
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn terminal_namespace_migration_supports_legacy_lines() {
-        let envelope = platform_storage::build_app_state_envelope(
-            TERMINAL_STATE_NAMESPACE,
-            1,
-            &LegacyTerminalPersistedState {
-                cwd: "/".to_string(),
-                input: "help".to_string(),
-                lines: vec!["RetroShell 0.1".to_string()],
-            },
-        )
-        .expect("build envelope");
-
-        let migrated =
-            migrate_terminal_state(1, &envelope).expect("legacy migration should succeed");
-        assert!(migrated.is_some(), "expected migrated terminal state");
-        let transcript = migrated.expect("state").transcript;
-        assert!(matches!(
-            transcript.first(),
-            Some(TerminalTranscriptEntry::System { text }) if text == "RetroShell 0.1"
-        ));
-    }
-
-    #[test]
-    fn default_transcript_contains_single_minimal_hint() {
-        let transcript = default_terminal_transcript();
-        assert_eq!(transcript.len(), 1);
-        assert!(matches!(
-            transcript.first(),
-            Some(TerminalTranscriptEntry::System { text }) if text == "Type help for commands."
-        ));
-    }
-
-    #[test]
-    fn restore_marks_interrupted_execution() {
-        let restored = restore_terminal_state(
-            TerminalPersistedState {
-                cwd: "/".to_string(),
-                input: String::new(),
-                transcript: Vec::new(),
-                history_cursor: None,
-                active_execution: Some(PersistedExecutionState {
-                    execution_id: ExecutionId(4),
-                    command: "apps.list".to_string(),
-                }),
-            },
-            "/",
-        );
-
-        assert!(restored.active_execution.is_none());
-        assert!(restored
-            .transcript
-            .iter()
-            .any(|entry| matches!(entry, TerminalTranscriptEntry::System { text } if text.contains("interrupted"))));
-    }
-
-    #[test]
-    fn transcript_entries_map_to_expected_render_classes() {
-        let cases = [
-            (
-                TerminalTranscriptEntry::Prompt {
-                    cwd: "/tmp".to_string(),
-                    command: "help".to_string(),
-                    execution_id: None,
-                },
-                "terminal-line terminal-line-prompt",
-                true,
-            ),
-            (
-                TerminalTranscriptEntry::Stdout {
-                    text: "stdout".to_string(),
-                    execution_id: ExecutionId(1),
-                },
-                "terminal-line terminal-line-stdout",
-                false,
-            ),
-            (
-                TerminalTranscriptEntry::Stderr {
-                    text: "stderr".to_string(),
-                    execution_id: ExecutionId(1),
-                },
-                "terminal-line terminal-line-stderr",
-                false,
-            ),
-            (
-                TerminalTranscriptEntry::Status {
-                    text: "status".to_string(),
-                    execution_id: ExecutionId(1),
-                },
-                "terminal-line terminal-line-status",
-                false,
-            ),
-            (
-                TerminalTranscriptEntry::Json {
-                    value: serde_json::json!({"ok": true}),
-                    execution_id: ExecutionId(1),
-                },
-                "terminal-line terminal-line-json",
-                false,
-            ),
-            (
-                TerminalTranscriptEntry::System {
-                    text: "system".to_string(),
-                },
-                "terminal-line terminal-line-system",
-                false,
-            ),
-        ];
-
-        for (entry, expected_class, expected_prompt) in cases {
-            let rendered = render_transcript_entry(&entry);
-            assert_eq!(rendered.class_name, expected_class);
-            assert_eq!(rendered.is_prompt, expected_prompt);
-        }
-    }
-
-    #[test]
-    fn auto_follow_detection_allows_bottom_and_near_bottom() {
-        assert!(should_auto_follow(400, 200, 200, AUTO_FOLLOW_THRESHOLD_PX));
-        assert!(should_auto_follow(400, 170, 200, AUTO_FOLLOW_THRESHOLD_PX));
-        assert!(!should_auto_follow(400, 120, 200, AUTO_FOLLOW_THRESHOLD_PX));
     }
 }

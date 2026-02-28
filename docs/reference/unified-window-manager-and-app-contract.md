@@ -73,6 +73,7 @@ Close remains non-veto by app modules.
 - `IpcEnvelope`: typed IPC payload (`schema_version`, `topic`, `correlation_id`, `reply_to`, `source_app_id`, `payload`, `timestamp_unix_ms`).
 - `AppRegistration`: manifest-backed app registration descriptor model.
 - `SuspendPolicy`: manager suspend behavior (`OnMinimize`, `Never`).
+- `window_primary_input_dom_id(window_id)`: stable DOM anchor apps can opt into so `FocusWindowInput` restores keyboard focus to the correct field.
 
 ## IPC Contract and Routing
 

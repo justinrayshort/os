@@ -147,7 +147,7 @@ fn print_dev_usage() {
          \n\
          Notes:\n\
            - `cargo dev stop` only manages servers started with `cargo dev start`.\n\
-           - Development serve/build defaults disable SRI and file hashing unless explicitly set.\n\
+           - Development serve/build defaults disable SRI; file hashing stays enabled unless explicitly overridden.\n\
            - Logs and state are stored under `.artifacts/dev-server/`.\n"
     );
 }
@@ -443,9 +443,6 @@ fn trunk_build(root: &Path, args: Vec<String>, profile: BuildProfile) -> Result<
         );
     }
     if profile == BuildProfile::Dev {
-        if !args_specify_filehash(&args) {
-            trunk_args.push("--filehash=false".to_string());
-        }
         if !args_specify_no_sri(&args) {
             trunk_args.push("--no-sri=true".to_string());
         }
@@ -2097,9 +2094,6 @@ fn trunk_serve_args(spec: &TrunkServeSpec) -> Vec<String> {
     if spec.open {
         trunk_args.push("--open".to_string());
     }
-    if !args_specify_filehash(&spec.passthrough) {
-        trunk_args.push("--filehash=false".to_string());
-    }
     if !args_specify_no_sri(&spec.passthrough) {
         trunk_args.push("--no-sri=true".to_string());
     }
@@ -2112,11 +2106,6 @@ fn trunk_serve_args(spec: &TrunkServeSpec) -> Vec<String> {
 fn args_specify_dist(args: &[String]) -> bool {
     args.iter()
         .any(|arg| arg == "--dist" || arg.starts_with("--dist="))
-}
-
-fn args_specify_filehash(args: &[String]) -> bool {
-    args.iter()
-        .any(|arg| arg == "--filehash" || arg.starts_with("--filehash="))
 }
 
 fn args_specify_no_sri(args: &[String]) -> bool {
@@ -2711,10 +2700,10 @@ mod tests {
     }
 
     #[test]
-    fn trunk_serve_args_default_to_no_sri_and_no_filehash() {
+    fn trunk_serve_args_default_to_no_sri_and_keep_filehash() {
         let spec = parse_trunk_serve_args(Vec::new(), false).expect("parse");
         let args = trunk_serve_args(&spec);
-        assert!(args.contains(&"--filehash=false".to_string()));
+        assert!(!args.contains(&"--filehash=false".to_string()));
         assert!(args.contains(&"--no-sri=true".to_string()));
         assert!(args.windows(2).any(|w| w == ["--ignore", "dist"]));
     }
@@ -2727,7 +2716,6 @@ mod tests {
         )
         .expect("parse");
         let args = trunk_serve_args(&spec);
-        assert!(!args.contains(&"--filehash=false".to_string()));
         assert!(!args.contains(&"--no-sri=true".to_string()));
         assert!(args.contains(&"--filehash=true".to_string()));
         assert!(args.contains(&"--no-sri=false".to_string()));
