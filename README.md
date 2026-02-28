@@ -261,6 +261,7 @@ cargo xtask docs all
 - `crates/apps/terminal` - Terminal app UI crate
 - `wiki/` - GitHub Wiki submodule (canonical documentation hub: Diataxis pages + reference indexes)
 - `docs/` - repo-native formal documentation artifacts (ADR/SOP/contracts/reference/assets) backing the wiki hub
-- `xtask/src/commands/docs/` - docs validation/audit command family used by `cargo xtask docs`
+- `xtask/src/commands/docs/` - docs command-family façade used by `cargo xtask docs`
+- `xtask/src/docs.rs` + `xtask/src/docs/` - docs validation/audit module root plus split validation surfaces
 - `xtask/src/commands/` - standardized project verification and developer workflow command families (`cargo xtask ...`)
 - `xtask/src/runtime/` - shared xtask automation runtime (process execution, workflow recording, config loading, artifacts)

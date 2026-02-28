@@ -16,7 +16,7 @@ This repository is maintained with help from automated agents. Use this file as 
   - Rust source comments (`//!`, `///`) -> generated `rustdoc` API reference (authoritative code-level Reference documentation)
   - GitHub Wiki repository as submodule under `wiki/` (canonical documentation hub and narrative/architectural record, organized by Diataxis)
   - Repo-native Markdown under `docs/` for formal artifact source files (contracts, SOPs, ADRs, tooling reference, diagrams/assets) indexed and cross-linked from the Wiki
-  - Validation/audit CLI implemented in Rust via `cargo xtask docs` (`xtask/src/commands/docs/`)
+  - Validation/audit CLI implemented in Rust via `cargo xtask docs` (`xtask/src/docs.rs` + `xtask/src/docs/`, fronted by `xtask/src/commands/docs/`)
 - Wiki instructional content (`Tutorial-*`, `How-to-*`) uses a shared structural template and is now validated by `cargo xtask docs wiki`.
 
 ## 2) Operating Rules
@@ -182,7 +182,7 @@ Minimum local review expectations for material UI changes:
 
 ### 4.4 `xtask` / Validator Changes (Local)
 
-When changing `xtask/src/commands/docs/`, `xtask/src/commands/perf.rs`, `xtask/src/runtime/`, or command/workflow semantics:
+When changing `xtask/src/docs.rs`, `xtask/src/docs/`, `xtask/src/commands/docs/`, `xtask/src/commands/perf.rs`, `xtask/src/runtime/`, or command/workflow semantics:
 
 1. Run `cargo fmt --all`.
 2. Run `cargo test -p xtask`.
@@ -370,7 +370,9 @@ When changing `platform_host`, `platform_host_web`, or `desktop_tauri` contracts
 ## 7) Key Files
 
 - `AGENTS.md` (this repository-specific operating guide for agents)
-- `xtask/src/commands/docs/` (docs contract/integrity/audit command family; includes wiki instructional template validation via the docs command surface)
+- `xtask/src/docs.rs` (docs validator module root / command dispatch)
+- `xtask/src/docs/` (docs contract/integrity/audit validation surfaces, including wiki instructional template validation)
+- `xtask/src/commands/docs/` (docs command-family façade over the shared xtask runtime and validator modules)
 - `xtask/src/commands/perf.rs` (performance benchmarking/profiling workflow CLI implementation)
 - `xtask/src/runtime/` (shared xtask automation runtime: process execution, workflow recording, typed config, artifact policy)
 - `tools/docs/doc_contracts.json` (docs schema/contract rules)

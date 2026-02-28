@@ -6,6 +6,7 @@
 
 pub mod cli;
 pub mod commands;
+pub mod docs;
 pub mod runtime;
 
 use crate::cli::TopLevelCommand;

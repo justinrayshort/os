@@ -9,9 +9,6 @@ mod structure;
 mod ui_conformance;
 mod wiki;
 
-#[path = "../../docs.rs"]
-mod legacy;
-
 use crate::runtime::context::CommandContext;
 use crate::runtime::error::XtaskResult;
 use crate::XtaskCommand;
@@ -49,7 +46,7 @@ impl XtaskCommand for DocsCommand {
                 };
                 audit::write_report(ctx, path)
             }
-            _ => legacy::run_docs_command(ctx.root(), args).map_err(Into::into),
+            _ => crate::docs::run_docs_command(ctx.root(), args).map_err(Into::into),
         }
     }
 }
@@ -63,7 +60,7 @@ pub(crate) fn write_report(ctx: &CommandContext, output: PathBuf) -> XtaskResult
 }
 
 fn run_subcommand(ctx: &CommandContext, args: Vec<String>) -> XtaskResult<()> {
-    legacy::run_docs_command(ctx.root(), args).map_err(Into::into)
+    crate::docs::run_docs_command(ctx.root(), args).map_err(Into::into)
 }
 
 fn output_args(output: impl Into<PathBuf>) -> Vec<String> {

@@ -62,7 +62,9 @@ Responsibilities:
 - [`xtask/src/commands/dev.rs`](../../xtask/src/commands/dev.rs): prototype, web, Tauri, and environment-health commands
 - [`xtask/src/commands/verify.rs`](../../xtask/src/commands/verify.rs): verify profiles, changed-scope flow, verification orchestration
 - [`xtask/src/commands/perf.rs`](../../xtask/src/commands/perf.rs): benchmarking and profiling workflows
-- [`xtask/src/commands/docs/`](../../xtask/src/commands/docs/): docs command family façade and validation-surface routing
+- [`xtask/src/commands/docs/`](../../xtask/src/commands/docs/): docs command family façade and runtime integration
+- [`xtask/src/docs.rs`](../../xtask/src/docs.rs): docs validator module root and command dispatch
+- [`xtask/src/docs/`](../../xtask/src/docs/): split docs validation surfaces (`structure`, `wiki`, `frontmatter`, `sop`, `links`, `mermaid`, `openapi`, `storage_boundary`, `app_contract`, `ui_conformance`, `audit`)
 
 Responsibilities:
 
