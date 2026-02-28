@@ -2955,7 +2955,10 @@ fn validate_app_runtime_layout_contracts(root: &Path) -> Vec<Problem> {
         if entry.classification != "layout_only" {
             continue;
         }
-        if !matches!(entry.owner_layer.as_str(), "app_crate" | "desktop_runtime_shell") {
+        if !matches!(
+            entry.owner_layer.as_str(),
+            "app_crate" | "desktop_runtime_shell"
+        ) {
             continue;
         }
 

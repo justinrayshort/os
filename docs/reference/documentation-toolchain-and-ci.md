@@ -3,7 +3,7 @@ title: "Documentation Toolchain and Local Verification Pipeline"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-27"
+last_reviewed: "2026-02-28"
 audience: ["platform", "engineering"]
 invariants:
   - "Local docs validation fails on broken links, invalid contracts, or invalid diagrams."
@@ -26,9 +26,11 @@ lifecycle: "ga"
 
 ## Build System
 
-- `cargo xtask docs` (Rust-native docs contract/audit validator)
+- `cargo xtask docs` (Rust-native docs contract/audit validator routed through the shared xtask automation runtime)
 - `rustdoc` (`cargo doc --workspace --no-deps`) for API reference output
 - GitHub Wiki repository integrated as `wiki/` git submodule
+
+The xtask runtime architecture is documented in [xtask Automation Runtime Architecture](xtask-automation-runtime-architecture.md).
 
 ## Local Validation Stages
 

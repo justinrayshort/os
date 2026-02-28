@@ -3,7 +3,7 @@ title: "Project Command Entry Points"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-27"
+last_reviewed: "2026-02-28"
 audience: ["engineering", "platform"]
 invariants:
   - "Cargo aliases in .cargo/config.toml remain the preferred stable entry points for common project workflows."
@@ -20,8 +20,12 @@ This page documents the supported top-level commands for local development, veri
 ## Source of Truth
 
 - Cargo aliases: [`.cargo/config.toml`](../../.cargo/config.toml)
-- Task implementation: [`xtask/src/main.rs`](../../xtask/src/main.rs)
+- CLI surface: [`xtask/src/bin/xtask.rs`](../../xtask/src/bin/xtask.rs)
+- Shared automation runtime: [`xtask/src/runtime/`](../../xtask/src/runtime/)
+- Command domains: [`xtask/src/commands/`](../../xtask/src/commands/)
+- Typed automation config: [`tools/automation/`](../../tools/automation/)
 - Compatibility wrappers: [`Makefile`](../../Makefile)
+- Internal architecture reference: [xtask Automation Runtime Architecture](xtask-automation-runtime-architecture.md)
 
 ## Preferred Commands (Cargo Aliases)
 
@@ -38,6 +42,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo dev build`: Build a development static bundle via `trunk` (non-release).
 - `cargo dev` serve/build defaults include `--no-sri=true`; file hashing remains enabled unless explicitly overridden so browser asset URLs change across rebuilds.
 - `cargo dev serve` also auto-adds `--ignore <active-dist-path>` when not explicitly provided so Trunk does not watch-and-rebuild on its own output directory.
+- Dev server defaults are loaded from `tools/automation/dev_server.toml`, which version-controls the canonical managed server host, port, timeouts, and artifact paths.
 - `cargo web-check`: Run prototype compile checks (CSR native and WASM when target is installed).
 - `cargo web-build`: Build the production-style static bundle via `trunk`.
 
@@ -58,6 +63,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo verify --profile <name>`: Run profile-driven verification from `tools/automation/verify_profiles.toml` (`dev`, `ci-fast`, `ci-full`, `release`).
 - `cargo verify-fast` / `cargo verify`: print per-stage duration for measurable feedback-loop latency.
 - `cargo flow`, `cargo verify*`, and `cargo doctor` emit structured run artifacts under `.artifacts/automation/runs/<run-id>/` (`manifest.json`, `events.jsonl`).
+- `cargo doctor`, `cargo flow`, `cargo verify*`, `cargo perf *`, and `cargo xtask docs *` now execute through a shared library-backed xtask runtime (`CommandContext`, `ProcessRunner`, `WorkflowRecorder`, `ArtifactManager`) instead of a monolithic binary entry file.
 - `cargo check-all`: Explicit full-workspace compile check alias (`cargo check --workspace`).
 - `cargo test-all`: Explicit full-workspace test alias (`cargo test --workspace`).
 
@@ -146,5 +152,6 @@ Expected viewport result with the current local config: `"1440x900"`.
 - Prefer Cargo aliases in automation and documentation because they are defined in-repo and map directly to `xtask`.
 - Use `make` targets only when you need compatibility with existing local shell habits.
 - When adding or changing a top-level command, update this page, `README.md`, and `AGENTS.md` in the same change.
+- When extending `xtask`, add workflow logic under `xtask/src/commands/` and shared orchestration under `xtask/src/runtime/`; avoid adding new workflow logic directly to the binary entrypoint.
 - When public APIs change, update rustdoc comments and run doctests in the same change.
 - When tutorials/how-to/explanations change, update the `wiki/` submodule in the same review cycle.

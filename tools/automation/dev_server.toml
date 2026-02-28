@@ -1,0 +1,8 @@
+[dev_server]
+dir = ".artifacts/dev-server"
+state_file = ".artifacts/dev-server/state.env"
+log_file = ".artifacts/dev-server/trunk.log"
+default_host = "127.0.0.1"
+default_port = 8080
+start_poll_secs = 8
+stop_timeout_secs = 5
