@@ -1,5 +1,5 @@
 use chrono::{Local, NaiveDate, SecondsFormat, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
@@ -35,6 +35,17 @@ struct Problem {
     path: String,
     message: String,
     line: Option<usize>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct UiInventoryEntry {
+    entrypoint_type: String,
+    owner_layer: String,
+    selector_or_token: String,
+    file: String,
+    line: usize,
+    classification: String,
+    recommended_replacement: String,
 }
 
 impl Problem {
@@ -99,6 +110,7 @@ enum DocsCommand {
     Mermaid,
     OpenApi,
     UiConformance,
+    UiInventory,
     StorageBoundary,
     AppContract,
     All,
@@ -118,6 +130,7 @@ pub(crate) fn print_docs_usage() {
            mermaid [--require-renderer]      Validate Mermaid blocks/files (structural checks)\n\
            openapi [--require-validator]     Validate OpenAPI specs (Rust-native parse/sanity)\n\
            ui-conformance                    Validate machine-checkable UI conformance token/literal rules\n\
+           ui-inventory --output <path>      Write styling entrypoint inventory JSON\n\
            storage-boundary                  Enforce typed app-state envelope boundary in app/runtime crates\n\
            app-contract                      Validate app manifest and contract conventions\n\
            all [flags]                       Run all docs checks\n\
@@ -163,6 +176,10 @@ pub(crate) fn run_docs_command(root: &Path, args: Vec<String>) -> Result<(), Str
             fail_if_problems(problems)
         }
         DocsCommand::UiConformance => fail_if_problems(validate_ui_conformance(root)),
+        DocsCommand::UiInventory => {
+            let output = audit_output.ok_or_else(|| "missing `--output <path>`".to_string())?;
+            write_ui_inventory(root, &output)
+        }
         DocsCommand::StorageBoundary => fail_if_problems(validate_typed_persistence_boundary(root)),
         DocsCommand::AppContract => fail_if_problems(validate_app_contracts(root)),
         DocsCommand::All => {
@@ -191,6 +208,7 @@ fn parse_docs_command(
         "mermaid" => DocsCommand::Mermaid,
         "openapi" => DocsCommand::OpenApi,
         "ui-conformance" => DocsCommand::UiConformance,
+        "ui-inventory" => DocsCommand::UiInventory,
         "storage-boundary" => DocsCommand::StorageBoundary,
         "app-contract" => DocsCommand::AppContract,
         "all" => DocsCommand::All,
@@ -252,6 +270,14 @@ fn parse_docs_command(
         DocsCommand::UiConformance => {
             if flags.require_renderer || flags.require_openapi_validator || output.is_some() {
                 return Err("`ui-conformance` does not accept extra arguments".to_string());
+            }
+        }
+        DocsCommand::UiInventory => {
+            if flags.require_renderer || flags.require_openapi_validator {
+                return Err("`ui-inventory` does not accept validator flags".to_string());
+            }
+            if output.is_none() {
+                return Err("`ui-inventory` requires `--output <path>`".to_string());
             }
         }
         DocsCommand::AuditReport => {
@@ -1894,34 +1920,25 @@ fn write_audit_report(
     fail_if_problems(all_problems)
 }
 
-const FLUENT_OVERRIDES_PATH: &str =
-    "crates/site/src/theme_shell/33-theme-fluent-modern-overrides.css";
-const SOFT_NEUMORPHIC_TOKENS_PATH: &str =
-    "crates/site/src/theme_shell/34-theme-soft-neumorphic-tokens.css";
-const SOFT_NEUMORPHIC_OVERRIDES_PATH: &str =
-    "crates/site/src/theme_shell/35-theme-soft-neumorphic-overrides.css";
-const XP_TOKENS_PATH: &str = "crates/site/src/theme_shell/10-theme-xp-tokens.css";
-const XP_OVERRIDES_PATH: &str = "crates/site/src/theme_shell/11-theme-xp-overrides.css";
-const LEGACY95_TOKENS_PATH: &str = "crates/site/src/theme_shell/20-theme-legacy95-tokens.css";
-const LEGACY95_OVERRIDES_PATH: &str = "crates/site/src/theme_shell/21-theme-legacy95-overrides.css";
-const MODERN_TOKENS_PATH: &str =
-    "crates/site/src/theme_shell/32-theme-fluent-modern-theme-tokens.css";
+const FOUNDATIONS_PATH: &str = "crates/site/src/theme_shell/00-foundations.css";
+const PRIMITIVES_PATH: &str = "crates/site/src/theme_shell/01-primitives.css";
+const SHELL_LAYOUT_PATH: &str = "crates/site/src/theme_shell/02-shell-layout.css";
+const RESPONSIVE_PATH: &str = "crates/site/src/theme_shell/03-responsive.css";
+const ACCESSIBILITY_PATH: &str = "crates/site/src/theme_shell/04-accessibility-motion.css";
+const XP_THEME_PATH: &str = "crates/site/src/theme_shell/10-theme-xp.css";
+const LEGACY95_THEME_PATH: &str = "crates/site/src/theme_shell/20-theme-legacy95.css";
+const MODERN_THEME_PATH: &str = "crates/site/src/theme_shell/30-theme-modern-adaptive.css";
+const SOFT_NEUMORPHIC_THEME_PATH: &str = "crates/site/src/theme_shell/34-theme-soft-neumorphic.css";
 const ACTIVE_THEME_SHELL_CSS_FILES: &[&str] = &[
-    "crates/site/src/theme_shell/00-tokens-reset.css",
-    "crates/site/src/theme_shell/01-components-shell.css",
-    "crates/site/src/theme_shell/02-interactions-hover.css",
-    "crates/site/src/theme_shell/03-responsive-base.css",
-    "crates/site/src/theme_shell/04-motion-base.css",
-    XP_TOKENS_PATH,
-    XP_OVERRIDES_PATH,
-    LEGACY95_TOKENS_PATH,
-    LEGACY95_OVERRIDES_PATH,
-    "crates/site/src/theme_shell/30-theme-fluent-modern-tokens-core.css",
-    "crates/site/src/theme_shell/31-theme-fluent-modern-primitives.css",
-    MODERN_TOKENS_PATH,
-    FLUENT_OVERRIDES_PATH,
-    SOFT_NEUMORPHIC_TOKENS_PATH,
-    SOFT_NEUMORPHIC_OVERRIDES_PATH,
+    FOUNDATIONS_PATH,
+    PRIMITIVES_PATH,
+    SHELL_LAYOUT_PATH,
+    RESPONSIVE_PATH,
+    ACCESSIBILITY_PATH,
+    XP_THEME_PATH,
+    LEGACY95_THEME_PATH,
+    MODERN_THEME_PATH,
+    SOFT_NEUMORPHIC_THEME_PATH,
 ];
 const REQUIRED_SKIN_SCOPES: &[&str] = &[
     ".desktop-shell[data-skin=\"soft-neumorphic\"]",
@@ -1930,38 +1947,45 @@ const REQUIRED_SKIN_SCOPES: &[&str] = &[
     ".desktop-shell[data-skin=\"classic-95\"]",
 ];
 const SKIN_SCOPED_FILES: &[(&str, &str)] = &[
-    (XP_TOKENS_PATH, ".desktop-shell[data-skin=\"classic-xp\"]"),
+    (XP_THEME_PATH, ".desktop-shell[data-skin=\"classic-xp\"]"),
     (
-        XP_OVERRIDES_PATH,
-        ".desktop-shell[data-skin=\"classic-xp\"]",
-    ),
-    (
-        LEGACY95_TOKENS_PATH,
+        LEGACY95_THEME_PATH,
         ".desktop-shell[data-skin=\"classic-95\"]",
     ),
     (
-        LEGACY95_OVERRIDES_PATH,
-        ".desktop-shell[data-skin=\"classic-95\"]",
-    ),
-    (
-        MODERN_TOKENS_PATH,
+        MODERN_THEME_PATH,
         ".desktop-shell[data-skin=\"modern-adaptive\"]",
     ),
     (
-        FLUENT_OVERRIDES_PATH,
-        ".desktop-shell[data-skin=\"modern-adaptive\"]",
-    ),
-    (
-        SOFT_NEUMORPHIC_TOKENS_PATH,
-        ".desktop-shell[data-skin=\"soft-neumorphic\"]",
-    ),
-    (
-        SOFT_NEUMORPHIC_OVERRIDES_PATH,
+        SOFT_NEUMORPHIC_THEME_PATH,
         ".desktop-shell[data-skin=\"soft-neumorphic\"]",
     ),
 ];
-const THEME_OVERRIDE_FILES_WITH_LITERAL_HYGIENE: &[&str] =
-    &[FLUENT_OVERRIDES_PATH, SOFT_NEUMORPHIC_OVERRIDES_PATH];
+const THEME_OVERRIDE_FILES_WITH_LITERAL_HYGIENE: &[&str] = &[];
+const TOKEN_ONLY_THEME_FILES: &[&str] = &[
+    XP_THEME_PATH,
+    LEGACY95_THEME_PATH,
+    MODERN_THEME_PATH,
+    SOFT_NEUMORPHIC_THEME_PATH,
+];
+const FORBIDDEN_THEME_SELECTOR_PREFIXES: &[&str] = &[
+    ".calc-",
+    ".calculator-",
+    ".explorer-",
+    ".notepad-",
+    ".terminal-",
+    ".settings-",
+    ".app-",
+    ".desktop-",
+    ".taskbar-",
+    ".titlebar-",
+    ".tray-",
+    ".window-",
+    ".tree-",
+    ".pane-",
+];
+const ALLOWED_ROOT_CLASS_SELECTORS: &[&str] =
+    &[".site-root", ".desktop-shell", ".canonical-content"];
 const TYPED_PERSISTENCE_BOUNDARY_DIRS: &[&str] =
     &["crates/apps", "crates/desktop_runtime", "crates/site"];
 const PLATFORM_HOST_WEB_IMPORT_ALLOWLIST: &[&str] = &["crates/site/src/web_app.rs"];
@@ -1994,6 +2018,8 @@ fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
     problems.extend(validate_required_skin_scopes(root));
     problems.extend(validate_skin_file_scope_presence(root));
     problems.extend(validate_skin_selector_scoping(root));
+    problems.extend(validate_forbidden_theme_selectors(root));
+    problems.extend(validate_token_only_theme_files(root));
 
     for rel_path in THEME_OVERRIDE_FILES_WITH_LITERAL_HYGIENE {
         let path = root.join(rel_path);
@@ -2042,6 +2068,115 @@ fn validate_ui_conformance(root: &Path) -> Vec<Problem> {
     problems.extend(validate_shared_primitive_usage(root));
     problems.extend(validate_system_ui_token_usage(root));
     problems.extend(validate_placeholder_surface_copy(root));
+    problems.extend(validate_inline_style_allowlist(root));
+    problems.extend(validate_raw_interactive_markup(root));
+
+    problems
+}
+
+fn validate_forbidden_theme_selectors(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+
+    for rel_path in ACTIVE_THEME_SHELL_CSS_FILES {
+        let path = root.join(rel_path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            continue;
+        };
+
+        for (idx, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.is_empty()
+                || trimmed.starts_with("/*")
+                || trimmed.starts_with('*')
+                || trimmed.starts_with('@')
+                || trimmed.starts_with('}')
+                || !trimmed.contains('{')
+            {
+                continue;
+            }
+
+            let selector_chunk = trimmed
+                .split_once('{')
+                .map(|(selector, _)| selector.trim())
+                .unwrap_or("");
+
+            if selector_chunk.is_empty() || selector_chunk.starts_with("--") {
+                continue;
+            }
+
+            for selector in selector_chunk.split(',') {
+                let selector = selector.trim();
+                if selector.is_empty() {
+                    continue;
+                }
+                if ALLOWED_ROOT_CLASS_SELECTORS
+                    .iter()
+                    .any(|allowed| selector.starts_with(allowed))
+                {
+                    continue;
+                }
+                if selector.starts_with("[data-ui-")
+                    || selector.starts_with(":root")
+                    || selector.starts_with("body")
+                {
+                    continue;
+                }
+
+                if FORBIDDEN_THEME_SELECTOR_PREFIXES
+                    .iter()
+                    .any(|prefix| selector.contains(prefix))
+                {
+                    problems.push(Problem::new(
+                        "ui-conformance",
+                        *rel_path,
+                        format!(
+                            "forbidden bespoke selector detected in active theme CSS (`{selector}`); style via `data-ui-*` or approved root scopes"
+                        ),
+                        Some(idx + 1),
+                    ));
+                }
+            }
+        }
+    }
+
+    problems
+}
+
+fn validate_token_only_theme_files(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+
+    for rel_path in TOKEN_ONLY_THEME_FILES {
+        let path = root.join(rel_path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            continue;
+        };
+
+        for (idx, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.is_empty()
+                || trimmed.starts_with("/*")
+                || trimmed.starts_with('*')
+                || trimmed.starts_with('@')
+                || trimmed.starts_with('}')
+                || trimmed.ends_with('{')
+            {
+                continue;
+            }
+
+            if trimmed.starts_with("--") {
+                continue;
+            }
+
+            if trimmed.contains(':') {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    *rel_path,
+                    "theme token file contains a non-token declaration; skin files must only remap `--sys-*` tokens",
+                    Some(idx + 1),
+                ));
+            }
+        }
+    }
 
     problems
 }
@@ -2672,6 +2807,261 @@ fn validate_placeholder_surface_copy(root: &Path) -> Vec<Problem> {
     }
 
     problems
+}
+
+fn validate_inline_style_allowlist(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+
+    for rel_dir in PRIMITIVE_USAGE_SCAN_DIRS {
+        let dir = root.join(rel_dir);
+        if !dir.exists() {
+            continue;
+        }
+        let mut files = match collect_files_with_suffix(&dir, ".rs") {
+            Ok(files) => files,
+            Err(_) => continue,
+        };
+        files.sort();
+
+        for path in files {
+            let rel_path = rel_posix(root, &path);
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
+            for (idx, line) in text.lines().enumerate() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("//") || !trimmed.contains("style=") {
+                    continue;
+                }
+                if is_allowed_inline_style(&rel_path, trimmed) {
+                    continue;
+                }
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    rel_path.clone(),
+                    "inline style detected outside the runtime geometry/media-position allowlist",
+                    Some(idx + 1),
+                ));
+            }
+        }
+    }
+
+    problems
+}
+
+fn is_allowed_inline_style(rel_path: &str, line: &str) -> bool {
+    let _ = line;
+    matches!(
+        rel_path,
+        "crates/desktop_runtime/src/components.rs"
+            | "crates/desktop_runtime/src/components/window.rs"
+            | "crates/desktop_runtime/src/components/menus.rs"
+    )
+}
+
+fn validate_raw_interactive_markup(root: &Path) -> Vec<Problem> {
+    let mut problems = Vec::new();
+    let dir = root.join("crates/apps");
+    let mut files = match collect_files_with_suffix(&dir, ".rs") {
+        Ok(files) => files,
+        Err(_) => return problems,
+    };
+    files.sort();
+
+    for path in files {
+        let rel_path = rel_posix(root, &path);
+        let Ok(text) = fs::read_to_string(&path) else {
+            continue;
+        };
+        for (idx, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("//") {
+                continue;
+            }
+            let forbidden = trimmed.contains("<button")
+                || trimmed.contains("<textarea")
+                || trimmed.contains("<table")
+                || trimmed.contains("<select");
+            if forbidden {
+                problems.push(Problem::new(
+                    "ui-conformance",
+                    rel_path.clone(),
+                    "raw interactive element detected in app crate; use approved `system_ui` primitives",
+                    Some(idx + 1),
+                ));
+            }
+        }
+    }
+
+    problems
+}
+
+fn write_ui_inventory(root: &Path, output: &Path) -> Result<(), String> {
+    let entries = collect_ui_inventory(root)?;
+    if let Some(parent) = output.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("failed to create {}: {err}", parent.display()))?;
+    }
+    let json = serde_json::to_string_pretty(&entries)
+        .map_err(|err| format!("failed to serialize UI inventory: {err}"))?;
+    fs::write(output, json)
+        .map_err(|err| format!("failed to write {}: {err}", output.display()))?;
+    println!("UI inventory entries: {}", entries.len());
+    println!("Wrote {}", output.display());
+    Ok(())
+}
+
+fn collect_ui_inventory(root: &Path) -> Result<Vec<UiInventoryEntry>, String> {
+    let mut entries = Vec::new();
+
+    for rel_dir in [
+        "crates/apps",
+        "crates/desktop_runtime/src",
+        "crates/system_ui/src",
+    ] {
+        let dir = root.join(rel_dir);
+        let mut files = collect_files_with_suffix(&dir, ".rs")?;
+        files.sort();
+        for path in files {
+            let rel_path = rel_posix(root, &path);
+            let text = fs::read_to_string(&path)
+                .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+            let owner_layer = rust_owner_layer(&rel_path).to_string();
+            for (idx, line) in text.lines().enumerate() {
+                if let Some(token) = extract_attr_literal(line, "class=\"") {
+                    entries.push(UiInventoryEntry {
+                        entrypoint_type: "rust_class".to_string(),
+                        owner_layer: owner_layer.clone(),
+                        selector_or_token: token.clone(),
+                        file: rel_path.clone(),
+                        line: idx + 1,
+                        classification: classify_rust_contract(&token).to_string(),
+                        recommended_replacement: "Replace bespoke classes with `data-ui-*` primitives or layout-only hooks.".to_string(),
+                    });
+                }
+                if let Some(token) = extract_attr_literal(line, "layout_class=\"") {
+                    entries.push(UiInventoryEntry {
+                        entrypoint_type: "rust_layout_class".to_string(),
+                        owner_layer: owner_layer.clone(),
+                        selector_or_token: token.clone(),
+                        file: rel_path.clone(),
+                        line: idx + 1,
+                        classification: classify_rust_contract(&token).to_string(),
+                        recommended_replacement: "Keep only layout/test hooks; do not consume layout classes from theme CSS.".to_string(),
+                    });
+                }
+                if line.contains("style=") {
+                    entries.push(UiInventoryEntry {
+                        entrypoint_type: "rust_inline_style".to_string(),
+                        owner_layer: owner_layer.clone(),
+                        selector_or_token: "style=".to_string(),
+                        file: rel_path.clone(),
+                        line: idx + 1,
+                        classification: if is_allowed_inline_style(&rel_path, line) {
+                            "exception".to_string()
+                        } else {
+                            "legacy_visual_contract".to_string()
+                        },
+                        recommended_replacement:
+                            "Restrict inline styles to runtime geometry/media positioning."
+                                .to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    let css_dir = root.join("crates/site/src/theme_shell");
+    let mut css_files = collect_files_with_suffix(&css_dir, ".css")?;
+    css_files.sort();
+    for path in css_files {
+        let rel_path = rel_posix(root, &path);
+        let text = fs::read_to_string(&path)
+            .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+        for (idx, line) in text.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("--") {
+                entries.push(UiInventoryEntry {
+                    entrypoint_type: "token_definition".to_string(),
+                    owner_layer: "theme_shell".to_string(),
+                    selector_or_token: trimmed.split(':').next().unwrap_or(trimmed).to_string(),
+                    file: rel_path.clone(),
+                    line: idx + 1,
+                    classification: "approved".to_string(),
+                    recommended_replacement: "Keep all design-token definitions under `--sys-*`."
+                        .to_string(),
+                });
+            } else if trimmed.contains('{') && !trimmed.starts_with('@') {
+                let selector = trimmed
+                    .split_once('{')
+                    .map(|(selector, _)| selector.trim())
+                    .unwrap_or(trimmed)
+                    .to_string();
+                entries.push(UiInventoryEntry {
+                    entrypoint_type: "css_selector".to_string(),
+                    owner_layer: "theme_shell".to_string(),
+                    selector_or_token: selector.clone(),
+                    file: rel_path.clone(),
+                    line: idx + 1,
+                    classification: classify_css_selector(&selector).to_string(),
+                    recommended_replacement: "Active theme CSS should target `.desktop-shell` scopes or `data-ui-*` selectors only.".to_string(),
+                });
+            } else if has_disallowed_raw_color_literal(trimmed) {
+                entries.push(UiInventoryEntry {
+                    entrypoint_type: "css_literal".to_string(),
+                    owner_layer: "theme_shell".to_string(),
+                    selector_or_token: trimmed.to_string(),
+                    file: rel_path.clone(),
+                    line: idx + 1,
+                    classification: "hard_coded_literal".to_string(),
+                    recommended_replacement: "Move visual literals into `--sys-*` tokens."
+                        .to_string(),
+                });
+            }
+        }
+    }
+
+    Ok(entries)
+}
+
+fn extract_attr_literal(line: &str, needle: &str) -> Option<String> {
+    let start = line.find(needle)? + needle.len();
+    let end = line[start..].find('"')?;
+    Some(line[start..start + end].to_string())
+}
+
+fn rust_owner_layer(rel_path: &str) -> &'static str {
+    if rel_path.starts_with("crates/system_ui/") {
+        "system_ui"
+    } else if rel_path.starts_with("crates/desktop_runtime/src/components") {
+        "desktop_runtime_shell"
+    } else {
+        "app_crate"
+    }
+}
+
+fn classify_rust_contract(token: &str) -> &'static str {
+    if FORBIDDEN_THEME_SELECTOR_PREFIXES
+        .iter()
+        .any(|prefix| token.contains(prefix.trim_start_matches('.')))
+    {
+        "legacy_visual_contract"
+    } else {
+        "layout_only"
+    }
+}
+
+fn classify_css_selector(selector: &str) -> &'static str {
+    if FORBIDDEN_THEME_SELECTOR_PREFIXES
+        .iter()
+        .any(|prefix| selector.contains(prefix))
+    {
+        "legacy_visual_contract"
+    } else if selector.contains(".desktop-shell[data-skin=") {
+        "skin_override"
+    } else {
+        "approved"
+    }
 }
 
 fn contains_legacy_shell_icon_text_glyph(line: &str) -> bool {

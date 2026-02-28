@@ -120,6 +120,11 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                 }
                 on:pointerdown=focus
                 role="dialog"
+                data-ui-primitive="true"
+                data-ui-kind="window-frame"
+                data-ui-focused=move || if window.get().map(|win| win.is_focused).unwrap_or(false) { "true" } else { "false" }
+                data-ui-minimized=move || if window.get().map(|win| win.minimized).unwrap_or(false) { "true" } else { "false" }
+                data-ui-maximized=move || if window.get().map(|win| win.maximized).unwrap_or(false) { "true" } else { "false" }
                 aria-label=move || {
                     window
                         .get()
@@ -129,10 +134,12 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
             >
                 <header
                     class="titlebar"
+                    data-ui-primitive="true"
+                    data-ui-kind="window-titlebar"
                     on:pointerdown=begin_move
                     on:dblclick=titlebar_double_click
                 >
-                    <div class="titlebar-title">
+                    <div class="titlebar-title" data-ui-primitive="true" data-ui-kind="window-title">
                         <span class="titlebar-app-icon" aria-hidden="true">
                             <Icon
                                 icon={{
@@ -154,8 +161,11 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                             }}
                         </span>
                     </div>
-                    <div class="titlebar-controls">
+                    <div class="titlebar-controls" data-ui-primitive="true" data-ui-kind="window-controls">
                         <button
+                            data-ui-primitive="true"
+                            data-ui-kind="button"
+                            data-ui-slot="window-control"
                             disabled=move || {
                                 !window
                                     .get()
@@ -177,6 +187,9 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                             <Icon icon=IconName::WindowMinimize size=IconSize::Xs />
                         </button>
                         <button
+                            data-ui-primitive="true"
+                            data-ui-kind="button"
+                            data-ui-slot="window-control"
                             disabled=move || {
                                 !window
                                     .get()
@@ -218,6 +231,9 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                             }}
                         </button>
                         <button
+                            data-ui-primitive="true"
+                            data-ui-kind="button"
+                            data-ui-slot="window-control"
                             aria-label="Close window"
                             on:pointerdown=move |ev: web_sys::PointerEvent| {
                                 ev.prevent_default();
@@ -233,7 +249,7 @@ pub(super) fn DesktopWindow(window_id: WindowId) -> impl IntoView {
                         </button>
                     </div>
                 </header>
-                <div class="window-body">
+                <div class="window-body" data-ui-primitive="true" data-ui-kind="window-body">
                     <WindowBody window_id=window_id />
                 </div>
                 <Show
@@ -289,6 +305,9 @@ fn WindowResizeHandle(window_id: WindowId, edge: ResizeEdge) -> impl IntoView {
         <div
             class=class_name
             aria-hidden="true"
+            data-ui-primitive="true"
+            data-ui-kind="resize-handle"
+            data-ui-slot=resize_edge_class(edge)
             on:pointerdown=on_pointerdown
         />
     }
@@ -385,7 +404,7 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
     };
 
     view! {
-        <div class="window-body-content">
+        <div class="window-body-content" data-ui-slot="window-body-content">
             {contents}
         </div>
     }

@@ -7,7 +7,7 @@ last_reviewed: "2026-02-28"
 audience: ["engineering", "design"]
 invariants:
   - "Shell icon usage flows through the centralized `system_ui` icon abstraction instead of ad-hoc text glyphs or inline per-component SVG markup."
-  - "Theme-specific visual changes are applied via `data-skin` scoped CSS overrides with shared shell structure to preserve behavior parity across skins."
+  - "Theme-specific visual changes are applied through `--sys-*` token remapping under `data-skin` scopes with shared shell structure to preserve behavior parity across skins."
   - "Accessibility behaviors (focus visibility, keyboard navigation, high contrast, reduced motion) remain functional during visual refinements."
 tags: ["reference", "design-system", "desktop-shell", "neumorphic", "icons", "accessibility"]
 domain: "frontend"
@@ -25,7 +25,7 @@ The neumorphic skin covers:
 - desktop wallpaper atmosphere and launcher icons
 - window chrome, titlebar controls, and window bodies
 - taskbar, start button, taskbar app buttons, tray, overflow, and menus
-- built-in app primitives rendered through `system_ui` (`AppShell`, `MenuBar`, `ToolBar`, `StatusBar`, `Button`, `TextField`, `TextArea`, `ProgressBar`) and `data-ui-*` roots
+- built-in app primitives rendered through `system_ui` shell/content primitives and `data-ui-*` roots
 - built-in app interiors for Explorer, Notepad, Terminal, Calculator, System Settings, and the lightweight Paint/Connection utility surfaces that replaced placeholder-grade windows
 
 Wallpaper asset selection remains a separate subsystem. Skin files may style atmosphere and surface treatment, but they must not choose wallpapers or mutate wallpaper runtime state.
@@ -44,26 +44,29 @@ The shell root renders the active value through `data-skin`, while high-contrast
 
 The neumorphic skin is implemented in:
 
-- [`crates/site/src/theme_shell/34-theme-soft-neumorphic-tokens.css`](../../crates/site/src/theme_shell/34-theme-soft-neumorphic-tokens.css)
-- [`crates/site/src/theme_shell/35-theme-soft-neumorphic-overrides.css`](../../crates/site/src/theme_shell/35-theme-soft-neumorphic-overrides.css)
+- [`crates/site/src/theme_shell/00-foundations.css`](../../crates/site/src/theme_shell/00-foundations.css)
+- [`crates/site/src/theme_shell/01-primitives.css`](../../crates/site/src/theme_shell/01-primitives.css)
+- [`crates/site/src/theme_shell/34-theme-soft-neumorphic.css`](../../crates/site/src/theme_shell/34-theme-soft-neumorphic.css)
 
 Primary token families:
 
-- `--neuro-space-*`
-- `--neuro-radius-*`
-- `--neuro-motion-*`
-- `--neuro-surface-*`
-- `--neuro-text-*`
-- `--neuro-border-*`
-- `--neuro-highlight-*`
-- `--neuro-shadow-*`
-- `--neuro-elevation-raised-*`
-- `--neuro-elevation-pressed-*`
-- `--neuro-elevation-inset-*`
-- `--neuro-focus-*`
-- `--neuro-app-*`
+- `--sys-color-*`
+- `--sys-font-*`
+- `--sys-type-*`
+- `--sys-space-*`
+- `--sys-size-*`
+- `--sys-radius-*`
+- `--sys-border-*`
+- `--sys-shadow-*`
+- `--sys-elevation-*`
+- `--sys-motion-*`
+- `--sys-focus-*`
+- `--sys-state-*`
+- `--sys-opacity-*`
+- `--sys-z-*`
+- `--sys-comp-*`
 
-Terminal readability continues to use the shared `--terminal-*` token family, with the neumorphic skin remapping those tokens to match the shell while preserving transcript clarity.
+The neumorphic theme file is token-only. It remaps the shared `--sys-*` surface, elevation, border, focus, and component-role tokens for `data-skin="soft-neumorphic"` without targeting app-specific DOM contracts.
 
 ## Visual Rules
 
@@ -74,13 +77,14 @@ Terminal readability continues to use the shared `--terminal-*` token family, wi
 - High-contrast mode may intentionally flatten surfaces to preserve separation and contrast.
 - Dark mode uses dedicated neumorphic shadow/highlight recipes rather than simple light-theme inversion.
 - Guided flows use the same depth grammar as direct-use tools: setup steps read as raised cards, advanced controls use restrained disclosure surfaces, and primary actions use the accent family sparingly.
+- App and shell surfaces inherit those rules from shared primitives in `01-primitives.css`; the skin file does not restyle calculator/explorer/notepad/terminal/settings selectors directly.
 
 ## Component Conventions
 
 - Reuse `system_ui::Icon`, `IconName`, and `IconSize` for shell iconography.
 - Preserve shared shell structure and reducer-driven state semantics.
-- Prefer semantic token updates over one-off literals in overrides.
-- Keep app-specific classes compatible with shared primitives instead of reintroducing bespoke controls.
+- Prefer semantic token remapping over one-off literals in theme files.
+- Keep app-specific classes nonvisual; styling must flow through shared primitives and `data-ui-*` contracts.
 - Preserve terminal transcript readability over tactile styling.
 
 ## Accessibility and Validation
@@ -102,6 +106,5 @@ Validation and evidence requirements are governed by:
 
 - [`crates/desktop_runtime/src/model.rs`](../../crates/desktop_runtime/src/model.rs)
 - [`crates/desktop_runtime/src/reducer/appearance.rs`](../../crates/desktop_runtime/src/reducer/appearance.rs)
-- [`crates/site/src/theme_shell/01-components-shell.css`](../../crates/site/src/theme_shell/01-components-shell.css)
-- [`crates/site/src/theme_shell/34-theme-soft-neumorphic-tokens.css`](../../crates/site/src/theme_shell/34-theme-soft-neumorphic-tokens.css)
-- [`crates/site/src/theme_shell/35-theme-soft-neumorphic-overrides.css`](../../crates/site/src/theme_shell/35-theme-soft-neumorphic-overrides.css)
+- [`crates/site/src/theme_shell/01-primitives.css`](../../crates/site/src/theme_shell/01-primitives.css)
+- [`crates/site/src/theme_shell/34-theme-soft-neumorphic.css`](../../crates/site/src/theme_shell/34-theme-soft-neumorphic.css)

@@ -12,21 +12,35 @@ mod primitives;
 
 pub use icon::{Icon, IconName, IconSize};
 pub use primitives::{
-    AppShell, Button, ButtonSize, ButtonVariant, Cluster, ColorField, DisclosurePanel, Elevation,
-    ElevationLayer, FieldVariant, Grid, Heading, LayoutAlign, LayoutGap, LayoutJustify,
-    LayoutPadding, MenuBar, Panel, ProgressBar, ProgressVariant, RangeField, SelectField, Stack,
-    StatusBar, StepFlow, StepFlowActions, StepFlowHeader, StepFlowStep, StepStatus, Surface,
-    SurfaceVariant, Text, TextArea, TextField, TextRole, TextTone, ToolBar,
+    AppShell, Badge, Button, ButtonSize, ButtonVariant, ClockButton, Cluster, ColorField,
+    CompletionItem, CompletionList, DataTable, DesktopBackdrop, DesktopIconButton, DesktopIconGrid,
+    DesktopRoot, DesktopWindowLayer, DisclosurePanel, Elevation, ElevationLayer, EmptyState,
+    FieldVariant, Grid, Heading, InspectorGrid, LauncherMenu, LayoutAlign, LayoutGap,
+    LayoutJustify, LayoutPadding, ListSurface, MenuBar, MenuItem, MenuSeparator, MenuSurface,
+    OptionCard, Pane, PaneHeader, Panel, PreviewFrame, ProgressBar, ProgressVariant, RangeField,
+    ResizeHandle, SelectField, SplitLayout, Stack, StatusBar, StepFlow, StepFlowActions,
+    StepFlowHeader, StepFlowStep, StepStatus, Surface, SurfaceVariant, Tab, TabList, Taskbar,
+    TaskbarButton, TaskbarOverflowButton, TaskbarSection, TerminalLine, TerminalPrompt,
+    TerminalSurface, TerminalTranscript, Text, TextArea, TextField, TextRole, TextTone, ToggleRow,
+    ToolBar, TrayButton, TrayList, WindowBody, WindowControlButton, WindowControls, WindowFrame,
+    WindowTitle, WindowTitleBar,
 };
 
 /// Convenience imports for application crates consuming the shared primitive set.
 pub mod prelude {
     pub use crate::{
-        AppShell, Button, ButtonSize, ButtonVariant, Cluster, ColorField, DisclosurePanel,
-        Elevation, ElevationLayer, FieldVariant, Grid, Heading, Icon, IconName, IconSize,
-        LayoutAlign, LayoutGap, LayoutJustify, LayoutPadding, MenuBar, Panel, ProgressBar,
-        ProgressVariant, RangeField, SelectField, Stack, StatusBar, StepFlow, StepFlowActions,
-        StepFlowHeader, StepFlowStep, StepStatus, Surface, SurfaceVariant, Text, TextArea,
-        TextField, TextRole, TextTone, ToolBar,
+        AppShell, Badge, Button, ButtonSize, ButtonVariant, ClockButton, Cluster, ColorField,
+        CompletionItem, CompletionList, DataTable, DesktopBackdrop, DesktopIconButton,
+        DesktopIconGrid, DesktopRoot, DesktopWindowLayer, DisclosurePanel, Elevation,
+        ElevationLayer, EmptyState, FieldVariant, Grid, Heading, Icon, IconName, IconSize,
+        InspectorGrid, LauncherMenu, LayoutAlign, LayoutGap, LayoutJustify, LayoutPadding,
+        ListSurface, MenuBar, MenuItem, MenuSeparator, MenuSurface, OptionCard, Pane, PaneHeader,
+        Panel, PreviewFrame, ProgressBar, ProgressVariant, RangeField, ResizeHandle, SelectField,
+        SplitLayout, Stack, StatusBar, StepFlow, StepFlowActions, StepFlowHeader, StepFlowStep,
+        StepStatus, Surface, SurfaceVariant, Tab, TabList, Taskbar, TaskbarButton,
+        TaskbarOverflowButton, TaskbarSection, TerminalLine, TerminalPrompt, TerminalSurface,
+        TerminalTranscript, Text, TextArea, TextField, TextRole, TextTone, ToggleRow, ToolBar,
+        TrayButton, TrayList, WindowBody, WindowControlButton, WindowControls, WindowFrame,
+        WindowTitle, WindowTitleBar,
     };
 }

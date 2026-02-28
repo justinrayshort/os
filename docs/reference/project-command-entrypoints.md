@@ -79,6 +79,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo docs-check`: Run `cargo xtask docs all` (Cargo alias convenience wrapper).
 - `cargo docs-audit`: Generate `.artifacts/docs-audit.json` via `cargo xtask docs audit-report`.
 - `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages (useful for staged/isolated wiki diagnostics).
+- `cargo xtask docs ui-inventory --output .artifacts/ui/styling-inventory.json`: Generate a machine-readable inventory of Rust/CSS styling entry points, local visual contracts, token definitions, and hard-coded literals across shell/apps/system_ui/theme files.
 - `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries by flagging legacy low-level envelope access patterns in `crates/apps`, `crates/desktop_runtime`, and `crates/site`.
 - `cargo xtask docs app-contract`: Validate app manifest contract shape, app-id conventions, and forbidden ad hoc app integration patterns.
 - `scripts/ui/capture-skin-matrix.sh [base_url] [output_dir]`: Capture screenshot evidence matrix across skins (`soft-neumorphic`, `modern-adaptive`, `classic-xp`, `classic-95`) and breakpoints (`desktop`, `tablet`, `mobile`) into `.artifacts/ui-conformance/screenshots/`.

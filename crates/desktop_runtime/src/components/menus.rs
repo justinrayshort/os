@@ -26,6 +26,8 @@ pub(super) fn DesktopContextMenu(
                     <div
                         id="desktop-context-menu"
                         class="taskbar-menu desktop-context-menu"
+                        data-ui-primitive="true"
+                        data-ui-kind="menu-surface"
                         role="menu"
                         aria-label="Desktop context menu"
                         style=menu_style
@@ -47,6 +49,9 @@ pub(super) fn DesktopContextMenu(
                             id="desktop-context-menu-item-refresh"
                             role="menuitem"
                             class="taskbar-menu-item"
+                            data-ui-primitive="true"
+                            data-ui-kind="button"
+                            data-ui-slot="menu-item"
                             on:click:undelegated=move |ev| {
                                 stop_mouse_event(&ev);
                                 desktop_context_menu.set(None);
@@ -58,6 +63,9 @@ pub(super) fn DesktopContextMenu(
                             id="desktop-context-menu-item-properties"
                             role="menuitem"
                             class="taskbar-menu-item"
+                            data-ui-primitive="true"
+                            data-ui-kind="button"
+                            data-ui-slot="menu-item"
                             on:click:undelegated=move |ev| {
                                 stop_mouse_event(&ev);
                                 desktop_context_menu.set(None);
@@ -67,8 +75,8 @@ pub(super) fn DesktopContextMenu(
                             "Properties..."
                         </button>
 
-                        <div class="desktop-menu-separator" role="separator" aria-hidden="true"></div>
-                        <div class="desktop-context-group-label">
+                        <div class="desktop-menu-separator" role="separator" aria-hidden="true" data-ui-primitive="true" data-ui-kind="menu-separator"></div>
+                        <div class="desktop-context-group-label" data-ui-slot="menu-group-label">
                             "Quick Backgrounds"
                         </div>
 
@@ -95,6 +103,9 @@ pub(super) fn DesktopContextMenu(
                                         id=format!("desktop-context-menu-wallpaper-{}", item_id)
                                         role="menuitemradio"
                                         aria-checked=is_active
+                                        data-ui-primitive="true"
+                                        data-ui-kind="button"
+                                        data-ui-slot="menu-item"
                                         class=if is_active {
                                             "taskbar-menu-item desktop-context-wallpaper-item active"
                                         } else {
@@ -150,6 +161,9 @@ pub(super) fn StartMenu(
             <div
                 id="desktop-launcher-menu"
                 class="start-menu"
+                data-ui-primitive="true"
+                data-ui-kind="menu-surface"
+                data-ui-slot="launcher-menu"
                 role="menu"
                 aria-label="Application launcher"
                 on:keydown=move |ev: web_sys::KeyboardEvent| {
@@ -175,6 +189,9 @@ pub(super) fn StartMenu(
                             <button
                                 id=app_dom_id
                                 role="menuitem"
+                                data-ui-primitive="true"
+                                data-ui-kind="button"
+                                data-ui-slot="menu-item"
                                 on:click=move |_| {
                                     window_context_menu.set(None);
                                     overflow_menu_open.set(false);
@@ -196,6 +213,9 @@ pub(super) fn StartMenu(
                 <button
                     id="desktop-launcher-item-close"
                     role="menuitem"
+                    data-ui-primitive="true"
+                    data-ui-kind="button"
+                    data-ui-slot="menu-item"
                     on:click=move |_| runtime.dispatch_action(DesktopAction::CloseStartMenu)
                 >
                     "Close"

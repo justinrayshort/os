@@ -986,9 +986,9 @@ pub fn ExplorerApp(
                                 </Panel>
                             </Show>
 
-                            <div class="explorer-workspace explorer-workspace--three-pane">
-                                <aside class="explorer-tree" aria-label="Explorer status and path">
-                                    <div class="tree-header">"Workspace"</div>
+                            <div class="explorer-workspace explorer-workspace--three-pane" data-ui-kind="split-layout" data-ui-slot="workspace">
+                                <aside class="explorer-tree" data-ui-kind="pane" data-ui-slot="sidebar-pane" aria-label="Explorer status and path">
+                                    <div class="tree-header" data-ui-kind="pane-header">"Workspace"</div>
                                     <div class="explorer-status-card">
                                         <div><strong>"Backend"</strong></div>
                                         <div>{move || {
@@ -1013,7 +1013,7 @@ pub fn ExplorerApp(
                                         }}</div>
                                     </div>
 
-                                    <div class="tree-header">"Path Segments"</div>
+                                    <div class="tree-header" data-ui-kind="pane-header">"Path Segments"</div>
                                     <ul class="tree-list">
                                         <li>
                                             <Button
@@ -1068,25 +1068,25 @@ pub fn ExplorerApp(
                                     </ul>
                                 </aside>
 
-                                <section class="explorer-pane">
-                                    <div class="pane-header">
-                                        <div class="pane-title">"Contents"</div>
-                                        <div class="pane-path">{move || format!("Path: {}", cwd.get())}</div>
+                                <section class="explorer-pane" data-ui-kind="pane" data-ui-slot="primary-pane">
+                                    <div class="pane-header" data-ui-kind="pane-header">
+                                        <div class="pane-title" data-ui-slot="title">"Contents"</div>
+                                        <div class="pane-path" data-ui-slot="meta">{move || format!("Path: {}", cwd.get())}</div>
                                     </div>
 
                                     <div class="explorer-listwrap">
-                                        <table
-                                            class="explorer-list"
+                                        <DataTable
+                                            layout_class="explorer-list"
                                             role="grid"
-                                            aria-label="Explorer list view"
-                                            tabindex="0"
-                                            aria-activedescendant=move || {
+                                            aria_label="Explorer list view"
+                                            tabindex=Signal::derive(|| 0)
+                                            aria_activedescendant=Signal::derive(move || {
                                                 selected_path
                                                     .get()
                                                     .map(|path| explorer_row_dom_id(&path))
                                                     .unwrap_or_default()
-                                            }
-                                            on:keydown=on_list_grid_keydown
+                                            })
+                                            on_keydown=Callback::new(on_list_grid_keydown)
                                         >
                                             <thead>
                                                 <tr>
@@ -1166,14 +1166,14 @@ pub fn ExplorerApp(
                                                     }}
                                                 </For>
                                             </tbody>
-                                        </table>
+                                        </DataTable>
                                     </div>
                                 </section>
 
-                                <aside class="explorer-pane explorer-inspector">
-                                    <div class="pane-header">
-                                        <div class="pane-title">"Inspector"</div>
-                                        <div class="pane-path">{move || {
+                                <aside class="explorer-pane explorer-inspector" data-ui-kind="pane" data-ui-slot="secondary-pane">
+                                    <div class="pane-header" data-ui-kind="pane-header">
+                                        <div class="pane-title" data-ui-slot="title">"Inspector"</div>
+                                        <div class="pane-path" data-ui-slot="meta">{move || {
                                             selected_path
                                                 .get()
                                                 .map(|path| entry_name(&path))

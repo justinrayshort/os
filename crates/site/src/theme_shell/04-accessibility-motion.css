@@ -1,0 +1,18 @@
+.desktop-shell[data-reduced-motion="true"] [data-ui-primitive="true"] {
+  transition: none;
+}
+
+.desktop-shell[data-high-contrast="true"] {
+  --sys-color-surface: #ffffff;
+  --sys-color-surface-muted: #f2f2f2;
+  --sys-color-surface-inset: #ffffff;
+  --sys-color-border: #000000;
+  --sys-color-border-strong: #000000;
+  --sys-color-text-primary: #000000;
+  --sys-color-text-secondary: #1f1f1f;
+  --sys-color-accent: #0037ff;
+  --sys-color-accent-strong: #0023a3;
+  --sys-color-focus: #000000;
+  --sys-shadow-raised: none;
+  --sys-shadow-overlay: none;
+}

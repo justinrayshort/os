@@ -321,22 +321,24 @@ pub fn CalculatorApp(
                 </Button>
             </MenuBar>
 
-            <div class="calculator-workspace" tabindex="0" on:keydown=on_keydown>
-                <section class="calculator-main" aria-label="Calculator keypad">
+            <div class="calculator-workspace" data-ui-kind="split-layout" data-ui-slot="workspace" tabindex="0" on:keydown=on_keydown>
+                <section class="calculator-main" data-ui-kind="pane" data-ui-slot="primary-pane" aria-label="Calculator keypad">
                     <div
                         class="calc-display-panel"
+                        data-ui-kind="panel"
+                        data-ui-slot="display-panel"
                         data-memory=move || if calc.get().memory_active() { "on" } else { "off" }
                     >
-                        <div class="calc-display-meta">
-                            <span class="calc-mode">"Standard"</span>
-                            <span class="calc-memory-indicator">{move || if calc.get().memory_active() { "M" } else { "" }}</span>
-                            <span class="calc-status">{move || calc.get().status_text()}</span>
+                        <div class="calc-display-meta" data-ui-slot="meta">
+                            <span class="calc-mode" data-ui-slot="badge">"Standard"</span>
+                            <span class="calc-memory-indicator" data-ui-slot="badge">{move || if calc.get().memory_active() { "M" } else { "" }}</span>
+                            <span class="calc-status" data-ui-slot="status">{move || calc.get().status_text()}</span>
                         </div>
-                        <div class="calc-expression" aria-live="off">{move || calc.get().expression_text()}</div>
-                        <div class="calc-display" role="status" aria-live="polite">{move || calc.get().display_text()}</div>
+                        <div class="calc-expression" data-ui-slot="expression" aria-live="off">{move || calc.get().expression_text()}</div>
+                        <div class="calc-display" data-ui-slot="display" role="status" aria-live="polite">{move || calc.get().display_text()}</div>
                     </div>
 
-                    <div class="calc-keypad" role="group" aria-label="Calculator keys">
+                    <div class="calc-keypad" data-ui-slot="keypad" role="group" aria-label="Calculator keys">
                         <For
                             each=move || CALC_KEYS.to_vec()
                             key=|spec| spec.id
@@ -371,8 +373,8 @@ pub fn CalculatorApp(
                     </div>
                 </section>
 
-                <aside class="calc-tape" aria-label="Recent calculations">
-                    <div class="calc-tape-header">
+                <aside class="calc-tape" data-ui-kind="pane" data-ui-slot="secondary-pane" aria-label="Recent calculations">
+                    <div class="calc-tape-header" data-ui-kind="pane-header">
                         <div>
                             <strong>"Tape"</strong>
                             <span>{move || format!("{} item(s)", calc.get().history_count())}</span>
@@ -385,12 +387,12 @@ pub fn CalculatorApp(
                         </Button>
                     </div>
 
-                    <div class="calc-tape-list" role="list">
+                    <div class="calc-tape-list" data-ui-kind="list-surface" role="list">
                         <Show
                             when=move || { calc.get().history_count() > 0 }
                             fallback=|| {
                                 view! {
-                                    <p class="calc-empty-tape">
+                                    <p class="calc-empty-tape" data-ui-kind="empty-state">
                                         "Recent results appear here. Click a result to reuse it."
                                     </p>
                                 }
@@ -407,6 +409,7 @@ pub fn CalculatorApp(
                             >
                                 <Button
                                     layout_class="calc-tape-item"
+                                    ui_slot="list-item"
                                     variant=ButtonVariant::Quiet
                                     on_click=Callback::new(move |_| {
                                         let value = item.result_value;

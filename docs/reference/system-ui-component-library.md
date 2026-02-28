@@ -22,16 +22,16 @@ This reference defines the shared `crates/system_ui` component library used by t
 
 The library owns:
 
-- shared Leptos primitives for app shells, surfaces, panels, buttons, fields, progress, typography, icons, and layout
+- shared Leptos primitives for shell chrome, app shells, surfaces, navigation, controls, overlays, data-display, typography, icons, and layout
 - centralized iconography (`Icon`, `IconName`, `IconSize`)
-- stable `data-ui-*` DOM markers and `ui-*` compatibility classes
+- stable `data-ui-*` DOM markers and slot/state contracts
 - semantic `--sys-*` token consumption by primitive styles
 
 The library does not own app logic, host contracts, reducer state, or runtime orchestration.
 
 ## Primitive Catalog
 
-Structural primitives:
+Layout primitives:
 
 - `AppShell`
 - `MenuBar`
@@ -40,6 +40,31 @@ Structural primitives:
 - `Surface`
 - `Panel`
 - `ElevationLayer`
+- `Stack`
+- `Cluster`
+- `Grid`
+- `SplitLayout`
+
+Shell primitives:
+
+- `DesktopRoot`
+- `DesktopBackdrop`
+- `DesktopIconGrid`
+- `DesktopIconButton`
+- `WindowFrame`
+- `WindowTitleBar`
+- `WindowTitle`
+- `WindowControls`
+- `WindowControlButton`
+- `WindowBody`
+- `ResizeHandle`
+- `Taskbar`
+- `TaskbarSection`
+- `TaskbarButton`
+- `TaskbarOverflowButton`
+- `TrayList`
+- `TrayButton`
+- `ClockButton`
 
 Control primitives:
 
@@ -55,14 +80,41 @@ Control primitives:
 - `StepFlowHeader`
 - `StepFlowStep`
 - `StepFlowActions`
+- `OptionCard`
+- `ToggleRow`
+- `PreviewFrame`
+- `Badge`
+- `EmptyState`
 
-Typography and layout primitives:
+Navigation and overlay primitives:
+
+- `TabList`
+- `Tab`
+- `MenuSurface`
+- `MenuItem`
+- `MenuSeparator`
+- `LauncherMenu`
+- `CompletionList`
+- `CompletionItem`
+
+Data display and app-content primitives:
+
+- `Pane`
+- `PaneHeader`
+- `ListSurface`
+- `DataTable`
+- `Tree`
+- `TreeItem`
+- `InspectorGrid`
+- `TerminalSurface`
+- `TerminalTranscript`
+- `TerminalLine`
+- `TerminalPrompt`
+
+Typography primitives:
 
 - `Text`
 - `Heading`
-- `Stack`
-- `Cluster`
-- `Grid`
 
 Icon primitives:
 
@@ -94,16 +146,21 @@ Usage rules:
 Primitive styling consumes the semantic token families below:
 
 - `--sys-color-*`
+- `--sys-type-*`
 - `--sys-space-*`
+- `--sys-size-*`
 - `--sys-radius-*`
+- `--sys-border-*`
 - `--sys-font-*`
 - `--sys-shadow-*`
 - `--sys-motion-*`
 - `--sys-focus-*`
 - `--sys-elevation-*`
 - `--sys-state-*`
+- `--sys-opacity-*`
+- `--sys-z-*`
 
-Skin layers map existing `--ui-*`, `--fluent-*`, and `--neuro-*` values into `--sys-*` under `data-skin` scopes.
+Skin layers may derive values from legacy token families during migration, but primitive consumers only reference `--sys-*`. Skin switching is implemented by remapping `--sys-*` under `data-skin`, `data-high-contrast`, and `data-reduced-motion` scopes.
 
 ## DOM Contract
 
@@ -115,7 +172,17 @@ Shared primitives render stable root markers:
 - `data-ui-size`
 - `data-ui-tone`
 - `data-ui-elevation`
-- `data-ui-state`
+- `data-ui-slot`
+
+Shared primitives may also expose discrete state markers such as:
+
+- `data-ui-selected`
+- `data-ui-active`
+- `data-ui-expanded`
+- `data-ui-focused`
+- `data-ui-pressed`
+- `data-ui-disabled`
+- `data-ui-minimized`
 
 New work should prefer `data-ui-*` roots and shared components over direct legacy `.app-*` class usage.
 
@@ -135,12 +202,17 @@ App-local classes remain acceptable for:
 
 ## Enforcement
 
+`cargo xtask docs ui-inventory` produces a machine-readable inventory of styling entry points across app crates, runtime shell markup, `system_ui`, and theme CSS.
+
 `cargo xtask docs ui-conformance` enforces:
 
 - skin selector scoping
 - token/literal hygiene
 - centralized icon usage
 - shared primitive adoption via rejection of legacy primitive markup and old icon import paths
+- token-only skin files
+- restricted inline-style usage outside geometry/media positioning
+- rejection of new app-specific or shell-bespoke visual selector contracts
 
 ## Accessibility Invariants
 
@@ -155,7 +227,11 @@ Shared primitives must preserve:
 
 - [`crates/system_ui/src/lib.rs`](../../crates/system_ui/src/lib.rs)
 - [`crates/system_ui/src/icon.rs`](../../crates/system_ui/src/icon.rs)
-- [`crates/system_ui/src/primitives.rs`](../../crates/system_ui/src/primitives.rs)
-- [`crates/site/src/theme_shell/00-tokens-reset.css`](../../crates/site/src/theme_shell/00-tokens-reset.css)
-- [`crates/site/src/theme_shell/01-components-shell.css`](../../crates/site/src/theme_shell/01-components-shell.css)
+- [`crates/system_ui/src/primitives/mod.rs`](../../crates/system_ui/src/primitives/mod.rs)
+- [`crates/system_ui/src/primitives/shell.rs`](../../crates/system_ui/src/primitives/shell.rs)
+- [`crates/system_ui/src/primitives/controls.rs`](../../crates/system_ui/src/primitives/controls.rs)
+- [`crates/system_ui/src/primitives/navigation.rs`](../../crates/system_ui/src/primitives/navigation.rs)
+- [`crates/system_ui/src/primitives/data_display.rs`](../../crates/system_ui/src/primitives/data_display.rs)
+- [`crates/site/src/theme_shell/00-foundations.css`](../../crates/site/src/theme_shell/00-foundations.css)
+- [`crates/site/src/theme_shell/01-primitives.css`](../../crates/site/src/theme_shell/01-primitives.css)
 - [`xtask/src/docs.rs`](../../xtask/src/docs.rs)

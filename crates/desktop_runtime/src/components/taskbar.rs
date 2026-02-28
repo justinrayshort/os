@@ -254,16 +254,21 @@ pub(super) fn Taskbar() -> impl IntoView {
     view! {
         <footer
             class="taskbar"
+            data-ui-primitive="true"
+            data-ui-kind="taskbar"
             role="toolbar"
             aria-label="Desktop taskbar"
             aria-keyshortcuts="Ctrl+Escape Alt+1 Alt+2 Alt+3 Alt+4 Alt+5 Alt+6 Alt+7 Alt+8 Alt+9"
             on:mousedown=move |ev| ev.stop_propagation()
             on:keydown=on_taskbar_keydown
         >
-            <div class="taskbar-left">
+            <div class="taskbar-left" data-ui-primitive="true" data-ui-kind="taskbar-section" data-ui-slot="left">
                 <button
                     id="taskbar-start-button"
                     class="start-button"
+                    data-ui-primitive="true"
+                    data-ui-kind="button"
+                    data-ui-slot="start-button"
                     aria-label="Open application launcher"
                     aria-haspopup="menu"
                     aria-controls="desktop-launcher-menu"
@@ -283,7 +288,7 @@ pub(super) fn Taskbar() -> impl IntoView {
                 </button>
 
                 <Show when=move || taskbar_layout.get().show_pins fallback=|| ()>
-                    <div class="taskbar-pins" role="group" aria-label="Pinned apps">
+                    <div class="taskbar-pins" role="group" aria-label="Pinned apps" data-ui-slot="pinned-apps">
                         <For
                             each=move || pinned_taskbar_apps().to_vec()
                             key=|app_id| app_id.to_string()
@@ -306,6 +311,9 @@ pub(super) fn Taskbar() -> impl IntoView {
                                             )
                                         }
                                         data-app=app_data_id.clone()
+                                        data-ui-primitive="true"
+                                        data-ui-kind="button"
+                                        data-ui-slot="taskbar-button"
                                         title=move || {
                                             let desktop = state.get();
                                             let status = pinned_taskbar_app_state(&desktop, &app_id_for_title);
@@ -339,8 +347,8 @@ pub(super) fn Taskbar() -> impl IntoView {
                 </Show>
             </div>
 
-            <div class="taskbar-running-region" role="group" aria-label="Running windows">
-                <div class="taskbar-running-strip">
+            <div class="taskbar-running-region" role="group" aria-label="Running windows" data-ui-primitive="true" data-ui-kind="taskbar-section" data-ui-slot="running">
+                <div class="taskbar-running-strip" data-ui-slot="running-strip">
                     <For
                         each=move || {
                             let desktop = state.get();
@@ -365,6 +373,9 @@ pub(super) fn Taskbar() -> impl IntoView {
                                 )
                             }
                             data-app=win.icon_id.clone()
+                            data-ui-primitive="true"
+                            data-ui-kind="button"
+                            data-ui-slot="taskbar-button"
                             aria-pressed=move || win.is_focused && !win.minimized
                             aria-label=taskbar_window_aria_label(&win)
                             title=taskbar_window_aria_label(&win)
@@ -416,6 +427,9 @@ pub(super) fn Taskbar() -> impl IntoView {
                             <button
                                 id="taskbar-overflow-button"
                                 class="taskbar-overflow-button"
+                                data-ui-primitive="true"
+                                data-ui-kind="button"
+                                data-ui-slot="taskbar-overflow-button"
                                 aria-haspopup="menu"
                                 aria-controls="taskbar-overflow-menu"
                                 aria-expanded=move || overflow_menu_open.get()
@@ -453,8 +467,8 @@ pub(super) fn Taskbar() -> impl IntoView {
                 </div>
             </div>
 
-            <div class="taskbar-right">
-                <div class="taskbar-tray" role="group" aria-label="System tray">
+            <div class="taskbar-right" data-ui-primitive="true" data-ui-kind="taskbar-section" data-ui-slot="right">
+                <div class="taskbar-tray" role="group" aria-label="System tray" data-ui-primitive="true" data-ui-kind="tray-list">
                     <For
                         each=move || {
                             build_taskbar_tray_widgets(&state.get())
@@ -473,6 +487,9 @@ pub(super) fn Taskbar() -> impl IntoView {
                                     None => "tray-widget passive",
                                 }
                             }
+                            data-ui-primitive="true"
+                            data-ui-kind="button"
+                            data-ui-slot="tray-button"
                             aria-label=format!("{}: {}", widget.label, widget.value)
                             aria-pressed=widget.pressed.unwrap_or(false)
                             title=format!("{}: {}", widget.label, widget.value)
@@ -497,6 +514,9 @@ pub(super) fn Taskbar() -> impl IntoView {
                     <button
                         id="taskbar-clock-button"
                         class="taskbar-clock"
+                        data-ui-primitive="true"
+                        data-ui-kind="button"
+                        data-ui-slot="clock-button"
                         aria-label=move || {
                             let mut config = clock_config.get();
                             config.show_date = config.show_date && taskbar_layout.get().show_clock_date;

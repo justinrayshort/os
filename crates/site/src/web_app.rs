@@ -13,22 +13,15 @@ use leptos_router::*;
 use platform_host_web::build_host_services;
 
 const DESKTOP_THEME_CSS: &str = concat!(
-    include_str!("theme_shell/00-tokens-reset.css"),
-    include_str!("theme_shell/01-components-shell.css"),
-    include_str!("theme_shell/02-interactions-hover.css"),
-    include_str!("theme_shell/03-responsive-base.css"),
-    include_str!("theme_shell/04-motion-base.css"),
-    include_str!("theme_shell/05-wallpaper-renderer.css"),
-    include_str!("theme_shell/10-theme-xp-tokens.css"),
-    include_str!("theme_shell/11-theme-xp-overrides.css"),
-    include_str!("theme_shell/20-theme-legacy95-tokens.css"),
-    include_str!("theme_shell/21-theme-legacy95-overrides.css"),
-    include_str!("theme_shell/30-theme-fluent-modern-tokens-core.css"),
-    include_str!("theme_shell/31-theme-fluent-modern-primitives.css"),
-    include_str!("theme_shell/32-theme-fluent-modern-theme-tokens.css"),
-    include_str!("theme_shell/33-theme-fluent-modern-overrides.css"),
-    include_str!("theme_shell/34-theme-soft-neumorphic-tokens.css"),
-    include_str!("theme_shell/35-theme-soft-neumorphic-overrides.css"),
+    include_str!("theme_shell/00-foundations.css"),
+    include_str!("theme_shell/01-primitives.css"),
+    include_str!("theme_shell/02-shell-layout.css"),
+    include_str!("theme_shell/03-responsive.css"),
+    include_str!("theme_shell/04-accessibility-motion.css"),
+    include_str!("theme_shell/10-theme-xp.css"),
+    include_str!("theme_shell/20-theme-legacy95.css"),
+    include_str!("theme_shell/30-theme-modern-adaptive.css"),
+    include_str!("theme_shell/34-theme-soft-neumorphic.css"),
 );
 
 #[component]

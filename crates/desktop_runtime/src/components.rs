@@ -106,6 +106,8 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
                         view! {
                             <div
                                 class="desktop-wallpaper-layer desktop-wallpaper-layer--tile"
+                                data-ui-slot="wallpaper-layer"
+                                data-ui-kind="wallpaper-layer"
                                 style=format!(
                                     "background-image:url('{}');background-position:{};",
                                     source.primary_url,
@@ -125,6 +127,8 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
                         view! {
                             <img
                                 class="desktop-wallpaper-layer desktop-wallpaper-image"
+                                data-ui-slot="wallpaper-layer"
+                                data-ui-kind="wallpaper-layer"
                                 src=fallback_url
                                 alt=""
                                 style=format!("object-fit:{};object-position:{};", fit, position)
@@ -136,6 +140,8 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
                         view! {
                             <video
                                 class="desktop-wallpaper-layer desktop-wallpaper-video"
+                                data-ui-slot="wallpaper-layer"
+                                data-ui-kind="wallpaper-layer"
                                 src=source.primary_url
                                 poster=source.poster_url.unwrap_or_default()
                                 autoplay=true
@@ -151,6 +157,8 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
                         view! {
                             <img
                                 class="desktop-wallpaper-layer desktop-wallpaper-image"
+                                data-ui-slot="wallpaper-layer"
+                                data-ui-kind="wallpaper-layer"
                                 src=source.primary_url
                                 alt=""
                                 style=format!("object-fit:{};object-position:{};", fit, position)
@@ -220,6 +228,8 @@ pub fn DesktopShell() -> impl IntoView {
             id="desktop-shell-root"
             class="desktop-shell"
             tabindex="-1"
+            data-ui-primitive="true"
+            data-ui-kind="desktop-root"
             data-skin=move || state.get().theme.skin.css_id()
             data-high-contrast=move || state.get().theme.high_contrast.to_string()
             data-reduced-motion=move || state.get().theme.reduced_motion.to_string()
@@ -234,11 +244,14 @@ pub fn DesktopShell() -> impl IntoView {
         >
             <div
                 class="desktop-wallpaper"
+                data-ui-primitive="true"
+                data-ui-kind="desktop-backdrop"
             >
                 <DesktopWallpaperRenderer state=state />
-                <div class="desktop-wallpaper-atmosphere" aria-hidden="true"></div>
+                <div class="desktop-wallpaper-atmosphere" data-ui-slot="atmosphere" aria-hidden="true"></div>
                 <div
                     class="desktop-surface-dismiss"
+                    data-ui-slot="dismiss-layer"
                     on:mousedown=move |_| {
                         desktop_context_menu.set(None);
                         runtime.dispatch_action(DesktopAction::CloseStartMenu);
@@ -255,7 +268,7 @@ pub fn DesktopShell() -> impl IntoView {
                         );
                     }
                 />
-                <div class="desktop-icons">
+                <div class="desktop-icons" data-ui-primitive="true" data-ui-kind="desktop-icon-grid">
                     <For each=move || apps::desktop_icon_apps() key=|app| app.app_id.to_string() let:app>
                         {{
                             let app_id = app.app_id.clone();
@@ -266,6 +279,8 @@ pub fn DesktopShell() -> impl IntoView {
                                 <button
                                     class="desktop-icon"
                                     data-app=app_data_id.clone()
+                                    data-ui-primitive="true"
+                                    data-ui-kind="desktop-icon-button"
                                     on:click=move |_| {
                                         runtime.dispatch_action(DesktopAction::ActivateApp {
                                             app_id: app_id.clone(),
@@ -283,7 +298,7 @@ pub fn DesktopShell() -> impl IntoView {
                     </For>
                 </div>
 
-                <div class="window-layer">
+                <div class="window-layer" data-ui-primitive="true" data-ui-kind="desktop-window-layer">
                     <For
                         each=move || state.get().windows
                         key=|win| win.id.0

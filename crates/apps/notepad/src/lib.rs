@@ -274,10 +274,10 @@ pub fn NotepadApp(
                 </Button>
             </ToolBar>
 
-            <div class="notepad-document">
-                <div class="notepad-document-header">
-                    <div class="doc-title">{move || format!("{}.txt", workspace.get().active_slug)}</div>
-                    <div class="doc-meta">
+            <div class="notepad-document" data-ui-kind="pane" data-ui-slot="document">
+                <div class="notepad-document-header" data-ui-kind="pane-header">
+                    <div class="doc-title" data-ui-slot="title">{move || format!("{}.txt", workspace.get().active_slug)}</div>
+                    <div class="doc-meta" data-ui-slot="meta">
                         {move || {
                             let w = workspace.get();
                             format!(
@@ -289,11 +289,9 @@ pub fn NotepadApp(
                     </div>
                 </div>
 
-                <div
-                    class="notepad-tabstrip"
-                    role="tablist"
-                    aria-label="Open documents"
-                    aria-orientation="horizontal"
+                <TabList
+                    layout_class="notepad-tabstrip"
+                    aria_label="Open documents"
                 >
                     <For
                         each=move || workspace.get().open_order.clone()
@@ -301,63 +299,49 @@ pub fn NotepadApp(
                         let:slug
                     >
                         {move || {
-                            let class_slug = slug.clone();
                             let aria_slug = slug.clone();
                             let click_slug = slug.clone();
                             let label_slug = slug.clone();
                             let tab_id_slug = slug.clone();
                             let tabindex_slug = slug.clone();
                             view! {
-                                <button
-                                    type="button"
-                                    class="ui-button notepad-tab"
-                                    data-ui-primitive="true"
-                                    data-ui-kind="button"
-                                    data-ui-variant="quiet"
-                                    data-ui-selected=move || if workspace.get().active_slug == class_slug { "true" } else { "false" }
-                                    id=move || tab_dom_id(&tab_id_slug)
-                                    role="tab"
-                                    aria-selected=move || workspace.get().active_slug == aria_slug
-                                    aria-controls="notepad-tabpanel"
-                                    tabindex=move || {
+                                <Tab
+                                    layout_class="notepad-tab"
+                                    id=Signal::derive(move || tab_dom_id(&tab_id_slug))
+                                    controls="notepad-tabpanel".to_string()
+                                    selected=Signal::derive(move || workspace.get().active_slug == aria_slug)
+                                    tabindex=Signal::derive(move || {
                                         if workspace.get().active_slug == tabindex_slug {
                                             0
                                         } else {
                                             -1
                                         }
-                                    }
-                                    on:click=move |_| workspace.update(|w| w.ensure_document(&click_slug))
-                                    on:keydown=on_tab_keydown
+                                    })
+                                    on_click=Callback::new(move |_| workspace.update(|w| w.ensure_document(&click_slug)))
+                                    on_keydown=Callback::new(on_tab_keydown)
                                 >
                                     {label_slug}
-                                </button>
+                                </Tab>
                             }
                         }}
                     </For>
-                </div>
+                </TabList>
 
                 <div
                     id="notepad-tabpanel"
                     role="tabpanel"
                     aria-labelledby=move || tab_dom_id(&workspace.get().active_slug)
                 >
-                    <textarea
-                        class=move || if workspace.get().wrap_lines {
-                            "ui-textarea notepad-page wrap"
-                        } else {
-                            "ui-textarea notepad-page nowrap"
-                        }
-                        data-ui-primitive="true"
-                        data-ui-kind="text-area"
-                        prop:value=move || current_text.get()
-                        on:input=move |ev| {
+                    <TextArea
+                        layout_class="notepad-page"
+                        ui_slot="editor"
+                        value=Signal::derive(move || current_text.get())
+                        on_input=Callback::new(move |ev| {
                             let text = event_target_value(&ev);
                             workspace.update(|w| w.set_active_text(text));
                             transient_notice.set(None);
-                        }
-                        spellcheck="false"
-                        autocomplete="off"
-                        aria-label="Notepad document editor"
+                        })
+                        aria_label="Notepad document editor"
                     />
                 </div>
             </div>

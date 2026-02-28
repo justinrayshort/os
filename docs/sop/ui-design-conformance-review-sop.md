@@ -3,7 +3,7 @@ title: "SOP: UI Design Conformance Review (Apple HIG + Neumorphic Shell)"
 category: "sop"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-26"
+last_reviewed: "2026-02-28"
 audience: ["engineering", "design"]
 invariants:
   - "Material shell UI changes are reviewed against explicit HIG and neumorphic design criteria before merge."
@@ -18,7 +18,7 @@ lifecycle: "ga"
 
 ## 1. Title & Purpose
 
-This SOP defines the repeatable procedure for reviewing desktop-shell and shared UI changes against Apple Human Interface Guidelines principles while applying the project neumorphic design system in a consistent, tokenized, and semantically controlled manner without violating accessibility, interaction, and documentation governance invariants.
+This SOP defines the repeatable procedure for reviewing desktop-shell and shared UI changes against Apple Human Interface Guidelines principles while applying the project token-driven shell design systems in a consistent, semantically controlled manner without violating accessibility, interaction, and documentation governance invariants.
 
 ## 2. Scope
 
@@ -41,8 +41,8 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
 - Repository checkout with Rust toolchain and local build/test capability
 - `wiki/` submodule initialized when wiki registry pages will be updated
 - Ability to run the desktop shell locally (browser/WASM workflow used by the project)
-- Current checklist available: `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md`
-- Current design-system reference available: `docs/reference/desktop-shell-neumorphic-design-system.md`
+- Current checklist available: `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md` and `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`
+- Current design-system references available: `docs/reference/desktop-shell-neumorphic-design-system.md` and `docs/reference/desktop-shell-fluent-modern-design-system.md`
 - Change scope identified (token-only, visual component, interaction behavior, accessibility, iconography, responsive)
 
 ## 5. Step-by-Step Procedure
@@ -62,11 +62,11 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    - Command:
 
    ```bash
-   rg -n "system_ui|IconName|IconSize|data-ui-kind|data-skin|data-reduced-motion|data-high-contrast" crates/system_ui/src crates/desktop_runtime/src crates/apps
+   rg -n "system_ui|IconName|IconSize|data-ui-kind|data-ui-slot|data-skin|data-reduced-motion|data-high-contrast|--sys-" crates/system_ui/src crates/desktop_runtime/src crates/apps crates/site/src/theme_shell
    ```
 
    - Expected output: existing primitives and theming hooks are easy to reuse
-   - Failure condition: new UI work introduces ad hoc icon markup, bypasses theme tokens, reintroduces legacy `.app-*` primitives, or duplicates shared interaction patterns without justification
+   - Failure condition: new UI work introduces ad hoc icon markup, bypasses `--sys-*` tokens, reintroduces legacy primitive contracts, or duplicates shared interaction patterns without justification
    - Change-control expectation: if a new primitive/state pattern is necessary, document it in the design-system reference in the same change
 
 3. Collect implementation evidence for the conformance checklist (required for material UI changes).
@@ -93,11 +93,12 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    ```bash
    cargo check --workspace
    cargo test --workspace
+   cargo xtask docs ui-inventory --output .artifacts/ui/styling-inventory.json
    cargo xtask docs ui-conformance
    cargo xtask docs all
    ```
 
-   - Expected output: implementation, machine-checkable UI conformance checks (including neumorphic token/literal hygiene and shell icon-standardization regressions), and documentation checks pass for the current change set
+   - Expected output: implementation, machine-checkable UI conformance checks (including token inventory, token/literal hygiene, primitive adoption, and shell icon-standardization regressions), and documentation checks pass for the current change set
    - Failure condition: compile/test/docs validation failures or skipped checks without explanation
    - If rustdoc comments were changed: also run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc`
 
@@ -162,6 +163,7 @@ flowchart TD
 - Apple HIG principles (hierarchy, clarity, feedback, motion discipline, accessibility) take precedence over cosmetic neumorphic styling decisions when conflicts arise.
 - Centralized shell icon assets remain integrated semantically (for example via `Icon`/`IconName`) and not mixed ad hoc per component.
 - Theme state remains driven by runtime state + reducer patterns (or documented equivalent), not hidden CSS-only toggles for user preferences.
+- Shared primitive styling consumes `--sys-*` tokens only; skin files remap tokens but do not target app-specific visual selectors.
 - Reduced-motion support must remain functional during visual refinements.
 - Keyboard focus visibility and menu/dialog keyboard behavior must remain functional during visual refinements.
 - Checklist status changes must cite inspectable evidence or explicitly state missing validation.
