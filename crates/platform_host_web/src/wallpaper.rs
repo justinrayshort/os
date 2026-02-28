@@ -2,8 +2,9 @@
 
 use platform_host::{
     build_app_state_envelope, migrate_envelope_payload, next_monotonic_timestamp_ms,
-    ResolvedWallpaperSource, WallpaperAssetFuture, WallpaperAssetMetadataPatch,
-    WallpaperAssetRecord, WallpaperAssetService, WallpaperCollection, WallpaperImportRequest,
+    ResolvedWallpaperSource, WallpaperAssetDeleteResult, WallpaperAssetFuture,
+    WallpaperAssetMetadataPatch, WallpaperAssetRecord, WallpaperAssetService, WallpaperCollection,
+    WallpaperCollectionDeleteResult, WallpaperImportRequest, WallpaperImportResult,
     WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperSelection, WallpaperSourceKind,
 };
 
@@ -28,7 +29,7 @@ impl WallpaperAssetService for WebWallpaperAssetService {
     fn import_from_picker<'a>(
         &'a self,
         request: WallpaperImportRequest,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetRecord, String>> {
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperImportResult, String>> {
         Box::pin(async move {
             let picked = pick_file().await?;
             let library = load_library_snapshot().await?;
@@ -43,7 +44,11 @@ impl WallpaperAssetService for WebWallpaperAssetService {
             }
             next.assets.push(record.clone());
             save_library_snapshot(&next).await?;
-            Ok(record)
+            Ok(WallpaperImportResult {
+                asset: record,
+                soft_limit_bytes: next.soft_limit_bytes,
+                used_bytes: next.used_bytes,
+            })
         })
     }
 
@@ -123,7 +128,7 @@ impl WallpaperAssetService for WebWallpaperAssetService {
     fn delete_collection<'a>(
         &'a self,
         collection_id: &'a str,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>> {
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperCollectionDeleteResult, String>> {
         Box::pin(async move {
             let mut library = load_library_snapshot().await?;
             library
@@ -133,14 +138,16 @@ impl WallpaperAssetService for WebWallpaperAssetService {
                 asset.collection_ids.retain(|id| id != collection_id);
             }
             save_library_snapshot(&library).await?;
-            Ok(library)
+            Ok(WallpaperCollectionDeleteResult {
+                collection_id: collection_id.to_string(),
+            })
         })
     }
 
     fn delete_asset<'a>(
         &'a self,
         asset_id: &'a str,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>> {
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetDeleteResult, String>> {
         Box::pin(async move {
             let mut library = load_library_snapshot().await?;
             let before = library.assets.len();
@@ -150,7 +157,10 @@ impl WallpaperAssetService for WebWallpaperAssetService {
             }
             library.used_bytes = library.assets.iter().map(|asset| asset.byte_len).sum();
             save_library_snapshot(&library).await?;
-            Ok(library)
+            Ok(WallpaperAssetDeleteResult {
+                asset_id: asset_id.to_string(),
+                used_bytes: library.used_bytes,
+            })
         })
     }
 

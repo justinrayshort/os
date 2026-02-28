@@ -105,6 +105,26 @@ pub fn upsert_wallpaper_collection(
     library.collections.push(collection);
 }
 
+/// Removes one imported wallpaper asset from the merged library view.
+pub fn remove_imported_wallpaper_asset(
+    library: &mut WallpaperLibrarySnapshot,
+    asset_id: &str,
+    used_bytes: u64,
+) {
+    library.assets.retain(|asset| asset.asset_id != asset_id);
+    library.used_bytes = used_bytes;
+}
+
+/// Removes one wallpaper collection from the merged library view and strips asset memberships.
+pub fn remove_wallpaper_collection(library: &mut WallpaperLibrarySnapshot, collection_id: &str) {
+    library
+        .collections
+        .retain(|collection| collection.collection_id != collection_id);
+    for asset in &mut library.assets {
+        asset.collection_ids.retain(|id| id != collection_id);
+    }
+}
+
 /// Resolves a wallpaper configuration against the merged library.
 pub fn resolve_wallpaper_source(
     config: &WallpaperConfig,
@@ -319,5 +339,76 @@ mod tests {
         assert_eq!(library.collections.len(), 1);
         assert_eq!(library.collections[0].display_name, "Pinned");
         assert_eq!(library.collections[0].sort_order, 2);
+    }
+
+    #[test]
+    fn removes_imported_asset_without_reloading_library() {
+        let mut library = WallpaperLibrarySnapshot {
+            assets: vec![WallpaperAssetRecord {
+                asset_id: "wallpaper-1".to_string(),
+                display_name: "Imported".to_string(),
+                source_kind: WallpaperSourceKind::Imported,
+                media_kind: WallpaperMediaKind::StaticImage,
+                mime_type: "image/png".to_string(),
+                byte_len: 42,
+                natural_width: None,
+                natural_height: None,
+                duration_ms: None,
+                favorite: false,
+                tags: Vec::new(),
+                collection_ids: vec!["collection-1".to_string()],
+                primary_url: "data:image/png;base64,abc".to_string(),
+                poster_url: None,
+                created_at_unix_ms: None,
+                last_used_at_unix_ms: None,
+            }],
+            collections: Vec::new(),
+            soft_limit_bytes: 100,
+            used_bytes: 42,
+        };
+
+        remove_imported_wallpaper_asset(&mut library, "wallpaper-1", 0);
+
+        assert!(library.assets.is_empty());
+        assert_eq!(library.used_bytes, 0);
+    }
+
+    #[test]
+    fn removes_collection_memberships_without_reloading_library() {
+        let mut library = WallpaperLibrarySnapshot {
+            assets: vec![WallpaperAssetRecord {
+                asset_id: "wallpaper-1".to_string(),
+                display_name: "Imported".to_string(),
+                source_kind: WallpaperSourceKind::Imported,
+                media_kind: WallpaperMediaKind::StaticImage,
+                mime_type: "image/png".to_string(),
+                byte_len: 42,
+                natural_width: None,
+                natural_height: None,
+                duration_ms: None,
+                favorite: false,
+                tags: Vec::new(),
+                collection_ids: vec!["collection-1".to_string(), "collection-2".to_string()],
+                primary_url: "data:image/png;base64,abc".to_string(),
+                poster_url: None,
+                created_at_unix_ms: None,
+                last_used_at_unix_ms: None,
+            }],
+            collections: vec![WallpaperCollection {
+                collection_id: "collection-1".to_string(),
+                display_name: "Favorites".to_string(),
+                sort_order: 0,
+            }],
+            soft_limit_bytes: 100,
+            used_bytes: 42,
+        };
+
+        remove_wallpaper_collection(&mut library, "collection-1");
+
+        assert!(library.collections.is_empty());
+        assert_eq!(
+            library.assets[0].collection_ids,
+            vec!["collection-2".to_string()]
+        );
     }
 }

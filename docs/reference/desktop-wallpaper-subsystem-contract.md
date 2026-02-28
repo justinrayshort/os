@@ -64,8 +64,10 @@ Runtime update semantics:
 
 - metadata edits and collection create/rename operations upsert the returned record directly into
   the merged runtime wallpaper library
-- import and destructive operations still reload a full `WallpaperLibrarySnapshot` because they
-  change storage totals or remove cross-record relationships
+- import, asset delete, and collection delete operations now return typed mutation results so the
+  runtime can update library state without a follow-up `list_library()` round-trip
+- full `WallpaperLibrarySnapshot` loads remain the bootstrap/listing contract for initial hydration
+  and explicit library refresh
 
 ## Rendering Rules
 

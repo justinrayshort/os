@@ -45,8 +45,9 @@ pub use storage::prefs::{
 pub use time::{next_monotonic_timestamp_ms, unix_time_ms_now};
 pub use wallpaper::{
     NoopWallpaperAssetService, ResolvedWallpaperSource, WallpaperAnimationPolicy,
-    WallpaperAssetFuture, WallpaperAssetMetadataPatch, WallpaperAssetRecord, WallpaperAssetService,
-    WallpaperCollection, WallpaperConfig, WallpaperDisplayMode, WallpaperImportRequest,
-    WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperPosition, WallpaperSelection,
-    WallpaperSourceKind,
+    WallpaperAssetDeleteResult, WallpaperAssetFuture, WallpaperAssetMetadataPatch,
+    WallpaperAssetRecord, WallpaperAssetService, WallpaperCollection,
+    WallpaperCollectionDeleteResult, WallpaperConfig, WallpaperDisplayMode, WallpaperImportRequest,
+    WallpaperImportResult, WallpaperLibrarySnapshot, WallpaperMediaKind, WallpaperPosition,
+    WallpaperSelection, WallpaperSourceKind,
 };

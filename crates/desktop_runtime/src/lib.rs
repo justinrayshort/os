@@ -7,6 +7,7 @@
 //! - persistence helpers in [`persistence`]
 //! - host-side effect execution helpers in [`host`]
 //! - centralized Fluent icon primitives in [`icons`]
+//! - runtime provider/context wiring in the internal `runtime_context` module
 //! - Leptos UI primitives in [`components`]
 //! - app integration bridge types re-exported from [`desktop_app_contract`]
 //! - wallpaper contracts re-exported from [`platform_host`]
@@ -40,7 +41,7 @@
 mod app_runtime;
 /// Application registry metadata and app view renderers.
 pub mod apps;
-/// Leptos provider/context and desktop shell UI components.
+/// Desktop shell UI components and re-exported runtime provider/context entrypoints.
 pub mod components;
 /// Host-side effect execution and viewport helpers used by the shell runtime.
 pub mod host;
@@ -52,6 +53,7 @@ pub mod model;
 pub mod persistence;
 /// Reducer actions and effect generation for desktop state transitions.
 pub mod reducer;
+mod runtime_context;
 mod shell;
 /// Wallpaper catalog, resolution, and library helpers.
 pub mod wallpaper;

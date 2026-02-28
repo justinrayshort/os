@@ -6,6 +6,7 @@
 
 mod app_bus;
 mod boot;
+mod effects;
 mod host_ui;
 mod persistence_effects;
 mod wallpaper_effects;
@@ -23,10 +24,7 @@ use platform_host_web::{
 };
 
 use crate::{
-    components::DesktopRuntimeContext,
-    model::WindowRect,
-    persistence,
-    reducer::{DesktopAction, RuntimeEffect},
+    model::WindowRect, persistence, reducer::DesktopAction, runtime_context::DesktopRuntimeContext,
 };
 
 #[derive(Clone)]
@@ -108,89 +106,9 @@ impl DesktopHostContext {
         boot::install_boot_hydration(self.clone(), dispatch);
     }
 
-    /// Executes a single [`RuntimeEffect`] emitted by the reducer.
-    pub fn run_runtime_effect(&self, runtime: DesktopRuntimeContext, effect: RuntimeEffect) {
-        match effect {
-            RuntimeEffect::ParseAndOpenDeepLink(deep_link) => {
-                host_ui::open_deep_link(runtime, deep_link)
-            }
-            RuntimeEffect::PersistLayout => {
-                persistence_effects::persist_layout(self.clone(), runtime)
-            }
-            RuntimeEffect::PersistTheme => {
-                persistence_effects::persist_theme(self.clone(), runtime)
-            }
-            RuntimeEffect::PersistWallpaper => {
-                persistence_effects::persist_wallpaper(self.clone(), runtime)
-            }
-            RuntimeEffect::PersistTerminalHistory => {
-                persistence_effects::persist_terminal_history(self.clone(), runtime)
-            }
-            RuntimeEffect::OpenExternalUrl(url) => host_ui::open_external_url(self.clone(), &url),
-            RuntimeEffect::FocusWindowInput(window_id) => self.focus_window_input(window_id),
-            RuntimeEffect::PlaySound(_) => {}
-            RuntimeEffect::DispatchLifecycle { window_id, event } => {
-                app_bus::dispatch_lifecycle(runtime, window_id, event);
-            }
-            RuntimeEffect::DeliverAppEvent { window_id, event } => {
-                app_bus::deliver_app_event(runtime, window_id, event);
-            }
-            RuntimeEffect::SubscribeWindowTopic { window_id, topic } => {
-                app_bus::subscribe_topic(runtime, window_id, topic);
-            }
-            RuntimeEffect::UnsubscribeWindowTopic { window_id, topic } => {
-                app_bus::unsubscribe_topic(runtime, window_id, topic);
-            }
-            RuntimeEffect::PublishTopicEvent {
-                source_window_id,
-                topic,
-                payload,
-                correlation_id,
-                reply_to,
-            } => app_bus::publish_event(
-                runtime,
-                source_window_id,
-                topic,
-                payload,
-                correlation_id,
-                reply_to,
-            ),
-            RuntimeEffect::SaveConfig {
-                namespace,
-                key,
-                value,
-            } => persistence_effects::save_config(self.clone(), namespace, key, value),
-            RuntimeEffect::LoadWallpaperLibrary => {
-                wallpaper_effects::load_library(self.clone(), runtime)
-            }
-            RuntimeEffect::ImportWallpaperFromPicker { request } => {
-                wallpaper_effects::import_from_picker(self.clone(), runtime, request);
-            }
-            RuntimeEffect::UpdateWallpaperAssetMetadata { asset_id, patch } => {
-                wallpaper_effects::update_asset_metadata(self.clone(), runtime, asset_id, patch);
-            }
-            RuntimeEffect::CreateWallpaperCollection { display_name } => {
-                wallpaper_effects::create_collection(self.clone(), runtime, display_name);
-            }
-            RuntimeEffect::RenameWallpaperCollection {
-                collection_id,
-                display_name,
-            } => {
-                wallpaper_effects::rename_collection(
-                    self.clone(),
-                    runtime,
-                    collection_id,
-                    display_name,
-                );
-            }
-            RuntimeEffect::DeleteWallpaperCollection { collection_id } => {
-                wallpaper_effects::delete_collection(self.clone(), runtime, collection_id);
-            }
-            RuntimeEffect::DeleteWallpaperAsset { asset_id } => {
-                wallpaper_effects::delete_asset(self.clone(), runtime, asset_id);
-            }
-            RuntimeEffect::Notify { title, body } => host_ui::notify(self.clone(), title, body),
-        }
+    /// Executes a single [`crate::RuntimeEffect`] emitted by the reducer.
+    pub fn run_runtime_effect(&self, runtime: DesktopRuntimeContext, effect: crate::RuntimeEffect) {
+        effects::run_runtime_effect(self.clone(), runtime, effect);
     }
 
     /// Handles a request to focus the active window's primary input.

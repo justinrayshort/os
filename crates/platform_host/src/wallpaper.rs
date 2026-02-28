@@ -207,6 +207,33 @@ pub struct WallpaperImportRequest {
     pub default_config: Option<WallpaperConfig>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Result of importing one wallpaper asset into the managed library.
+pub struct WallpaperImportResult {
+    /// Imported asset record.
+    pub asset: WallpaperAssetRecord,
+    /// Soft storage limit enforced by the host/runtime policy.
+    pub soft_limit_bytes: u64,
+    /// Current managed library usage in bytes after the import.
+    pub used_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Result of deleting one wallpaper collection.
+pub struct WallpaperCollectionDeleteResult {
+    /// Deleted collection identifier.
+    pub collection_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Result of deleting one wallpaper asset from the managed library.
+pub struct WallpaperAssetDeleteResult {
+    /// Deleted asset identifier.
+    pub asset_id: String,
+    /// Current managed library usage in bytes after the deletion.
+    pub used_bytes: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 /// Resolved wallpaper source information used by the renderer.
 pub struct ResolvedWallpaperSource {
@@ -246,7 +273,7 @@ pub trait WallpaperAssetService {
     fn import_from_picker<'a>(
         &'a self,
         request: WallpaperImportRequest,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetRecord, String>>;
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperImportResult, String>>;
 
     /// Lists the current wallpaper library snapshot.
     fn list_library<'a>(
@@ -277,13 +304,13 @@ pub trait WallpaperAssetService {
     fn delete_collection<'a>(
         &'a self,
         collection_id: &'a str,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>>;
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperCollectionDeleteResult, String>>;
 
     /// Deletes a wallpaper asset.
     fn delete_asset<'a>(
         &'a self,
         asset_id: &'a str,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>>;
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetDeleteResult, String>>;
 
     /// Resolves a wallpaper selection to a renderer-safe source.
     fn resolve_source<'a>(
@@ -306,7 +333,7 @@ impl WallpaperAssetService for NoopWallpaperAssetService {
     fn import_from_picker<'a>(
         &'a self,
         _request: WallpaperImportRequest,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetRecord, String>> {
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperImportResult, String>> {
         Box::pin(async { Err(Self::unsupported("import_from_picker")) })
     }
 
@@ -342,14 +369,14 @@ impl WallpaperAssetService for NoopWallpaperAssetService {
     fn delete_collection<'a>(
         &'a self,
         _collection_id: &'a str,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>> {
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperCollectionDeleteResult, String>> {
         Box::pin(async { Err(Self::unsupported("delete_collection")) })
     }
 
     fn delete_asset<'a>(
         &'a self,
         _asset_id: &'a str,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>> {
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetDeleteResult, String>> {
         Box::pin(async { Err(Self::unsupported("delete_asset")) })
     }
 

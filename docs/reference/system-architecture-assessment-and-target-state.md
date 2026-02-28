@@ -164,9 +164,9 @@ In the code, wallpaper asset models and selection types are shared in the opposi
 
 #### Evidence
 
-- `desktop_runtime::components` owns `DesktopProvider`, reducer dispatch, effect queue processing, app runtime sync, and shell engine registration.
+- `desktop_runtime::runtime_context` now owns `DesktopProvider`, reducer dispatch, effect queue processing, app runtime sync, boot hydration, and shell engine registration after the first runtime-container extraction.
 - `desktop_runtime::host` owns effect execution dispatch, but that dispatch is still hardwired to concrete helper modules.
-- `desktop_runtime::apps` owns manifest-backed registry construction, built-in app mount wiring, legacy app-id compatibility mappings, and placeholder app implementations.
+- `desktop_runtime::apps` owns manifest-backed registry construction, built-in app mount wiring, and legacy app-id compatibility mappings, while placeholder app implementations have now moved into a dedicated submodule.
 - `desktop_runtime::shell` owns runtime-side command bridging, structured rendering, filesystem-backed command behavior, and app command registration.
 - `desktop_runtime::reducer` owns window management, app command routing, capability enforcement, theme/wallpaper transitions, deep-link behavior, and lifecycle effect emission.
 
@@ -378,8 +378,10 @@ Architecture drift can continue while validation remains green. The docs current
 - the browser bridge opens URLs with `window.open(...)` when no Tauri transport is present, and
   the desktop host now exposes a dedicated `external_open_url` command backed by
   `tauri-plugin-opener`.
-- wallpaper import and destructive mutations still reload the full library snapshot even though
-  metadata and collection upserts now update runtime state directly.
+- wallpaper import, asset delete, and collection delete now avoid explicit `list_library()`
+  reloads by applying typed mutation results in runtime state, but the contract still carries a
+  broad snapshot type for library listing and may need further slimming if host implementations
+  diverge.
 
 #### Why this is a weakness
 
@@ -387,8 +389,8 @@ These paths are not broken, but they show where the contract surface is still co
 
 - URL opening is now a stable cross-host capability, but it still depends on coarse-grained
   transport fallback logic in the browser bridge
-- wallpaper import/delete flows still use whole-library refreshes instead of narrower update
-  semantics
+- wallpaper library mutation flows are narrower than before, but the host contract still mixes
+  snapshot-oriented and mutation-result-oriented semantics
 
 #### Structural implication
 
@@ -426,10 +428,11 @@ Target `desktop_runtime` internal subsystem map:
 
 | Target subsystem | Current source concentration | Responsibility |
 | --- | --- | --- |
-| runtime core | `model.rs`, `reducer.rs`, `window_manager.rs` | state, actions, reducer, lifecycle semantics, effect intents |
-| app framework | `apps.rs`, mount wiring in `components/window.rs` | app registry, capability evaluation, service injection, app lifecycle/session coordination |
+| runtime core | `model.rs`, `reducer.rs`, `reducer/appearance.rs`, `window_manager.rs` | state, actions, reducer, lifecycle semantics, effect intents |
+| app framework | `apps.rs`, `apps/placeholders.rs`, mount wiring in `components/window.rs` | app registry, capability evaluation, service injection, app lifecycle/session coordination |
 | shell integration | `shell.rs`, `shell/commands/*`, `shell/policy.rs` | command bridge, built-in command pack, shell policy integration |
-| host execution | `host.rs`, `host/*`, `persistence.rs` | effect execution, host bundle injection, persistence execution, boot hydration |
+| host execution | `host.rs`, `host/effects.rs`, `host/*`, `persistence.rs` | effect execution, host bundle injection, persistence execution, boot hydration |
+| runtime container | `runtime_context.rs` | provider wiring, reducer container, effect queue, host bootstrap |
 | shell UI | `components.rs`, `components/*`, `wallpaper.rs`, `icons.rs` | Leptos components, theming surfaces, desktop shell visuals |
 
 #### Key rule
@@ -608,6 +611,7 @@ Observed results:
 
 ### Core runtime files inspected
 
+- `crates/desktop_runtime/src/runtime_context.rs`
 - `crates/desktop_runtime/src/components.rs`
 - `crates/desktop_runtime/src/reducer.rs`
 - `crates/desktop_runtime/src/model.rs`

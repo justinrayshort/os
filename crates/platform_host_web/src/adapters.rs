@@ -5,8 +5,9 @@ use platform_host::{
     ExternalUrlFuture, ExternalUrlService, NoopAppStateStore, NoopContentCache,
     NoopExplorerFsService, NoopExternalUrlService, NoopNotificationService, NoopPrefsStore,
     NoopWallpaperAssetService, NotificationFuture, NotificationService, PrefsStore,
-    PrefsStoreFuture, ResolvedWallpaperSource, WallpaperAssetFuture, WallpaperAssetMetadataPatch,
-    WallpaperAssetRecord, WallpaperAssetService, WallpaperCollection, WallpaperImportRequest,
+    PrefsStoreFuture, ResolvedWallpaperSource, WallpaperAssetDeleteResult, WallpaperAssetFuture,
+    WallpaperAssetMetadataPatch, WallpaperAssetRecord, WallpaperAssetService, WallpaperCollection,
+    WallpaperCollectionDeleteResult, WallpaperImportRequest, WallpaperImportResult,
     WallpaperLibrarySnapshot, WallpaperSelection,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -422,7 +423,7 @@ impl WallpaperAssetService for WallpaperAssetServiceAdapter {
     fn import_from_picker<'a>(
         &'a self,
         request: WallpaperImportRequest,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetRecord, String>> {
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperImportResult, String>> {
         match self {
             Self::Browser(service) | Self::DesktopTauri(service) => {
                 service.import_from_picker(request)
@@ -481,7 +482,7 @@ impl WallpaperAssetService for WallpaperAssetServiceAdapter {
     fn delete_collection<'a>(
         &'a self,
         collection_id: &'a str,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>> {
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperCollectionDeleteResult, String>> {
         match self {
             Self::Browser(service) | Self::DesktopTauri(service) => {
                 service.delete_collection(collection_id)
@@ -493,7 +494,7 @@ impl WallpaperAssetService for WallpaperAssetServiceAdapter {
     fn delete_asset<'a>(
         &'a self,
         asset_id: &'a str,
-    ) -> WallpaperAssetFuture<'a, Result<WallpaperLibrarySnapshot, String>> {
+    ) -> WallpaperAssetFuture<'a, Result<WallpaperAssetDeleteResult, String>> {
         match self {
             Self::Browser(service) | Self::DesktopTauri(service) => service.delete_asset(asset_id),
             Self::DesktopStub(service) => service.delete_asset(asset_id),

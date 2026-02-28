@@ -1,4 +1,4 @@
-//! Leptos provider, context, and desktop shell UI composition.
+//! Desktop shell UI composition and interaction surfaces.
 
 mod a11y;
 mod menus;
@@ -23,13 +23,13 @@ use self::{
 };
 
 use crate::{
-    app_runtime::{sync_runtime_sessions, AppRuntimeState},
     apps,
     host::DesktopHostContext,
     icons::{app_icon_name, FluentIcon, IconName, IconSize},
-    model::{DesktopState, InteractionState, PointerPosition, ResizeEdge, WindowId, WindowRecord},
-    reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
-    shell, wallpaper,
+    model::{DesktopState, PointerPosition, ResizeEdge, WindowId, WindowRecord},
+    reducer::DesktopAction,
+    runtime_context::open_system_settings,
+    wallpaper,
 };
 
 const TASKBAR_HEIGHT_PX: i32 = 38;
@@ -72,91 +72,7 @@ fn wallpaper_object_fit(display_mode: WallpaperDisplayMode) -> &'static str {
     }
 }
 
-#[derive(Clone, Copy)]
-/// Leptos context for reading desktop runtime state and dispatching [`DesktopAction`] values.
-pub struct DesktopRuntimeContext {
-    /// Host service bundle for executing runtime side effects and environment queries.
-    pub host: StoredValue<DesktopHostContext>,
-    /// Long-lived reactive owner for runtime-managed resources that must outlive transient app views.
-    pub owner: Owner,
-    /// Reactive desktop state signal.
-    pub state: RwSignal<DesktopState>,
-    /// Reactive pointer/drag/resize interaction state signal.
-    pub interaction: RwSignal<InteractionState>,
-    /// Queue of runtime effects emitted by the reducer and processed by the shell.
-    pub effects: RwSignal<Vec<RuntimeEffect>>,
-    /// Runtime app-session and pub/sub state.
-    pub app_runtime: RwSignal<AppRuntimeState>,
-    /// Reducer dispatch callback.
-    pub dispatch: Callback<DesktopAction>,
-    /// Shared shell engine and command registry.
-    pub shell_engine: StoredValue<system_shell::ShellEngine>,
-}
-
-impl DesktopRuntimeContext {
-    /// Dispatches a reducer action through the runtime context callback.
-    pub fn dispatch_action(&self, action: DesktopAction) {
-        self.dispatch.call(action);
-    }
-}
-
-#[component]
-/// Provides [`DesktopRuntimeContext`] to descendant components and boots persisted state.
-pub fn DesktopProvider(children: Children) -> impl IntoView {
-    let host = store_value(DesktopHostContext::default());
-    let owner = Owner::current().expect("DesktopProvider owner");
-    let state = create_rw_signal(DesktopState::default());
-    let interaction = create_rw_signal(InteractionState::default());
-    let effects = create_rw_signal(Vec::<RuntimeEffect>::new());
-    let app_runtime = create_rw_signal(AppRuntimeState::default());
-    let shell_engine = store_value(system_shell::ShellEngine::new());
-
-    let dispatch = Callback::new(move |action: DesktopAction| {
-        let mut desktop = state.get_untracked();
-        let mut ui = interaction.get_untracked();
-        let previous_desktop = desktop.clone();
-        let previous_ui = ui.clone();
-
-        match reduce_desktop(&mut desktop, &mut ui, action) {
-            Ok(new_effects) => {
-                let windows_changed = desktop.windows != previous_desktop.windows;
-                if windows_changed {
-                    sync_runtime_sessions(app_runtime, &desktop.windows);
-                }
-                if desktop != previous_desktop {
-                    state.set(desktop);
-                }
-                if ui != previous_ui {
-                    interaction.set(ui);
-                }
-                if !new_effects.is_empty() {
-                    let mut queue = effects.get_untracked();
-                    queue.extend(new_effects);
-                    effects.set(queue);
-                }
-            }
-            Err(err) => logging::warn!("desktop reducer error: {err}"),
-        }
-    });
-
-    let runtime = DesktopRuntimeContext {
-        host,
-        owner,
-        state,
-        interaction,
-        effects,
-        app_runtime,
-        dispatch,
-        shell_engine,
-    };
-
-    provide_context(runtime.clone());
-
-    host.get_value().install_boot_hydration(dispatch);
-    std::mem::forget(shell::register_builtin_commands(runtime));
-
-    children().into_view()
-}
+pub use crate::runtime_context::{use_desktop_runtime, DesktopProvider, DesktopRuntimeContext};
 
 #[component]
 fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
@@ -244,17 +160,8 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
     }
 }
 
-/// Returns the current [`DesktopRuntimeContext`].
-///
-/// # Panics
-///
-/// Panics if called outside [`DesktopProvider`].
-pub fn use_desktop_runtime() -> DesktopRuntimeContext {
-    use_context::<DesktopRuntimeContext>().expect("DesktopRuntimeContext not provided")
-}
-
 #[component]
-/// Renders the full desktop shell UI and processes queued [`RuntimeEffect`] values.
+/// Renders the full desktop shell UI and processes queued [`crate::RuntimeEffect`] values.
 pub fn DesktopShell() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
@@ -298,39 +205,10 @@ pub fn DesktopShell() -> impl IntoView {
         }
     };
     let on_pointer_end = move |_| end_active_pointer_interaction(runtime);
-    // Runtime effect runner: clear current queue before processing so nested dispatches enqueue a
-    // fresh batch instead of getting wiped.
-    create_effect(move |_| {
-        let queued = runtime.effects.get();
-        if queued.is_empty() {
-            return;
-        }
-
-        runtime.effects.set(Vec::new());
-
-        for effect in queued {
-            runtime.host.get_value().run_runtime_effect(runtime, effect);
-        }
-    });
-
     let open_system_settings = Callback::new(move |_| {
         desktop_context_menu.set(None);
         runtime.dispatch_action(DesktopAction::CloseStartMenu);
-        let desktop = runtime.state.get_untracked();
-        let app_id = apps::settings_application_id();
-        if let Some(window_id) = preferred_window_for_app(&desktop, &app_id) {
-            focus_or_unminimize_window(runtime, &desktop, window_id);
-            return;
-        }
-
-        let viewport = runtime
-            .host
-            .get_value()
-            .desktop_viewport_rect(TASKBAR_HEIGHT_PX);
-        runtime.dispatch_action(DesktopAction::OpenWindow(
-            apps::default_open_request_by_id(&app_id, Some(viewport))
-                .expect("system settings app exists"),
-        ));
+        open_system_settings(runtime, TASKBAR_HEIGHT_PX);
     });
 
     view! {
@@ -534,7 +412,10 @@ fn ordered_taskbar_windows(state: &DesktopState) -> Vec<WindowRecord> {
     windows
 }
 
-fn preferred_window_for_app(state: &DesktopState, app_id: &ApplicationId) -> Option<WindowId> {
+pub(crate) fn preferred_window_for_app(
+    state: &DesktopState,
+    app_id: &ApplicationId,
+) -> Option<WindowId> {
     state
         .windows
         .iter()
@@ -783,7 +664,7 @@ fn activate_taskbar_shortcut_target(runtime: DesktopRuntimeContext, target: Task
     }
 }
 
-fn focus_or_unminimize_window(
+pub(crate) fn focus_or_unminimize_window(
     runtime: DesktopRuntimeContext,
     state: &DesktopState,
     window_id: WindowId,
