@@ -10,6 +10,7 @@ use desktop_runtime::{
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use platform_host_web::build_host_services;
 
 const DESKTOP_THEME_CSS: &str = concat!(
     include_str!("theme_shell/00-tokens-reset.css"),
@@ -53,8 +54,9 @@ pub fn SiteApp() -> impl IntoView {
 #[component]
 /// Default route that mounts the desktop runtime provider and shell.
 pub fn DesktopEntry() -> impl IntoView {
+    let host_services = build_host_services();
     view! {
-        <DesktopProvider>
+        <DesktopProvider host_services>
             <DesktopUrlBoot />
             <DesktopShell />
         </DesktopProvider>

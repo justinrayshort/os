@@ -79,7 +79,11 @@ The current runtime-owned command pack includes:
 - `data first`
 - `data get`
 
-`ls`, `windows list`, and `apps list` return table-shaped data. `theme show` and `inspect runtime` return record-shaped data. `pwd` returns a scalar string value. `data *` commands accept structured piped input and transform it.
+`ls`, `windows list`, and `apps list` return table-shaped data. `theme show`, `inspect runtime`,
+and `inspect storage` return record-shaped data. `inspect storage` now includes host strategy plus
+host capability status values (`structured_commands`, `terminal_process`, `native_explorer`,
+`external_urls`, `notifications`, `wallpaper_library`). `pwd` returns a scalar string value.
+`data *` commands accept structured piped input and transform it.
 
 ## Command Registration
 
@@ -143,7 +147,12 @@ Transcript rendering is semantic rather than decorative:
 - `Table` -> `.terminal-data-table` / `.terminal-table`
 - `System` -> `.terminal-line-system`
 
-The prompt is rendered inline as part of the terminal buffer rather than as a separate form composer. It includes structured context segments such as the current working directory and current prompt mode (`ready` / `running`) plus a separator glyph and a native text input, preserving browser caret/input behavior without placeholder-driven hints.
+The prompt is rendered inline as part of the terminal buffer rather than as a separate form composer.
+It includes structured context segments such as the current working directory and current prompt mode
+(`structured`, `hybrid`, or `running`) plus a separator glyph and a native text input, preserving
+browser caret/input behavior without placeholder-driven hints. In current browser builds the
+terminal always runs in structured mode. Desktop builds can advertise a future host terminal-process
+backend through the capability surface without changing the UI contract.
 
 The command input uses `desktop_app_contract::window_primary_input_dom_id(window_id)` as its DOM id so the runtime host can restore keyboard focus when the terminal window opens or regains focus.
 

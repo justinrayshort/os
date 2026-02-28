@@ -5,10 +5,11 @@
 //! [`crate::components`].
 
 use leptos::*;
+use platform_host::HostServices;
 
 use crate::{
     app_runtime::{sync_runtime_sessions, AppRuntimeState},
-    apps,
+    apps, effect_executor,
     host::DesktopHostContext,
     model::{DesktopState, InteractionState},
     reducer::{reduce_desktop, DesktopAction, RuntimeEffect},
@@ -49,27 +50,17 @@ fn install_runtime_orchestration(runtime: DesktopRuntimeContext) {
         .get_value()
         .install_boot_hydration(runtime.dispatch);
     std::mem::forget(shell::register_builtin_commands(runtime));
-
-    // Runtime effect runner: clear current queue before processing so nested dispatches enqueue a
-    // fresh batch instead of getting wiped.
-    create_effect(move |_| {
-        let queued = runtime.effects.get();
-        if queued.is_empty() {
-            return;
-        }
-
-        runtime.effects.set(Vec::new());
-
-        for effect in queued {
-            runtime.host.get_value().run_runtime_effect(runtime, effect);
-        }
-    });
+    effect_executor::install(runtime);
 }
 
 #[component]
 /// Provides [`DesktopRuntimeContext`] to descendant components and boots persisted state.
-pub fn DesktopProvider(children: Children) -> impl IntoView {
-    let host = store_value(DesktopHostContext::default());
+pub fn DesktopProvider(
+    /// Injected browser or desktop host bundle assembled by the entry layer.
+    host_services: HostServices,
+    children: Children,
+) -> impl IntoView {
+    let host = store_value(DesktopHostContext::new(host_services));
     let owner = Owner::current().expect("DesktopProvider owner");
     let state = create_rw_signal(DesktopState::default());
     let interaction = create_rw_signal(InteractionState::default());

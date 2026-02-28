@@ -1029,7 +1029,6 @@ dependencies = [
  "nu-protocol",
  "nu-table",
  "platform_host",
- "platform_host_web",
  "pretty_assertions",
  "serde",
  "serde_json",
@@ -4825,6 +4824,7 @@ dependencies = [
  "leptos",
  "leptos_meta",
  "leptos_router",
+ "platform_host_web",
  "web-sys",
 ]
 

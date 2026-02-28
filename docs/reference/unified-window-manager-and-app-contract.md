@@ -62,7 +62,7 @@ Close remains non-veto by app modules.
 
 - `ApplicationId`: canonical namespaced dotted app identifier (`system.settings`, `system.terminal`, ...).
 - `AppModule`: module mount primitive used by runtime registry.
-- `AppMountContext`: per-window context (`window_id`, `app_id`, `launch_params`, `restored_state`, `lifecycle`, `inbox`, injected `services`).
+- `AppMountContext`: per-window context (`window_id`, `app_id`, `launch_params`, `restored_state`, `lifecycle`, `inbox`, reactive `capabilities`, injected `services`).
 - `AppServices`: typed service bundle injected at mount:
   - `WindowService`
   - `StateService`
@@ -78,6 +78,9 @@ Close remains non-veto by app modules.
   - `CommandService`
 
 `AppServices` does not expose a raw transport send hook; apps integrate through the typed services above.
+`AppServices::capabilities()` exposes the mounted app's runtime-granted capability set together with
+host availability for optional domains such as notifications, external URL opening, native explorer
+integration, and future terminal-process support.
 `ConfigService` now provides typed namespaced reads through the runtime-selected prefs backend and
 keeps writes on the runtime command path so config remains on the formal app/runtime integration
 surface instead of ad hoc host imports.
@@ -119,6 +122,10 @@ Runtime routing behavior:
 `OpenExternalUrl` now executes through the runtime-selected host bundle's explicit external URL
 service, using browser `window.open(...)` fallback in web builds and the Tauri opener command on
 desktop-host builds.
+
+`DesktopProvider` now receives the shared `platform_host::HostServices` bundle from the entry layer
+instead of constructing browser/Tauri adapters inside `desktop_runtime`. This keeps runtime
+composition host-agnostic and makes the host boundary explicit in code.
 
 ## Persistence Contract
 

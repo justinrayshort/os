@@ -23,10 +23,11 @@ pub mod storage;
 pub mod wallpaper;
 
 pub use adapters::{
-    app_state_store, content_cache, explorer_fs_service, external_url_service, host_strategy_name,
-    notification_service, prefs_store, selected_host_strategy, wallpaper_asset_service,
-    AppStateStoreAdapter, ContentCacheAdapter, ExplorerFsServiceAdapter, ExternalUrlServiceAdapter,
-    HostStrategy, NotificationServiceAdapter, PrefsStoreAdapter, WallpaperAssetServiceAdapter,
+    app_state_store, build_host_services, content_cache, explorer_fs_service, external_url_service,
+    host_capabilities, host_strategy_name, notification_service, prefs_store,
+    selected_host_strategy, wallpaper_asset_service, AppStateStoreAdapter, ContentCacheAdapter,
+    ExplorerFsServiceAdapter, ExternalUrlServiceAdapter, NotificationServiceAdapter,
+    PrefsStoreAdapter, WallpaperAssetServiceAdapter,
 };
 pub use cache::cache_api::WebContentCache;
 pub use cache::tauri_cache_api::TauriContentCache;

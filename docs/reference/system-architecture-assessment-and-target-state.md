@@ -20,7 +20,12 @@ This document records a focused architectural assessment of the current workspac
 
 Assessment date: 2026-02-28
 
-Status note: the first target-state boundary change from this assessment has now been implemented in the workspace. Wallpaper domain models were moved from `desktop_app_contract` into `platform_host`, so the assessment's original host-boundary leakage finding is now partially addressed and remains here as historical diagnosis context for the broader refactor program.
+Status note: multiple target-state boundary changes from this assessment have now been implemented in
+the workspace. Wallpaper domain models were moved from `desktop_app_contract` into
+`platform_host`; runtime-side concrete host construction moved out of `desktop_runtime` and into
+entry-layer host-bundle assembly; and mounted apps now receive a typed capability snapshot alongside
+their injected services. Historical findings remain here as diagnosis context for the remaining
+refactor program.
 
 Primary evidence set:
 
@@ -41,7 +46,10 @@ The highest-risk issues are:
 4. Persistence ownership was split between runtime-managed `restored_state` and direct app-owned namespace storage, creating inconsistent state semantics for multi-instance and future third-party app scenarios.
 5. Several typed interfaces are asymmetric or incomplete enough that behavior still depends on informal coordination, especially around config, policy overlays, and host effect execution.
 
-The current architecture scales acceptably for a small set of built-in apps. It does not scale cleanly for:
+The current architecture scales acceptably for a small set of built-in apps. Recent changes improve
+that posture by making host-bundle injection explicit (`site` -> `platform_host_web` ->
+`DesktopProvider`) and by removing direct `platform_host_web` dependencies from `desktop_runtime`
+and built-in app crates. The remaining issues still do not scale cleanly for:
 
 - more host strategies
 - more built-in apps
@@ -95,10 +103,14 @@ Current primary runtime path:
 
 1. `site` parses URL/deep-link state and dispatches runtime actions through `DesktopProvider`.
 2. `desktop_runtime::reduce_desktop(...)` mutates `DesktopState` and emits `RuntimeEffect` values.
-3. `DesktopProvider` stores effects in a reactive queue and runs them in a `create_effect`.
-4. `DesktopHostContext::run_runtime_effect(...)` routes host-sensitive effects into persistence, wallpaper, notification, app-bus, and host UI helpers.
-5. those helper modules historically called `platform_host_web::*_service()` factories directly rather than consuming one runtime-injected host bundle.
-6. built-in apps originally mounted through `desktop_runtime::apps` but also reached into concrete host factories for persistence and filesystem work; the app side of that drift has now been removed.
+3. `DesktopProvider` receives an injected `platform_host::HostServices` bundle assembled by the
+   entry layer and stores reducer effects in a queue.
+4. `desktop_runtime::effect_executor` drains queued effects explicitly and dispatches them through
+   `DesktopHostContext::run_runtime_effect(...)`.
+5. `DesktopHostContext::run_runtime_effect(...)` routes host-sensitive effects into persistence,
+   wallpaper, notification, app-bus, and host UI helpers without constructing concrete adapters.
+6. built-in apps mount through `AppMountContext`, which now carries both injected `AppServices` and
+   a typed capability snapshot derived from runtime grants plus host availability.
 
 ### Scale indicators
 

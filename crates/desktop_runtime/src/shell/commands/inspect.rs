@@ -2,8 +2,9 @@ use std::rc::Rc;
 
 use desktop_app_contract::AppCommandRegistration;
 use leptos::SignalGetUntracked;
+use platform_host::CapabilityStatus;
 use system_shell_contract::{
-    CommandDataShape, CommandOutputShape, StructuredScalar, StructuredValue,
+    CommandDataShape, CommandOutputShape, StructuredField, StructuredScalar, StructuredValue,
 };
 
 use crate::components::DesktopRuntimeContext;
@@ -111,6 +112,7 @@ fn inspect_storage_registration(runtime: DesktopRuntimeContext) -> AppCommandReg
         handler: Rc::new(move |_| {
             let runtime = runtime.clone();
             Box::pin(async move {
+                let host = runtime.host.get_value();
                 let namespaces = runtime
                     .host
                     .get_value()
@@ -118,12 +120,16 @@ fn inspect_storage_registration(runtime: DesktopRuntimeContext) -> AppCommandReg
                     .list_app_state_namespaces()
                     .await
                     .map_err(super::super::unavailable)?;
+                let capabilities = host.host_capabilities();
                 Ok(system_shell_contract::CommandResult {
                     output: super::super::record_data(vec![
-                        super::super::string_field(
-                            "host_strategy",
-                            runtime.host.get_value().host_strategy_name(),
-                        ),
+                        super::super::string_field("host_strategy", host.host_strategy_name()),
+                        capability_field("structured_commands", capabilities.structured_commands),
+                        capability_field("terminal_process", capabilities.terminal_process),
+                        capability_field("native_explorer", capabilities.native_explorer),
+                        capability_field("external_urls", capabilities.external_urls),
+                        capability_field("notifications", capabilities.notifications),
+                        capability_field("wallpaper_library", capabilities.wallpaper_library),
                         super::super::value_field(
                             "namespaces",
                             StructuredValue::List(
@@ -143,5 +149,22 @@ fn inspect_storage_registration(runtime: DesktopRuntimeContext) -> AppCommandReg
                 })
             })
         }),
+    }
+}
+
+fn capability_field(name: &'static str, status: CapabilityStatus) -> StructuredField {
+    super::super::value_field(
+        name,
+        StructuredValue::Scalar(StructuredScalar::String(
+            capability_status_name(status).to_string(),
+        )),
+    )
+}
+
+fn capability_status_name(status: CapabilityStatus) -> &'static str {
+    match status {
+        CapabilityStatus::Available => "available",
+        CapabilityStatus::Unavailable => "unavailable",
+        CapabilityStatus::RequiresUserActivation => "requires-user-activation",
     }
 }

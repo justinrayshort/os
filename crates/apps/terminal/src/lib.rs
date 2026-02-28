@@ -8,6 +8,7 @@ use desktop_app_contract::{window_primary_input_dom_id, AppServices, WindowRunti
 use leptos::ev::KeyboardEvent;
 use leptos::html;
 use leptos::*;
+use platform_host::CapabilityStatus;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use system_shell_contract::{
@@ -64,6 +65,28 @@ fn default_terminal_transcript() -> Vec<TerminalTranscriptEntry> {
     vec![TerminalTranscriptEntry::System {
         text: "Use `help list` to inspect commands.".to_string(),
     }]
+}
+
+fn terminal_mode_label(services: Option<&AppServices>) -> &'static str {
+    match services {
+        Some(services) if services.capabilities().supports_terminal_process() => "hybrid",
+        _ => "structured",
+    }
+}
+
+fn terminal_mode_notice(services: Option<&AppServices>) -> &'static str {
+    match services {
+        Some(services) => match services.capabilities().host().terminal_process {
+            CapabilityStatus::Available => "Host terminal-process backend available.",
+            CapabilityStatus::RequiresUserActivation => {
+                "Host terminal-process backend requires activation."
+            }
+            CapabilityStatus::Unavailable => {
+                "Running in structured shell mode; native host process access is unavailable."
+            }
+        },
+        None => "Running in structured shell mode.",
+    }
 }
 
 fn normalize_terminal_transcript(transcript: &mut Vec<TerminalTranscriptEntry>) {
@@ -311,6 +334,7 @@ pub fn TerminalApp(
         .and_then(Value::as_str)
         .unwrap_or("~/desktop")
         .to_string();
+    let mode_label = terminal_mode_label(services.as_ref());
     let shell_session = services
         .as_ref()
         .and_then(|services| services.commands.create_session(launch_cwd.clone()).ok());
@@ -331,7 +355,7 @@ pub fn TerminalApp(
         if active_execution.get().is_some() {
             "running"
         } else {
-            "ready"
+            mode_label
         }
     };
     if let Some(restored_state) = restored_state.as_ref() {
@@ -349,6 +373,12 @@ pub fn TerminalApp(
             hydrated.set(true);
         }
     }
+    transcript.update(|entries| {
+        entries.push(TerminalTranscriptEntry::System {
+            text: terminal_mode_notice(services.as_ref()).to_string(),
+        });
+        normalize_terminal_transcript(entries);
+    });
     hydrated.set(true);
 
     create_effect(move |_| {

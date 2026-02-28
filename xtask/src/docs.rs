@@ -1947,7 +1947,7 @@ const SKIN_SCOPED_FILES: &[(&str, &str)] = &[
 ];
 const TYPED_PERSISTENCE_BOUNDARY_DIRS: &[&str] =
     &["crates/apps", "crates/desktop_runtime", "crates/site"];
-const PLATFORM_HOST_WEB_IMPORT_ALLOWLIST: &[&str] = &["crates/desktop_runtime/src/host.rs"];
+const PLATFORM_HOST_WEB_IMPORT_ALLOWLIST: &[&str] = &["crates/site/src/web_app.rs"];
 const SHELL_ICON_COMPONENT_FILES: &[&str] = &[
     "crates/desktop_runtime/src/components.rs",
     "crates/desktop_runtime/src/components/display_properties.rs",
@@ -2214,7 +2214,7 @@ fn validate_typed_persistence_boundary(root: &Path) -> Vec<Problem> {
                     problems.push(Problem::new(
                         "storage-boundary",
                         rel_path.clone(),
-                        "direct `platform_host_web` imports are not allowed here; route host access through `AppServices` or `DesktopHostContext`",
+                        "direct `platform_host_web` imports are not allowed here; route host access through `AppServices`, `DesktopHostContext`, or the entry-layer host bundle assembly in `site`",
                         Some(idx + 1),
                     ));
                 }

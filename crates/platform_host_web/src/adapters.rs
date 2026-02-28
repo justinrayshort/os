@@ -1,12 +1,15 @@
+use std::rc::Rc;
+
 use platform_host::{
     AppStateEnvelope, AppStateStore, AppStateStoreFuture, ContentCache, ContentCacheFuture,
     ExplorerBackendStatus, ExplorerFileReadResult, ExplorerFsFuture, ExplorerFsService,
     ExplorerListResult, ExplorerMetadata, ExplorerPermissionMode, ExplorerPermissionState,
-    ExternalUrlFuture, ExternalUrlService, NoopAppStateStore, NoopContentCache,
-    NoopExplorerFsService, NoopExternalUrlService, NoopNotificationService, NoopPrefsStore,
-    NoopWallpaperAssetService, NotificationFuture, NotificationService, PrefsStore,
-    PrefsStoreFuture, ResolvedWallpaperSource, WallpaperAssetDeleteResult, WallpaperAssetFuture,
-    WallpaperAssetMetadataPatch, WallpaperAssetRecord, WallpaperAssetService, WallpaperCollection,
+    ExternalUrlFuture, ExternalUrlService, HostCapabilities, HostServices, HostStrategy,
+    NoopAppStateStore, NoopContentCache, NoopExplorerFsService, NoopExternalUrlService,
+    NoopNotificationService, NoopPrefsStore, NoopWallpaperAssetService, NotificationFuture,
+    NotificationService, PrefsStore, PrefsStoreFuture, ResolvedWallpaperSource,
+    WallpaperAssetDeleteResult, WallpaperAssetFuture, WallpaperAssetMetadataPatch,
+    WallpaperAssetRecord, WallpaperAssetService, WallpaperCollection,
     WallpaperCollectionDeleteResult, WallpaperImportRequest, WallpaperImportResult,
     WallpaperLibrarySnapshot, WallpaperSelection,
 };
@@ -23,18 +26,6 @@ use crate::{
 compile_error!(
     "features `desktop-host-stub` and `desktop-host-tauri` are mutually exclusive; enable only one"
 );
-
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Compile-time selected host strategy for `platform_host_web` adapters.
-pub enum HostStrategy {
-    /// Browser-backed adapters from `platform_host_web`.
-    Browser,
-    /// Tauri desktop transport adapters for app-state, prefs, cache, explorer, and notifications.
-    DesktopTauri,
-    /// Desktop placeholder adapters used while native transport is being introduced.
-    DesktopStub,
-}
 
 /// Returns the compile-time selected host strategy for the active build.
 pub const fn selected_host_strategy() -> HostStrategy {
@@ -56,11 +47,7 @@ pub const fn selected_host_strategy() -> HostStrategy {
 
 /// Returns the selected host strategy as a stable string token.
 pub fn host_strategy_name() -> &'static str {
-    match selected_host_strategy() {
-        HostStrategy::Browser => "browser",
-        HostStrategy::DesktopTauri => "desktop-tauri",
-        HostStrategy::DesktopStub => "desktop-stub",
-    }
+    selected_host_strategy().as_str()
 }
 
 /// Adapter enum that erases the concrete app-state backend behind [`AppStateStore`].
@@ -586,5 +573,30 @@ pub fn wallpaper_asset_service() -> WallpaperAssetServiceAdapter {
         HostStrategy::DesktopStub => {
             WallpaperAssetServiceAdapter::DesktopStub(NoopWallpaperAssetService)
         }
+    }
+}
+
+/// Returns the host capability snapshot for the selected host strategy.
+pub const fn host_capabilities() -> HostCapabilities {
+    match selected_host_strategy() {
+        HostStrategy::Browser => HostCapabilities::browser(),
+        HostStrategy::DesktopTauri => HostCapabilities::desktop_tauri(),
+        HostStrategy::DesktopStub => HostCapabilities::desktop_stub(),
+    }
+}
+
+/// Builds the runtime host bundle for the selected browser or desktop host strategy.
+pub fn build_host_services() -> HostServices {
+    HostServices {
+        app_state: Rc::new(app_state_store()),
+        prefs: Rc::new(prefs_store()),
+        explorer: Rc::new(explorer_fs_service()),
+        cache: Rc::new(content_cache()),
+        external_urls: Rc::new(external_url_service()),
+        notifications: Rc::new(notification_service()),
+        wallpaper: Rc::new(wallpaper_asset_service()),
+        terminal_process: None,
+        capabilities: host_capabilities(),
+        host_strategy: selected_host_strategy(),
     }
 }

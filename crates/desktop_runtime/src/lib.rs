@@ -43,6 +43,7 @@ mod app_runtime;
 pub mod apps;
 /// Desktop shell UI components and re-exported runtime provider/context entrypoints.
 pub mod components;
+mod effect_executor;
 /// Host-side effect execution and viewport helpers used by the shell runtime.
 pub mod host;
 /// Centralized Fluent UI System Icon abstraction used by shell surfaces.
@@ -64,7 +65,7 @@ pub use components::{use_desktop_runtime, DesktopProvider, DesktopRuntimeContext
 /// Re-exported app-runtime contract types for managed app integrations.
 pub use desktop_app_contract::{
     AppCapability, AppCommand, AppEvent, AppLifecycleEvent, AppModule, AppMountContext,
-    AppRegistration, AppServices, ApplicationId, IpcEnvelope, SuspendPolicy,
+    AppRegistration, AppServices, ApplicationId, CapabilitySet, IpcEnvelope, SuspendPolicy,
 };
 /// Re-exported host-side effect execution context.
 pub use host::DesktopHostContext;

@@ -1,7 +1,8 @@
 use super::*;
 use crate::app_runtime::ensure_window_session;
+use crate::apps;
 use crate::shell;
-use desktop_app_contract::{AppMountContext, AppServices, ApplicationId};
+use desktop_app_contract::{AppMountContext, AppServices, ApplicationId, CapabilitySet};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
@@ -329,8 +330,20 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
             runtime.dispatch_action(DesktopAction::HandleAppCommand { window_id, command });
         });
     });
+    let app_id = state
+        .get_untracked()
+        .windows
+        .iter()
+        .find(|w| w.id == window_id)
+        .map(|w| w.app_id.clone())
+        .expect("window app id");
+    let capabilities = create_rw_signal(CapabilitySet::new(
+        apps::app_requested_capabilities_by_id(&app_id).to_vec(),
+        runtime.host.get_value().host_capabilities(),
+    ));
     let services = store_value(AppServices::new(
         command_sender,
+        capabilities.get_untracked(),
         runtime.host.get_value().app_state_store(),
         runtime.host.get_value().prefs_store(),
         runtime.host.get_value().explorer_fs_service(),
@@ -343,13 +356,7 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
         wallpaper_library.read_only(),
         shell::build_command_service(
             runtime.clone(),
-            state
-                .get_untracked()
-                .windows
-                .into_iter()
-                .find(|w| w.id == window_id)
-                .map(|w| w.app_id)
-                .expect("window app id"),
+            app_id.clone(),
             window_id,
             terminal_history.read_only(),
         ),
@@ -370,6 +377,7 @@ fn WindowBody(window_id: WindowId) -> impl IntoView {
                 restored_state: mounted_window.app_state.clone(),
                 lifecycle,
                 inbox,
+                capabilities: capabilities.read_only(),
                 services: services.get_value(),
             }
         />

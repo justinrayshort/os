@@ -15,10 +15,10 @@ use futures::future::LocalBoxFuture;
 use leptos::{Callable, Callback, ReadSignal, RwSignal, View};
 use platform_host::{
     load_app_state_with_migration, load_pref_with, save_app_state_with, save_pref_with,
-    AppStateEnvelope, AppStateStore, ContentCache, ExplorerBackendStatus, ExplorerFileReadResult,
-    ExplorerFsService, ExplorerListResult, ExplorerMetadata, ExplorerPermissionMode,
-    ExplorerPermissionState, PrefsStore, WallpaperConfig, WallpaperImportRequest,
-    WallpaperLibrarySnapshot,
+    AppStateEnvelope, AppStateStore, CapabilityStatus, ContentCache, ExplorerBackendStatus,
+    ExplorerFileReadResult, ExplorerFsService, ExplorerListResult, ExplorerMetadata,
+    ExplorerPermissionMode, ExplorerPermissionState, HostCapabilities, PrefsStore, WallpaperConfig,
+    WallpaperImportRequest, WallpaperLibrarySnapshot,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -125,6 +125,72 @@ pub enum AppCapability {
     ExternalUrl,
     /// Dynamic system terminal command registration.
     Commands,
+}
+
+/// Runtime-granted app capabilities paired with host availability for optional domains.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapabilitySet {
+    granted: Vec<AppCapability>,
+    host: HostCapabilities,
+}
+
+impl CapabilitySet {
+    /// Creates a capability set from manifest/policy grants and a host availability snapshot.
+    pub fn new(granted: impl Into<Vec<AppCapability>>, host: HostCapabilities) -> Self {
+        Self {
+            granted: granted.into(),
+            host,
+        }
+    }
+
+    /// Returns all runtime-granted app capabilities.
+    pub fn granted(&self) -> &[AppCapability] {
+        &self.granted
+    }
+
+    /// Returns the host capability snapshot.
+    pub fn host(&self) -> HostCapabilities {
+        self.host
+    }
+
+    /// Returns whether the runtime granted `capability` to the mounted app.
+    pub fn is_granted(&self, capability: AppCapability) -> bool {
+        self.granted.iter().any(|granted| *granted == capability)
+    }
+
+    /// Returns host availability for a capability after runtime grant evaluation.
+    pub fn status(&self, capability: AppCapability) -> CapabilityStatus {
+        if !self.is_granted(capability) {
+            return CapabilityStatus::Unavailable;
+        }
+
+        match capability {
+            AppCapability::Commands => self.host.structured_commands,
+            AppCapability::Wallpaper => self.host.wallpaper_library,
+            AppCapability::Notifications => self.host.notifications,
+            AppCapability::ExternalUrl => self.host.external_urls,
+            AppCapability::Window
+            | AppCapability::State
+            | AppCapability::Config
+            | AppCapability::Theme
+            | AppCapability::Ipc => CapabilityStatus::Available,
+        }
+    }
+
+    /// Returns whether a runtime capability is both granted and immediately available.
+    pub fn can_use(&self, capability: AppCapability) -> bool {
+        self.status(capability).is_available()
+    }
+
+    /// Returns whether the active host supports a native terminal-process backend.
+    pub fn supports_terminal_process(&self) -> bool {
+        self.host.terminal_process.is_available()
+    }
+
+    /// Returns whether the active host exposes native explorer integration.
+    pub fn supports_native_explorer(&self) -> bool {
+        self.host.native_explorer.is_available()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1110,6 +1176,7 @@ impl CommandService {
 #[derive(Clone)]
 /// Injected app services bundle.
 pub struct AppServices {
+    capabilities: CapabilitySet,
     /// Window integration service.
     pub window: WindowService,
     /// State persistence service.
@@ -1140,6 +1207,7 @@ impl AppServices {
     /// Creates service handles from the runtime command callback.
     pub fn new(
         sender: Callback<AppCommand>,
+        capabilities: CapabilitySet,
         app_state: Rc<dyn AppStateStore>,
         prefs: Rc<dyn PrefsStore>,
         explorer: Rc<dyn ExplorerFsService>,
@@ -1153,6 +1221,7 @@ impl AppServices {
         commands: CommandService,
     ) -> Self {
         Self {
+            capabilities,
             window: WindowService { sender },
             state: StateService { sender },
             config: ConfigService {
@@ -1180,6 +1249,11 @@ impl AppServices {
             commands,
         }
     }
+
+    /// Returns the runtime-granted and host-available capability snapshot for the mounted app.
+    pub fn capabilities(&self) -> &CapabilitySet {
+        &self.capabilities
+    }
 }
 
 #[derive(Clone)]
@@ -1197,6 +1271,8 @@ pub struct AppMountContext {
     pub lifecycle: ReadSignal<AppLifecycleEvent>,
     /// Reactive inbox signal populated by the app-bus.
     pub inbox: RwSignal<Vec<IpcEnvelope>>,
+    /// Reactive capability snapshot for this mounted app.
+    pub capabilities: ReadSignal<CapabilitySet>,
     /// Runtime service bundle.
     pub services: AppServices,
 }
@@ -1271,6 +1347,23 @@ mod tests {
             envelope.reply_to.as_deref(),
             Some("app.system.calc.reply.v1")
         );
+    }
+
+    #[test]
+    fn capability_set_combines_runtime_grant_with_host_availability() {
+        let capabilities = CapabilitySet::new(
+            vec![AppCapability::Commands, AppCapability::Notifications],
+            HostCapabilities::browser(),
+        );
+
+        assert!(capabilities.is_granted(AppCapability::Commands));
+        assert!(capabilities.can_use(AppCapability::Commands));
+        assert_eq!(
+            capabilities.status(AppCapability::Notifications),
+            CapabilityStatus::RequiresUserActivation
+        );
+        assert!(!capabilities.can_use(AppCapability::Notifications));
+        assert!(!capabilities.supports_terminal_process());
     }
 
     #[test]

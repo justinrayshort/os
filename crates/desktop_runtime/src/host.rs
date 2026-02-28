@@ -15,12 +15,8 @@ use std::rc::Rc;
 
 use leptos::{logging, spawn_local, Callback};
 use platform_host::{
-    AppStateStore, ContentCache, ExplorerFsService, ExternalUrlService, NotificationService,
-    PrefsStore, WallpaperAssetService,
-};
-use platform_host_web::{
-    app_state_store, content_cache, explorer_fs_service, external_url_service, host_strategy_name,
-    notification_service, prefs_store, wallpaper_asset_service,
+    AppStateStore, ContentCache, ExplorerFsService, ExternalUrlService, HostCapabilities,
+    HostServices, NotificationService, PrefsStore, TerminalProcessService, WallpaperAssetService,
 };
 
 use crate::{
@@ -37,25 +33,28 @@ pub struct DesktopHostContext {
     external_urls: Rc<dyn ExternalUrlService>,
     notifications: Rc<dyn NotificationService>,
     wallpaper: Rc<dyn WallpaperAssetService>,
+    terminal_process: Option<Rc<dyn TerminalProcessService>>,
+    capabilities: HostCapabilities,
     host_strategy_name: &'static str,
 }
 
-impl Default for DesktopHostContext {
-    fn default() -> Self {
+impl DesktopHostContext {
+    /// Creates a runtime host context from an injected shared host bundle.
+    pub fn new(services: HostServices) -> Self {
         Self {
-            app_state: Rc::new(app_state_store()),
-            prefs: Rc::new(prefs_store()),
-            explorer: Rc::new(explorer_fs_service()),
-            cache: Rc::new(content_cache()),
-            external_urls: Rc::new(external_url_service()),
-            notifications: Rc::new(notification_service()),
-            wallpaper: Rc::new(wallpaper_asset_service()),
-            host_strategy_name: host_strategy_name(),
+            app_state: services.app_state,
+            prefs: services.prefs,
+            explorer: services.explorer,
+            cache: services.cache,
+            external_urls: services.external_urls,
+            notifications: services.notifications,
+            wallpaper: services.wallpaper,
+            terminal_process: services.terminal_process,
+            capabilities: services.capabilities,
+            host_strategy_name: services.host_strategy.as_str(),
         }
     }
-}
 
-impl DesktopHostContext {
     /// Returns the configured app-state persistence service.
     pub fn app_state_store(&self) -> Rc<dyn AppStateStore> {
         self.app_state.clone()
@@ -89,6 +88,16 @@ impl DesktopHostContext {
     /// Returns the configured wallpaper asset/library service.
     pub fn wallpaper_asset_service(&self) -> Rc<dyn WallpaperAssetService> {
         self.wallpaper.clone()
+    }
+
+    /// Returns the configured terminal-process backend when one is available.
+    pub fn terminal_process_service(&self) -> Option<Rc<dyn TerminalProcessService>> {
+        self.terminal_process.clone()
+    }
+
+    /// Returns the host capability snapshot for the active strategy.
+    pub fn host_capabilities(&self) -> HostCapabilities {
+        self.capabilities
     }
 
     /// Returns the stable name of the selected host strategy.

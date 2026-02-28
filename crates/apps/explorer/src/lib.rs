@@ -7,9 +7,9 @@ use std::{cell::Cell, rc::Rc};
 use desktop_app_contract::{AppEvent, AppServices, CacheHostService, ExplorerHostService};
 use leptos::*;
 use platform_host::{
-    explorer_preview_cache_key, session_store, ExplorerBackend, ExplorerBackendStatus,
-    ExplorerEntry, ExplorerEntryKind, ExplorerMetadata, ExplorerPermissionMode, ExplorerPrefs,
-    EXPLORER_CACHE_NAME, EXPLORER_PREFS_KEY,
+    explorer_preview_cache_key, session_store, CapabilityStatus, ExplorerBackend,
+    ExplorerBackendStatus, ExplorerEntry, ExplorerEntryKind, ExplorerMetadata,
+    ExplorerPermissionMode, ExplorerPrefs, EXPLORER_CACHE_NAME, EXPLORER_PREFS_KEY,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -149,6 +149,26 @@ fn set_error(signals: ExplorerSignals, message: impl Into<String>) {
 fn set_notice(signals: ExplorerSignals, message: impl Into<String>) {
     signals.notice.set(Some(message.into()));
     signals.error.set(None);
+}
+
+fn native_explorer_status(services: Option<&AppServices>) -> CapabilityStatus {
+    services
+        .map(|services| services.capabilities().host().native_explorer)
+        .unwrap_or(CapabilityStatus::Unavailable)
+}
+
+fn can_connect_native_folder(status: CapabilityStatus) -> bool {
+    !matches!(status, CapabilityStatus::Unavailable)
+}
+
+fn native_explorer_status_label(status: CapabilityStatus) -> &'static str {
+    match status {
+        CapabilityStatus::Available => "Native folder access is available.",
+        CapabilityStatus::RequiresUserActivation => {
+            "Native folder access requires explicit user activation."
+        }
+        CapabilityStatus::Unavailable => "Native folder access is unavailable on this host.",
+    }
 }
 
 fn refresh_directory(
@@ -471,6 +491,7 @@ pub fn ExplorerApp(
     /// Optional runtime inbox for app-bus events.
     inbox: Option<RwSignal<Vec<AppEvent>>>,
 ) -> impl IntoView {
+    let native_explorer = native_explorer_status(services.as_ref());
     let initial_target = launch_params
         .get("project_slug")
         .and_then(Value::as_str)
@@ -550,6 +571,12 @@ pub fn ExplorerApp(
                 .publish("explorer.cwd.changed", json!({ "cwd": cwd.get() }));
         });
     }
+
+    create_effect(move |_| {
+        if signals.notice.get_untracked().is_none() && signals.error.get_untracked().is_none() {
+            set_notice(signals, native_explorer_status_label(native_explorer));
+        }
+    });
 
     if let Some(inbox) = inbox {
         let cursor = Rc::new(Cell::new(0usize));
@@ -722,7 +749,13 @@ pub fn ExplorerApp(
             </div>
 
             <div class="app-toolbar">
-                <button type="button" class="app-action" on:click=move |_| connect_native_folder(signals, explorer_service.get_value())>
+                <button
+                    type="button"
+                    class="app-action"
+                    title=native_explorer_status_label(native_explorer)
+                    disabled=!can_connect_native_folder(native_explorer)
+                    on:click=move |_| connect_native_folder(signals, explorer_service.get_value())
+                >
                     "Connect Folder"
                 </button>
                 <button type="button" class="app-action" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), None)>
@@ -731,7 +764,13 @@ pub fn ExplorerApp(
                 <button type="button" class="app-action" on:click=move |_| refresh_directory(signals, explorer_service.get_value(), Some(parent_path(&cwd.get_untracked())))>
                     "Up"
                 </button>
-                <button type="button" class="app-action" on:click=move |_| request_rw_permission(signals, explorer_service.get_value())>
+                <button
+                    type="button"
+                    class="app-action"
+                    title=native_explorer_status_label(native_explorer)
+                    disabled=!can_connect_native_folder(native_explorer)
+                    on:click=move |_| request_rw_permission(signals, explorer_service.get_value())
+                >
                     "Request RW"
                 </button>
                 <button type="button" class="app-action" on:click=move |_| save_editor(signals, explorer_service.get_value(), cache_service.get_value()) disabled=move || !editor_dirty.get()>

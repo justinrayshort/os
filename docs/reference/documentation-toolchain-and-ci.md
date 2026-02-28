@@ -38,7 +38,9 @@ lifecycle: "ga"
 4. Mermaid structural validation
 5. Broken internal reference detection
 6. Typed app-state envelope boundary enforcement (`cargo xtask docs storage-boundary`) for
-   `crates/apps`, `crates/desktop_runtime`, and `crates/site` (direct low-level envelope load calls are disallowed)
+   `crates/apps`, `crates/desktop_runtime`, and `crates/site` (direct low-level envelope load calls
+   are disallowed; direct `platform_host_web` imports are forbidden outside the entry-layer host
+   bundle assembly in `crates/site/src/web_app.rs`)
 7. Rustdoc build (`cargo doc --workspace --no-deps`, `RUSTDOCFLAGS=-D warnings`)
 8. Rustdoc doctests (`cargo test --workspace --doc`)
 9. Audit report generation (`cargo xtask docs audit-report --output ...`) when needed

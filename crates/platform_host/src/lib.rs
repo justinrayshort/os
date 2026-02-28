@@ -10,9 +10,11 @@
 pub mod cache;
 pub mod external_url;
 pub mod fs;
+pub mod host;
 pub mod notifications;
 pub mod session;
 pub mod storage;
+pub mod terminal_process;
 pub mod time;
 pub mod wallpaper;
 
@@ -29,6 +31,7 @@ pub use fs::types::{
     ExplorerPermissionMode, ExplorerPermissionState, ExplorerPrefs, EXPLORER_CACHE_NAME,
     EXPLORER_PREFS_KEY,
 };
+pub use host::{CapabilityError, CapabilityStatus, HostCapabilities, HostServices, HostStrategy};
 pub use notifications::{NoopNotificationService, NotificationFuture, NotificationService};
 pub use session::{session_store, MemorySessionStore};
 pub use storage::app_state::{
@@ -41,6 +44,10 @@ pub use storage::app_state::{
 };
 pub use storage::prefs::{
     load_pref_with, save_pref_with, MemoryPrefsStore, NoopPrefsStore, PrefsStore, PrefsStoreFuture,
+};
+pub use terminal_process::{
+    NoopTerminalProcessService, TerminalEvent, TerminalProcessFuture, TerminalProcessService,
+    TerminalResizeRequest, TerminalSessionId, TerminalWriteRequest,
 };
 pub use time::{next_monotonic_timestamp_ms, unix_time_ms_now};
 pub use wallpaper::{
