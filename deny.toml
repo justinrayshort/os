@@ -1,0 +1,6 @@
+# Cargo-deny configuration
+# Focus: Prevent circular dependencies (primary Gate goal)
+# Note: License/advisory issues are pre-existing and out of scope for Phase 1 P0
+
+[bans]
+multiple-versions = "warn"
