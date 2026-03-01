@@ -1,6 +1,7 @@
 //! Shared command context passed into command families.
 
 use crate::runtime::artifacts::ArtifactManager;
+use crate::runtime::cache::CacheService;
 use crate::runtime::error::{XtaskError, XtaskResult};
 use crate::runtime::process::ProcessRunner;
 use crate::runtime::workflow::WorkflowRecorder;
@@ -21,6 +22,7 @@ use std::path::{Path, PathBuf};
 pub struct CommandContext {
     root: PathBuf,
     artifacts: ArtifactManager,
+    cache: CacheService,
     process: ProcessRunner,
     workspace: WorkspaceState,
     workflow: WorkflowRecorder,
@@ -34,12 +36,14 @@ impl CommandContext {
     pub fn new() -> XtaskResult<Self> {
         let root = workspace_root()?;
         let artifacts = ArtifactManager::new(root.clone());
+        let cache = CacheService::new(root.clone());
         let process = ProcessRunner::new();
         let workspace = WorkspaceState::new(root.clone());
         let workflow = WorkflowRecorder::new(artifacts.clone());
         Ok(Self {
             root,
             artifacts,
+            cache,
             process,
             workspace,
             workflow,
@@ -54,6 +58,11 @@ impl CommandContext {
     /// Return the shared artifact manager for workspace-relative output policy.
     pub fn artifacts(&self) -> &ArtifactManager {
         &self.artifacts
+    }
+
+    /// Return the shared compiler-cache service for workspace-local `sccache` policy.
+    pub fn cache(&self) -> &CacheService {
+        &self.cache
     }
 
     /// Return the shared process runner for child-process execution and simple probes.

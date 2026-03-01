@@ -5,6 +5,7 @@ use crate::runtime::error::{XtaskError, XtaskResult};
 /// Top-level `xtask` command families.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TopLevelCommand {
+    Cache(Vec<String>),
     SetupWeb(Vec<String>),
     Dev(Vec<String>),
     BuildWeb(Vec<String>),
@@ -28,6 +29,7 @@ pub fn parse(args: Vec<String>) -> XtaskResult<TopLevelCommand> {
 
     let rest = args[1..].to_vec();
     match cmd.as_str() {
+        "cache" => Ok(TopLevelCommand::Cache(rest)),
         "setup-web" => Ok(TopLevelCommand::SetupWeb(rest)),
         "dev" => Ok(TopLevelCommand::Dev(rest)),
         "build-web" => Ok(TopLevelCommand::BuildWeb(rest)),
@@ -53,6 +55,7 @@ pub fn print_usage() {
         "Usage: cargo xtask <command> [args]\n\
          \n\
          Commands:\n\
+           cache [...]         Compiler-cache bootstrap/doctor/statistics workflows\n\
            setup-web           Install wasm target and trunk (if missing)\n\
            dev [...]           Prototype dev workflow (serve/start/stop/status/restart/build)\n\
            build-web [args]    Build static web bundle with trunk\n\

@@ -1,5 +1,6 @@
 //! Shared process execution helpers.
 
+use crate::runtime::cache::validate_sccache_config;
 use crate::runtime::env::EnvHelper;
 use crate::runtime::error::{XtaskError, XtaskResult};
 use std::path::{Path, PathBuf};
@@ -104,13 +105,12 @@ impl ProcessRunner {
     /// [`XtaskError::process_exit`](crate::runtime::error::XtaskError::process_exit).
     pub fn run_owned(&self, root: &Path, program: &str, args: Vec<String>) -> XtaskResult<()> {
         self.print_command(program, &args);
-        let status = Command::new(program)
-            .current_dir(root)
-            .args(&args)
-            .status()
-            .map_err(|err| {
-                XtaskError::process_launch(format!("failed to start `{program}`: {err}"))
-            })?;
+        let mut cmd = Command::new(program);
+        cmd.current_dir(root).args(&args);
+        self.apply_process_contract(root, program, &mut cmd)?;
+        let status = cmd.status().map_err(|err| {
+            XtaskError::process_launch(format!("failed to start `{program}`: {err}"))
+        })?;
 
         if status.success() {
             Ok(())
@@ -137,6 +137,7 @@ impl ProcessRunner {
         for (key, value) in envs {
             cmd.env(key, value);
         }
+        self.apply_process_contract(root, program, &mut cmd)?;
         let status = cmd.status().map_err(|err| {
             XtaskError::process_launch(format!("failed to start `{program}`: {err}"))
         })?;
@@ -178,12 +179,32 @@ impl ProcessRunner {
     /// Tauri hooks ultimately delegate frontend work back into Cargo-managed commands, so keeping
     /// environment normalization here reduces drift between the direct and delegated paths.
     pub fn run_tauri_cli(&self, tauri_dir: &Path, args: Vec<String>) -> XtaskResult<()> {
+        let workspace_root = tauri_dir
+            .parent()
+            .and_then(Path::parent)
+            .ok_or_else(|| {
+                XtaskError::environment("desktop_tauri path does not resolve to workspace root")
+            })?;
+        self.print_command("cargo", &args);
+        let mut cmd = Command::new("cargo");
+        cmd.current_dir(tauri_dir).args(&args);
         if let Some(value) =
             EnvHelper::normalized_no_color_value(std::env::var("NO_COLOR").ok().as_deref())
         {
-            self.run_owned_with_env(tauri_dir, "cargo", args, &[("NO_COLOR", value)])
+            cmd.env("NO_COLOR", value);
+        }
+        self.apply_process_contract(workspace_root, "cargo", &mut cmd)?;
+
+        let status = cmd.status().map_err(|err| {
+            XtaskError::process_launch(format!("failed to start `cargo`: {err}"))
+        })?;
+
+        if status.success() {
+            Ok(())
         } else {
-            self.run_owned(tauri_dir, "cargo", args)
+            Err(XtaskError::process_exit(format!(
+                "`cargo` exited with status {status}"
+            )))
         }
     }
 
@@ -218,6 +239,24 @@ impl ProcessRunner {
             .unwrap_or("unavailable")
             .trim()
             .to_string()
+    }
+
+    fn apply_process_contract(
+        &self,
+        root: &Path,
+        program: &str,
+        cmd: &mut Command,
+    ) -> XtaskResult<()> {
+        if program != "cargo" {
+            return Ok(());
+        }
+
+        let status = validate_sccache_config(root, false)
+            .map_err(|err| err.with_operation("cargo command preflight"))?;
+        for (key, value) in status.config.env_pairs() {
+            cmd.env(key, value);
+        }
+        Ok(())
     }
 }
 

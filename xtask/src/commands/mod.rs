@@ -1,5 +1,6 @@
 //! Cohesive xtask command families.
 
+pub mod cache;
 pub mod dev;
 pub mod docs;
 pub mod e2e;

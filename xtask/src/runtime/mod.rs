@@ -1,6 +1,7 @@
 //! Shared automation runtime services.
 
 pub mod artifacts;
+pub mod cache;
 pub mod config;
 pub mod context;
 pub mod env;

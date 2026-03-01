@@ -11,6 +11,7 @@ pub mod runtime;
 pub mod wiki_config;
 
 use crate::cli::TopLevelCommand;
+use crate::commands::cache::CacheCommand;
 use crate::commands::dev::{
     BuildWebCommand, CheckWebCommand, DevCommand, DoctorCommand, SetupWebCommand, TauriCommand,
 };
@@ -58,6 +59,7 @@ pub fn execute_from_env() -> XtaskResult<()> {
     let ctx = CommandContext::new()?;
 
     match parsed {
+        TopLevelCommand::Cache(args) => CacheCommand::run(&ctx, CacheCommand::parse(&args)?),
         TopLevelCommand::SetupWeb(args) => {
             SetupWebCommand::run(&ctx, SetupWebCommand::parse(&args)?)
         }
