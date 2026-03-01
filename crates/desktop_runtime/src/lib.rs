@@ -6,11 +6,16 @@
 //! - state transitions in [`reduce_desktop`]
 //! - persistence helpers in [`persistence`]
 //! - host-side effect execution helpers in [`host`]
+//! - app registration metadata and placeholder utility surfaces in [`apps`]
 //! - shared UI/icon primitives re-exported from [`system_ui`]
 //! - runtime provider/context wiring in the internal `runtime_context` module
 //! - Leptos UI primitives in [`components`]
 //! - app integration bridge types re-exported from [`desktop_app_contract`]
 //! - wallpaper contracts re-exported from [`platform_host`]
+//!
+//! The crate is intentionally layered so reducer logic stays pure, host effects stay explicit,
+//! and built-in apps consume the runtime through typed contracts rather than direct host-adapter
+//! imports.
 //!
 //! # Example
 //!

@@ -93,6 +93,10 @@ impl std::fmt::Display for CapabilityError {
 impl std::error::Error for CapabilityError {}
 
 /// Host capability snapshot exposed to runtime wiring and mounted apps.
+///
+/// This snapshot is intentionally coarse-grained and stable across browser and desktop
+/// compositions so apps can branch on capability posture without importing host-specific adapter
+/// types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HostCapabilities {
     /// Structured shell command backend availability.
@@ -148,6 +152,10 @@ impl HostCapabilities {
 }
 
 /// Runtime-selected host service bundle injected into the shared desktop runtime.
+///
+/// All environment-specific service selection happens before this bundle crosses into
+/// `desktop_runtime`, which keeps the runtime and app crates decoupled from browser/desktop
+/// adapter details.
 #[derive(Clone)]
 pub struct HostServices {
     /// Durable app-state store used across runtime and app crates.

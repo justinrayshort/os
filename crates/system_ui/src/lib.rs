@@ -4,6 +4,9 @@
 //! stable `data-ui-*` DOM contract consumed by the desktop shell CSS layers.
 //! Apps should compose these primitives instead of emitting ad hoc control
 //! markup or reusing legacy `.app-*` class contracts directly.
+//!
+//! Theme CSS remaps shared `--sys-*` tokens around these primitives, while docs validation checks
+//! that app/runtime crates consume the shared API instead of recreating raw primitive markup.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
@@ -29,6 +32,9 @@ pub use primitives::{
 };
 
 /// Convenience imports for application crates consuming the shared primitive set.
+///
+/// Prefer importing from this module in app crates so primitive usage stays consistent and review
+/// diffs do not churn on long individual import lists.
 pub mod prelude {
     pub use crate::{
         AppShell, Badge, Button, ButtonShape, ButtonSize, ButtonVariant, Card, CheckboxField,

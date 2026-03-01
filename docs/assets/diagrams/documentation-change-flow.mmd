@@ -1,7 +1,6 @@
 flowchart LR
   A["Author updates code"] --> B["Author updates docs"]
-  B --> C["PR submitted"]
-  C --> D["CI validates docs contracts"]
-  D --> E["Reviewer approves"]
-  E --> F["Merge"]
-
+  B --> C["Author runs cargo wiki status / cargo xtask docs all / rustdoc checks"]
+  C --> D["PR or review notes capture docs coverage and validation"]
+  D --> E["Reviewer verifies wiki, rustdoc, and docs surfaces"]
+  E --> F["Merge with wiki pointer update when needed"]

@@ -88,8 +88,9 @@ This page documents the supported top-level commands for local development, veri
 - `--base-url <url>` reuses an externally managed server instead of starting the isolated E2E-owned server.
 - `--artifact-dir <path>` overrides the default per-run artifact root. Relative paths are resolved from the workspace root.
 - Profile semantics are now executable rather than nominal: `ci-headless` applies retry-on-failure behavior, `cross-browser` fans out across Chromium/Firefox/WebKit, and `debug` runs headed with slow motion plus always-retained traces.
-- `cargo e2e doctor` now reports browser prerequisites separately from the future desktop-driver prerequisites (`tauri-driver` plus a native WebDriver bridge).
-- Desktop profiles are versioned in the same config surface (`tauri-linux`, `tauri-windows`) and now resolve through the same Cargo workflow into a managed `tauri-driver` plus Selenium-based desktop harness on supported Linux/Windows hosts. On macOS, `tauri-webdriver` profiles fail immediately with a clear unsupported-platform error.
+- `cargo e2e doctor` now reports browser prerequisites separately from desktop-driver prerequisites (`tauri-driver` plus a native WebDriver bridge).
+- Desktop profiles are versioned in the same config surface (`tauri-linux`, `tauri-windows`), but macOS remains the stable browser-first host. On macOS, `tauri-webdriver` profiles fail immediately with a clear unsupported-platform error.
+- Future Linux/Windows desktop backend work is tracked in [Cargo E2E Desktop Platform TODO Spec](cargo-e2e-desktop-platform-todo-spec.md).
 - Versioned config currently lives in `tools/automation/e2e_profiles.toml` and `tools/automation/e2e_scenarios.toml`.
 - The E2E command family executes through the same shared xtask runtime (`CommandContext`, `ConfigLoader<T>`, `ProcessRunner`, `ArtifactManager`, `WorkflowRecorder`) as `verify`, `perf`, `docs`, and `wiki`.
 - `cargo verify --profile <name>` may append a Cargo-managed E2E stage when the selected verify profile declares `e2e_profile = "<e2e-profile>"` in `tools/automation/verify_profiles.toml`.

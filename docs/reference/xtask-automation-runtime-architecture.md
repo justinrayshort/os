@@ -130,6 +130,7 @@ Versioned automation configuration lives under [`tools/automation/`](../../tools
 - [`tools/automation/e2e_profiles.toml`](../../tools/automation/e2e_profiles.toml): executable E2E profile definitions, including browser fan-out, retries, trace policy, debug slow-motion settings, and versioned desktop-driver profiles
 - [`tools/automation/e2e_scenarios.toml`](../../tools/automation/e2e_scenarios.toml): E2E scenario catalog and scenario sets for both browser and planned desktop workflows
 - [`tools/e2e/`](../../tools/e2e/): versioned browser Playwright harness plus desktop Selenium harness consumed by `cargo e2e run`
+- [`docs/reference/cargo-e2e-desktop-platform-todo-spec.md`](cargo-e2e-desktop-platform-todo-spec.md): tracked future-platform work for Linux/Windows desktop E2E validation while macOS stays browser-first
 
 Guidelines:
 

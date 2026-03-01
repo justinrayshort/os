@@ -1,4 +1,8 @@
 //! Explorer desktop app UI component backed by typed host contracts.
+//!
+//! The app persists the current directory, selection, and lightweight editor state through the
+//! injected runtime services. It can operate entirely against the virtual IndexedDB-backed
+//! workspace or, when the host permits it, guide the user through connecting a native folder.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

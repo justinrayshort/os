@@ -9,6 +9,10 @@
 //! - `bridge::fs`
 //! - `bridge::prefs`
 //! - `bridge::interop` (shared wasm/non-wasm transport glue)
+//!
+//! Use the adapter factories re-exported from [`adapters`] when wiring the runtime. They hide the
+//! concrete browser-vs-desktop-webview transport choice behind the typed [`platform_host`] traits
+//! and capability snapshot.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

@@ -25,4 +25,4 @@ This repo-native page remains as a validated pointer in the `docs/` corpus so ma
 
 - Update the canonical procedure in the wiki page above.
 - Keep this pointer page in sync only if the wiki page name/path changes.
-- Use the PR checklist to confirm `wiki/` submodule pointer updates when wiki content changes.
+- Record the `wiki/` submodule pointer update in the PR description or review notes when wiki content changes.

@@ -2,6 +2,8 @@
 //!
 //! The app consumes the injected v2 service surface from [`desktop_app_contract::AppServices`]
 //! so wallpaper and theme configuration stay synchronized with the desktop runtime.
+//! It also exposes the current host capability posture so UI flows can distinguish browser-first
+//! constraints from future desktop-native capabilities.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

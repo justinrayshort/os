@@ -1,4 +1,7 @@
 //! Notepad desktop app UI component and multi-document workspace persistence.
+//!
+//! The app keeps a lightweight multi-document workspace in runtime-managed state and uses shared
+//! `system_ui` primitives rather than app-local control contracts.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

@@ -36,7 +36,7 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
 ## 4. Prerequisites
 
 - Repository checkout with Rust toolchain (`cargo`)
-- Repository checkout with git submodules initialized (`wiki/`)
+- Repository checkout with the `wiki/` submodule available locally
 - Ability to run repository validation scripts
 - Required ownership and status values known
 - Related code/API/architecture changes identified (if applicable)
@@ -47,12 +47,13 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
    - Command:
 
    ```bash
-   cargo wiki sync
+   cargo wiki status
    ```
 
-   - Expected output: `wiki/` submodule is present and up to date
-   - Failure condition: wiki submodule missing or detached workflow not updated
-   - If editing wiki content: run `cargo wiki status` and `git -C wiki fetch origin`, then fast-forward the local wiki branch (or switch off detached HEAD before committing).
+   - Expected output: `wiki/` submodule branch/HEAD/dirty state is visible before editing
+   - Failure condition: `wiki/` is unavailable locally or state is unclear
+   - If the submodule is missing and you are not already carrying local wiki edits, initialize or refresh it with `cargo wiki sync`.
+   - If editing wiki content: after `cargo wiki status`, run `git -C wiki fetch origin`, then fast-forward the local wiki branch (or switch off detached HEAD before committing).
 2. Create or update the documentation in the correct place.
    - Command:
 
@@ -93,6 +94,7 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
 
    - Expected output: code changes plus rustdoc/wiki/docs updates (and `wiki/` submodule pointer when applicable) are included
    - Failure condition: behavioral code change ships without rustdoc/wiki updates, wiki changes are committed without a parent submodule pointer update, or ADR requirement is skipped
+   - Record the docs surfaces updated, commands run, and any intentionally skipped checks in the PR description or review notes used by the repository workflow.
 
 ## 6. Visual Aids
 
@@ -128,12 +130,13 @@ sequenceDiagram
 - [ ] Mermaid blocks validate
 - [ ] OpenAPI specs validate (if present/changed)
 - [ ] `cargo xtask docs all` passes
-- [ ] PR checklist completed (docs updated / ADR if required)
+- [ ] PR description or review notes record docs coverage and ADR status when required
 
 ## 9. Version History
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.2.3 | 2026-03-01 | Codex | Switched initial wiki inspection to `cargo wiki status` and replaced missing PR-template references with workflow-note guidance |
 | 1.2.2 | 2026-02-28 | Codex | Standardized wiki submodule bootstrap/inspection on `cargo wiki sync` and `cargo wiki status` |
 | 1.2.1 | 2026-02-26 | Codex | Added explicit wiki submodule sync/refresh procedure and clarified wiki pointer update failure mode |
 | 1.2.0 | 2026-02-26 | Codex | Migrated documentation validation/audit workflow to Rust-only `xtask`; removed hosted CI/MkDocs runtime dependency |

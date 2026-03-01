@@ -54,6 +54,7 @@ The project now uses a split documentation surface:
 ## Start Here
 
 - Start in `wiki/Home.md` for the canonical documentation hub and project-wide navigation.
+- Use `cargo wiki status` to inspect local wiki state and `cargo wiki sync` to initialize or refresh the submodule when it is clean.
 - Read the operating model in [`docs/sop/documentation-system-sop.md`](sop/documentation-system-sop.md).
 - Read the split-strategy policy in [`docs/reference/rustdoc-and-github-wiki-documentation-strategy.md`](reference/rustdoc-and-github-wiki-documentation-strategy.md).
 - Use [`docs/sop/sop-template.md`](sop/sop-template.md) for new SOPs.

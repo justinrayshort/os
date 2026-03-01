@@ -4,6 +4,10 @@
 //! persistence/explorer models, time/session helpers, and app-state service traits while concrete
 //! browser adapters live in `platform_host_web` and desktop transport remains behind
 //! `desktop_tauri`.
+//!
+//! The contracts here are intentionally implementation-agnostic: runtime and app crates depend on
+//! these traits and models, while browser and desktop layers choose the concrete adapters and
+//! compatibility behavior.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

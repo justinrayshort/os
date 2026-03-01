@@ -1,8 +1,12 @@
 //! Tauri desktop shell bootstrap for the shared runtime/app crates.
 //!
-//! This crate introduces the Stage 2 desktop host shell and keeps command registration localized
-//! so future host-domain IPC handlers can be added without coupling the runtime layer directly to
-//! Tauri internals.
+//! This crate owns the native desktop bootstrap and keeps Tauri command registration localized so
+//! host-domain IPC handlers can evolve without coupling the shared runtime layer directly to Tauri
+//! internals.
+//!
+//! The browser-first Cargo workflows remain the stable development path on macOS. This crate is
+//! still the native host boundary for desktop transports such as app-state, preferences,
+//! notifications, external URL opening, and scoped explorer access.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
@@ -15,6 +19,9 @@ mod notifications;
 mod prefs;
 
 /// Starts the Tauri desktop host process.
+///
+/// This registers the current host-domain commands and then transfers control to Tauri's runtime
+/// event loop.
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())

@@ -125,7 +125,7 @@ Repo-native pages under `docs/tutorials`, `docs/how-to`, and `docs/explanation` 
 ## Review and Pull Request Requirements
 
 - Documentation changes are reviewed in the same PR as related code changes.
-- PR authors complete rustdoc/wiki checklist items in `.github/pull_request_template.md`.
+- PR authors record which rustdoc/wiki/docs surfaces changed, which validation commands were run, and whether the `wiki/` submodule pointer is included whenever wiki content changed.
 - Reviewers verify:
   - API changes are reflected in rustdoc
   - Wiki pages are updated or explicitly marked N/A

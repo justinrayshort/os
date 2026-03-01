@@ -4,6 +4,9 @@
 //! This crate is intentionally runtime-agnostic. It defines serializable command metadata,
 //! structured execution requests, completion payloads, parser outputs, and stream events without
 //! depending on Leptos, browser APIs, or desktop runtime internals.
+//!
+//! Consumers include the shared shell engine, runtime-side command registration surfaces, and the
+//! terminal UI that renders typed notices, progress updates, and structured data.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

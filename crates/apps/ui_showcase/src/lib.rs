@@ -3,6 +3,8 @@
 //! The app renders every reusable control family through `system_ui`
 //! primitives so visual refinements can be reviewed in a production surface
 //! without introducing app-local design contracts.
+//! It doubles as a living validation surface for new shared primitives before they are adopted by
+//! the shell or other built-in apps.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

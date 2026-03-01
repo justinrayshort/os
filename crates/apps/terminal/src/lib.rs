@@ -1,4 +1,8 @@
 //! Terminal desktop app UI component backed by the browser-native shell session bridge.
+//!
+//! The app persists cwd, input, transcript, and active-execution metadata through the runtime and
+//! renders typed shell notices, progress, and structured output produced by
+//! [`system_shell_contract`].
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

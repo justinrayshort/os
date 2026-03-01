@@ -6,6 +6,11 @@
 //!
 //! Host-owned wallpaper models now live in [`platform_host`]. This crate exposes the app-facing
 //! service surface that consumes those models without redefining the wallpaper domain itself.
+//!
+//! Runtime composition code constructs [`AppMountContext`] values per window instance and injects
+//! [`AppServices`] so application crates can persist state, query capabilities, use explorer/cache
+//! helpers, and register structured shell commands without importing environment-specific host
+//! implementations directly.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
@@ -45,6 +50,16 @@ pub struct ApplicationId(String);
 
 impl ApplicationId {
     /// Returns an app identifier when `raw` conforms to the `segment.segment...` policy.
+    ///
+    /// Each segment must start with an ASCII lowercase letter, contain only ASCII lowercase
+    /// letters, digits, or `-`, and be non-empty. The full identifier must contain at least two
+    /// segments and remain within the runtime length limits used by manifests, deep links, and IPC
+    /// topic prefixes.
+    ///
+    /// # Errors
+    ///
+    /// Returns a human-readable validation message when the identifier violates the runtime naming
+    /// contract.
     pub fn new(raw: impl Into<String>) -> Result<Self, String> {
         let raw = raw.into();
         if is_valid_application_id(&raw) {
@@ -1178,6 +1193,11 @@ impl CommandService {
 
 #[derive(Clone)]
 /// Injected app services bundle.
+///
+/// This is the main app-facing service surface. It combines runtime-mediated command callbacks
+/// with host-selected persistence, explorer, cache, wallpaper, notification, and command-session
+/// adapters, while [`CapabilitySet`] exposes which optional domains are currently granted and
+/// available.
 pub struct AppServices {
     capabilities: CapabilitySet,
     /// Window integration service.
@@ -1207,7 +1227,7 @@ pub struct AppServices {
 }
 
 impl AppServices {
-    /// Creates service handles from the runtime command callback.
+    /// Creates service handles from the runtime command callback and host-selected adapters.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         sender: Callback<AppCommand>,
@@ -1262,6 +1282,10 @@ impl AppServices {
 
 #[derive(Clone)]
 /// App mount context injected by the desktop runtime per window instance.
+///
+/// One value is created for each mounted window. The context carries immutable launch/restoration
+/// payloads, reactive lifecycle and inbox signals, a reactive capability snapshot, and the shared
+/// [`AppServices`] bundle for host/runtime operations.
 pub struct AppMountContext {
     /// Stable app id from the runtime catalog.
     pub app_id: ApplicationId,

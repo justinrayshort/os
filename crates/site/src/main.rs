@@ -8,6 +8,6 @@ fn main() {
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     eprintln!(
-        "This binary is intended for Trunk/WASM (CSR). Run: trunk serve crates/site/index.html --features csr --open (bin: site_app)"
+        "This binary is intended for the browser/WASM workflow. Use `cargo dev` for local development or build `site_app` for wasm32 with the `csr` feature."
     );
 }

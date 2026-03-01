@@ -1,4 +1,9 @@
 //! Runtime-agnostic browser-native shell engine with hierarchical command registration.
+//!
+//! [`ShellEngine`] owns a shared [`CommandRegistry`] while each [`ShellSessionHandle`] maintains
+//! its own cwd, event log, active execution slot, and cancellation state. The engine emits typed
+//! stream events defined in [`system_shell_contract`] so the desktop runtime and terminal UI can
+//! render notices, progress, and structured output consistently.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 
@@ -144,6 +149,9 @@ struct RegistryState {
 }
 
 /// Shared command registry.
+///
+/// The registry stores descriptors, completion handlers, and execution handlers. Session objects
+/// snapshot visible commands from this registry when resolving completions and command execution.
 #[derive(Clone, Default)]
 pub struct CommandRegistry {
     state: Rc<RefCell<RegistryState>>,
@@ -1009,6 +1017,9 @@ impl StructuredFieldBuilder {
 }
 
 /// Root shell engine used by the runtime.
+///
+/// Create one engine for the runtime, register built-in or app-provided commands on its registry,
+/// then spawn per-window sessions with [`ShellEngine::new_session`].
 #[derive(Clone, Default)]
 pub struct ShellEngine {
     registry: CommandRegistry,

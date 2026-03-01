@@ -1,4 +1,7 @@
 //! Calculator desktop app UI component and persistence integration.
+//!
+//! The app persists calculator memory/tape state through the runtime-managed app-state channel and
+//! renders its keypad and display entirely through the shared `system_ui` primitive set.
 
 #![warn(missing_docs, rustdoc::broken_intra_doc_links)]
 

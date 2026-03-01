@@ -8,7 +8,7 @@ audience: ["platform", "engineering"]
 invariants:
   - "Local docs validation fails on broken links, invalid contracts, or invalid diagrams."
   - "Documentation automation runs through in-repo Rust tooling (`cargo xtask docs`)."
-tags: ["reference", "ci", "tooling"]
+tags: ["reference", "tooling", "local-validation"]
 domain: "docs"
 lifecycle: "ga"
 ---
@@ -52,12 +52,14 @@ The xtask runtime architecture is documented in [xtask Automation Runtime Archit
 - Local full validation:
 
 ```bash
+cargo wiki status
 cargo xtask docs all
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
 ```
 
 `cargo xtask docs all` already includes wiki structure checks and storage-boundary enforcement.
+Use `cargo wiki status` for a non-mutating summary of the submodule branch, HEAD, and dirty state while authoring or reviewing wiki changes.
 
 - Staged diagnostics (optional when you want isolated failures):
 
@@ -76,6 +78,12 @@ cargo verify
 
 ```bash
 cargo xtask docs audit-report --output .artifacts/docs-audit.json
+```
+
+- Wiki bootstrap/refresh when the submodule is clean:
+
+```bash
+cargo wiki sync
 ```
 
 - Convenience wrappers for docs checks and project verification are documented in [Project Command Entry Points](project-command-entrypoints.md).

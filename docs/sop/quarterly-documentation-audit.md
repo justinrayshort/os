@@ -37,10 +37,20 @@ This SOP defines the quarterly documentation audit procedure for verifying fresh
 - Repository access
 - Rust toolchain (`cargo`)
 - Current branch synchronized with `main`
+- `wiki/` submodule available locally when the audit covers wiki navigation and instructional structure
 
 ## 5. Step-by-Step Procedure
 
-1. Run the documentation audit report locally.
+1. Inspect wiki state before generating audit artifacts.
+   - Command:
+
+   ```bash
+   cargo wiki status
+   ```
+
+   - Expected output: current wiki branch/HEAD/dirty state is visible
+   - Failure condition: wiki submodule state is unknown while auditing documentation health
+2. Run the documentation audit report locally.
    - Command:
 
    ```bash
@@ -49,7 +59,7 @@ This SOP defines the quarterly documentation audit procedure for verifying fresh
 
    - Expected output: JSON audit report written to `.artifacts/docs-audit.json`
    - Failure condition: validation errors prevent report generation
-2. Review stale document list and assign owners.
+3. Review stale document list and assign owners.
    - Command:
 
    ```bash
@@ -58,16 +68,17 @@ This SOP defines the quarterly documentation audit procedure for verifying fresh
 
    - Expected output: frontmatter freshness passes or outputs actionable stale docs
    - Failure condition: stale critical SOP/reference docs remain unresolved
-3. Re-run full validation.
+4. Re-run full validation.
    - Command:
 
    ```bash
+   cargo xtask docs wiki
    cargo xtask docs all
    ```
 
    - Expected output: all checks succeed
    - Failure condition: broken links, invalid diagrams, or contract failures persist
-4. Preserve the audit artifact and record follow-up actions.
+5. Preserve the audit artifact and record follow-up actions.
    - Command:
 
    ```bash
@@ -100,6 +111,7 @@ flowchart TD
 - [ ] Audit JSON artifact generated
 - [ ] Freshness percentage reviewed
 - [ ] Stale docs assigned
+- [ ] Wiki structure check reviewed
 - [ ] Broken links count is zero
 - [ ] Mermaid/OpenAPI validation passes
 
@@ -107,5 +119,6 @@ flowchart TD
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.1.1 | 2026-03-01 | Codex | Added `cargo wiki status` and explicit wiki validation to the quarterly audit flow |
 | 1.1.0 | 2026-02-26 | Codex | Moved audit execution and artifact handling to local Rust `xtask` workflow |
 | 1.0.0 | 2026-02-25 | Codex | Initial quarterly audit SOP |

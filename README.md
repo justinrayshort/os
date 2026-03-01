@@ -157,10 +157,11 @@ versioned under `tools/automation/`, `cargo e2e doctor` checks the local prerequ
 harness with artifacts under `.artifacts/e2e/runs/`. Profile settings now materially affect the
 run: `ci-headless` uses headless Chromium plus retry-on-failure policy, `cross-browser` fans out
 across Chromium/Firefox/WebKit, and `debug` runs headed with slow motion and always-retained
-traces. Desktop `tauri-webdriver` profiles are now versioned in the same config surface, reported
-by `cargo e2e doctor`, and wired to a managed `tauri-driver` plus Selenium desktop harness on
-supported Linux/Windows hosts. On macOS, those profiles still fail immediately with an explicit
-unsupported-platform message.
+traces. Desktop `tauri-webdriver` profiles are now versioned in the same config surface and
+reported by `cargo e2e doctor`, but macOS remains the stable browser-first development path.
+Desktop Linux/Windows execution is staged behind the same Cargo surface and tracked in
+`docs/reference/cargo-e2e-desktop-platform-todo-spec.md`; on macOS, those profiles fail
+immediately with an explicit unsupported-platform message.
 `cargo e2e run --dry-run` remains available for config-only validation.
 
 Full verification (fast verification + prototype checks + optional clippy/trunk build):
