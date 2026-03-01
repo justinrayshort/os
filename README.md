@@ -9,6 +9,7 @@ Documentation is split by intent:
 - `rustdoc` (generated from Rust source comments) is the authoritative API/reference surface.
 - GitHub Wiki is the canonical documentation hub and navigation surface, organized with Diataxis (tutorials, how-to guides, explanations, and project reference indexes).
 - `docs/` (repo-native Markdown) remains the canonical storage for documentation governance, contracts, ADRs, SOPs, diagrams/assets, and tooling reference, validated by `cargo xtask docs`.
+- **`.ai/` directory contains machine-consumable context for Claude and other LLMs**, including architectural rules, operational contracts, naming conventions, and validation requirements. See [.ai/INDEX.md](.ai/INDEX.md) for the discovery entry point.
 
 ## Prototype Status
 
