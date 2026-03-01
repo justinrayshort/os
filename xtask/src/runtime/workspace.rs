@@ -142,6 +142,76 @@ impl WorkspaceState {
             Some(branch)
         }
     }
+
+    /// Return the upstream branch name for a specific git worktree, or `None` when unavailable.
+    pub fn git_upstream_branch_at(&self, repo_root: &Path) -> Option<String> {
+        let Ok(output) = Command::new("git")
+            .current_dir(repo_root)
+            .args([
+                "rev-parse",
+                "--abbrev-ref",
+                "--symbolic-full-name",
+                "@{upstream}",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+        else {
+            return None;
+        };
+        if !output.status.success() {
+            return None;
+        }
+        let upstream = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if upstream.is_empty() {
+            None
+        } else {
+            Some(upstream)
+        }
+    }
+
+    /// Return the configured remote URL for a specific git worktree, or `None` when unavailable.
+    pub fn git_remote_url_at(&self, repo_root: &Path, remote: &str) -> Option<String> {
+        let Ok(output) = Command::new("git")
+            .current_dir(repo_root)
+            .args(["remote", "get-url", remote])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+        else {
+            return None;
+        };
+        if !output.status.success() {
+            return None;
+        }
+        let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if url.is_empty() {
+            None
+        } else {
+            Some(url)
+        }
+    }
+
+    /// Return `(ahead, behind)` counts against the configured upstream, or `None` when unknown.
+    pub fn git_ahead_behind_at(&self, repo_root: &Path) -> Option<(u32, u32)> {
+        let Ok(output) = Command::new("git")
+            .current_dir(repo_root)
+            .args(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+        else {
+            return None;
+        };
+        if !output.status.success() {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&output.stdout);
+        let mut parts = text.split_whitespace();
+        let ahead = parts.next()?.parse::<u32>().ok()?;
+        let behind = parts.next()?.parse::<u32>().ok()?;
+        Some((ahead, behind))
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -220,6 +290,15 @@ mod tests {
         std::fs::create_dir_all(&root).expect("create temp root");
         let state = WorkspaceState::new(root.clone());
         assert_eq!(state.git_current_branch_at(&root), None);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn git_remote_url_is_none_outside_git_repo() {
+        let root = unique_test_root();
+        std::fs::create_dir_all(&root).expect("create temp root");
+        let state = WorkspaceState::new(root.clone());
+        assert_eq!(state.git_remote_url_at(&root, "origin"), None);
         let _ = std::fs::remove_dir_all(root);
     }
 }

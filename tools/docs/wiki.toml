@@ -1,0 +1,4 @@
+remote_url = "https://github.com/justinrayshort/os.wiki.git"
+default_branch = "master"
+recommended_checkout_parent = ".."
+recommended_checkout_name = "os.wiki"

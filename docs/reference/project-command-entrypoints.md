@@ -97,12 +97,12 @@ This page documents the supported top-level commands for local development, veri
 
 ### Documentation Workflow (Rustdoc + Wiki)
 
-- `cargo wiki status`: Show whether the `wiki/` submodule is initialized, which branch/HEAD it is on, and whether it has local changes.
-- `cargo wiki sync`: Refresh submodule wiring and initialize/update the `wiki/` submodule.
-  - Refuses to run when `wiki/` has local modifications, so scripted refreshes do not trample in-progress wiki edits.
+- `cargo wiki status`: Show the configured external wiki checkout path, remote URL, branch/HEAD, dirty state, and ahead/behind status.
+- `cargo wiki clone`: Clone the configured external wiki repo into the recommended checkout path (default sibling checkout `../os.wiki`).
+- `cargo wiki verify`: Validate that the configured external wiki checkout exists, uses the expected remote, is on the expected branch, is clean, and is synchronized with upstream.
 - `cargo docs-check`: Run `cargo xtask docs all` (Cargo alias convenience wrapper).
 - `cargo docs-audit`: Generate `.artifacts/docs-audit.json` via `cargo xtask docs audit-report`.
-- `cargo xtask docs wiki`: Validate wiki submodule wiring and required navigation/category pages (useful for staged/isolated wiki diagnostics).
+- `cargo xtask docs wiki`: Validate external wiki config plus required navigation/category pages (useful for staged/isolated wiki diagnostics).
 - `cargo xtask docs ui-inventory --output .artifacts/ui/styling-inventory.json`: Generate a machine-readable inventory of Rust/CSS styling entry points, local visual contracts, token definitions, and hard-coded literals across shell/apps/system_ui/theme files.
 - `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries by flagging legacy low-level envelope access patterns in `crates/apps`, `crates/desktop_runtime`, and `crates/site`.
 - `cargo xtask docs app-contract`: Validate app manifest contract shape, app-id conventions, and forbidden ad hoc app integration patterns.
@@ -110,7 +110,8 @@ This page documents the supported top-level commands for local development, veri
 - `scripts/ui/keyboard-flow-smoke.sh [base_url] [output_dir]`: Deprecated compatibility shim that forwards into `cargo e2e run --profile local-dev --scenario ui.keyboard-smoke`.
 - `cargo doc --workspace --no-deps`: Generate authoritative Rust API reference (`target/doc/`).
 - `cargo test --workspace --doc`: Run rustdoc examples (doctests).
-- `cargo xtask docs all`: Run docs contract validation (includes `wiki` validation).
+- `cargo xtask docs all`: Run docs contract validation for repo-native docs.
+- `cargo xtask docs all --with-wiki`: Run the same validation plus external wiki checks.
 
 ## Root `make` Compatibility Targets
 
@@ -118,7 +119,7 @@ These targets exist only as a small compatibility shell for operator convenience
 
 - `make verify-fast` -> `cargo verify-fast`
 - `make verify` -> `cargo verify`
-- `make wiki-init` -> `cargo wiki sync`
+- `make wiki-init` -> `cargo wiki clone`
 - `make docs-check` -> `cargo docs-check`
 - `make rustdoc-check` -> `cargo doc --workspace --no-deps && cargo test --workspace --doc`
 - `make proto-serve` -> `cargo dev serve`
@@ -172,4 +173,4 @@ Expected viewport result with the current local config: `"1440x900"`.
 - When adding or changing a top-level command, update this page, `README.md`, and `AGENTS.md` in the same change.
 - When extending `xtask`, add workflow logic under `xtask/src/commands/` and shared orchestration under `xtask/src/runtime/`; avoid adding new workflow logic directly to the binary entrypoint.
 - When public APIs change, update rustdoc comments and run doctests in the same change.
-- When tutorials/how-to/explanations change, update the `wiki/` submodule in the same review cycle.
+- When tutorials/how-to/explanations change, update the external wiki repository in the same review cycle and record the wiki commit SHA in review notes.

@@ -6,6 +6,7 @@ use super::server::{
 use super::SetupWebCommand;
 use crate::runtime::context::CommandContext;
 use crate::runtime::error::{XtaskError, XtaskResult};
+use crate::wiki_config::resolve_wiki_checkout;
 use crate::XtaskCommand;
 
 #[derive(Clone, Debug)]
@@ -85,16 +86,17 @@ pub(super) fn run_doctor(ctx: &CommandContext, options: DoctorOptions) -> XtaskR
             })?;
 
         ctx.workflow()
-            .run_timed_stage("Docs prerequisite: wiki submodule", || {
-                let wiki_root = ctx.root().join("wiki");
-                if wiki_root.join(".git").exists() || wiki_root.join("Home.md").exists() {
-                    println!("    wiki submodule initialized");
-                    Ok(())
+            .run_timed_stage("Docs prerequisite: external wiki checkout", || {
+                let wiki_checkout = resolve_wiki_checkout(ctx.root())?;
+                if wiki_checkout.path.join(".git").exists() {
+                    println!("    external wiki checkout available at {}", wiki_checkout.path.display());
                 } else {
-                    Err(XtaskError::environment(
-                        "wiki submodule missing (run `cargo wiki sync`)",
-                    ))
+                    println!(
+                        "    external wiki checkout not present at {} (run `cargo wiki clone` if you need wiki editing/validation)",
+                        wiki_checkout.path.display()
+                    );
                 }
+                Ok(())
             })?;
 
         ctx.workflow()

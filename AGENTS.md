@@ -14,7 +14,7 @@ This repository is maintained with help from automated agents. Use this file as 
   - `xtask` (local workflow orchestration for docs, perf, verification, dev-server tasks)
 - Documentation system split across:
   - Rust source comments (`//!`, `///`) -> generated `rustdoc` API reference (authoritative code-level Reference documentation)
-  - GitHub Wiki repository as submodule under `wiki/` (canonical documentation hub and narrative/architectural record, organized by Diataxis)
+  - External GitHub Wiki repository (canonical documentation hub and narrative/architectural record, organized by Diataxis, configured by `tools/docs/wiki.toml`)
   - Repo-native Markdown under `docs/` for formal artifact source files (contracts, SOPs, ADRs, tooling reference, diagrams/assets) indexed and cross-linked from the Wiki
   - Validation/audit CLI implemented in Rust via `cargo xtask docs` (`xtask/src/docs.rs` + `xtask/src/docs/`, fronted by `xtask/src/commands/docs/`)
 - Wiki instructional content (`Tutorial-*`, `How-to-*`) uses a shared structural template and is now validated by `cargo xtask docs wiki`.
@@ -67,7 +67,7 @@ The docs validator enforces:
 - Folder/category mapping (Diataxis) under `docs/` must remain consistent.
 - SOP docs must include the required SOP headings (validated by `sop` check).
 - Review freshness threshold is tracked (currently 180 days) in audit reporting.
-- Wiki submodule wiring and required Wiki pages (including `Home.md`, `_Sidebar.md`, category landing pages) via `cargo xtask docs wiki`.
+- External wiki config plus required Wiki pages (including `Home.md`, `_Sidebar.md`, category landing pages) via `cargo xtask docs wiki`.
 - Wiki navigation expectations in `Home.md`, `OS-Wiki.md`, and `_Sidebar.md` via `cargo xtask docs wiki`.
 - Wiki instructional template structure for `wiki/Tutorial-*.md` and `wiki/How-to-*.md`:
   - exact level-2 section sequence: `Outcome`, `Entry Criteria`, `Procedure`, `Validation`, `Next Steps`
@@ -161,7 +161,7 @@ Docs-focused verification order (`cargo xtask docs all` internals):
 Behavior:
 
 - Run locally on a quarterly cadence (or before governance reviews)
-- Validates wiki submodule structure and docs contracts (via `audit-report`)
+- Validates external wiki structure and docs contracts (via `audit-report`)
 - Generates `.artifacts/docs-audit.json` via `audit-report`
 - Fails locally if audit validation fails
 - Preserve/share the audit artifact through your normal review process (no hosted CI dependency)
@@ -182,7 +182,7 @@ Minimum local review expectations for material UI changes:
    - `cargo test --workspace`
    - `cargo xtask docs all`
 4. Update the checklist status entries and related design-system docs in the same review workflow.
-5. If a formal docs artifact is added/changed, update the relevant Wiki registry page(s) in `wiki/`.
+5. If a formal docs artifact is added/changed, update the relevant Wiki registry page(s) in the external wiki repository.
 
 ### 4.4 `xtask` / Validator Changes (Local)
 
@@ -207,18 +207,18 @@ cargo build -p xtask
 Run the standard local docs validation entry point:
 
 ```bash
-cargo wiki sync
+cargo wiki clone
 cargo xtask docs all
 cargo doc --workspace --no-deps
 cargo test --workspace --doc
 ```
 
-`cargo xtask docs all` includes wiki validation. Add `cargo xtask docs wiki` when you want staged or isolated wiki diagnostics.
+`cargo xtask docs all` validates repo-native docs by default. Add `--with-wiki` or run `cargo xtask docs wiki` when you want staged or isolated external wiki diagnostics.
 
 ### 5.3 Docs Commands (explicit)
 
 ```bash
-cargo wiki sync
+cargo wiki clone
 cargo xtask docs structure
 cargo xtask docs wiki
 cargo xtask docs frontmatter
@@ -325,10 +325,10 @@ Run `cargo xtask docs wiki` in addition when validating staged wiki-only diagnos
 
 ### 6.1 Docs-only changes
 
-1. Classify the change surface: rustdoc (`crates/**` comments), wiki (`wiki/*.md`), or repo docs (`docs/`).
+1. Classify the change surface: rustdoc (`crates/**` comments), external wiki pages, or repo docs (`docs/`).
    - For Wiki changes, classify the page explicitly as Tutorial / How-to Guide / Reference / Explanation and keep content scoped to that intent.
    - For rustdoc changes, treat the content as Reference documentation.
-2. Initialize/update the wiki submodule if touching wiki content (`cargo wiki sync`).
+2. Ensure the external wiki checkout is available if touching wiki content (`cargo wiki clone`).
 3. Keep docs frontmatter complete and valid for `docs/*.md` changes.
 4. If editing `wiki/Tutorial-*.md` or `wiki/How-to-*.md`, preserve the shared instructional template (`Outcome`, `Entry Criteria`, `Procedure`, `Validation`, `Next Steps` + required `Entry Criteria` subsections).
 5. If ADRs, SOPs, diagrams, or other formal artifacts changed in `docs/`, update the relevant Wiki reference/index pages in the same change.
@@ -353,7 +353,7 @@ Run `cargo xtask docs wiki` in addition when validating staged wiki-only diagnos
 7. Run rustdoc checks (`cargo doc --workspace --no-deps`, `cargo test --workspace --doc`).
 8. Run docs validation (`cargo xtask docs all`; add `cargo xtask docs wiki` for isolated wiki diagnostics).
 9. If `xtask` docs/perf behavior changed, run `cargo test -p xtask` and update command/docs guidance (`AGENTS.md`, Wiki, `docs/reference/*`) as needed.
-10. If wiki content changed, commit `wiki/` changes and include the updated `wiki/` submodule pointer in the same PR/change set.
+10. If wiki content changed, commit the external wiki repository changes and record the wiki branch/SHA in the same PR or review notes.
 
 ### 6.3 UI design-system changes (code + visuals + docs)
 
@@ -364,7 +364,7 @@ Run `cargo xtask docs wiki` in addition when validating staged wiki-only diagnos
 5. Update `docs/reference/desktop-shell-neumorphic-design-system.md` when token sets, primitives, invariants, or scope materially change.
 6. Follow `docs/sop/ui-design-conformance-review-sop.md` for evidence collection, validation, and deviation handling.
 7. Run `cargo check --workspace`, `cargo test --workspace`, `cargo xtask docs ui-conformance`, and `cargo xtask docs all` (plus rustdoc checks when rustdoc changed).
-8. If formal docs artifacts or registries changed, update the relevant wiki reference pages and include the `wiki/` submodule pointer update in the same PR/change set.
+8. If formal docs artifacts or registries changed, update the relevant wiki reference pages and record the wiki branch/SHA in the same PR or review notes.
 
 ### 6.4 Host Boundary / Storage Migration Changes (Code + Docs)
 
@@ -388,8 +388,7 @@ When changing `platform_host`, `platform_host_web`, or `desktop_tauri` contracts
 - `xtask/src/commands/perf/` (performance benchmarking/profiling command family and cohesive workflow submodules)
 - `xtask/src/runtime/` (shared xtask automation runtime: process execution, workspace inspection, lifecycle helpers, workflow recording, typed config, artifact policy)
 - `tools/docs/doc_contracts.json` (docs schema/contract rules)
-- `.gitmodules` (wiki submodule declaration)
-- `wiki/` (GitHub Wiki submodule checkout; canonical navigation + Diataxis narrative)
+- `tools/docs/wiki.toml` (external wiki repository configuration)
 - `docs/reference/rustdoc-and-github-wiki-documentation-strategy.md` (documentation surface split policy)
 - `docs/reference/documentation-toolchain-and-ci.md` (docs tooling/validation pipeline reference)
 - `docs/reference/project-command-entrypoints.md` (command catalog / entrypoint reference)
@@ -410,4 +409,4 @@ In completion summaries:
 - State what changed.
 - List commands run (and whether they passed).
 - Call out any checks not run (and why).
-- If wiki content changed, state whether the `wiki/` submodule pointer changed and whether wiki commits/pushes were performed.
+- If wiki content changed, state the external wiki branch/SHA and whether wiki commits/pushes were performed.

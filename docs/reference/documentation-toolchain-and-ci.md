@@ -18,7 +18,7 @@ lifecycle: "ga"
 ## Authoring Formats
 
 - Markdown (`.md`) for docs pages
-- Markdown (`.md`) for GitHub Wiki pages (via `wiki/` submodule)
+- Markdown (`.md`) for GitHub Wiki pages (via an external git-backed checkout)
 - Rust doc comments (`//!`, `///`) for API reference generation
 - OpenAPI YAML/JSON under `docs/reference/openapi/`
 - Mermaid blocks in Markdown and `.mmd` assets
@@ -28,13 +28,13 @@ lifecycle: "ga"
 
 - `cargo xtask docs` (Rust-native docs contract/audit validator routed through the shared xtask automation runtime)
 - `rustdoc` (`cargo doc --workspace --no-deps`) for API reference output
-- GitHub Wiki repository integrated as `wiki/` git submodule
+- GitHub Wiki repository managed as an external git-backed checkout configured by `tools/docs/wiki.toml`
 
 The xtask runtime architecture is documented in [xtask Automation Runtime Architecture](xtask-automation-runtime-architecture.md).
 
 ## Local Validation Stages
 
-1. Wiki submodule structure validation (`cargo xtask docs wiki`)
+1. Wiki structure validation (`cargo xtask docs wiki`) when an external checkout is available
 2. Frontmatter + contract validation
 3. OpenAPI parse/sanity validation
 4. Mermaid structural validation
@@ -58,8 +58,8 @@ cargo doc --workspace --no-deps
 cargo test --workspace --doc
 ```
 
-`cargo xtask docs all` already includes wiki structure checks and storage-boundary enforcement.
-Use `cargo wiki status` for a non-mutating summary of the submodule branch, HEAD, and dirty state while authoring or reviewing wiki changes.
+`cargo xtask docs all` validates repo-native docs by default and includes wiki checks when `--with-wiki` is passed or `OS_WIKI_PATH` is set.
+Use `cargo wiki status` for a non-mutating summary of the configured external checkout path, branch, HEAD, remote, and dirty state while authoring or reviewing wiki changes.
 
 - Staged diagnostics (optional when you want isolated failures):
 
@@ -80,10 +80,10 @@ cargo verify
 cargo xtask docs audit-report --output .artifacts/docs-audit.json
 ```
 
-- Wiki bootstrap/refresh when the submodule is clean:
+- Wiki bootstrap when you need the recommended external checkout locally:
 
 ```bash
-cargo wiki sync
+cargo wiki clone
 ```
 
 - Convenience wrappers for docs checks and project verification are documented in [Project Command Entry Points](project-command-entrypoints.md).

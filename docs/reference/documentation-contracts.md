@@ -71,6 +71,6 @@ SOP documents in `docs/sop/` must contain these sections in order:
 ## Source of Truth
 
 - Docs page contracts (frontmatter/category/SOP structure) are defined in [`tools/docs/doc_contracts.json`](../../tools/docs/doc_contracts.json).
-- Wiki submodule structure contracts are enforced by the Rust `xtask` docs validator ([`xtask/src/docs.rs`](../../xtask/src/docs.rs), `cargo xtask docs wiki`).
+- External wiki structure contracts are enforced by the Rust `xtask` docs validator ([`xtask/src/docs.rs`](../../xtask/src/docs.rs), `cargo xtask docs wiki`).
 - Rust API reference contract is enforced through rustdoc/lints in the Rust crates plus local rustdoc build/doctest steps.
-- Wiki authoring and review also require the `wiki/` submodule pointer to be staged in the parent repository whenever canonical wiki content changes.
+- Wiki authoring and review require the external wiki repository branch and commit SHA to be recorded in PR or review notes whenever canonical wiki content changes.

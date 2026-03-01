@@ -16,7 +16,7 @@ rustdoc-check:
 	cargo test --workspace --doc
 
 wiki-init:
-	cargo wiki sync
+	cargo wiki clone
 
 proto-serve:
 	cargo dev serve

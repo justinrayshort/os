@@ -17,7 +17,7 @@ lifecycle: "ga"
 
 ## 1. Title & Purpose
 
-This SOP defines the procedure for authoring, validating, reviewing, and auditing project documentation across rustdoc, the GitHub Wiki submodule, and the `docs/` governance corpus without violating documentation governance invariants.
+This SOP defines the procedure for authoring, validating, reviewing, and auditing project documentation across rustdoc, the external GitHub Wiki repository, and the `docs/` governance corpus without violating documentation governance invariants.
 
 ## 2. Scope
 
@@ -36,7 +36,7 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
 ## 4. Prerequisites
 
 - Repository checkout with Rust toolchain (`cargo`)
-- Repository checkout with the `wiki/` submodule available locally
+- Repository checkout with optional access to the external wiki repository
 - Ability to run repository validation scripts
 - Required ownership and status values known
 - Related code/API/architecture changes identified (if applicable)
@@ -50,16 +50,16 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
    cargo wiki status
    ```
 
-   - Expected output: `wiki/` submodule branch/HEAD/dirty state is visible before editing
-   - Failure condition: `wiki/` is unavailable locally or state is unclear
-   - If the submodule is missing and you are not already carrying local wiki edits, initialize or refresh it with `cargo wiki sync`.
-   - If editing wiki content: after `cargo wiki status`, run `git -C wiki fetch origin`, then fast-forward the local wiki branch (or switch off detached HEAD before committing).
+   - Expected output: configured external wiki checkout path plus branch/HEAD/remote/dirty state is visible before editing
+   - Failure condition: wiki checkout state is unclear when the change requires wiki updates
+   - If the external checkout is missing and you need it locally, create it with `cargo wiki clone`.
+   - If editing wiki content: use `cargo wiki verify` before finalizing the change and record the resulting wiki branch/SHA in PR or review notes.
 2. Create or update the documentation in the correct place.
    - Command:
 
    ```bash
    $EDITOR crates/<crate>/src/<file>.rs   # rustdoc
-   $EDITOR wiki/<Page>.md                 # GitHub Wiki
+   $EDITOR ../os.wiki/<Page>.md           # external GitHub Wiki checkout
    $EDITOR docs/<category>/<file>.md      # repo docs governance/ADR/SOP
    ```
 
@@ -92,8 +92,8 @@ This SOP defines the procedure for authoring, validating, reviewing, and auditin
    git status --short
    ```
 
-   - Expected output: code changes plus rustdoc/wiki/docs updates (and `wiki/` submodule pointer when applicable) are included
-   - Failure condition: behavioral code change ships without rustdoc/wiki updates, wiki changes are committed without a parent submodule pointer update, or ADR requirement is skipped
+   - Expected output: code changes plus rustdoc/wiki/docs updates are included
+   - Failure condition: behavioral code change ships without rustdoc/wiki updates, wiki changes are made without recording the external wiki branch/SHA, or ADR requirement is skipped
    - Record the docs surfaces updated, commands run, and any intentionally skipped checks in the PR description or review notes used by the repository workflow.
 
 ## 6. Visual Aids
@@ -114,7 +114,7 @@ sequenceDiagram
 
 - Documentation remains in the same repository as source code.
 - Rust API reference remains generated from rustdoc, not duplicated as hand-maintained Markdown reference.
-- Tutorials/how-to/explanations are maintained in the GitHub Wiki (`wiki/` submodule).
+- Tutorials/how-to/explanations are maintained in the external GitHub Wiki repository.
 - Critical procedures include explicit invariants and validation checklists.
 - `category` matches folder placement.
 - `owner`, `status`, and `last_reviewed` remain machine-validated.
@@ -123,7 +123,7 @@ sequenceDiagram
 ## 8. Validation Checklist
 
 - [ ] Frontmatter contract passes
-- [ ] Wiki submodule and structure checks pass
+- [ ] Wiki checkout and structure checks pass when wiki content changed
 - [ ] Rustdoc builds with no warnings
 - [ ] Rustdoc examples/doctests pass
 - [ ] Internal links resolve

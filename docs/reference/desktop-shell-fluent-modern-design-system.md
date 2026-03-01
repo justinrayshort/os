@@ -198,4 +198,4 @@ When extending the redesign to more shell or app surfaces:
 - [`crates/site/src/theme_shell/30-theme-modern-adaptive.css`](../../crates/site/src/theme_shell/30-theme-modern-adaptive.css)
 - [`docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`](desktop-shell-hig-fluent-conformance-checklist.md)
 - [`docs/sop/ui-design-conformance-review-sop.md`](../sop/ui-design-conformance-review-sop.md)
-- [`wiki/Reference-Design-Materials-and-Artifacts.md`](../../wiki/Reference-Design-Materials-and-Artifacts.md)
+- [GitHub Wiki: Reference - Design Materials and Artifacts](https://github.com/justinrayshort/os/wiki/Reference-Design-Materials-and-Artifacts)

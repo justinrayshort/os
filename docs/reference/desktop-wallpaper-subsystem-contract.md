@@ -130,4 +130,4 @@ Build-time validation in [`/Users/justinshort/os/crates/desktop_runtime/build.rs
 
 - [/Users/justinshort/os/docs/reference/desktop-shell-neumorphic-design-system.md](/Users/justinshort/os/docs/reference/desktop-shell-neumorphic-design-system.md)
 - [/Users/justinshort/os/docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md](/Users/justinshort/os/docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md)
-- [/Users/justinshort/os/wiki/Explanation-System-Architecture-Overview.md](/Users/justinshort/os/wiki/Explanation-System-Architecture-Overview.md)
+- [GitHub Wiki: Explanation - System Architecture Overview](https://github.com/justinrayshort/os/wiki/Explanation-System-Architecture-Overview)

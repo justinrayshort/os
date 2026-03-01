@@ -21,7 +21,7 @@ The project itself is a Rust workspace implementing a desktop-style runtime and 
 
 The project now uses a split documentation surface:
 
-- The GitHub Wiki (`wiki/` submodule) is the canonical documentation hub and primary navigation surface for project documentation (Diataxis pages plus project reference/index pages).
+- The GitHub Wiki is the canonical documentation hub and primary navigation surface for project documentation (Diataxis pages plus project reference/index pages).
 - `rustdoc` is authoritative for Rust API reference.
 - The repo-native `docs/` corpus is the canonical storage for formal governance/operations artifacts (contracts, ADRs, SOPs, tooling reference, and supporting assets).
 
@@ -42,7 +42,7 @@ The project now uses a split documentation surface:
 ## Canonical Information Architecture
 
 - `rustdoc` (generated): Rust API reference (crate/module/item docs)
-- `wiki/`: canonical documentation hub with Diataxis tutorials/how-to/explanations plus project reference indexes (architecture maps, diagrams, ADR/SOP registries, command and artifact catalogs)
+- external GitHub Wiki: canonical documentation hub with Diataxis tutorials/how-to/explanations plus project reference indexes (architecture maps, diagrams, ADR/SOP registries, command and artifact catalogs)
 - `docs/reference`: precise repo-native contracts, tooling, OpenAPI, and governance references that back wiki reference indexes
 - `docs/tutorials`: maintainer onboarding pointers for the documentation workflow (canonical tutorials live in the wiki)
 - `docs/how-to`: maintainer workflow pointers for the documentation system (canonical how-to content lives in the wiki)
@@ -53,8 +53,8 @@ The project now uses a split documentation surface:
 
 ## Start Here
 
-- Start in `wiki/Home.md` for the canonical documentation hub and project-wide navigation.
-- Use `cargo wiki status` to inspect local wiki state and `cargo wiki sync` to initialize or refresh the submodule when it is clean.
+- Start in the GitHub Wiki home page for the canonical documentation hub and project-wide navigation: <https://github.com/justinrayshort/os/wiki>.
+- Use `cargo wiki status` to inspect the configured external wiki checkout and `cargo wiki clone` to create the recommended sibling checkout when you need wiki authoring or validation locally.
 - Read the operating model in [`docs/sop/documentation-system-sop.md`](sop/documentation-system-sop.md).
 - Read the split-strategy policy in [`docs/reference/rustdoc-and-github-wiki-documentation-strategy.md`](reference/rustdoc-and-github-wiki-documentation-strategy.md).
 - Use [`docs/sop/sop-template.md`](sop/sop-template.md) for new SOPs.

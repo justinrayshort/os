@@ -37,7 +37,7 @@ This SOP defines the quarterly documentation audit procedure for verifying fresh
 - Repository access
 - Rust toolchain (`cargo`)
 - Current branch synchronized with `main`
-- `wiki/` submodule available locally when the audit covers wiki navigation and instructional structure
+- external wiki checkout available locally when the audit covers wiki navigation and instructional structure
 
 ## 5. Step-by-Step Procedure
 
@@ -49,7 +49,7 @@ This SOP defines the quarterly documentation audit procedure for verifying fresh
    ```
 
    - Expected output: current wiki branch/HEAD/dirty state is visible
-   - Failure condition: wiki submodule state is unknown while auditing documentation health
+   - Failure condition: external wiki checkout state is unknown while auditing documentation health
 2. Run the documentation audit report locally.
    - Command:
 

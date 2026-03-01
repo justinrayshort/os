@@ -9,7 +9,11 @@ pub(crate) fn run_all(
 ) -> Vec<Problem> {
     let mut problems = parse_problems;
     problems.extend(structure::validate_structure(root, contracts));
-    problems.extend(wiki::validate_wiki_submodule(root));
+    if flags.with_wiki || std::env::var_os("OS_WIKI_PATH").is_some() {
+        problems.extend(wiki::validate_wiki_checkout(root, true));
+    } else {
+        problems.extend(wiki::validate_wiki_checkout(root, false));
+    }
     problems.extend(frontmatter::validate_frontmatter(root, records, contracts));
     problems.extend(sop::validate_sop_headings(root, records, contracts));
     problems.extend(links::validate_links(root, records));
@@ -34,7 +38,7 @@ pub(crate) fn write_audit_report(
     output: &Path,
 ) -> XtaskResult<()> {
     let structure_problems = structure::validate_structure(root, contracts);
-    let wiki_problems = wiki::validate_wiki_submodule(root);
+    let wiki_problems = wiki::validate_wiki_checkout(root, false);
     let frontmatter_problems = frontmatter::validate_frontmatter(root, records, contracts);
     let sop_problems = sop::validate_sop_headings(root, records, contracts);
     let link_problems = links::validate_links(root, records);

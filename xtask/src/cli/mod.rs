@@ -63,7 +63,7 @@ pub fn print_usage() {
            docs <subcommand>   Docs validation/audit commands (Rust-native)\n\
            e2e <subcommand>    Cargo-managed end-to-end workflow foundation\n\
            perf <subcommand>   Performance benchmarks/profiling workflows\n\
-           wiki <subcommand>   Wiki submodule status/sync workflows\n\
+           wiki <subcommand>   External wiki checkout status/clone/verify workflows\n\
            verify [fast|full] [--with-desktop|--without-desktop] [--profile <name>]\n\
                               Run standardized local verification workflow (default: full)\n"
     );

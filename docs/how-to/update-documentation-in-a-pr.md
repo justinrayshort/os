@@ -17,7 +17,7 @@ lifecycle: "ga"
 
 Canonical how-to content has been migrated to the GitHub Wiki:
 
-- [`wiki/How-to-Update-Documentation-in-a-Pull-Request.md`](../../wiki/How-to-Update-Documentation-in-a-Pull-Request.md)
+- [GitHub Wiki: How to Update Documentation in a Pull Request](https://github.com/justinrayshort/os/wiki/How-to-Update-Documentation-in-a-Pull-Request)
 
 This repo-native page remains as a validated pointer in the `docs/` corpus so maintainers can discover the workflow from repo governance docs without maintaining duplicate step-by-step procedures.
 
@@ -25,4 +25,4 @@ This repo-native page remains as a validated pointer in the `docs/` corpus so ma
 
 - Update the canonical procedure in the wiki page above.
 - Keep this pointer page in sync only if the wiki page name/path changes.
-- Record the `wiki/` submodule pointer update in the PR description or review notes when wiki content changes.
+- Record the external wiki branch and commit SHA in the PR description or review notes when wiki content changes.

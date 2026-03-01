@@ -20,8 +20,6 @@ mod ui_conformance;
 mod wiki;
 
 const FRONTMATTER_DELIM: &str = "---";
-const WIKI_SUBMODULE_PATH: &str = "wiki";
-const WIKI_SUBMODULE_URL: &str = "https://github.com/justinrayshort/os.wiki.git";
 const REQUIRED_WIKI_PAGES: &[&str] = &[
     "Home.md",
     "OS-Wiki.md",
@@ -111,6 +109,7 @@ pub(crate) struct Contracts {
 pub(crate) struct DocsFlags {
     require_renderer: bool,
     require_openapi_validator: bool,
+    with_wiki: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -136,7 +135,7 @@ pub(crate) fn print_docs_usage() {
          \n\
          Commands:\n\
            structure                         Validate required docs directory structure\n\
-           wiki                              Validate wiki submodule wiring and required pages\n\
+           wiki                              Validate external wiki config and required pages\n\
            frontmatter                       Validate docs frontmatter contracts and Diataxis mapping\n\
            sop                               Validate SOP required heading order\n\
            links                             Validate internal markdown links and anchors\n\
@@ -147,7 +146,7 @@ pub(crate) fn print_docs_usage() {
            storage-boundary                  Enforce typed app-state envelope boundary in app/runtime crates\n\
            app-contract                      Validate app manifest and contract conventions\n\
            all [flags]                       Run all docs checks\n\
-             Flags: --require-renderer --require-openapi-validator\n\
+             Flags: --require-renderer --require-openapi-validator --with-wiki\n\
            audit-report --output <path>      Write docs audit report JSON and fail on validation issues\n"
     );
 }
@@ -172,7 +171,7 @@ pub(crate) fn run_docs_command(root: &Path, args: Vec<String>) -> XtaskResult<()
         DocsCommand::Structure => {
             audit::fail_if_problems(structure::validate_structure(root, &contracts))
         }
-        DocsCommand::Wiki => audit::fail_if_problems(wiki::validate_wiki_submodule(root)),
+        DocsCommand::Wiki => audit::fail_if_problems(wiki::validate_wiki_checkout(root, true)),
         DocsCommand::Frontmatter => {
             let mut problems = parse_problems;
             problems.extend(frontmatter::validate_frontmatter(
@@ -258,6 +257,10 @@ fn parse_docs_command(args: &[String]) -> XtaskResult<(DocsCommand, DocsFlags, O
                 flags.require_openapi_validator = true;
                 i += 1;
             }
+            "--with-wiki" => {
+                flags.with_wiki = true;
+                i += 1;
+            }
             "--output" => {
                 let Some(path) = args.get(i + 1) else {
                     return Err(XtaskError::validation("missing value for `--output`"));
@@ -281,7 +284,11 @@ fn parse_docs_command(args: &[String]) -> XtaskResult<(DocsCommand, DocsFlags, O
         | DocsCommand::Links
         | DocsCommand::StorageBoundary
         | DocsCommand::AppContract => {
-            if flags.require_renderer || flags.require_openapi_validator || output.is_some() {
+            if flags.require_renderer
+                || flags.require_openapi_validator
+                || flags.with_wiki
+                || output.is_some()
+            {
                 return Err(XtaskError::validation(format!(
                     "extra arguments are not supported for `{}`",
                     args[0]
@@ -289,28 +296,32 @@ fn parse_docs_command(args: &[String]) -> XtaskResult<(DocsCommand, DocsFlags, O
             }
         }
         DocsCommand::Mermaid => {
-            if flags.require_openapi_validator || output.is_some() {
+            if flags.require_openapi_validator || flags.with_wiki || output.is_some() {
                 return Err(XtaskError::validation(
                     "`mermaid` only supports `--require-renderer`",
                 ));
             }
         }
         DocsCommand::OpenApi => {
-            if flags.require_renderer || output.is_some() {
+            if flags.require_renderer || flags.with_wiki || output.is_some() {
                 return Err(XtaskError::validation(
                     "`openapi` only supports `--require-validator`",
                 ));
             }
         }
         DocsCommand::UiConformance => {
-            if flags.require_renderer || flags.require_openapi_validator || output.is_some() {
+            if flags.require_renderer
+                || flags.require_openapi_validator
+                || flags.with_wiki
+                || output.is_some()
+            {
                 return Err(XtaskError::validation(
                     "`ui-conformance` does not accept extra arguments",
                 ));
             }
         }
         DocsCommand::UiInventory => {
-            if flags.require_renderer || flags.require_openapi_validator {
+            if flags.require_renderer || flags.require_openapi_validator || flags.with_wiki {
                 return Err(XtaskError::validation(
                     "`ui-inventory` does not accept validator flags",
                 ));
@@ -322,7 +333,7 @@ fn parse_docs_command(args: &[String]) -> XtaskResult<(DocsCommand, DocsFlags, O
             }
         }
         DocsCommand::AuditReport => {
-            if flags.require_renderer || flags.require_openapi_validator {
+            if flags.require_renderer || flags.require_openapi_validator || flags.with_wiki {
                 return Err(XtaskError::validation(
                     "`audit-report` does not accept validator flags",
                 ));

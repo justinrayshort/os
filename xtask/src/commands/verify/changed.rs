@@ -27,10 +27,7 @@ pub(super) fn detect_changed_packages(
 }
 
 pub(super) fn looks_like_docs_change(path: &str) -> bool {
-    path.starts_with("docs/")
-        || path.starts_with("wiki/")
-        || path == "AGENTS.md"
-        || path == "README.md"
+    path.starts_with("docs/") || path == "AGENTS.md" || path == "README.md"
 }
 
 pub(super) fn looks_like_workspace_wide_change(path: &str) -> bool {

@@ -25,7 +25,7 @@ lifecycle: "ga"
 - `broken_link_count`
 - `rustdoc_doctest_pass_rate` (local verification signal)
 - `wiki_structure_validation_status`
-- `wiki_submodule_pointer_included` (review checklist signal when wiki pages change)
+- `wiki_commit_sha_recorded` (review checklist signal when wiki pages change)
 - `tutorial completion time` (user research / analytics input)
 - `top visited pages` (if analytics enabled)
 

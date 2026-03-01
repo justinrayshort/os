@@ -17,10 +17,10 @@ lifecycle: "ga"
 
 Canonical tutorial content has been migrated to the GitHub Wiki:
 
-- [`wiki/Tutorial-First-Documentation-Change.md`](../../wiki/Tutorial-First-Documentation-Change.md)
+- [GitHub Wiki: Tutorial - First Documentation Change](https://github.com/justinrayshort/os/wiki/Tutorial-First-Documentation-Change)
 
 This repo-native page remains as a validated pointer to preserve discoverability within the machine-validated `docs/` corpus and to prevent duplicate maintenance of tutorial content.
 
 ## Workflow Entry Point
 
-For the current contribution procedure, use the canonical wiki guide and keep the `wiki/` submodule pointer updated in the same PR when wiki content changes.
+For the current contribution procedure, use the canonical wiki guide and record the external wiki branch/SHA in PR or review notes when wiki content changes.

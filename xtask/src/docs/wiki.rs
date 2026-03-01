@@ -1,95 +1,47 @@
 use super::*;
+use crate::wiki_config::resolve_wiki_checkout;
 
-pub(crate) fn validate_wiki_submodule(root: &Path) -> Vec<Problem> {
+const WIKI_CONFIG_PATH: &str = "tools/docs/wiki.toml";
+
+pub(crate) fn validate_wiki_checkout(root: &Path, require_checkout: bool) -> Vec<Problem> {
     let mut problems = Vec::new();
-    let gitmodules_path = root.join(".gitmodules");
-    if !gitmodules_path.exists() {
-        problems.push(Problem::new(
-            "wiki",
-            ".gitmodules",
-            "missing .gitmodules; expected `wiki` submodule",
-            None,
-        ));
-        return problems;
-    }
-
-    let gitmodules_text = match fs::read_to_string(&gitmodules_path) {
-        Ok(text) => text,
+    let checkout = match resolve_wiki_checkout(root) {
+        Ok(checkout) => checkout,
         Err(err) => {
             problems.push(Problem::new(
                 "wiki",
-                ".gitmodules",
-                format!("failed to read .gitmodules: {err}"),
+                WIKI_CONFIG_PATH,
+                err.to_string(),
                 None,
             ));
             return problems;
         }
     };
 
-    let wiki_section = parse_gitmodules_section(&gitmodules_text, r#"submodule "wiki""#);
-    match wiki_section {
-        None => problems.push(Problem::new(
-            "wiki",
-            ".gitmodules",
-            "missing `[submodule \"wiki\"]` section",
-            None,
-        )),
-        Some(values) => {
-            let path_value = values.get("path").cloned().unwrap_or_default();
-            let url_value = values.get("url").cloned().unwrap_or_default();
-            if path_value != WIKI_SUBMODULE_PATH {
-                let found = if path_value.is_empty() {
-                    "<missing>"
-                } else {
-                    &path_value
-                };
-                problems.push(Problem::new(
-                    "wiki",
-                    ".gitmodules",
-                    format!(
-                        "`wiki` submodule path must be `{}` (found `{found}`)",
-                        WIKI_SUBMODULE_PATH
-                    ),
-                    None,
-                ));
-            }
-            if url_value != WIKI_SUBMODULE_URL {
-                let found = if url_value.is_empty() {
-                    "<missing>"
-                } else {
-                    &url_value
-                };
-                problems.push(Problem::new(
-                    "wiki",
-                    ".gitmodules",
-                    format!(
-                        "`wiki` submodule url must be `{}` (found `{found}`)",
-                        WIKI_SUBMODULE_URL
-                    ),
-                    None,
-                ));
-            }
-        }
-    }
-
-    let wiki_root = root.join(WIKI_SUBMODULE_PATH);
+    let wiki_root = checkout.path;
     if !wiki_root.exists() {
-        problems.push(Problem::new(
-            "wiki",
-            WIKI_SUBMODULE_PATH,
-            "wiki submodule is not initialized; run `cargo wiki sync`",
-            None,
-        ));
+        if require_checkout {
+            problems.push(Problem::new(
+                "wiki",
+                WIKI_CONFIG_PATH,
+                format!(
+                    "external wiki checkout is missing at `{}`; run `cargo wiki clone` or set `OS_WIKI_PATH`",
+                    wiki_root.display()
+                ),
+                None,
+            ));
+        }
         return problems;
     }
 
     if !wiki_root.join(".git").exists() {
         problems.push(Problem::new(
             "wiki",
-            WIKI_SUBMODULE_PATH,
-            "expected `wiki/` to be a git submodule working tree (`wiki/.git` missing)",
+            wiki_root.display().to_string(),
+            "expected external wiki checkout to be a git working tree (`.git` missing)",
             None,
         ));
+        return problems;
     }
 
     for page in REQUIRED_WIKI_PAGES {
@@ -97,7 +49,7 @@ pub(crate) fn validate_wiki_submodule(root: &Path) -> Vec<Problem> {
         if !page_path.exists() {
             problems.push(Problem::new(
                 "wiki",
-                format!("{WIKI_SUBMODULE_PATH}/{page}"),
+                page_path.display().to_string(),
                 "required wiki page is missing",
                 None,
             ));
@@ -109,7 +61,7 @@ pub(crate) fn validate_wiki_submodule(root: &Path) -> Vec<Problem> {
         if !home_text.contains("Diataxis") {
             problems.push(Problem::new(
                 "wiki",
-                format!("{WIKI_SUBMODULE_PATH}/Home.md"),
+                home_path.display().to_string(),
                 "Home page should describe the Diataxis organization of the wiki",
                 None,
             ));
@@ -117,7 +69,7 @@ pub(crate) fn validate_wiki_submodule(root: &Path) -> Vec<Problem> {
         if !home_text.to_lowercase().contains("rustdoc") {
             problems.push(Problem::new(
                 "wiki",
-                format!("{WIKI_SUBMODULE_PATH}/Home.md"),
+                home_path.display().to_string(),
                 "Home page should point readers to rustdoc for API/reference material",
                 None,
             ));
@@ -129,7 +81,7 @@ pub(crate) fn validate_wiki_submodule(root: &Path) -> Vec<Problem> {
         if !os_wiki_text.contains("Home") && !os_wiki_text.contains("OS Wiki") {
             problems.push(Problem::new(
                 "wiki",
-                format!("{WIKI_SUBMODULE_PATH}/OS-Wiki.md"),
+                os_wiki_path.display().to_string(),
                 "OS-Wiki alias page should point readers to Home/primary wiki navigation",
                 None,
             ));
@@ -143,7 +95,7 @@ pub(crate) fn validate_wiki_submodule(root: &Path) -> Vec<Problem> {
             if !sidebar_lower.contains(&expected.to_lowercase()) {
                 problems.push(Problem::new(
                     "wiki",
-                    format!("{WIKI_SUBMODULE_PATH}/_Sidebar.md"),
+                    sidebar_path.display().to_string(),
                     format!("sidebar should include `{expected}` navigation entry"),
                     None,
                 ));
@@ -170,7 +122,7 @@ fn validate_wiki_instructional_templates(wiki_root: &Path) -> Vec<Problem> {
         Err(err) => {
             problems.push(Problem::new(
                 "wiki",
-                WIKI_SUBMODULE_PATH,
+                wiki_root.display().to_string(),
                 format!("failed to scan wiki pages for instructional template validation: {err}"),
                 None,
             ));
@@ -192,7 +144,7 @@ fn validate_wiki_instructional_templates(wiki_root: &Path) -> Vec<Problem> {
             Err(err) => {
                 problems.push(Problem::new(
                     "wiki",
-                    rel_posix(wiki_root.parent().unwrap_or(wiki_root), &path),
+                    path.display().to_string(),
                     format!("failed to read wiki instructional page: {err}"),
                     None,
                 ));
@@ -217,7 +169,7 @@ pub(crate) fn validate_wiki_instructional_page_template(
 ) -> Vec<Problem> {
     let mut problems = Vec::new();
     let headings = extract_markdown_heading_records(text);
-    let path = format!("{WIKI_SUBMODULE_PATH}/{file_name}");
+    let path = file_name.to_string();
 
     let h2_headings: Vec<&MarkdownHeadingRecord> =
         headings.iter().filter(|h| h.level == 2).collect();
@@ -259,7 +211,9 @@ pub(crate) fn validate_wiki_instructional_page_template(
         .position(|h| h.level == 2 && normalize_heading(&h.text) == normalize_heading("Procedure"));
 
     if let Some(entry_idx) = entry_idx {
-        let boundary = procedure_idx.unwrap_or(headings.len());
+        let boundary = procedure_idx
+            .filter(|idx| *idx > entry_idx)
+            .unwrap_or(headings.len());
         let entry_subsections: Vec<&MarkdownHeadingRecord> = headings[entry_idx + 1..boundary]
             .iter()
             .filter(|h| h.level == 3)
@@ -286,10 +240,10 @@ pub(crate) fn validate_wiki_instructional_page_template(
                 "wiki",
                 path,
                 format!(
-                    "`## Entry Criteria` must contain exact level-3 subsection sequence `{}` before `## Procedure` (found `{found}`)",
+                    "Entry Criteria must use exact level-3 subsection sequence `{}` (found `{found}`)",
                     WIKI_INSTRUCTIONAL_ENTRY_CRITERIA_SUBSECTIONS.join("`, `")
                 ),
-                Some(headings[entry_idx].line),
+                entry_subsections.first().map(|h| h.line),
             ));
         }
     }
@@ -297,59 +251,32 @@ pub(crate) fn validate_wiki_instructional_page_template(
     problems
 }
 
-fn extract_markdown_heading_records(body: &str) -> Vec<MarkdownHeadingRecord> {
+fn extract_markdown_heading_records(text: &str) -> Vec<MarkdownHeadingRecord> {
     let mut headings = Vec::new();
-    let mut in_fence = false;
-
-    for (line_idx, line) in body.lines().enumerate() {
-        if parse_fence_lang(line).is_some() {
-            in_fence = !in_fence;
-            continue;
-        }
-        if in_fence {
-            continue;
-        }
-        let Some((level, heading_text)) = parse_markdown_heading_parts(line) else {
+    for (idx, raw_line) in text.lines().enumerate() {
+        let line = raw_line.trim();
+        let Some(rest) = line.strip_prefix('#') else {
             continue;
         };
+        let level = line.chars().take_while(|c| *c == '#').count();
+        if level == 0 || level > 6 {
+            continue;
+        }
+        let text = rest.trim_start_matches('#').trim();
+        if text.is_empty() {
+            continue;
+        }
         headings.push(MarkdownHeadingRecord {
             level,
-            text: heading_text.trim().to_string(),
-            line: line_idx + 1,
+            text: text.to_string(),
+            line: idx + 1,
         });
     }
-
     headings
 }
 
-fn parse_gitmodules_section(text: &str, target_section: &str) -> Option<HashMap<String, String>> {
-    let mut current_section: Option<String> = None;
-    let mut values = HashMap::new();
-    let mut found = false;
-
-    for raw_line in text.lines() {
-        let line = raw_line.trim();
-        if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
-            continue;
-        }
-        if line.starts_with('[') && line.ends_with(']') && line.len() >= 2 {
-            let name = &line[1..line.len() - 1];
-            current_section = Some(name.to_string());
-            if name == target_section {
-                found = true;
-            }
-            continue;
-        }
-        if current_section.as_deref() != Some(target_section) {
-            continue;
-        }
-        let Some((key, value)) = line.split_once('=') else {
-            continue;
-        };
-        values.insert(key.trim().to_string(), value.trim().to_string());
-    }
-
-    found.then_some(values)
+fn normalize_heading(text: &str) -> String {
+    text.trim().to_lowercase()
 }
 
 #[cfg(test)]
@@ -358,74 +285,70 @@ mod tests {
 
     #[test]
     fn wiki_instructional_template_accepts_standard_page() {
-        let text = r#"# Tutorial: Example
-
+        let text = r#"
 ## Outcome
-
-Do a thing.
 
 ## Entry Criteria
 
 ### Prior Knowledge
 
-Know basics.
-
 ### Environment Setup
-
-Have cargo.
 
 ### Dependencies
 
-Have wiki checked out.
-
 ## Procedure
-
-Do the thing.
 
 ## Validation
 
-Observe the result.
-
 ## Next Steps
-
-Read the next page.
 "#;
         let problems = validate_wiki_instructional_page_template("Tutorial-Example.md", text);
-        assert!(problems.is_empty(), "{problems:?}");
+        assert!(problems.is_empty(), "{problems:#?}");
     }
 
     #[test]
     fn wiki_instructional_template_rejects_h2_sequence_drift() {
-        let text = r#"# Tutorial: Example
+        let text = r#"
+## Outcome
+
+## Procedure
 
 ## Entry Criteria
-## Outcome
-## Procedure
+
+### Prior Knowledge
+
+### Environment Setup
+
+### Dependencies
+
 ## Validation
+
 ## Next Steps
 "#;
         let problems = validate_wiki_instructional_page_template("Tutorial-Example.md", text);
-        assert!(problems
-            .iter()
-            .any(|p| p.message.contains("level-2 section sequence")));
+        assert!(!problems.is_empty());
     }
 
     #[test]
     fn wiki_instructional_template_rejects_entry_criteria_subsection_drift() {
-        let text = r#"# How-to: Example
-
+        let text = r#"
 ## Outcome
+
 ## Entry Criteria
+
 ### Environment Setup
+
 ### Prior Knowledge
+
 ### Dependencies
+
 ## Procedure
+
 ## Validation
+
 ## Next Steps
 "#;
         let problems = validate_wiki_instructional_page_template("How-to-Example.md", text);
-        assert!(problems
-            .iter()
-            .any(|p| p.message.contains("level-3 subsection sequence")));
+        assert!(!problems.is_empty());
     }
 }

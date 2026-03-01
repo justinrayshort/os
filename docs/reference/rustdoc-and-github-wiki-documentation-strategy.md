@@ -17,7 +17,7 @@ lifecycle: "ga"
 
 This repository uses a split documentation model aligned with Diataxis and a hub-and-artifact strategy:
 
-- The GitHub Wiki (`wiki/` submodule) is the canonical documentation hub and primary navigation surface.
+- The GitHub Wiki is the canonical documentation hub and primary navigation surface.
 - `rustdoc` is the authoritative source for code-level API reference.
 - `docs/` remains the repo-native canonical storage surface for documentation contracts, SOPs, ADRs, tooling reference, and supporting assets (validated by `cargo xtask docs`).
 
@@ -35,10 +35,10 @@ This avoids duplication drift while preserving a single place for discovery and 
 | Content type | Primary surface | Source of truth |
 | --- | --- | --- |
 | Reference (Rust APIs) | Generated rustdoc HTML | Rust source comments (`///`, `//!`) |
-| Reference (project architecture/operations/artifact indexes) | GitHub Wiki reference pages | `wiki/*.md` (index/navigation pages) + linked canonical artifacts in `docs/` / `rustdoc` |
-| Tutorials | GitHub Wiki | `wiki/*.md` |
-| How-to guides | GitHub Wiki | `wiki/*.md` |
-| Explanations | GitHub Wiki | `wiki/*.md` |
+| Reference (project architecture/operations/artifact indexes) | GitHub Wiki reference pages | external wiki repository pages + linked canonical artifacts in `docs/` / `rustdoc` |
+| Tutorials | GitHub Wiki | external wiki repository pages |
+| How-to guides | GitHub Wiki | external wiki repository pages |
+| Explanations | GitHub Wiki | external wiki repository pages |
 | ADR / SOP / docs governance | `docs/` (repo-native Markdown) | `docs/*.md` |
 
 ## Rustdoc Authoring Conventions (Required)
@@ -52,7 +52,7 @@ This avoids duplication drift while preserving a single place for discovery and 
 
 ## GitHub Wiki Conventions (Required)
 
-- Wiki repository is integrated as the `wiki/` git submodule.
+- Wiki repository is maintained as an external git-backed repository, not as a nested folder in the main source tree.
 - `Home.md` is the canonical project documentation hub landing page and links to all Diataxis category indexes plus major reference registries.
 - `_Sidebar.md` is maintained as the canonical navigation entrypoint.
 - Tutorial/how-to/explanation/reference pages are separated by intent (no mixed-purpose pages).
@@ -79,33 +79,33 @@ When repo-native formal artifacts in `docs/` change:
 When wiki content changes:
 
 1. Confirm rustdoc and `docs/` links still point to valid canonical artifacts.
-2. Update the `wiki/` submodule pointer in the main repo PR.
-3. Keep repo-native pointer pages in `docs/tutorials`, `docs/how-to`, and `docs/explanation` in sync only when the canonical wiki page name/path changes (to avoid duplicate procedural content).
+2. Commit the change in the external wiki repository.
+3. Record the wiki branch and commit SHA in the main repo PR or review notes when the code/doc change depends on that wiki update.
+4. Keep repo-native pointer pages in `docs/tutorials`, `docs/how-to`, and `docs/explanation` in sync only when the canonical wiki page URL changes.
 
-## Wiki Submodule Maintenance Workflow (Required)
+## Wiki Maintenance Workflow (Required)
 
-Use a consistent submodule refresh flow before authoring or validating wiki content:
+Use a consistent external-checkout flow before authoring or validating wiki content:
 
 ```bash
-cargo wiki sync
+cargo wiki clone
 ```
 
-Before editing wiki pages:
+Before editing wiki pages, inspect the configured checkout:
 
 ```bash
 cargo wiki status
-git -C wiki fetch origin
 ```
 
-- If `wiki/` is on a local branch, fast-forward with `git -C wiki pull --ff-only`.
-- If `wiki/` is detached (common after submodule updates), switch to a local branch tracking the wiki default branch before committing wiki edits.
-- `cargo wiki sync` refuses to run when `wiki/` has local modifications so the submodule refresh flow does not overwrite in-progress wiki edits.
+- The recommended checkout path is the sibling repository `../os.wiki` unless `OS_WIKI_PATH` overrides it.
+- `cargo wiki verify` checks the external checkout remote URL, branch, dirty state, and upstream synchronization.
+- Commit wiki changes in the external checkout itself; there is no parent-repo pointer update.
 
 Commit and review workflow for wiki edits:
 
-1. Commit changes inside `wiki/`.
-2. Stage the `wiki/` submodule pointer in the main repo.
-3. Include both in the same PR as related code and rustdoc/docs changes.
+1. Commit changes inside the external wiki repository.
+2. Include related main-repo code and rustdoc/docs changes in the normal PR flow.
+3. Record the wiki branch and commit SHA in the PR description or review notes whenever the wiki changed.
 
 ## Wiki Hub Surface (Current)
 
@@ -116,33 +116,33 @@ The wiki is the canonical hub for:
 
 Maintainer-facing documentation workflow pages migrated into the wiki remain canonical there:
 
-- Tutorial: `wiki/Tutorial-First-Documentation-Change.md`
-- How-to: `wiki/How-to-Update-Documentation-in-a-Pull-Request.md`
-- Explanation: `wiki/Explanation-Documentation-Architecture-and-Governance.md`
+- Tutorial: <https://github.com/justinrayshort/os/wiki/Tutorial-First-Documentation-Change>
+- How-to: <https://github.com/justinrayshort/os/wiki/How-to-Update-Documentation-in-a-Pull-Request>
+- Explanation: <https://github.com/justinrayshort/os/wiki/Explanation-Documentation-Architecture-and-Governance>
 
 Repo-native pages under `docs/tutorials`, `docs/how-to`, and `docs/explanation` remain as machine-validated pointers for discoverability and governance navigation.
 
 ## Review and Pull Request Requirements
 
 - Documentation changes are reviewed in the same PR as related code changes.
-- PR authors record which rustdoc/wiki/docs surfaces changed, which validation commands were run, and whether the `wiki/` submodule pointer is included whenever wiki content changed.
+- PR authors record which rustdoc/wiki/docs surfaces changed, which validation commands were run, and the wiki branch/SHA whenever wiki content changed.
 - Reviewers verify:
   - API changes are reflected in rustdoc
   - Wiki pages are updated or explicitly marked N/A
   - Wiki reference registries/indexes are updated when ADR/SOP/formal artifact inventories change
-  - `wiki/` submodule pointer is included when wiki content changes
+  - wiki branch/SHA is recorded when wiki content changes
 
 ## Validation
 
 The local Rust toolchain validates both documentation layers:
 
-- `cargo xtask docs wiki` (submodule + wiki structure checks)
+- `cargo xtask docs wiki` (external checkout + wiki structure checks)
 - `cargo doc --workspace --no-deps` (`RUSTDOCFLAGS=-D warnings`)
 - `cargo test --workspace --doc` (runnable rustdoc examples)
 - `cargo xtask docs all` (docs contracts + links + OpenAPI + Mermaid + wiki checks)
 
-Local bootstrap for the wiki submodule:
+Local bootstrap for the external wiki checkout:
 
 ```bash
-cargo wiki sync
+cargo wiki clone
 ```

@@ -39,7 +39,7 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
 ## 4. Prerequisites
 
 - Repository checkout with Rust toolchain and local build/test capability
-- `wiki/` submodule initialized when wiki registry pages will be updated
+- external wiki checkout available when wiki registry pages will be updated
 - Ability to run the desktop shell locally (browser/WASM workflow used by the project)
 - Current checklist available: `docs/reference/desktop-shell-hig-neumorphic-conformance-checklist.md` and `docs/reference/desktop-shell-hig-fluent-conformance-checklist.md`
 - Current design-system references available: `docs/reference/desktop-shell-neumorphic-design-system.md` and `docs/reference/desktop-shell-fluent-modern-design-system.md`

@@ -17,7 +17,7 @@ lifecycle: "ga"
 
 Canonical explanation content has been migrated to the GitHub Wiki:
 
-- [`wiki/Explanation-Documentation-Architecture-and-Governance.md`](../../wiki/Explanation-Documentation-Architecture-and-Governance.md)
+- [GitHub Wiki: Explanation - Documentation Architecture and Governance](https://github.com/justinrayshort/os/wiki/Explanation-Documentation-Architecture-and-Governance)
 
 This repo-native page remains as a validated pointer so documentation-system governance references can continue to route maintainers to the canonical wiki explanation without duplicating narrative content.
 

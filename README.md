@@ -7,7 +7,7 @@ It includes strong local tooling (`xtask`) for verification, documentation contr
 Documentation is split by intent:
 
 - `rustdoc` (generated from Rust source comments) is the authoritative API/reference surface.
-- GitHub Wiki (`wiki/` submodule) is the canonical documentation hub and navigation surface, organized with Diataxis (tutorials, how-to guides, explanations, and project reference indexes).
+- GitHub Wiki is the canonical documentation hub and navigation surface, organized with Diataxis (tutorials, how-to guides, explanations, and project reference indexes).
 - `docs/` (repo-native Markdown) remains the canonical storage for documentation governance, contracts, ADRs, SOPs, diagrams/assets, and tooling reference, validated by `cargo xtask docs`.
 
 ## Prototype Status
@@ -45,10 +45,10 @@ Install prerequisites (one-time):
 cargo setup-web
 ```
 
-Initialize the GitHub Wiki submodule (required for wiki/docs updates):
+Create the recommended external GitHub Wiki checkout when you need to edit or validate wiki content:
 
 ```bash
-cargo wiki sync
+cargo wiki clone
 ```
 
 Start local prototype server:
@@ -250,9 +250,18 @@ cargo perf heaptrack -- cargo bench --workspace
 
 Performance artifacts default to `.artifacts/perf/`. See the performance SOP/reference pages (indexed from the wiki) for baseline thresholds, workload guidance, and documentation expectations for optimization decisions.
 
-## Documentation Workflow (Rustdoc + Wiki + Repo Docs)
+## Project Documentation Hub
 
-Use the GitHub Wiki (`wiki/Home.md`) as the primary documentation entry point for project navigation and artifact discovery. Update the relevant wiki reference/index pages when adding or changing formal artifacts (for example ADRs, SOPs, diagrams, or command references).
+Use the GitHub Wiki as the primary documentation entry point for project navigation and artifact discovery:
+
+- knowledge base: https://github.com/justinrayshort/os/wiki
+- git-backed wiki repository: https://github.com/justinrayshort/os.wiki.git
+- formal artifacts: [`docs/`](docs/)
+- API reference workflow: `cargo doc --workspace --no-deps`
+
+The wiki is maintained as a separate git repository outside the main source tree. The recommended local checkout path is `../os.wiki`, managed through `cargo wiki clone`, `cargo wiki status`, and `cargo wiki verify`.
+
+When adding or changing formal artifacts such as ADRs, SOPs, diagrams, or command references, update the corresponding wiki reference/index pages in the external wiki checkout and record the wiki commit SHA in PR or review notes.
 
 Generate Rust API reference locally:
 
@@ -266,14 +275,13 @@ Run rustdoc examples (doctests):
 cargo test --workspace --doc
 ```
 
-Run repo docs validation (docs contracts + wiki submodule checks):
+Run repo docs validation:
 
 ```bash
 cargo xtask docs all
 ```
 
-`cargo xtask docs all` already includes wiki validation. Use `cargo xtask docs wiki` separately when you want isolated wiki diagnostics.
-Use `cargo wiki status` to inspect the submodule state and `cargo wiki sync` to initialize or refresh it through the same Cargo-managed workflow surface.
+`cargo xtask docs all` validates repo-native docs by default. Use `cargo xtask docs all --with-wiki` or `cargo xtask docs wiki` when you want external wiki validation as part of the local workflow. Use `cargo wiki status` to inspect the configured external checkout and `cargo wiki verify` to confirm it is clean and synchronized.
 
 ## Project Layout (Current)
 
@@ -287,9 +295,9 @@ Use `cargo wiki status` to inspect the submodule state and `cargo wiki sync` to 
 - `crates/apps/notepad` - Notepad app UI crate
 - `crates/apps/calculator` - Calculator app UI crate
 - `crates/apps/terminal` - Terminal app UI crate
-- `wiki/` - GitHub Wiki submodule (canonical documentation hub: Diataxis pages + reference indexes)
 - `docs/` - repo-native formal documentation artifacts (ADR/SOP/contracts/reference/assets) backing the wiki hub
 - `xtask/src/commands/docs/` - docs command-family façade used by `cargo xtask docs`
 - `xtask/src/docs.rs` + `xtask/src/docs/` - docs validation/audit module root plus split validation surfaces
 - `xtask/src/commands/` - standardized project verification and developer workflow command families (`cargo xtask ...`)
 - `xtask/src/runtime/` - shared xtask automation runtime (process execution, workflow recording, config loading, artifacts)
+- `tools/docs/wiki.toml` - external wiki repo configuration (remote URL, default branch, recommended checkout path)

@@ -8,6 +8,7 @@ pub mod cli;
 pub mod commands;
 pub mod docs;
 pub mod runtime;
+pub mod wiki_config;
 
 use crate::cli::TopLevelCommand;
 use crate::commands::dev::{

@@ -33,7 +33,7 @@ impl XtaskCommand for DocsCommand {
             Some("mermaid") => mermaid::validate(ctx),
             Some("openapi") => openapi::validate(ctx),
             Some("ui-conformance") => ui_conformance::validate(ctx),
-            Some("all") => audit::run_all(ctx),
+            Some("all") => run_subcommand(ctx, args),
             Some("audit-report") => {
                 let Some(path) = args
                     .windows(2)
@@ -44,7 +44,8 @@ impl XtaskCommand for DocsCommand {
                         "missing `--output <path>`",
                     ));
                 };
-                audit::write_report(ctx, path)
+                let _ = path;
+                run_subcommand(ctx, args)
             }
             _ => crate::docs::run_docs_command(ctx.root(), args),
         }

@@ -71,7 +71,7 @@ Responsibilities:
 - [`xtask/src/commands/verify/`](../../xtask/src/commands/verify/): cohesive verify submodules for profile/config handling, changed-scope detection, flow execution, and verification stage orchestration
 - [`xtask/src/commands/perf/`](../../xtask/src/commands/perf/): cohesive perf submodules for CLI args, tooling checks, benchmark/profiling execution, and report generation
 - [`xtask/src/commands/e2e.rs`](../../xtask/src/commands/e2e.rs): Cargo-managed E2E profile/scenario orchestration plus the executable Playwright/browser workflow path, now layered over the shared runtime server helpers instead of command-local background-process orchestration
-- [`xtask/src/commands/wiki.rs`](../../xtask/src/commands/wiki.rs): wiki submodule status/sync workflow management
+- [`xtask/src/commands/wiki.rs`](../../xtask/src/commands/wiki.rs): external wiki checkout status/clone/verify workflow management
 - [`xtask/src/commands/docs/`](../../xtask/src/commands/docs/): docs command family façade and runtime integration
 - [`xtask/src/docs.rs`](../../xtask/src/docs.rs): docs validator module root and command dispatch
 - [`xtask/src/docs/`](../../xtask/src/docs/): split docs validation surfaces (`structure`, `wiki`, `frontmatter`, `sop`, `links`, `mermaid`, `openapi`, `storage_boundary`, `app_contract`, `ui_conformance`, `audit`)
@@ -107,7 +107,7 @@ New workflow families should build on these APIs instead of introducing command-
   - Command domains should not reimplement ad hoc `Command::new(...).status()` helpers when the existing runner contract is sufficient.
 - `WorkspaceState`
   - Owns git/cargo workspace inspection and repo-local state queries.
-  - Cross-worktree git checks such as the wiki submodule should build on this service instead of introducing command-local porcelain parsing.
+  - Cross-worktree git checks such as the external wiki checkout should build on this service instead of introducing command-local porcelain parsing.
 - `WorkflowRecorder`
   - Owns structured run manifests, JSONL events, and stage timing.
   - Multi-stage workflows should record through this service so artifact layout and event vocabulary remain consistent.
