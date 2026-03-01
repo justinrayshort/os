@@ -2,6 +2,7 @@ use super::changed::{collect_changed_paths, looks_like_desktop_host_change};
 use super::config::{VerifyFastDesktopMode, VerifyMode};
 use crate::commands::dev::{wasm_target_installed, BuildWebCommand, CheckWebCommand};
 use crate::commands::docs;
+use crate::commands::e2e;
 use crate::runtime::context::CommandContext;
 use crate::runtime::error::XtaskResult;
 use crate::XtaskCommand;
@@ -18,10 +19,11 @@ pub(super) fn run_verify(
     ctx: &CommandContext,
     mode: VerifyMode,
     desktop_mode: VerifyFastDesktopMode,
+    e2e_profile: Option<&str>,
 ) -> XtaskResult<()> {
     match mode {
-        VerifyMode::Fast => verify_fast(ctx, desktop_mode),
-        VerifyMode::Full => verify_full(ctx),
+        VerifyMode::Fast => verify_fast(ctx, desktop_mode, e2e_profile),
+        VerifyMode::Full => verify_full(ctx, e2e_profile),
     }
 }
 
@@ -103,7 +105,11 @@ fn print_verify_fast_desktop_decision(decision: &VerifyFastDesktopDecision) {
     }
 }
 
-fn verify_fast(ctx: &CommandContext, desktop_mode: VerifyFastDesktopMode) -> XtaskResult<()> {
+fn verify_fast(
+    ctx: &CommandContext,
+    desktop_mode: VerifyFastDesktopMode,
+    e2e_profile: Option<&str>,
+) -> XtaskResult<()> {
     let desktop_decision = resolve_verify_fast_desktop_decision(ctx, desktop_mode);
     print_verify_fast_desktop_decision(&desktop_decision);
 
@@ -123,11 +129,12 @@ fn verify_fast(ctx: &CommandContext, desktop_mode: VerifyFastDesktopMode) -> Xta
         .run_timed_stage("Documentation validation and audit", || {
             run_docs_checks(ctx)
         })?;
+    run_optional_e2e_stage(ctx, e2e_profile)?;
     println!("\n==> Verification complete");
     Ok(())
 }
 
-fn verify_full(ctx: &CommandContext) -> XtaskResult<()> {
+fn verify_full(ctx: &CommandContext, e2e_profile: Option<&str>) -> XtaskResult<()> {
     ctx.workflow()
         .run_timed_stage("Rust format and default test matrix", || {
             run_cargo_default_matrix_full(ctx)
@@ -150,8 +157,19 @@ fn verify_full(ctx: &CommandContext) -> XtaskResult<()> {
         })?;
     ctx.workflow()
         .run_timed_stage("Clippy lint checks", || run_optional_clippy(ctx))?;
+    run_optional_e2e_stage(ctx, e2e_profile)?;
     println!("\n==> Verification complete");
     Ok(())
+}
+
+fn run_optional_e2e_stage(ctx: &CommandContext, e2e_profile: Option<&str>) -> XtaskResult<()> {
+    let Some(e2e_profile) = e2e_profile else {
+        return Ok(());
+    };
+    ctx.workflow()
+        .run_timed_stage("Cargo-managed E2E verification", || {
+            e2e::run_named_profile(ctx, e2e_profile)
+        })
 }
 
 fn run_cargo_default_matrix_fast(ctx: &CommandContext, include_desktop: bool) -> XtaskResult<()> {

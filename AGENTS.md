@@ -191,7 +191,7 @@ When changing `xtask/src/docs.rs`, `xtask/src/docs/`, `xtask/src/commands/docs/`
 1. Run `cargo fmt --all`.
 2. Run `cargo test -p xtask`.
 3. Run the affected workflow commands (for example `cargo xtask docs all`, `cargo xtask docs wiki` for isolated wiki diagnostics, `cargo perf doctor`).
-   Add `cargo e2e doctor` plus either `cargo e2e run --dry-run` or a focused executable scenario such as `cargo e2e run --profile local-dev --scenario shell.boot` when the Cargo-managed E2E workflow changes.
+   Add `cargo e2e doctor` plus either `cargo e2e run --dry-run` or a focused executable scenario such as `cargo e2e run --profile local-dev --scenario shell.boot` when the Cargo-managed E2E workflow changes. If E2E profile semantics or `cargo verify --profile` wiring changed, also run the affected profile path (for example `cargo e2e run --profile ci-headless --scenario shell.boot` or `cargo verify --profile ci-full`).
 4. Update `AGENTS.md`, wiki/reference docs, and command catalogs when behavior/contracts changed.
 
 ## 5) Local Commands

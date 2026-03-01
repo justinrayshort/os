@@ -9,7 +9,9 @@ desktop_mode = "with-desktop"
 [profile.ci-full]
 mode = "full"
 desktop_mode = "auto"
+e2e_profile = "ci-headless"
 
 [profile.release]
 mode = "full"
 desktop_mode = "auto"
+e2e_profile = "cross-browser"

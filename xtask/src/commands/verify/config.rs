@@ -15,6 +15,7 @@ struct VerifyProfilesFile {
 pub(super) struct VerifyProfileSpec {
     pub(super) mode: String,
     pub(super) desktop_mode: Option<String>,
+    pub(super) e2e_profile: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -87,6 +88,18 @@ fn resolve_verify_profile(
     };
 
     Ok((mode, desktop_mode))
+}
+
+pub(super) fn resolve_verify_profile_spec<'a>(
+    profile_name: &str,
+    profiles: &'a BTreeMap<String, VerifyProfileSpec>,
+) -> XtaskResult<&'a VerifyProfileSpec> {
+    profiles.get(profile_name).ok_or_else(|| {
+        let known = profiles.keys().cloned().collect::<Vec<_>>().join(", ");
+        XtaskError::config(format!(
+            "unknown verify profile `{profile_name}` (known: {known})"
+        ))
+    })
 }
 
 fn print_verify_profile_selection(
@@ -235,6 +248,7 @@ mod tests {
             VerifyProfileSpec {
                 mode: "fast".into(),
                 desktop_mode: Some("auto".into()),
+                e2e_profile: None,
             },
         );
         profiles.insert(
@@ -242,6 +256,7 @@ mod tests {
             VerifyProfileSpec {
                 mode: "full".into(),
                 desktop_mode: Some("auto".into()),
+                e2e_profile: Some("cross-browser".into()),
             },
         );
         profiles
@@ -281,5 +296,12 @@ mod tests {
             resolve_verify_options_from_profile(parsed, &test_profiles()).expect("resolve profile");
         assert_eq!(options.mode, VerifyMode::Fast);
         assert_eq!(options.profile.as_deref(), Some("dev"));
+    }
+
+    #[test]
+    fn resolve_verify_profile_spec_exposes_optional_e2e_profile() {
+        let profiles = test_profiles();
+        let profile = resolve_verify_profile_spec("release", &profiles).expect("resolve profile");
+        assert_eq!(profile.e2e_profile.as_deref(), Some("cross-browser"));
     }
 }

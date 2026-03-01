@@ -42,6 +42,7 @@ Non-responsibilities:
 - [`xtask/src/runtime/context.rs`](../../xtask/src/runtime/context.rs): shared `CommandContext`
 - [`xtask/src/runtime/process.rs`](../../xtask/src/runtime/process.rs): `ProcessRunner`
 - [`xtask/src/runtime/lifecycle.rs`](../../xtask/src/runtime/lifecycle.rs): shared process lifecycle, signaling, and port-readiness helpers
+- [`xtask/src/runtime/serve.rs`](../../xtask/src/runtime/serve.rs): reusable background HTTP server launch/startup/shutdown helpers for workflows that own isolated local services
 - [`xtask/src/runtime/workspace.rs`](../../xtask/src/runtime/workspace.rs): `WorkspaceState` for git/cargo workspace inspection
 - [`xtask/src/runtime/workflow.rs`](../../xtask/src/runtime/workflow.rs): `WorkflowRecorder`, stage timing, structured automation manifests
 - [`xtask/src/runtime/artifacts.rs`](../../xtask/src/runtime/artifacts.rs): `ArtifactManager`
@@ -54,6 +55,7 @@ Responsibilities:
 - workspace-root resolution
 - child-process execution
 - managed process lifecycle and port readiness
+- background HTTP server startup, log capture, and teardown
 - git/cargo workspace inspection
 - environment normalization
 - workflow manifests and stage/event recording
@@ -68,7 +70,7 @@ Responsibilities:
 - [`xtask/src/commands/verify.rs`](../../xtask/src/commands/verify.rs): verify command-family façade and shared command structs
 - [`xtask/src/commands/verify/`](../../xtask/src/commands/verify/): cohesive verify submodules for profile/config handling, changed-scope detection, flow execution, and verification stage orchestration
 - [`xtask/src/commands/perf/`](../../xtask/src/commands/perf/): cohesive perf submodules for CLI args, tooling checks, benchmark/profiling execution, and report generation
-- [`xtask/src/commands/e2e.rs`](../../xtask/src/commands/e2e.rs): Cargo-managed E2E profile/scenario orchestration plus the first executable Playwright/browser workflow path
+- [`xtask/src/commands/e2e.rs`](../../xtask/src/commands/e2e.rs): Cargo-managed E2E profile/scenario orchestration plus the executable Playwright/browser workflow path, now layered over the shared runtime server helpers instead of command-local background-process orchestration
 - [`xtask/src/commands/wiki.rs`](../../xtask/src/commands/wiki.rs): wiki submodule status/sync workflow management
 - [`xtask/src/commands/docs/`](../../xtask/src/commands/docs/): docs command family façade and runtime integration
 - [`xtask/src/docs.rs`](../../xtask/src/docs.rs): docs validator module root and command dispatch
@@ -124,10 +126,10 @@ New workflow families should build on these APIs instead of introducing command-
 Versioned automation configuration lives under [`tools/automation/`](../../tools/automation/):
 
 - [`tools/automation/dev_server.toml`](../../tools/automation/dev_server.toml): managed dev-server defaults and artifact paths
-- [`tools/automation/verify_profiles.toml`](../../tools/automation/verify_profiles.toml): verification profile definitions
-- [`tools/automation/e2e_profiles.toml`](../../tools/automation/e2e_profiles.toml): initial E2E profile definitions
-- [`tools/automation/e2e_scenarios.toml`](../../tools/automation/e2e_scenarios.toml): initial E2E scenario catalog and scenario sets
-- [`tools/e2e/`](../../tools/e2e/): versioned Playwright harness consumed by `cargo e2e run`
+- [`tools/automation/verify_profiles.toml`](../../tools/automation/verify_profiles.toml): verification profile definitions, including optional `e2e_profile` wiring for profile-driven E2E stages
+- [`tools/automation/e2e_profiles.toml`](../../tools/automation/e2e_profiles.toml): executable E2E profile definitions, including browser fan-out, retries, trace policy, debug slow-motion settings, and versioned desktop-driver profiles
+- [`tools/automation/e2e_scenarios.toml`](../../tools/automation/e2e_scenarios.toml): E2E scenario catalog and scenario sets for both browser and planned desktop workflows
+- [`tools/e2e/`](../../tools/e2e/): versioned browser Playwright harness plus desktop Selenium harness consumed by `cargo e2e run`
 
 Guidelines:
 

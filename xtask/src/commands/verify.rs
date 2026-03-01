@@ -10,7 +10,8 @@ use crate::runtime::error::{XtaskError, XtaskResult};
 use crate::XtaskCommand;
 use config::{
     load_verify_profiles, parse_verify_options, print_verify_usage,
-    resolve_verify_options_from_profile, VerifyFastDesktopMode, VerifyMode, VerifyOptions,
+    resolve_verify_options_from_profile, resolve_verify_profile_spec, VerifyFastDesktopMode,
+    VerifyMode, VerifyOptions,
 };
 pub use flow::FlowOptions;
 use flow::{flow_command_inner, parse_flow_options, print_flow_usage};
@@ -42,8 +43,18 @@ impl XtaskCommand for VerifyCommand {
         }
 
         let run_profile = options.profile.clone();
+        let e2e_profile = run_profile
+            .as_deref()
+            .map(|name| resolve_verify_profile_spec(name, &profiles))
+            .transpose()?
+            .and_then(|profile| profile.e2e_profile.clone());
         ctx.workflow().with_workflow_run("verify", run_profile, || {
-            run_verify(ctx, options.mode, options.desktop_mode)
+            run_verify(
+                ctx,
+                options.mode,
+                options.desktop_mode,
+                e2e_profile.as_deref(),
+            )
         })
     }
 }

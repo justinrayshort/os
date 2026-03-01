@@ -22,8 +22,21 @@ backends = ["playwright"]
 targets = ["browser"]
 tags = ["ui", "screenshots"]
 
+[scenario."desktop.boot"]
+summary = "Launch the desktop-hosted shell and confirm initial startup."
+backends = ["tauri-webdriver"]
+targets = ["tauri"]
+tags = ["desktop", "smoke"]
+
+[scenario."desktop.settings-navigation"]
+summary = "Traverse a representative desktop-hosted shell settings flow."
+backends = ["tauri-webdriver"]
+targets = ["tauri"]
+tags = ["desktop", "navigation"]
+
 [scenario_set]
 local-smoke = ["shell.boot", "shell.settings-navigation"]
 ci = ["shell.boot", "shell.settings-navigation", "ui.keyboard-smoke"]
 cross-browser = ["shell.boot", "shell.settings-navigation"]
 debug = ["shell.settings-navigation"]
+desktop-smoke = ["desktop.boot", "desktop.settings-navigation"]

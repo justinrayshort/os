@@ -87,9 +87,12 @@ This page documents the supported top-level commands for local development, veri
 - `cargo e2e run --profile <name> [--scenario <id>] [--base-url <url>] [--artifact-dir <path>]`: Start an isolated per-run `trunk serve` instance under `.artifacts/e2e/` by default, bootstrap `tools/e2e/node_modules` with `npm ci` when missing, and execute the Playwright browser harness with artifacts under `.artifacts/e2e/runs/`.
 - `--base-url <url>` reuses an externally managed server instead of starting the isolated E2E-owned server.
 - `--artifact-dir <path>` overrides the default per-run artifact root. Relative paths are resolved from the workspace root.
-- Current executable coverage is browser-only (`backend = "playwright"`). `tauri-webdriver` remains reserved for a later slice.
+- Profile semantics are now executable rather than nominal: `ci-headless` applies retry-on-failure behavior, `cross-browser` fans out across Chromium/Firefox/WebKit, and `debug` runs headed with slow motion plus always-retained traces.
+- `cargo e2e doctor` now reports browser prerequisites separately from the future desktop-driver prerequisites (`tauri-driver` plus a native WebDriver bridge).
+- Desktop profiles are versioned in the same config surface (`tauri-linux`, `tauri-windows`) and now resolve through the same Cargo workflow into a managed `tauri-driver` plus Selenium-based desktop harness on supported Linux/Windows hosts. On macOS, `tauri-webdriver` profiles fail immediately with a clear unsupported-platform error.
 - Versioned config currently lives in `tools/automation/e2e_profiles.toml` and `tools/automation/e2e_scenarios.toml`.
 - The E2E command family executes through the same shared xtask runtime (`CommandContext`, `ConfigLoader<T>`, `ProcessRunner`, `ArtifactManager`, `WorkflowRecorder`) as `verify`, `perf`, `docs`, and `wiki`.
+- `cargo verify --profile <name>` may append a Cargo-managed E2E stage when the selected verify profile declares `e2e_profile = "<e2e-profile>"` in `tools/automation/verify_profiles.toml`.
 
 ### Documentation Workflow (Rustdoc + Wiki)
 

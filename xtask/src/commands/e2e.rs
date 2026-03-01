@@ -3,21 +3,18 @@
 use crate::commands::dev::{load_dev_server_config, DevServerConfig};
 use crate::runtime::config::ConfigLoader;
 use crate::runtime::context::CommandContext;
-use crate::runtime::env::EnvHelper;
 use crate::runtime::error::{XtaskError, XtaskResult};
-use crate::runtime::fs::read_file_tail;
-use crate::runtime::lifecycle::{kill_pid, port_is_open, terminate_pid};
+use crate::runtime::serve::{
+    allocate_local_http_port, normalize_host_for_url, start_background_http_server,
+    stop_background_http_server, BackgroundHttpServerHandle, BackgroundHttpServerSpec,
+};
 use crate::runtime::workflow::unix_timestamp_millis;
 use crate::XtaskCommand;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::fmt::{self, Display, Formatter};
-use std::fs::OpenOptions;
-use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 const E2E_PROFILES_CONFIG: &str = "tools/automation/e2e_profiles.toml";
 const E2E_SCENARIOS_CONFIG: &str = "tools/automation/e2e_scenarios.toml";
@@ -25,6 +22,7 @@ const E2E_NODE_PACKAGE: &str = "tools/e2e/package.json";
 const E2E_NODE_LOCKFILE: &str = "tools/e2e/package-lock.json";
 const E2E_NODE_MODULES: &str = "tools/e2e/node_modules";
 const E2E_PROJECT_DIR: &str = "tools/e2e";
+const DESKTOP_TAURI_PACKAGE: &str = "desktop_tauri";
 
 /// `cargo e2e ...`
 pub struct E2eCommand;
@@ -48,24 +46,6 @@ pub struct E2eRunOptions {
     pub artifact_dir: Option<PathBuf>,
 }
 
-#[derive(Debug)]
-struct E2eServerHandle {
-    child: Child,
-    host: String,
-    port: u16,
-    log_path: PathBuf,
-}
-
-impl E2eServerHandle {
-    fn pid(&self) -> u32 {
-        self.child.id()
-    }
-
-    fn base_url(&self) -> String {
-        format!("http://{}:{}/", self.host, self.port)
-    }
-}
-
 #[derive(Clone, Debug, Deserialize)]
 struct E2eProfilesFile {
     profile: BTreeMap<String, E2eProfileSpec>,
@@ -87,6 +67,7 @@ struct E2eProfileSpec {
     workers: WorkerCount,
     retries: u32,
     trace: String,
+    slow_mo_ms: Option<u64>,
     supported_os: Vec<SupportedOs>,
 }
 
@@ -276,12 +257,17 @@ fn e2e_list(ctx: &CommandContext) -> XtaskResult<()> {
 
     println!("E2E profiles:");
     for (name, profile) in &config.profiles.profile {
+        let browsers = if profile.browsers.is_empty() {
+            "(n/a)".to_string()
+        } else {
+            profile.browsers.join(",")
+        };
         println!(
             "  - {name}: backend={}, target={}, scenario_set={}, browsers={}, headless={}, workers={}, retries={}, trace={}",
             profile.backend,
             profile.target,
             profile.scenario_set,
-            profile.browsers.join(","),
+            browsers,
             profile.headless,
             profile.workers,
             profile.retries,
@@ -327,13 +313,33 @@ fn e2e_doctor(ctx: &CommandContext) -> XtaskResult<()> {
     let config = load_e2e_config(ctx)?;
     validate_e2e_config(&config)?;
 
+    let current_os = SupportedOs::current();
     let node_available = ctx.process().command_available("node");
     let npm_available = ctx.process().command_available("npm");
     let trunk_available = ctx.process().command_available("trunk");
     let cargo_available = ctx.process().command_available("cargo");
+    let tauri_driver_available = ctx.process().command_available("tauri-driver");
+    let native_webdriver_available = ["geckodriver", "chromedriver", "msedgedriver"]
+        .iter()
+        .any(|program| ctx.process().command_available(program));
     let package_json = ctx.artifacts().path(E2E_NODE_PACKAGE);
     let lockfile = ctx.artifacts().path(E2E_NODE_LOCKFILE);
     let node_modules = ctx.artifacts().path(E2E_NODE_MODULES);
+    let desktop_profiles = config
+        .profiles
+        .profile
+        .iter()
+        .filter(|(_, profile)| profile.backend == E2eBackend::TauriWebdriver)
+        .map(|(name, _)| name.as_str())
+        .collect::<Vec<_>>();
+    let desktop_supported_here = desktop_profiles.iter().any(|name| {
+        config
+            .profiles
+            .profile
+            .get(*name)
+            .map(|profile| profile.supported_os.contains(&current_os))
+            .unwrap_or(false)
+    });
 
     println!("E2E doctor:");
     println!(
@@ -350,6 +356,20 @@ fn e2e_doctor(ctx: &CommandContext) -> XtaskResult<()> {
     println!("  - node: {}", status_word(node_available));
     println!("  - npm: {}", status_word(npm_available));
     println!("  - trunk: {}", status_word(trunk_available));
+    println!(
+        "  - desktop backend support on {}: {}",
+        current_os,
+        if desktop_supported_here {
+            "supported"
+        } else {
+            "not supported"
+        }
+    );
+    println!("  - tauri-driver: {}", status_word(tauri_driver_available));
+    println!(
+        "  - native webdriver bridge: {}",
+        status_word(native_webdriver_available)
+    );
     println!(
         "  - tools/e2e package: {}",
         if package_json.exists() {
@@ -401,6 +421,21 @@ fn e2e_doctor(ctx: &CommandContext) -> XtaskResult<()> {
                 "tools/e2e/node_modules is not present yet; `cargo e2e run` will bootstrap dependencies with `npm ci`",
             );
         }
+        if !desktop_profiles.is_empty() {
+            if desktop_supported_here {
+                if !tauri_driver_available || !native_webdriver_available {
+                    ctx.workflow().warn(
+                        "desktop Tauri/WebDriver profiles are configured, but local desktop-driver prerequisites are incomplete on this host",
+                    );
+                }
+            } else {
+                ctx.workflow().warn(&format!(
+                    "desktop Tauri/WebDriver profiles ({}) are configured, but not supported on this host ({})",
+                    desktop_profiles.join(", "),
+                    current_os
+                ));
+            }
+        }
         Ok(())
     } else {
         Err(XtaskError::environment(format!(
@@ -443,7 +478,14 @@ fn e2e_run(ctx: &CommandContext, options: E2eRunOptions) -> XtaskResult<()> {
                 println!("target: {}", resolved.profile.target);
                 println!("scenario set: {}", resolved.profile.scenario_set);
                 println!("scenario ids: {}", resolved.scenario_ids.join(", "));
-                println!("browsers: {}", resolved.profile.browsers.join(", "));
+                println!(
+                    "browsers: {}",
+                    if resolved.profile.browsers.is_empty() {
+                        "(n/a)".to_string()
+                    } else {
+                        resolved.profile.browsers.join(", ")
+                    }
+                );
                 println!("headless: {}", resolved.profile.headless);
                 println!("workers: {}", resolved.profile.workers);
                 println!("trace: {}", resolved.profile.trace);
@@ -462,6 +504,19 @@ fn e2e_run(ctx: &CommandContext, options: E2eRunOptions) -> XtaskResult<()> {
         })
 }
 
+pub(crate) fn run_named_profile(ctx: &CommandContext, profile: &str) -> XtaskResult<()> {
+    e2e_run(
+        ctx,
+        E2eRunOptions {
+            profile: profile.to_string(),
+            scenario: None,
+            dry_run: false,
+            base_url: None,
+            artifact_dir: None,
+        },
+    )
+}
+
 fn run_e2e_backend(
     ctx: &CommandContext,
     resolved: &ResolvedE2eRun,
@@ -470,9 +525,90 @@ fn run_e2e_backend(
 ) -> XtaskResult<()> {
     match resolved.profile.backend {
         E2eBackend::Playwright => run_playwright_backend(ctx, resolved, options, artifact_dir),
-        E2eBackend::TauriWebdriver => Err(XtaskError::unsupported_platform(
-            "tauri-webdriver execution is not implemented yet; use a browser profile for now",
-        )),
+        E2eBackend::TauriWebdriver => {
+            run_tauri_webdriver_backend(ctx, resolved, options, artifact_dir)
+        }
+    }
+}
+
+fn run_tauri_webdriver_backend(
+    ctx: &CommandContext,
+    resolved: &ResolvedE2eRun,
+    _options: &E2eRunOptions,
+    artifact_dir: &Path,
+) -> XtaskResult<()> {
+    match SupportedOs::current() {
+        SupportedOs::Macos => Err(XtaskError::unsupported_platform(format!(
+            "E2E profile `{}` uses `tauri-webdriver`, which is not supported on macOS in this workflow; use a browser profile such as `local-dev`, `ci-headless`, or `cross-browser` instead",
+            resolved.profile_name
+        ))),
+        SupportedOs::Linux | SupportedOs::Windows => {
+            ensure_e2e_project_files(ctx)?;
+            ctx.artifacts().ensure_dir(artifact_dir)?;
+            ctx.workflow()
+                .run_timed_stage("Bootstrap E2E Node dependencies", || {
+                    ensure_node_modules(ctx)
+                })?;
+            let dev_config = load_dev_server_config(ctx)?;
+            let desktop_binary = build_desktop_tauri_binary(ctx)?;
+            let native_driver = resolve_native_webdriver_binary(ctx)?;
+            let mut frontend_server = None;
+            ctx.workflow()
+                .run_timed_stage("Start desktop E2E frontend server", || {
+                    frontend_server = Some(start_isolated_e2e_server(ctx, artifact_dir, &dev_config)?);
+                    Ok(())
+                })?;
+            let frontend_server =
+                frontend_server.expect("desktop frontend server set in previous stage");
+            let mut tauri_driver = None;
+            let mut tauri_driver_url = None;
+            ctx.workflow()
+                .run_timed_stage("Start tauri-driver", || {
+                    let handle =
+                        start_tauri_driver_server(ctx, artifact_dir, native_driver.as_path())?;
+                    tauri_driver_url = Some(handle.base_url());
+                    tauri_driver = Some(handle);
+                    Ok(())
+                })?;
+            let tauri_driver_url =
+                tauri_driver_url.expect("tauri driver url set in previous stage");
+            let mut tauri_driver = tauri_driver.expect("tauri driver set in previous stage");
+            let run_result = execute_tauri_webdriver_harness(
+                ctx,
+                resolved,
+                artifact_dir,
+                &tauri_driver_url,
+                desktop_binary.as_path(),
+                &frontend_server.base_url(),
+            );
+
+            match stop_background_http_server(&mut tauri_driver) {
+                Ok(()) => {}
+                Err(err) => {
+                    if run_result.is_ok() {
+                        return Err(err);
+                    }
+                    ctx.workflow().warn(&format!(
+                        "tauri-driver cleanup failed after desktop E2E failure: {err}"
+                    ));
+                }
+            }
+
+            let mut frontend_server = frontend_server;
+            match stop_isolated_e2e_server(ctx, &mut frontend_server) {
+                Ok(()) => {}
+                Err(err) => {
+                    if run_result.is_ok() {
+                        return Err(err);
+                    }
+                    ctx.workflow().warn(&format!(
+                        "desktop frontend server cleanup failed after desktop E2E failure: {err}"
+                    ));
+                }
+            }
+
+            run_result
+        }
     }
 }
 
@@ -539,15 +675,22 @@ fn validate_e2e_config(config: &LoadedE2eConfig) -> XtaskResult<()> {
             )));
         };
 
-        if profile.browsers.is_empty() {
+        if profile.backend == E2eBackend::Playwright && profile.browsers.is_empty() {
             return Err(XtaskError::config(format!(
-                "E2E profile `{profile_name}` must define at least one browser"
+                "E2E profile `{profile_name}` must define at least one browser for the Playwright backend"
             )));
         }
 
         if profile.supported_os.is_empty() {
             return Err(XtaskError::config(format!(
                 "E2E profile `{profile_name}` must define at least one supported OS"
+            )));
+        }
+
+        if !matches!(profile.trace.as_str(), "on" | "retain-on-failure" | "off") {
+            return Err(XtaskError::config(format!(
+                "E2E profile `{profile_name}` has invalid trace policy `{}` (expected `on`, `retain-on-failure`, or `off`)",
+                profile.trace
             )));
         }
 
@@ -628,6 +771,10 @@ fn ensure_supported_os(profile: &E2eProfileSpec, profile_name: &str) -> XtaskRes
     let current = SupportedOs::current();
     if profile.supported_os.contains(&current) {
         Ok(())
+    } else if profile.backend == E2eBackend::TauriWebdriver && current == SupportedOs::Macos {
+        Err(XtaskError::unsupported_platform(format!(
+            "E2E profile `{profile_name}` uses `tauri-webdriver`, which is not supported on macOS in this workflow; use a browser profile such as `local-dev`, `ci-headless`, or `cross-browser` instead"
+        )))
     } else {
         Err(XtaskError::unsupported_platform(format!(
             "E2E profile `{profile_name}` is not supported on {}",
@@ -700,185 +847,133 @@ fn ensure_node_modules(ctx: &CommandContext) -> XtaskResult<()> {
     )
 }
 
+fn build_desktop_tauri_binary(ctx: &CommandContext) -> XtaskResult<PathBuf> {
+    ctx.workflow()
+        .run_timed_stage("Build desktop Tauri binary", || {
+            ctx.process().run(
+                ctx.root(),
+                "cargo",
+                vec!["build", "-p", DESKTOP_TAURI_PACKAGE],
+            )
+        })?;
+    let binary_name = if cfg!(windows) {
+        "desktop_tauri.exe"
+    } else {
+        "desktop_tauri"
+    };
+    let binary = ctx.root().join("target").join("debug").join(binary_name);
+    if binary.exists() {
+        Ok(binary)
+    } else {
+        Err(XtaskError::process_exit(format!(
+            "desktop Tauri binary was not produced at {}",
+            binary.display()
+        )))
+    }
+}
+
+fn resolve_native_webdriver_binary(ctx: &CommandContext) -> XtaskResult<PathBuf> {
+    let candidates = match SupportedOs::current() {
+        SupportedOs::Windows => vec!["msedgedriver", "chromedriver"],
+        SupportedOs::Linux => vec!["geckodriver", "chromedriver"],
+        SupportedOs::Macos => Vec::new(),
+    };
+    for candidate in candidates {
+        let lookup_program = if cfg!(windows) { "where" } else { "which" };
+        let path = ctx
+            .process()
+            .capture_stdout_line(lookup_program, &[candidate]);
+        if path != "unavailable" {
+            return Ok(PathBuf::from(path));
+        }
+    }
+    Err(XtaskError::environment(
+        "no supported native WebDriver bridge was found on PATH for desktop E2E",
+    )
+    .with_operation("cargo e2e run")
+    .with_hint("install `geckodriver`, `chromedriver`, or `msedgedriver` as appropriate for the host platform"))
+}
+
 fn planned_base_url(ctx: &CommandContext, options: &E2eRunOptions) -> XtaskResult<String> {
     if let Some(base_url) = &options.base_url {
         return Ok(base_url.clone());
     }
 
     let config = load_dev_server_config(ctx)?;
-    let host = normalized_host_for_url(&config.default_host);
+    let host = normalize_host_for_url(&config.default_host);
     Ok(format!("http://{host}:<ephemeral>/"))
-}
-
-fn normalized_host_for_url(host: &str) -> String {
-    match host {
-        "0.0.0.0" => "127.0.0.1".to_string(),
-        "::" => "[::1]".to_string(),
-        other => other.to_string(),
-    }
-}
-
-fn allocate_local_port(host: &str) -> XtaskResult<u16> {
-    let bind_addr = if host == "::" {
-        "[::1]:0"
-    } else {
-        "127.0.0.1:0"
-    };
-    let listener = TcpListener::bind(bind_addr).map_err(|err| {
-        XtaskError::io(format!(
-            "failed to allocate an ephemeral E2E port on {bind_addr}: {err}"
-        ))
-    })?;
-    let port = listener
-        .local_addr()
-        .map_err(|err| XtaskError::io(format!("failed to inspect allocated port: {err}")))?
-        .port();
-    drop(listener);
-    Ok(port)
 }
 
 fn start_isolated_e2e_server(
     ctx: &CommandContext,
     artifact_dir: &Path,
     config: &DevServerConfig,
-) -> XtaskResult<E2eServerHandle> {
+) -> XtaskResult<BackgroundHttpServerHandle> {
     let host = config.default_host.clone();
-    let public_host = normalized_host_for_url(&host);
-    let port = allocate_local_port(&host)?;
+    let public_host = normalize_host_for_url(&host);
+    let port = allocate_local_http_port(&host)?;
     let server_dir = artifact_dir.join("server");
     ctx.artifacts().ensure_dir(&server_dir)?;
     let log_path = server_dir.join("trunk.log");
-
-    let log = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&log_path)
-        .map_err(|err| XtaskError::io(format!("failed to open {}: {err}", log_path.display())))?;
-    let log_out = log
-        .try_clone()
-        .map_err(|err| XtaskError::io(format!("failed to clone E2E log handle: {err}")))?;
-
-    let args = vec![
-        "serve".to_string(),
-        "index.html".to_string(),
-        "--no-sri=true".to_string(),
-        "--ignore".to_string(),
-        "dist".to_string(),
-        "--address".to_string(),
-        host.clone(),
-        "--port".to_string(),
-        port.to_string(),
-    ];
-    ctx.process().print_command("trunk", &args);
-
-    let mut cmd = Command::new("trunk");
-    cmd.current_dir(ctx.root().join("crates/site"))
-        .args(&args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(log_out))
-        .stderr(Stdio::from(log));
-    EnvHelper.apply_no_color_override(&mut cmd);
-
-    let child = cmd.spawn().map_err(|err| {
-        XtaskError::process_launch(format!("failed to start isolated `trunk`: {err}"))
-    })?;
-
-    let mut state = E2eServerHandle {
-        child,
-        host: public_host,
+    let spec = BackgroundHttpServerSpec {
+        program: "trunk".into(),
+        args: vec![
+            "serve".to_string(),
+            "index.html".to_string(),
+            "--no-sri=true".to_string(),
+            "--ignore".to_string(),
+            "dist".to_string(),
+            "--address".to_string(),
+            host,
+            "--port".to_string(),
+            port.to_string(),
+        ],
+        cwd: ctx.root().join("crates/site"),
+        bind_host: config.default_host.clone(),
+        public_host,
         port,
         log_path,
+        startup_timeout: config.start_poll(),
+        shutdown_timeout: config.stop_timeout(),
     };
-
-    wait_for_e2e_server_startup(
-        &mut state.child,
-        &state.log_path,
-        &state.host,
-        state.port,
-        config.start_poll(),
-    )?;
-    Ok(state)
+    start_background_http_server(ctx.process(), &spec)
 }
 
-fn wait_for_e2e_server_startup(
-    child: &mut Child,
-    log_path: &Path,
-    host: &str,
-    port: u16,
-    timeout: Duration,
+fn start_tauri_driver_server(
+    ctx: &CommandContext,
+    artifact_dir: &Path,
+    native_driver: &Path,
+) -> XtaskResult<BackgroundHttpServerHandle> {
+    let server_dir = artifact_dir.join("driver");
+    ctx.artifacts().ensure_dir(&server_dir)?;
+    let log_path = server_dir.join("tauri-driver.log");
+    let port = allocate_local_http_port("127.0.0.1")?;
+    let spec = BackgroundHttpServerSpec {
+        program: "tauri-driver".into(),
+        args: vec![
+            "--port".to_string(),
+            port.to_string(),
+            "--native-driver".to_string(),
+            native_driver.display().to_string(),
+        ],
+        cwd: ctx.root().to_path_buf(),
+        bind_host: "127.0.0.1".into(),
+        public_host: "127.0.0.1".into(),
+        port,
+        log_path,
+        startup_timeout: Duration::from_secs(10),
+        shutdown_timeout: Duration::from_secs(5),
+    };
+    start_background_http_server(ctx.process(), &spec)
+}
+
+fn stop_isolated_e2e_server(
+    ctx: &CommandContext,
+    state: &mut BackgroundHttpServerHandle,
 ) -> XtaskResult<()> {
-    let deadline = Instant::now() + timeout;
-
-    loop {
-        if port_is_open(host, port) {
-            return Ok(());
-        }
-
-        if let Some(status) = child.try_wait().map_err(|err| {
-            XtaskError::process_exit(format!("failed while checking E2E server startup: {err}"))
-        })? {
-            let mut msg =
-                format!("isolated E2E dev server exited during startup with status {status}");
-            let tail = read_file_tail(log_path, 20).unwrap_or_default();
-            if !tail.is_empty() {
-                msg.push_str(&format!("\nlog tail ({}):\n{}", log_path.display(), tail));
-            }
-            return Err(XtaskError::process_exit(msg));
-        }
-
-        if Instant::now() >= deadline {
-            let tail = read_file_tail(log_path, 20).unwrap_or_default();
-            return Err(XtaskError::process_exit(format!(
-                "isolated E2E dev server did not become reachable at {} within {:?}\nlog tail ({}):\n{}",
-                format_args!("http://{host}:{port}/"),
-                timeout,
-                log_path.display(),
-                tail
-            )));
-        }
-
-        thread::sleep(Duration::from_millis(200));
-    }
-}
-
-fn stop_isolated_e2e_server(ctx: &CommandContext, state: &mut E2eServerHandle) -> XtaskResult<()> {
     ctx.workflow()
         .run_timed_stage("Stop isolated E2E dev server", || {
-            let pid = state.pid();
-            terminate_pid(pid)?;
-            let deadline = Instant::now() + Duration::from_secs(5);
-            while Instant::now() < deadline {
-                if let Some(status) = state.child.try_wait().map_err(|err| {
-                    XtaskError::process_exit(format!(
-                        "failed while waiting for isolated E2E dev server shutdown: {err}"
-                    ))
-                })? {
-                    if status.success() || !port_is_open(&state.host, state.port) {
-                        return Ok(());
-                    }
-                    return Err(XtaskError::process_exit(format!(
-                        "isolated E2E dev server exited with status {status}"
-                    )));
-                }
-                if !port_is_open(&state.host, state.port) {
-                    return Ok(());
-                }
-                thread::sleep(Duration::from_millis(100));
-            }
-            kill_pid(pid)?;
-            let status = state.child.wait().map_err(|err| {
-                XtaskError::process_exit(format!(
-                    "failed to reap isolated E2E dev server process {pid}: {err}"
-                ))
-            })?;
-            if status.success() || !port_is_open(&state.host, state.port) {
-                Ok(())
-            } else {
-                Err(XtaskError::process_exit(format!(
-                    "failed to stop isolated E2E dev server pid {pid} cleanly (status {status})"
-                )))
-            }
+            stop_background_http_server(state)
         })
 }
 
@@ -897,6 +992,8 @@ fn execute_playwright_harness(
             } else {
                 "false"
             };
+            let retries = resolved.profile.retries.to_string();
+            let slow_mo_ms = resolved.profile.slow_mo_ms.unwrap_or(0).to_string();
             let artifact_dir_string = artifact_dir.display().to_string();
 
             ctx.process().run_owned_with_env(
@@ -913,6 +1010,42 @@ fn execute_playwright_harness(
                     ("OS_E2E_BROWSERS", browsers.as_str()),
                     ("OS_E2E_HEADLESS", headless),
                     ("OS_E2E_TRACE", resolved.profile.trace.as_str()),
+                    ("OS_E2E_RETRIES", retries.as_str()),
+                    ("OS_E2E_SLOW_MO_MS", slow_mo_ms.as_str()),
+                ],
+            )
+        })
+}
+
+fn execute_tauri_webdriver_harness(
+    ctx: &CommandContext,
+    resolved: &ResolvedE2eRun,
+    artifact_dir: &Path,
+    driver_url: &str,
+    desktop_binary: &Path,
+    frontend_base_url: &str,
+) -> XtaskResult<()> {
+    ctx.workflow()
+        .run_timed_stage("Execute tauri-webdriver harness", || {
+            let scenario_ids = resolved.scenario_ids.join(",");
+            let retries = resolved.profile.retries.to_string();
+            let artifact_dir_string = artifact_dir.display().to_string();
+            let desktop_binary_string = desktop_binary.display().to_string();
+
+            ctx.process().run_owned_with_env(
+                &ctx.root().join(E2E_PROJECT_DIR),
+                "node",
+                vec!["src/run-desktop.mjs".into()],
+                &[
+                    ("OS_E2E_PROFILE", resolved.profile_name.as_str()),
+                    ("OS_E2E_BACKEND", "tauri-webdriver"),
+                    ("OS_E2E_TARGET", "tauri"),
+                    ("OS_E2E_ARTIFACT_DIR", artifact_dir_string.as_str()),
+                    ("OS_E2E_SCENARIO_IDS", scenario_ids.as_str()),
+                    ("OS_E2E_RETRIES", retries.as_str()),
+                    ("OS_E2E_TAURI_DRIVER_URL", driver_url),
+                    ("OS_E2E_DESKTOP_BINARY", desktop_binary_string.as_str()),
+                    ("OS_E2E_BASE_URL", frontend_base_url),
                 ],
             )
         })
@@ -981,6 +1114,7 @@ mod tests {
             workers = 1
             retries = 0
             trace = "on"
+            slow_mo_ms = 250
             supported_os = ["macos", "linux", "windows"]
             "#,
         )
@@ -1060,6 +1194,56 @@ mod tests {
     #[test]
     fn validate_accepts_fixture_config() {
         validate_e2e_config(&fixture_config()).expect("valid config");
+    }
+
+    #[test]
+    fn validate_rejects_unknown_trace_policy() {
+        let mut config = fixture_config();
+        config
+            .profiles
+            .profile
+            .get_mut("local-dev")
+            .expect("profile")
+            .trace = "bogus".into();
+        let err = validate_e2e_config(&config).expect_err("invalid trace");
+        assert!(err.to_string().contains("invalid trace policy"));
+    }
+
+    #[test]
+    fn validate_allows_empty_browser_list_for_tauri_webdriver() {
+        let profiles = toml::from_str::<E2eProfilesFile>(
+            r#"
+            [profile.tauri-linux]
+            backend = "tauri-webdriver"
+            target = "tauri"
+            scenario_set = "desktop-smoke"
+            browsers = []
+            headless = false
+            workers = 1
+            retries = 0
+            trace = "off"
+            supported_os = ["linux"]
+            "#,
+        )
+        .expect("parse profiles");
+        let scenarios = toml::from_str::<E2eScenariosFile>(
+            r#"
+            [scenario."desktop.boot"]
+            summary = "Boot desktop"
+            backends = ["tauri-webdriver"]
+            targets = ["tauri"]
+
+            [scenario_set]
+            desktop-smoke = ["desktop.boot"]
+            "#,
+        )
+        .expect("parse scenarios");
+
+        validate_e2e_config(&LoadedE2eConfig {
+            profiles,
+            scenarios,
+        })
+        .expect("valid desktop config");
     }
 
     #[test]

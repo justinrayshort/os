@@ -8,5 +8,6 @@ pub mod error;
 pub mod fs;
 pub mod lifecycle;
 pub mod process;
+pub mod serve;
 pub mod workflow;
 pub mod workspace;

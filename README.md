@@ -154,7 +154,13 @@ The current E2E slice now includes the first executable browser path: profiles a
 versioned under `tools/automation/`, `cargo e2e doctor` checks the local prerequisites, and
 `cargo e2e run --profile ...` starts an isolated per-run `trunk serve` instance under
 `.artifacts/e2e/`, bootstraps `tools/e2e/` with `npm ci` when needed, and runs the Playwright
-harness with artifacts under `.artifacts/e2e/runs/`.
+harness with artifacts under `.artifacts/e2e/runs/`. Profile settings now materially affect the
+run: `ci-headless` uses headless Chromium plus retry-on-failure policy, `cross-browser` fans out
+across Chromium/Firefox/WebKit, and `debug` runs headed with slow motion and always-retained
+traces. Desktop `tauri-webdriver` profiles are now versioned in the same config surface, reported
+by `cargo e2e doctor`, and wired to a managed `tauri-driver` plus Selenium desktop harness on
+supported Linux/Windows hosts. On macOS, those profiles still fail immediately with an explicit
+unsupported-platform message.
 `cargo e2e run --dry-run` remains available for config-only validation.
 
 Full verification (fast verification + prototype checks + optional clippy/trunk build):
@@ -163,7 +169,11 @@ Full verification (fast verification + prototype checks + optional clippy/trunk 
 cargo verify
 ```
 
-`cargo verify` remains exhaustive and always includes desktop host coverage. `cargo verify-fast` and `cargo verify` print per-stage timing so bottlenecks are observable directly from command output.
+`cargo verify` remains exhaustive and always includes desktop host coverage. Profile-driven
+verification via `cargo verify --profile <name>` can now optionally append a Cargo-managed E2E
+stage from `tools/automation/verify_profiles.toml` after the normal Rust/docs/clippy stages.
+`cargo verify-fast` and `cargo verify` print per-stage timing so bottlenecks are observable
+directly from command output.
 
 Compatibility `make` targets still work (delegating to Cargo aliases):
 

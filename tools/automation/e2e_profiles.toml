@@ -40,4 +40,27 @@ headless = false
 workers = 1
 retries = 0
 trace = "on"
+slow_mo_ms = 250
 supported_os = ["macos", "linux", "windows"]
+
+[profile.tauri-linux]
+backend = "tauri-webdriver"
+target = "tauri"
+scenario_set = "desktop-smoke"
+browsers = []
+headless = false
+workers = 1
+retries = 0
+trace = "off"
+supported_os = ["linux"]
+
+[profile.tauri-windows]
+backend = "tauri-webdriver"
+target = "tauri"
+scenario_set = "desktop-smoke"
+browsers = []
+headless = false
+workers = 1
+retries = 0
+trace = "off"
+supported_os = ["windows"]
