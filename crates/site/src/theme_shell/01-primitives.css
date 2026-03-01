@@ -13,6 +13,12 @@
   box-shadow: var(--sys-glow-accent-soft), var(--sys-surface-depth-muted);
 }
 
+[data-ui-primitive="true"][data-e2e-state="focus-visible"] {
+  outline: var(--sys-focus-width) solid var(--sys-state-focus-ring);
+  outline-offset: 3px;
+  box-shadow: var(--sys-glow-accent-soft), var(--sys-surface-depth-muted);
+}
+
 [data-ui-kind="app-shell"] {
   display: grid;
   min-height: 100%;
@@ -236,6 +242,7 @@
 }
 
 [data-ui-kind="button"]:hover:not(:disabled),
+[data-ui-kind="button"][data-e2e-state="hover"]:not(:disabled),
 [data-ui-kind="button"][data-ui-selected="true"],
 [data-ui-kind="icon-button"]:hover:not(:disabled),
 [data-ui-kind="icon-button"][data-ui-selected="true"],

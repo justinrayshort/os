@@ -5,7 +5,8 @@ use desktop_app_contract::ApplicationId;
 #[cfg(any(test, target_arch = "wasm32"))]
 use desktop_runtime::DeepLinkOpenTarget;
 use desktop_runtime::{
-    use_desktop_runtime, DeepLinkState, DesktopAction, DesktopProvider, DesktopShell,
+    current_browser_e2e_config, use_desktop_runtime, BrowserE2eConfig, DeepLinkState,
+    DesktopAction, DesktopProvider, DesktopShell,
 };
 use leptos::*;
 use leptos_meta::*;
@@ -50,6 +51,9 @@ pub fn SiteApp() -> impl IntoView {
 /// Default route that mounts the desktop runtime provider and shell.
 pub fn DesktopEntry() -> impl IntoView {
     let host_services = build_host_services();
+    if let Some(browser_e2e) = current_browser_e2e_config() {
+        provide_context::<BrowserE2eConfig>(browser_e2e);
+    }
     view! {
         <DesktopProvider host_services>
             <DesktopUrlBoot />

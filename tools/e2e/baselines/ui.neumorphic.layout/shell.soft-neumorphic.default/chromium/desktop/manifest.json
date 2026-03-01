@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "promoted_at": "2026-03-01T02:39:17.759462+00:00",
+  "source_run_id": "1772332750276-ci-headless",
+  "profile": "ci-headless",
+  "scenario_id": "ui.neumorphic.layout",
+  "slice_id": "shell.soft-neumorphic.default",
+  "browser": "chromium",
+  "viewport": {
+    "id": "desktop",
+    "width": 1440,
+    "height": 900,
+    "device_scale_factor": 1
+  },
+  "hashes": {
+    "screenshot_sha256": "fff421f3f5e74d5f19db20c5c510f14ed138326277ea3753d8e26a453896a09d",
+    "dom_sha256": "9276ee208003b1caed8c928186b001ce5a0921ad7641ee08e5bcd00d74c9130b",
+    "a11y_sha256": "25b45188f3b9a0ada615f2a31337a6c048f417b6e135a97dfc3499c967422f67",
+    "layout_sha256": "b74c725eb2b3b20f6a1e32e7d84b39e8a9ae1db886206c805f58c3d0b424ae7c",
+    "style_sha256": "c4bde2bdef7aa6867e7ba63950febb1c280896a9c55a8b277a05ab86d4a70849"
+  }
+}

@@ -3,7 +3,7 @@ title: "Project Command Entry Points"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-28"
+last_reviewed: "2026-03-01"
 audience: ["engineering", "platform"]
 invariants:
   - "Cargo aliases in .cargo/config.toml remain the preferred stable entry points for common project workflows."
@@ -59,7 +59,7 @@ This page documents the supported top-level commands for local development, veri
 - `cargo verify-fast`: Run fast workspace verification (`xtask verify fast`) with conditional desktop host checks.
   - `cargo verify-fast --with-desktop`: Force include desktop host checks.
   - `cargo verify-fast --without-desktop`: Force skip desktop host checks.
-- `cargo verify`: Run full project verification (`xtask verify`, default mode `full`) including prototype compile checks, optional clippy, and always-on desktop host coverage.
+- `cargo verify`: Run full project verification (`xtask verify`, default mode `full`) including prototype compile checks, optional clippy, always-on desktop host coverage, and the blocking neumorphic `ci-headless` Playwright validation stage.
 - `cargo verify --profile <name>`: Run profile-driven verification from `tools/automation/verify_profiles.toml` (`dev`, `ci-fast`, `ci-full`, `release`).
 - `cargo verify-fast` / `cargo verify`: print per-stage duration for measurable feedback-loop latency.
 - `cargo flow`, `cargo verify*`, and `cargo doctor` emit structured run artifacts under `.artifacts/automation/runs/<run-id>/` (`manifest.json`, `events.jsonl`).
@@ -85,23 +85,24 @@ This page documents the supported top-level commands for local development, veri
 - `cargo e2e doctor`: Check local E2E prerequisites (`cargo`, `node`, `npm`, `trunk`), the committed `tools/e2e/` Node project surface, the repo-tracked baseline root under `tools/e2e/baselines/`, and whether Playwright can actually launch a browser on the current host.
 - `cargo e2e run --profile <name> [--scenario <id>] [--slice <id>] --dry-run`: Resolve a typed profile/scenario selection, validate OS compatibility, and print the planned artifact root under `.artifacts/e2e/runs/`.
 - `cargo e2e run --profile <name> [--scenario <id>] [--slice <id>] [--base-url <url>] [--artifact-dir <path>] [--manifest-out <path>] [--debug] [--no-diff]`: Start an isolated per-run `trunk serve` instance under `.artifacts/e2e/` by default, bootstrap `tools/e2e/node_modules` with `npm ci` when missing, and execute the Playwright browser harness with artifacts under `.artifacts/e2e/runs/`.
-- `cargo e2e inspect --run <path|run-id>`: Read a prior `reports/ui-feedback-manifest.json` and print a deterministic summary of pass/fail counts, diff failures, and relevant artifact paths.
-- `cargo e2e promote --profile <name> [--scenario <id>] [--slice <id>] --source-run <path|run-id>`: Copy approved screenshot/DOM/accessibility/layout artifacts from a completed run into `tools/e2e/baselines/<scenario-id>/<slice-id>/<browser>/<viewport-id>/` and write baseline metadata.
+- `cargo e2e inspect --run <path|run-id>`: Read a prior `reports/ui-feedback-manifest.json` and print a deterministic summary of pass/fail counts, diff failures, failure categories, timing evidence, and relevant artifact paths.
+- `cargo e2e promote --profile <name> [--scenario <id>] [--slice <id>] --source-run <path|run-id>`: Copy approved screenshot/DOM/accessibility/layout/style artifacts from a completed run into `tools/e2e/baselines/<scenario-id>/<slice-id>/<browser>/<viewport-id>/` and write baseline metadata.
 - `--base-url <url>` reuses an externally managed server instead of starting the isolated E2E-owned server.
 - `--artifact-dir <path>` overrides the default per-run artifact root. Relative paths are resolved from the workspace root.
 - `--slice <id>` narrows execution and promotion to one canonical UI slice within a scenario.
 - `--manifest-out <path>` copies the final machine-readable manifest to a caller-selected location for Codex or other tooling.
 - `--debug` forces a headed, slow-motion run without mutating baselines.
 - `--no-diff` captures full artifacts without failing against approved baselines and produces `capture-complete` manifests that can later be promoted.
-- Profile semantics are now executable rather than nominal: `ci-headless` applies retry-on-failure behavior, `cross-browser` fans out across Chromium/Firefox/WebKit, and `debug` runs headed with slow motion plus always-retained traces.
+- Profile semantics are now executable rather than nominal: `local-dev` is the headed neumorphic capture/debug set, `ci-headless` is the blocking Chromium neumorphic validation set, `cross-browser` runs the narrow neumorphic smoke matrix across Chromium/Firefox/WebKit, and `debug` remains a slow-motion inspection profile.
 - `cargo e2e doctor` now reports browser prerequisites separately from desktop-driver prerequisites (`tauri-driver` plus a native WebDriver bridge).
 - Desktop profiles are versioned in the same config surface (`tauri-linux`, `tauri-windows`), but macOS remains the stable browser-first host. On macOS, `tauri-webdriver` profiles fail immediately with a clear unsupported-platform error.
 - Future Linux/Windows desktop backend work is tracked in [Cargo E2E Desktop Platform TODO Spec](cargo-e2e-desktop-platform-todo-spec.md).
 - Versioned config currently lives in `tools/automation/e2e_profiles.toml` and `tools/automation/e2e_scenarios.toml`.
-- Browser runs now emit a single machine-readable manifest at `.artifacts/e2e/runs/<run-id>/reports/ui-feedback-manifest.json`.
-- Per-slice artifact roots live under `.artifacts/e2e/runs/<run-id>/artifacts/{screenshots,dom,a11y,layout,logs,network,traces,diffs}/`.
+- Browser runs now emit a single machine-readable schema-v2 manifest at `.artifacts/e2e/runs/<run-id>/reports/ui-feedback-manifest.json`.
+- Per-slice artifact roots live under `.artifacts/e2e/runs/<run-id>/artifacts/{screenshots,dom,a11y,layout,style,timing,logs,network,traces,diffs}/`.
 - The E2E command family executes through the same shared xtask runtime (`CommandContext`, `ConfigLoader<T>`, `ProcessRunner`, `ArtifactManager`, `WorkflowRecorder`) as `verify`, `perf`, `docs`, and `wiki`.
 - `cargo verify --profile <name>` may append a Cargo-managed E2E stage when the selected verify profile declares `e2e_profile = "<e2e-profile>"` in `tools/automation/verify_profiles.toml`.
+- The canonical blocking scenario families are `ui.neumorphic.layout`, `ui.neumorphic.navigation`, `ui.neumorphic.interaction`, `ui.neumorphic.accessibility`, and `ui.neumorphic.apps`.
 
 ### Documentation Workflow (Rustdoc + Wiki)
 

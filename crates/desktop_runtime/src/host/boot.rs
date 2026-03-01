@@ -1,33 +1,39 @@
 use leptos::{create_effect, logging, spawn_local, Callable, Callback};
 
-use crate::{host::DesktopHostContext, persistence, reducer::DesktopAction};
+use crate::{
+    current_browser_e2e_config, host::DesktopHostContext, persistence, reducer::DesktopAction,
+};
 
 pub(super) fn install_boot_hydration(host: DesktopHostContext, dispatch: Callback<DesktopAction>) {
     create_effect(move |_| {
         let dispatch = dispatch;
         let host = host.clone();
         spawn_local(async move {
-            let legacy_snapshot = persistence::load_boot_snapshot(&host).await;
-            if let Some(snapshot) = legacy_snapshot.clone() {
-                dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
-            }
+            let browser_e2e_active = current_browser_e2e_config().is_some();
 
-            if let Some(theme) = persistence::load_theme(&host).await {
-                dispatch.call(DesktopAction::HydrateTheme { theme });
-            }
+            if !browser_e2e_active {
+                let legacy_snapshot = persistence::load_boot_snapshot(&host).await;
+                if let Some(snapshot) = legacy_snapshot.clone() {
+                    dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
+                }
 
-            if let Some(wallpaper) = persistence::load_wallpaper(&host).await {
-                dispatch.call(DesktopAction::HydrateWallpaper { wallpaper });
-            }
+                if let Some(theme) = persistence::load_theme(&host).await {
+                    dispatch.call(DesktopAction::HydrateTheme { theme });
+                }
 
-            if let Some(snapshot) = persistence::load_durable_boot_snapshot(&host).await {
-                dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
-            } else if let Some(snapshot) = legacy_snapshot {
-                let migrated_state = crate::model::DesktopState::from_snapshot(snapshot);
-                if let Err(err) =
-                    persistence::persist_durable_layout_snapshot(&host, &migrated_state).await
-                {
-                    logging::warn!("migrate legacy snapshot to durable store failed: {err}");
+                if let Some(wallpaper) = persistence::load_wallpaper(&host).await {
+                    dispatch.call(DesktopAction::HydrateWallpaper { wallpaper });
+                }
+
+                if let Some(snapshot) = persistence::load_durable_boot_snapshot(&host).await {
+                    dispatch.call(DesktopAction::HydrateSnapshot { snapshot });
+                } else if let Some(snapshot) = legacy_snapshot {
+                    let migrated_state = crate::model::DesktopState::from_snapshot(snapshot);
+                    if let Err(err) =
+                        persistence::persist_durable_layout_snapshot(&host, &migrated_state).await
+                    {
+                        logging::warn!("migrate legacy snapshot to durable store failed: {err}");
+                    }
                 }
             }
 
@@ -37,6 +43,8 @@ pub(super) fn install_boot_hydration(host: DesktopHostContext, dispatch: Callbac
                 }
                 Err(err) => logging::warn!("wallpaper library load failed: {err}"),
             }
+
+            dispatch.call(DesktopAction::BootHydrationComplete);
         });
     });
 }

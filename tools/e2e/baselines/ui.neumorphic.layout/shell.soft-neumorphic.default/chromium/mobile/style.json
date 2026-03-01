@@ -1,0 +1,59 @@
+{
+  "root": "[data-ui-kind=\"desktop-root\"]",
+  "tokens": {
+    "--sys-color-surface": "#e6e7ee",
+    "--sys-color-accent": "#5b8ccf",
+    "--sys-radius-control": "12px",
+    "--sys-radius-panel": "18px",
+    "--sys-space-2": "8px",
+    "--sys-space-3": "12px",
+    "--sys-space-4": "16px",
+    "--sys-elevation-raised": "-6px -6px 12px rgba(255, 255, 255, 0.8),\n    6px 6px 12px rgba(0, 0, 0, 0.12)",
+    "--sys-elevation-inset": "inset -4px -4px 8px rgba(255, 255, 255, 0.72),\n    inset 4px 4px 8px rgba(0, 0, 0, 0.1)",
+    "--sys-focus-ring": ""
+  },
+  "computed": [
+    {
+      "selector": "[data-ui-kind=\"taskbar\"]",
+      "values": {
+        "backgroundColor": "color(srgb 0.909804 0.913412 0.938667)",
+        "color": "rgb(32, 25, 18)",
+        "boxShadow": "none",
+        "borderRadius": "0px",
+        "outlineColor": "rgb(32, 25, 18)",
+        "outlineWidth": "0px",
+        "paddingTop": "8px",
+        "paddingRight": "12px",
+        "paddingBottom": "8px",
+        "paddingLeft": "12px",
+        "gap": "12px",
+        "transform": "none"
+      }
+    },
+    {
+      "selector": "[data-ui-kind=\"window-frame\"]",
+      "missing": true
+    },
+    {
+      "selector": "[data-ui-kind=\"menu-surface\"]",
+      "missing": true
+    },
+    {
+      "selector": "[data-ui-kind=\"button\"][data-ui-slot=\"start-button\"]",
+      "values": {
+        "backgroundColor": "color(srgb 0.913725 0.917176 0.941333)",
+        "color": "rgb(248, 251, 255)",
+        "boxShadow": "rgba(255, 255, 255, 0.8) -6px -6px 12px 0px, rgba(0, 0, 0, 0.12) 6px 6px 12px 0px",
+        "borderRadius": "12px",
+        "outlineColor": "rgb(248, 251, 255)",
+        "outlineWidth": "0px",
+        "paddingTop": "0px",
+        "paddingRight": "14px",
+        "paddingBottom": "0px",
+        "paddingLeft": "14px",
+        "gap": "8px",
+        "transform": "none"
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@ title: "Desktop Shell Neumorphic Design System"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-28"
+last_reviewed: "2026-03-01"
 audience: ["engineering", "design"]
 invariants:
   - "Shell icon usage flows through the centralized `system_ui` icon abstraction instead of ad-hoc text glyphs or inline per-component SVG markup."
@@ -27,6 +27,19 @@ The neumorphic skin covers:
 - taskbar, start button, taskbar app buttons, tray, overflow, and menus
 - built-in app primitives rendered through `system_ui` shell/content primitives and `data-ui-*` roots
 - built-in app interiors for Explorer, Notepad, Terminal, Calculator, System Settings, the built-in UI Showcase app, and the lightweight Paint/Connection utility surfaces that replaced placeholder-grade windows
+
+Canonical automation-backed validation surfaces for this skin are:
+
+- `shell.soft-neumorphic.default`
+- `shell.soft-neumorphic.context-menu-open`
+- `shell.soft-neumorphic.start-button-hover`
+- `shell.soft-neumorphic.start-button-focus`
+- `shell.soft-neumorphic.high-contrast`
+- `shell.soft-neumorphic.reduced-motion`
+- `settings.desktop.appearance-tab`
+- `settings.desktop.accessibility-tab`
+- `system.ui-showcase.controls`
+- `terminal.desktop.default`
 
 Wallpaper asset selection remains a separate subsystem. Skin files may style atmosphere and surface treatment, but they must not choose wallpapers or mutate wallpaper runtime state.
 
@@ -85,6 +98,19 @@ Key soft-neumorphic defaults now standardized by token remapping:
   - panels/cards `18px` to `24px`
   - pills `9999px`
 - 8px-based spacing and motion tokens
+
+The deterministic UI feedback workflow snapshots the following token values from the shell root on every canonical slice:
+
+- `--sys-color-surface`
+- `--sys-color-accent`
+- `--sys-radius-control`
+- `--sys-radius-panel`
+- `--sys-space-2`
+- `--sys-space-3`
+- `--sys-space-4`
+- `--sys-elevation-raised`
+- `--sys-elevation-inset`
+- `--sys-focus-ring`
 
 New semantic tokens added for the expanded kit include:
 
@@ -145,8 +171,8 @@ Validation and evidence requirements are governed by:
 
 Current review-cycle evidence artifacts:
 
-- [`/.artifacts/e2e/runs/`](../../.artifacts/e2e/runs/) now contains the canonical Playwright UI feedback runs, including deterministic screenshot, DOM, accessibility, layout, log, trace, and diff artifacts for the shell slices under review.
-- [`tools/e2e/baselines/`](../../tools/e2e/baselines/) stores the currently approved screenshot/DOM/accessibility/layout baselines promoted from accepted runs.
+- [`/.artifacts/e2e/runs/`](../../.artifacts/e2e/runs/) now contains the canonical Playwright UI feedback runs, including deterministic screenshot, DOM, accessibility, layout, style, timing, log, trace, and diff artifacts for the shell slices under review.
+- [`tools/e2e/baselines/`](../../tools/e2e/baselines/) stores the currently approved screenshot/DOM/accessibility/layout/style baselines promoted from accepted runs.
 - [`/.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json`](../../.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json) records the current soft-neumorphic contrast sample set.
 
 Current measured observations from that contrast artifact:
@@ -161,7 +187,8 @@ Implementation note for the current review cycle:
 
 - the shared neumorphic primitive kit and `system.ui-showcase` app are now implemented in code
 - contrast evidence should be regenerated for the rebuilt skin before claiming all checklist items as complete
-- canonical layout, navigation, interaction, and responsive evidence now flows through `cargo e2e run`, `cargo e2e inspect`, and `cargo e2e promote` rather than ad hoc screenshot directories
+- canonical layout, navigation, interaction, accessibility, and representative app-view evidence now flows through `cargo e2e run`, `cargo e2e inspect`, and `cargo e2e promote` rather than ad hoc screenshot directories
+- the style snapshot checks the computed shell primitives `[data-ui-kind="taskbar"]`, `[data-ui-kind="window-frame"]`, `[data-ui-kind="menu-surface"]`, and `[data-ui-kind="button"][data-ui-slot="start-button"]` for background, box-shadow, border-radius, outline, spacing, and transform drift
 
 ## Related Files
 

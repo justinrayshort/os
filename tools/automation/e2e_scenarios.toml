@@ -176,6 +176,130 @@ setup = "ui.app.slice-baseline"
 assertions = ["text:Choose a shell skin"]
 slices = ["settings.desktop.appearance-tab"]
 
+[scenario."ui.neumorphic.layout"]
+summary = "Capture the canonical soft-neumorphic shell layout across standardized viewports."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "neumorphic", "layout"]
+slice_family = "neumorphic-layout"
+viewports = ["desktop", "tablet", "mobile"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["shell-default"]
+entry = "shell"
+setup = "ui.neumorphic.layout"
+assertions = [
+  "selector:[data-ui-kind='desktop-backdrop']",
+  "selector:[data-ui-kind='taskbar']",
+]
+slices = ["shell.soft-neumorphic.default"]
+
+[scenario."ui.neumorphic.navigation"]
+summary = "Capture canonical soft-neumorphic navigation surfaces for menu and settings states."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "neumorphic", "navigation"]
+slice_family = "neumorphic-navigation"
+viewports = ["desktop"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["shell-context-menu-open", "settings-appearance"]
+entry = "shell"
+setup = "ui.neumorphic.navigation"
+assertions = [
+  "selector:#desktop-context-menu",
+  "text:Choose a shell skin",
+]
+slices = [
+  "shell.soft-neumorphic.context-menu-open",
+  "settings.desktop.appearance-tab",
+]
+
+[scenario."ui.neumorphic.interaction"]
+summary = "Capture canonical soft-neumorphic interaction primitives for hover and focus."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "neumorphic", "interaction"]
+slice_family = "neumorphic-interaction"
+viewports = ["desktop"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["start-button-hover", "start-button-focus"]
+entry = "shell"
+setup = "ui.neumorphic.interaction"
+assertions = [
+  "selector:#taskbar-start-button[data-e2e-state='hover']",
+  "selector:#taskbar-start-button[data-e2e-state='focus-visible']",
+]
+slices = [
+  "shell.soft-neumorphic.start-button-hover",
+  "shell.soft-neumorphic.start-button-focus",
+]
+
+[scenario."ui.neumorphic.accessibility"]
+summary = "Capture canonical soft-neumorphic accessibility variants and settings evidence surfaces."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "neumorphic", "a11y"]
+slice_family = "neumorphic-accessibility"
+viewports = ["desktop"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["shell-high-contrast", "shell-reduced-motion", "settings-accessibility"]
+entry = "shell"
+setup = "ui.neumorphic.accessibility"
+assertions = [
+  "selector:[data-ui-kind='desktop-backdrop']",
+  "text:High contrast",
+]
+slices = [
+  "shell.soft-neumorphic.high-contrast",
+  "shell.soft-neumorphic.reduced-motion",
+  "settings.desktop.accessibility-tab",
+]
+
+[scenario."ui.neumorphic.apps"]
+summary = "Capture representative application views under the canonical soft-neumorphic shell."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "neumorphic", "apps"]
+slice_family = "neumorphic-apps"
+viewports = ["desktop"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["ui-showcase-controls", "terminal-default"]
+entry = "shell"
+setup = "ui.neumorphic.apps"
+assertions = [
+  "text:Neumorphic UI Showcase",
+  "text:Use `help list` to inspect commands.",
+]
+slices = [
+  "system.ui-showcase.controls",
+  "terminal.desktop.default",
+]
+
+[scenario."ui.neumorphic.cross-browser"]
+summary = "Run a narrow cross-browser smoke matrix for the canonical soft-neumorphic shell."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "neumorphic", "cross-browser"]
+slice_family = "neumorphic-cross-browser"
+viewports = ["desktop"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["shell-default", "shell-context-menu-open"]
+entry = "shell"
+setup = "ui.neumorphic.cross-browser"
+assertions = [
+  "selector:[data-ui-kind='desktop-backdrop']",
+  "selector:#desktop-context-menu",
+]
+slices = [
+  "shell.soft-neumorphic.default",
+  "shell.soft-neumorphic.context-menu-open",
+]
+
 [scenario."desktop.boot"]
 summary = "Launch the desktop-hosted shell and confirm initial startup."
 backends = ["tauri-webdriver"]
@@ -199,3 +323,15 @@ ci = [
 cross-browser = ["ui.shell.layout-baseline", "ui.shell.navigation-state"]
 debug = ["ui.shell.navigation-state"]
 desktop-smoke = ["desktop.boot", "desktop.settings-navigation"]
+local-neumorphic = [
+  "ui.neumorphic.layout",
+  "ui.neumorphic.navigation",
+]
+ci-neumorphic = [
+  "ui.neumorphic.layout",
+  "ui.neumorphic.navigation",
+  "ui.neumorphic.interaction",
+  "ui.neumorphic.accessibility",
+  "ui.neumorphic.apps",
+]
+cross-browser-neumorphic = ["ui.neumorphic.cross-browser"]

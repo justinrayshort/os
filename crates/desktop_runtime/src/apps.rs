@@ -500,7 +500,7 @@ fn mount_terminal_app(context: AppMountContext) -> View {
 fn mount_settings_app(context: AppMountContext) -> View {
     view! {
         <SettingsApp
-            _launch_params=context.launch_params.clone()
+            launch_params=context.launch_params.clone()
             restored_state=Some(context.restored_state.clone())
             services=Some(context.services)
         />

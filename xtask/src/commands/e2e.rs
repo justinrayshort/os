@@ -1,4 +1,8 @@
 //! Cargo-managed end-to-end workflow foundation.
+//!
+//! The browser-backed path is the canonical validation loop for deterministic neumorphic UI work.
+//! This command family owns profile/scenario resolution, Playwright harness execution, schema-v2
+//! manifest inspection, and baseline promotion under the Cargo-managed automation surface.
 
 use crate::commands::dev::{load_dev_server_config, DevServerConfig};
 use crate::runtime::config::ConfigLoader;
@@ -224,6 +228,8 @@ struct UiFeedbackManifest {
     finished_at: Option<String>,
     status: String,
     artifact_root: String,
+    #[serde(default)]
+    environment: Option<UiFeedbackEnvironment>,
     summary: UiFeedbackSummary,
     scenarios: Vec<UiFeedbackScenarioResult>,
 }
@@ -237,6 +243,12 @@ struct UiFeedbackSummary {
     diff_failures: usize,
     assertion_failures: usize,
     console_errors: usize,
+    #[serde(default)]
+    flaky_slice_count: usize,
+    #[serde(default)]
+    retry_success_count: usize,
+    #[serde(default)]
+    failure_categories: BTreeMap<String, usize>,
 }
 
 #[allow(dead_code)]
@@ -245,12 +257,16 @@ struct UiFeedbackScenarioResult {
     id: String,
     slice_id: String,
     browser: String,
+    #[serde(default = "default_attempt")]
+    attempt: u32,
     viewport: UiFeedbackViewport,
     status: String,
     baseline_enabled: bool,
     diff_strategy: String,
     artifacts: UiFeedbackArtifacts,
     assertions: Vec<UiFeedbackAssertionResult>,
+    #[serde(default)]
+    failure_categories: Vec<String>,
     failures: Vec<UiFeedbackFailure>,
 }
 
@@ -269,12 +285,16 @@ struct UiFeedbackArtifacts {
     dom_snapshot: Option<String>,
     a11y_tree: Option<String>,
     layout_metrics: Option<String>,
+    #[serde(default)]
+    style_snapshot: Option<String>,
     console_log: Option<String>,
     page_errors: Option<String>,
     network_log: Option<String>,
     trace: Option<String>,
     pixel_diff: Option<String>,
     structured_diff: Option<String>,
+    #[serde(default)]
+    timing_snapshot: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -290,8 +310,22 @@ struct UiFeedbackAssertionResult {
 #[derive(Clone, Debug, Deserialize)]
 struct UiFeedbackFailure {
     code: String,
+    #[serde(default)]
+    category: String,
     message: String,
     detail: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct UiFeedbackEnvironment {
+    browser: String,
+    color_scheme: String,
+    reduced_motion: String,
+    fixed_epoch: String,
+    deterministic_math_random: bool,
+    motion_frozen: bool,
+    viewport_set: String,
+    workers: u32,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -321,6 +355,11 @@ struct BaselineHashes {
     dom_sha256: String,
     a11y_sha256: String,
     layout_sha256: String,
+    style_sha256: String,
+}
+
+fn default_attempt() -> u32 {
+    1
 }
 
 impl XtaskCommand for E2eCommand {
@@ -969,14 +1008,16 @@ fn e2e_promote(ctx: &CommandContext, options: E2ePromoteOptions) -> XtaskResult<
         let dom = required_artifact_path(&entry.artifacts.dom_snapshot, "dom_snapshot")?;
         let a11y = required_artifact_path(&entry.artifacts.a11y_tree, "a11y_tree")?;
         let layout = required_artifact_path(&entry.artifacts.layout_metrics, "layout_metrics")?;
+        let style = required_artifact_path(&entry.artifacts.style_snapshot, "style_snapshot")?;
 
         copy_baseline_artifact(&screenshot, &baseline_dir.join("screenshot.png"))?;
         copy_baseline_artifact(&dom, &baseline_dir.join("dom.json"))?;
         copy_baseline_artifact(&a11y, &baseline_dir.join("a11y.json"))?;
         copy_baseline_artifact(&layout, &baseline_dir.join("layout.json"))?;
+        copy_baseline_artifact(&style, &baseline_dir.join("style.json"))?;
 
         let baseline_manifest = BaselineManifest {
-            schema_version: 1,
+            schema_version: 2,
             promoted_at: Utc::now().to_rfc3339(),
             source_run_id: manifest.run_id.clone(),
             profile: manifest.profile.clone(),
@@ -994,6 +1035,7 @@ fn e2e_promote(ctx: &CommandContext, options: E2ePromoteOptions) -> XtaskResult<
                 dom_sha256: sha256_file(&baseline_dir.join("dom.json"))?,
                 a11y_sha256: sha256_file(&baseline_dir.join("a11y.json"))?,
                 layout_sha256: sha256_file(&baseline_dir.join("layout.json"))?,
+                style_sha256: sha256_file(&baseline_dir.join("style.json"))?,
             },
         };
         let manifest_json = serde_json::to_string_pretty(&baseline_manifest).map_err(|err| {
@@ -1662,47 +1704,83 @@ fn summarize_manifest(_ctx: &CommandContext, manifest_path: &Path) -> XtaskResul
     let manifest = load_manifest(manifest_path)?;
     println!("manifest: {}", manifest_path.display());
     println!("run id: {}", manifest.run_id);
+    println!("schema: {}", manifest.schema_version);
     println!("profile: {}", manifest.profile);
     println!("mode: {}", manifest.mode);
     println!("status: {}", manifest.status);
     println!("artifact root: {}", manifest.artifact_root);
+    if let Some(environment) = &manifest.environment {
+        println!(
+            "environment: browser={}, color_scheme={}, reduced_motion={}, epoch={}, deterministic_random={}, motion_frozen={}, viewport_set={}, workers={}",
+            environment.browser,
+            environment.color_scheme,
+            environment.reduced_motion,
+            environment.fixed_epoch,
+            environment.deterministic_math_random,
+            environment.motion_frozen,
+            environment.viewport_set,
+            environment.workers
+        );
+    }
     println!(
-        "summary: scenarios={}, slices={}, passed={}, failed={}, diff_failures={}, assertion_failures={}, console_errors={}",
+        "summary: scenarios={}, slices={}, passed={}, failed={}, diff_failures={}, assertion_failures={}, console_errors={}, flaky_slices={}, retry_successes={}",
         manifest.summary.scenario_count,
         manifest.summary.slice_count,
         manifest.summary.passed,
         manifest.summary.failed,
         manifest.summary.diff_failures,
         manifest.summary.assertion_failures,
-        manifest.summary.console_errors
+        manifest.summary.console_errors,
+        manifest.summary.flaky_slice_count,
+        manifest.summary.retry_success_count
     );
+    if !manifest.summary.failure_categories.is_empty() {
+        println!("failure categories:");
+        for (category, count) in &manifest.summary.failure_categories {
+            println!("  - {category}: {count}");
+        }
+    }
+    let mut grouped = BTreeMap::<String, Vec<&UiFeedbackScenarioResult>>::new();
     for failure in manifest
         .scenarios
         .iter()
         .filter(|entry| entry.status != "passed")
     {
-        println!(
-            "failure: scenario={}, slice={}, browser={}, viewport={}, diff={}, failures={}",
-            failure.id,
-            failure.slice_id,
-            failure.browser,
-            failure.viewport.id,
-            failure.diff_strategy,
-            failure
-                .failures
-                .iter()
-                .map(|item| format!("{}:{}", item.code, item.message))
-                .collect::<Vec<_>>()
-                .join(" | ")
-        );
-        if let Some(path) = &failure.artifacts.structured_diff {
-            println!("  structured diff: {path}");
+        if failure.failure_categories.is_empty() {
+            grouped
+                .entry("uncategorized".into())
+                .or_default()
+                .push(failure);
+            continue;
         }
-        if let Some(path) = &failure.artifacts.pixel_diff {
-            println!("  pixel diff: {path}");
+        for category in &failure.failure_categories {
+            grouped.entry(category.clone()).or_default().push(failure);
         }
-        if let Some(path) = &failure.artifacts.trace {
-            println!("  trace: {path}");
+    }
+    for (category, failures) in grouped {
+        println!("category: {category}");
+        for failure in failures {
+            println!(
+                "  failure: scenario={}, slice={}, browser={}, viewport={}, attempt={}, diff={}, failures={}",
+                failure.id,
+                failure.slice_id,
+                failure.browser,
+                failure.viewport.id,
+                failure.attempt,
+                failure.diff_strategy,
+                failure
+                    .failures
+                    .iter()
+                    .map(|item| format!("{}:{}:{}", item.category, item.code, item.message))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            );
+            if let Some(path) = preferred_failure_artifact(failure, &category) {
+                println!("    artifact: {path}");
+            }
+            if let Some(path) = &failure.artifacts.trace {
+                println!("    trace: {path}");
+            }
         }
     }
     if manifest.summary.diff_failures > 0
@@ -1711,6 +1789,39 @@ fn summarize_manifest(_ctx: &CommandContext, manifest_path: &Path) -> XtaskResul
         println!("hint: if the visual/structural changes are intentional, review the artifacts and run `cargo e2e promote --profile {} --source-run {}`", manifest.profile, manifest.run_id);
     }
     Ok(())
+}
+
+fn preferred_failure_artifact<'a>(
+    failure: &'a UiFeedbackScenarioResult,
+    category: &str,
+) -> Option<&'a str> {
+    match category {
+        "visual-regression" => failure
+            .artifacts
+            .pixel_diff
+            .as_deref()
+            .or(failure.artifacts.structured_diff.as_deref()),
+        "ui-contract-violation" => failure
+            .artifacts
+            .style_snapshot
+            .as_deref()
+            .or(failure.artifacts.structured_diff.as_deref())
+            .or(failure.artifacts.dom_snapshot.as_deref()),
+        "javascript-runtime" => failure.artifacts.page_errors.as_deref(),
+        "network-failure" => failure.artifacts.network_log.as_deref(),
+        "readiness-timeout" | "race-condition" => failure.artifacts.timing_snapshot.as_deref(),
+        "baseline-missing" => failure
+            .artifacts
+            .pixel_diff
+            .as_deref()
+            .or(failure.artifacts.structured_diff.as_deref()),
+        _ => failure
+            .artifacts
+            .structured_diff
+            .as_deref()
+            .or(failure.artifacts.pixel_diff.as_deref())
+            .or(failure.artifacts.timing_snapshot.as_deref()),
+    }
 }
 
 fn resolve_manifest_path(_ctx: &CommandContext, artifact_dir: &Path) -> XtaskResult<PathBuf> {
@@ -1815,7 +1926,7 @@ fn playwright_launch_probe(ctx: &CommandContext) -> bool {
 
 impl E2eProfileSpec {
     fn effective_mode(&self) -> E2eRunMode {
-        self.mode.clone().unwrap_or_else(|| {
+        self.mode.clone().unwrap_or({
             if self.headless {
                 E2eRunMode::Validate
             } else {

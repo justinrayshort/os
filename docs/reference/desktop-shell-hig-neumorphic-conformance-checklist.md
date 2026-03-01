@@ -3,7 +3,7 @@ title: "Desktop Shell HIG + Neumorphic Conformance Checklist"
 category: "reference"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-28"
+last_reviewed: "2026-03-01"
 audience: ["engineering", "design"]
 invariants:
   - "Conformance status is assigned from explicit evidence and acceptance criteria, not visual preference alone."
@@ -40,11 +40,18 @@ Primary evidence sources:
 - [`crates/system_ui/src/icon.rs`](../../crates/system_ui/src/icon.rs)
 - [`crates/site/src/theme_shell/01-primitives.css`](../../crates/site/src/theme_shell/01-primitives.css)
 - [`crates/site/src/theme_shell/34-theme-soft-neumorphic.css`](../../crates/site/src/theme_shell/34-theme-soft-neumorphic.css)
-- [`scripts/ui/capture-skin-matrix.sh`](../../scripts/ui/capture-skin-matrix.sh)
-- [`scripts/ui/keyboard-flow-smoke.sh`](../../scripts/ui/keyboard-flow-smoke.sh)
-- [`/.artifacts/ui-conformance/screenshots/`](../../.artifacts/ui-conformance/screenshots/)
-- [`/.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json`](../../.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json)
+- [`tools/automation/e2e_scenarios.toml`](../../tools/automation/e2e_scenarios.toml)
+- [`/.artifacts/e2e/runs/`](../../.artifacts/e2e/runs/)
+- [`tools/e2e/baselines/`](../../tools/e2e/baselines/)
 - [`/.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json`](../../.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json)
+
+Required canonical evidence expectations for the current workflow:
+
+- `ui.neumorphic.layout`: desktop/tablet/mobile shell baseline
+- `ui.neumorphic.navigation`: context menu + settings appearance view
+- `ui.neumorphic.interaction`: start-button hover + focus-visible
+- `ui.neumorphic.accessibility`: high-contrast, reduced-motion, settings accessibility view
+- `ui.neumorphic.apps`: UI showcase controls + terminal default view
 
 ## Status Legend
 
@@ -71,7 +78,7 @@ Primary evidence sources:
 | `CMP-01` | Complete | Shell chrome surfaces share a consistent neumorphic treatment for radius, border softness, and elevation. | `01-primitives.css` applies the shared shell/app primitive contract, `34-theme-soft-neumorphic.css` remaps the relevant tokens, and runtime shell chrome now composes through `system_ui` shell primitives. |
 | `CMP-02` | Complete | Shared built-in app primitives are styled consistently before app-specific extensions. | Shared primitive selectors in `01-primitives.css` style app shells, controls, panes, tabs, tables, terminal surfaces, and overlays before any app-specific semantic markers are applied. |
 | `CMP-03` | Complete | Pressed, selected, focused, minimized, and active states are visually distinct without relying on shadow-only differences. | The skin uses inset treatments, accent borders, and explicit outlines for state changes. |
-| `CMP-04` | Partial | All built-in app interiors use the shared depth language while preserving domain-specific readability. | The rebuilt soft-neumorphic primitive layer now covers segmented controls, icon buttons, switches, circular progress, and showcase-ready dials, and the new `system.ui-showcase` app renders those shared components in one production surface. Existing built-in apps continue to inherit the shared shell/app token grammar, but full screenshot-matrix review across every app state remains pending for this rebuild. |
+| `CMP-04` | Partial | All built-in app interiors use the shared depth language while preserving domain-specific readability. | The rebuilt soft-neumorphic primitive layer now covers segmented controls, icon buttons, switches, circular progress, and showcase-ready dials, and the `ui.neumorphic.apps` canonical scenario captures both the shared showcase surface and the terminal default surface. Existing built-in apps continue to inherit the shared shell/app token grammar, but broader per-app evidence beyond the canonical set remains pending. |
 | `CMP-05` | Complete | Built-in app and shell surfaces compose from the shared `system_ui` primitive library or equivalent `data-ui-*` roots instead of legacy `.app-*` primitive markup. | `crates/system_ui` now owns the shared primitive catalog, runtime window/taskbar/menu shell surfaces compose through those primitives, and `cargo xtask docs ui-conformance` rejects legacy primitive markup in app/runtime crates. |
 
 ### C. Accessibility and Usability
@@ -79,7 +86,7 @@ Primary evidence sources:
 | ID | Status | Acceptance criteria (objective) | Current evidence / gap |
 | --- | --- | --- | --- |
 | `A11Y-01` | Complete | Keyboard navigation, dismissal, and reducer-driven interaction semantics remain unchanged. | Runtime behavior remains driven by `desktop_runtime` reducer/components; the skin is CSS-only. |
-| `A11Y-02` | Complete | Focus indication is separate from elevation styling and visible on all primary interactive elements. | `35-theme-soft-neumorphic-overrides.css` defines shared `:focus-visible` outlines using dedicated focus tokens. |
+| `A11Y-02` | Complete | Focus indication is separate from elevation styling and visible on all primary interactive elements. | `35-theme-soft-neumorphic-overrides.css` defines shared `:focus-visible` outlines using dedicated focus tokens, and `ui.neumorphic.interaction` now captures a deterministic start-button focus-visible evidence slice. |
 | `A11Y-03` | Complete | Reduced-motion mode disables nonessential transitions and animations. | `data-reduced-motion="true"` suppression is present in the neumorphic overrides. |
 | `A11Y-04` | Partial | Contrast targets for text, key icons, boundaries, and focus indicators are measured and recorded across light/dark/high-contrast variants. | The rebuilt skin raises shared text, placeholder, and focus tokens in code and high-contrast mode now overrides the new track/ring/icon-button token families as well. The previously checked-in contrast artifact still reflects the pre-rebuild sample set, so fresh measurements are still required before this item can be marked complete. |
 | `A11Y-05` | Partial | Terminal transcript readability is preserved above the ambient shell softness in both light and dark modes. | The shell rebuild does not change terminal interaction semantics and retains the terminal-specific token family, but transcript/completion contrast should be remeasured after the new neumorphic palette landed because the existing artifact predates this rebuild. |
@@ -88,8 +95,8 @@ Primary evidence sources:
 
 | ID | Status | Acceptance criteria (objective) | Current evidence / gap |
 | --- | --- | --- | --- |
-| `RSP-01` | Complete | The screenshot matrix and keyboard smoke automation include `soft-neumorphic` alongside the other skins. | `scripts/ui/capture-skin-matrix.sh` and `scripts/ui/keyboard-flow-smoke.sh` enumerate the new skin, and [`keyboard-smoke-report.json`](../../.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json) now records passing keyboard flows for all four skins. |
-| `RSP-02` | Complete | Desktop, tablet, and mobile evidence is captured and reviewed for the neumorphic skin. | [`/.artifacts/ui-conformance/screenshots/`](../../.artifacts/ui-conformance/screenshots/) now contains the desktop, tablet, and mobile screenshot matrix for `soft-neumorphic` plus the comparison skins captured during this review cycle. |
+| `RSP-01` | Complete | The canonical automation set includes deterministic neumorphic shell layout, navigation, interaction, accessibility, and representative app-view coverage. | `tools/automation/e2e_scenarios.toml` defines `ui.neumorphic.layout`, `ui.neumorphic.navigation`, `ui.neumorphic.interaction`, `ui.neumorphic.accessibility`, and `ui.neumorphic.apps` as the blocking browser-backed workflow. |
+| `RSP-02` | Complete | Desktop, tablet, and mobile evidence is captured and reviewed for the neumorphic shell baseline. | `ui.neumorphic.layout` captures the `shell.soft-neumorphic.default` slice at `1440x900`, `1024x768`, and `390x844`, and the resulting artifacts are indexed through the schema-v2 E2E manifest. |
 | `DOC-01` | Complete | The canonical design-system reference documents the neumorphic token and component strategy. | `docs/reference/desktop-shell-neumorphic-design-system.md`. |
 | `DOC-02` | Complete | Local machine-checkable validation enforces required skin scopes and literal hygiene for the new skin. | `cargo xtask docs ui-conformance` now validates the soft-neumorphic scope and override file hygiene. |
 

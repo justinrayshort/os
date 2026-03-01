@@ -48,6 +48,8 @@ mod app_runtime;
 pub mod apps;
 /// Desktop shell UI components and re-exported runtime provider/context entrypoints.
 pub mod components;
+/// Browser-only deterministic E2E scene configuration and query parsing helpers.
+pub mod e2e;
 mod effect_executor;
 /// Host-side effect execution and viewport helpers used by the shell runtime.
 pub mod host;
@@ -70,6 +72,8 @@ pub use desktop_app_contract::{
     AppCapability, AppCommand, AppEvent, AppLifecycleEvent, AppModule, AppMountContext,
     AppRegistration, AppServices, ApplicationId, CapabilitySet, IpcEnvelope, SuspendPolicy,
 };
+/// Re-exported browser E2E scene types used by the site entrypoint and shell.
+pub use e2e::{current_browser_e2e_config, BrowserE2eConfig, BrowserE2eScene};
 /// Re-exported host-side effect execution context.
 pub use host::DesktopHostContext;
 /// Re-exported runtime state model types.

@@ -1,4 +1,8 @@
 //! Shared background HTTP server helpers for xtask workflows.
+//!
+//! Startup is considered successful only after the target port is open and the server answers a
+//! basic HTTP `GET /` probe. This keeps browser-driven workflows from racing ahead of Trunk or
+//! other managed servers that have bound the socket but are not yet ready to serve content.
 
 use crate::runtime::env::EnvHelper;
 use crate::runtime::error::{XtaskError, XtaskResult};
@@ -6,7 +10,8 @@ use crate::runtime::fs::read_file_tail;
 use crate::runtime::lifecycle::{kill_pid, port_is_open, terminate_pid};
 use crate::runtime::process::ProcessRunner;
 use std::fs::OpenOptions;
-use std::net::TcpListener;
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread;
@@ -72,12 +77,8 @@ pub fn normalize_host_for_url(host: &str) -> String {
 
 /// Allocate a local ephemeral HTTP port for a future background server.
 pub fn allocate_local_http_port(bind_host: &str) -> XtaskResult<u16> {
-    let bind_addr = if bind_host == "::" {
-        "[::1]:0"
-    } else {
-        "127.0.0.1:0"
-    };
-    let listener = TcpListener::bind(bind_addr).map_err(|err| {
+    let bind_addr = ephemeral_bind_addr(bind_host);
+    let listener = TcpListener::bind(bind_addr.as_str()).map_err(|err| {
         XtaskError::io(format!(
             "failed to allocate an ephemeral HTTP port on {bind_addr}: {err}"
         ))
@@ -153,8 +154,11 @@ pub fn stop_background_http_server(handle: &mut BackgroundHttpServerHandle) -> X
             if status.success() || !port_is_open(&handle.host, handle.port) {
                 return Ok(());
             }
+            let tail = read_file_tail(&handle.log_path, 20).unwrap_or_default();
             return Err(XtaskError::process_exit(format!(
-                "background HTTP server exited with status {status}"
+                "background HTTP server exited with status {status}\nlog tail ({}):\n{}",
+                handle.log_path.display(),
+                tail
             )));
         }
 
@@ -173,8 +177,11 @@ pub fn stop_background_http_server(handle: &mut BackgroundHttpServerHandle) -> X
     if status.success() || !port_is_open(&handle.host, handle.port) {
         Ok(())
     } else {
+        let tail = read_file_tail(&handle.log_path, 20).unwrap_or_default();
         Err(XtaskError::process_exit(format!(
-            "failed to stop background HTTP server pid {pid} cleanly (status {status})"
+            "failed to stop background HTTP server pid {pid} cleanly (status {status})\nlog tail ({}):\n{}",
+            handle.log_path.display(),
+            tail
         )))
     }
 }
@@ -189,7 +196,7 @@ fn wait_for_background_http_server_startup(
     let deadline = Instant::now() + timeout;
 
     loop {
-        if port_is_open(host, port) {
+        if port_is_open(host, port) && http_readiness_probe(host, port).unwrap_or(false) {
             return Ok(());
         }
 
@@ -222,6 +229,38 @@ fn wait_for_background_http_server_startup(
     }
 }
 
+fn ephemeral_bind_addr(bind_host: &str) -> String {
+    if bind_host.contains(':') && !bind_host.starts_with('[') {
+        format!("[{bind_host}]:0")
+    } else {
+        format!("{bind_host}:0")
+    }
+}
+
+fn http_readiness_probe(host: &str, port: u16) -> XtaskResult<bool> {
+    let addr = format!("{host}:{port}");
+    let mut stream = TcpStream::connect(addr.as_str())
+        .map_err(|err| XtaskError::io(format!("failed to probe {addr}: {err}")))?;
+    stream
+        .set_read_timeout(Some(Duration::from_secs(1)))
+        .map_err(|err| XtaskError::io(format!("failed to set read timeout for {addr}: {err}")))?;
+    stream
+        .set_write_timeout(Some(Duration::from_secs(1)))
+        .map_err(|err| XtaskError::io(format!("failed to set write timeout for {addr}: {err}")))?;
+    stream
+        .write_all(
+            format!("GET / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n").as_bytes(),
+        )
+        .map_err(|err| {
+            XtaskError::io(format!("failed to send readiness probe to {addr}: {err}"))
+        })?;
+    let mut response = String::new();
+    stream.read_to_string(&mut response).map_err(|err| {
+        XtaskError::io(format!("failed to read readiness probe from {addr}: {err}"))
+    })?;
+    Ok(response.starts_with("HTTP/1.1 200") || response.starts_with("HTTP/1.0 200"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,6 +275,12 @@ mod tests {
     #[test]
     fn allocate_local_http_port_returns_ephemeral_port() {
         let port = allocate_local_http_port("127.0.0.1").expect("allocate port");
+        assert!(port > 0);
+    }
+
+    #[test]
+    fn allocate_local_http_port_accepts_ipv6_host() {
+        let port = allocate_local_http_port("::1").expect("allocate ipv6 port");
         assert!(port > 0);
     }
 }

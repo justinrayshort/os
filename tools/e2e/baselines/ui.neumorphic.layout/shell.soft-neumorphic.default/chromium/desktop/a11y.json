@@ -1,0 +1,4 @@
+{
+  "root": "[data-ui-kind=\"desktop-backdrop\"]",
+  "snapshot": "- button \"Calculator\"\n- button \"Explorer\"\n- button \"Terminal\""
+}

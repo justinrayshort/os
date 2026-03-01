@@ -3,7 +3,7 @@ title: "SOP: UI Design Conformance Review (Apple HIG + Neumorphic Shell)"
 category: "sop"
 owner: "platform-team"
 status: "active"
-last_reviewed: "2026-02-28"
+last_reviewed: "2026-03-01"
 audience: ["engineering", "design"]
 invariants:
   - "Material shell UI changes are reviewed against explicit HIG and neumorphic design criteria before merge."
@@ -94,14 +94,16 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    ```bash
    cargo check --workspace
    cargo test --workspace
-   cargo e2e run --profile local-dev --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default --no-diff
+   cargo e2e run --profile local-dev --scenario ui.neumorphic.layout --slice shell.soft-neumorphic.default --no-diff
    cargo e2e inspect --run <run-id>
+   cargo e2e promote --profile local-dev --scenario ui.neumorphic.layout --slice shell.soft-neumorphic.default --source-run <run-id>
+   cargo e2e run --profile ci-headless --scenario ui.neumorphic.layout --slice shell.soft-neumorphic.default
    cargo xtask docs ui-inventory --output .artifacts/ui/styling-inventory.json
    cargo xtask docs ui-conformance
    cargo xtask docs all
    ```
 
-   - Expected output: implementation, machine-checkable UI conformance checks (including token inventory, token/literal hygiene, primitive adoption, and shell icon-standardization regressions), and documentation checks pass for the current change set
+   - Expected output: implementation, the closed Cargo-managed UI validation loop (capture -> inspect -> promote when intentional -> blocking rerun), machine-checkable UI conformance checks (including token inventory, token/literal hygiene, primitive adoption, and shell icon-standardization regressions), and documentation checks pass for the current change set
    - Failure condition: compile/test/docs validation failures or skipped checks without explanation
    - If rustdoc comments were changed: also run `cargo doc --workspace --no-deps` and `cargo test --workspace --doc`
 
@@ -182,6 +184,7 @@ flowchart TD
 - [ ] Responsive viewport behavior checked for changed surfaces
 - [ ] UI feedback manifest reviewed for targeted slices when Playwright evidence was collected
 - [ ] Baseline changes, if any, were promoted through `cargo e2e promote`
+- [ ] Blocking `ci-headless` rerun completed for canonical neumorphic scenarios affected by the change
 - [ ] Contrast measurements recorded when colors/focus/borders changed
 - [ ] `cargo check --workspace` passes
 - [ ] `cargo test --workspace` passes (or skipped with reason)

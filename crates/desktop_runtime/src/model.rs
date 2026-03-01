@@ -264,6 +264,9 @@ pub struct DesktopState {
     /// App-shared state payloads keyed by `<app_id>:<key>`.
     #[serde(default)]
     pub app_shared_state: BTreeMap<String, Value>,
+    /// Whether asynchronous boot hydration has completed for the current runtime session.
+    #[serde(skip)]
+    pub boot_hydrated: bool,
 }
 
 impl Default for DesktopState {
@@ -284,6 +287,7 @@ impl Default for DesktopState {
             last_notepad_slug: None,
             terminal_history: Vec::new(),
             app_shared_state: BTreeMap::new(),
+            boot_hydrated: false,
         }
     }
 }
@@ -318,6 +322,7 @@ impl DesktopState {
         state.last_notepad_slug = snapshot.last_notepad_slug;
         state.terminal_history = snapshot.terminal_history;
         state.app_shared_state = snapshot.app_shared_state;
+        state.boot_hydrated = false;
         state.next_window_id = state
             .windows
             .iter()

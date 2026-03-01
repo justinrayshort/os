@@ -33,6 +33,15 @@ impl SettingsSection {
             Self::Accessibility => "Accessibility",
         }
     }
+
+    fn from_launch_param(raw: &str) -> Option<Self> {
+        match raw.trim() {
+            "personalize" => Some(Self::Personalize),
+            "appearance" => Some(Self::Appearance),
+            "accessibility" => Some(Self::Accessibility),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,7 +117,7 @@ fn wallpaper_step_status(active: WallpaperFlowStep, step: WallpaperFlowStep) -> 
 /// Settings app window contents.
 pub fn SettingsApp(
     /// Legacy launch params, retained for compatibility.
-    _launch_params: Value,
+    launch_params: Value,
     /// Manager-restored app state payload.
     restored_state: Option<Value>,
     /// Injected desktop services bundle.
@@ -126,6 +135,14 @@ pub fn SettingsApp(
         if let Ok(restored) = serde_json::from_value::<SettingsAppState>(restored_state) {
             settings_state.set(restored);
         }
+    }
+
+    if let Some(section) = launch_params
+        .get("section")
+        .and_then(Value::as_str)
+        .and_then(SettingsSection::from_launch_param)
+    {
+        settings_state.update(|state| state.active_section = section);
     }
 
     create_effect(move |_| {

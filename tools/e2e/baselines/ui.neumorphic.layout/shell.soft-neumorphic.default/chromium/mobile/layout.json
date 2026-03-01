@@ -1,0 +1,81 @@
+{
+  "viewport": {
+    "innerWidth": 390,
+    "innerHeight": 844,
+    "devicePixelRatio": 1
+  },
+  "document": {
+    "clientWidth": 390,
+    "clientHeight": 844,
+    "scrollWidth": 390,
+    "scrollHeight": 885
+  },
+  "metrics": [
+    {
+      "selector": "[data-ui-kind=\"desktop-backdrop\"]",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 796
+      },
+      "scrollWidth": 390,
+      "scrollHeight": 796,
+      "clientWidth": 390,
+      "clientHeight": 796,
+      "overflowX": "hidden",
+      "overflowY": "hidden",
+      "zIndex": "auto",
+      "opacity": "1",
+      "display": "grid"
+    },
+    {
+      "selector": "[data-ui-kind=\"desktop-backdrop\"]",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 796
+      },
+      "scrollWidth": 390,
+      "scrollHeight": 796,
+      "clientWidth": 390,
+      "clientHeight": 796,
+      "overflowX": "hidden",
+      "overflowY": "hidden",
+      "zIndex": "auto",
+      "opacity": "1",
+      "display": "grid"
+    },
+    {
+      "selector": "[data-ui-kind=\"taskbar\"]",
+      "rect": {
+        "x": 0,
+        "y": 796,
+        "width": 390,
+        "height": 48
+      },
+      "scrollWidth": 390,
+      "scrollHeight": 88,
+      "clientWidth": 390,
+      "clientHeight": 47,
+      "overflowX": "visible",
+      "overflowY": "visible",
+      "zIndex": "auto",
+      "opacity": "1",
+      "display": "grid"
+    },
+    {
+      "selector": "[data-ui-kind=\"window-frame\"]",
+      "missing": true
+    },
+    {
+      "selector": "#desktop-context-menu",
+      "missing": true
+    },
+    {
+      "selector": "[data-ui-kind=\"start-button\"]",
+      "missing": true
+    }
+  ]
+}

@@ -43,11 +43,18 @@ impl XtaskCommand for VerifyCommand {
         }
 
         let run_profile = options.profile.clone();
-        let e2e_profile = run_profile
+        let resolved_profile_e2e = run_profile
             .as_deref()
             .map(|name| resolve_verify_profile_spec(name, &profiles))
             .transpose()?
             .and_then(|profile| profile.e2e_profile.clone());
+        let e2e_profile = resolved_profile_e2e.or_else(|| {
+            if options.mode == VerifyMode::Full {
+                Some("ci-headless".to_string())
+            } else {
+                None
+            }
+        });
         ctx.workflow().with_workflow_run("verify", run_profile, || {
             run_verify(
                 ctx,

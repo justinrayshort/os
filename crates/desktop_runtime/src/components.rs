@@ -13,6 +13,9 @@ use leptos::*;
 use platform_host::{
     WallpaperAnimationPolicy, WallpaperDisplayMode, WallpaperMediaKind, WallpaperPosition,
 };
+use serde_json::{json, Value};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::{JsCast, JsValue};
 
 use self::{
     a11y::{focus_element_by_id, focus_first_menu_item, handle_menu_roving_keydown},
@@ -24,6 +27,7 @@ use self::{
 
 use crate::{
     apps,
+    e2e::{BrowserE2eConfig, BrowserE2eScene},
     host::DesktopHostContext,
     model::{DesktopState, PointerPosition, ResizeEdge, WindowId, WindowRecord},
     reducer::DesktopAction,
@@ -36,6 +40,8 @@ use system_ui::{
 };
 
 const TASKBAR_HEIGHT_PX: i32 = 38;
+#[cfg(target_arch = "wasm32")]
+const E2E_START_BUTTON_ATTR: &str = "data-e2e-state";
 
 fn app_icon_name(app_id: &ApplicationId) -> IconName {
     apps::app_icon_name_by_id(app_id)
@@ -80,6 +86,71 @@ fn wallpaper_object_fit(display_mode: WallpaperDisplayMode) -> &'static str {
 }
 
 pub use crate::runtime_context::{use_desktop_runtime, DesktopProvider, DesktopRuntimeContext};
+
+fn browser_e2e_window_request(
+    app_id: ApplicationId,
+    runtime: DesktopRuntimeContext,
+    launch_params: Value,
+) -> crate::model::OpenWindowRequest {
+    let viewport = runtime
+        .host
+        .get_value()
+        .desktop_viewport_rect(TASKBAR_HEIGHT_PX);
+    let mut request = apps::default_open_request_by_id(&app_id, Some(viewport))
+        .unwrap_or_else(|| crate::model::OpenWindowRequest::new(app_id));
+    request.launch_params = launch_params;
+    request
+}
+
+#[cfg(target_arch = "wasm32")]
+fn set_start_button_e2e_state(state: Option<&str>, focus_button: bool) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Some(document) = window.document() else {
+        return;
+    };
+    let Some(element) = document.get_element_by_id("taskbar-start-button") else {
+        return;
+    };
+    match state {
+        Some(value) => {
+            let _ = element.set_attribute(E2E_START_BUTTON_ATTR, value);
+        }
+        None => {
+            let _ = element.remove_attribute(E2E_START_BUTTON_ATTR);
+        }
+    }
+    if focus_button {
+        if let Some(html_element) = element.dyn_ref::<web_sys::HtmlElement>() {
+            let _ = html_element.focus();
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn set_start_button_e2e_state(_state: Option<&str>, _focus_button: bool) {}
+
+#[cfg(target_arch = "wasm32")]
+fn mark_browser_e2e_ready() {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Ok(performance) = js_sys::Reflect::get(window.as_ref(), &JsValue::from_str("performance"))
+    else {
+        return;
+    };
+    let Ok(mark) = js_sys::Reflect::get(&performance, &JsValue::from_str("mark")) else {
+        return;
+    };
+    let Some(mark_fn) = mark.dyn_ref::<js_sys::Function>() else {
+        return;
+    };
+    let _ = mark_fn.call1(&performance, &JsValue::from_str("os:e2e-ready"));
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn mark_browser_e2e_ready() {}
 
 #[component]
 fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
@@ -176,8 +247,16 @@ fn DesktopWallpaperRenderer(state: RwSignal<DesktopState>) -> impl IntoView {
 pub fn DesktopShell() -> impl IntoView {
     let runtime = use_desktop_runtime();
     let state = runtime.state;
+    let browser_e2e = use_context::<BrowserE2eConfig>();
     let desktop_context_menu = create_rw_signal(None::<DesktopContextMenuState>);
     let desktop_context_menu_was_open = create_rw_signal(false);
+    let browser_e2e_scene_applied = create_rw_signal(false);
+    let browser_e2e_ready = create_rw_signal(browser_e2e.is_none());
+    let browser_e2e_marked_ready = create_rw_signal(false);
+    let browser_e2e_for_scene_setup = browser_e2e.clone();
+    let browser_e2e_for_readiness = browser_e2e.clone();
+    let browser_e2e_for_scene_attr = browser_e2e.clone();
+    let browser_e2e_for_ready_attr = browser_e2e.clone();
 
     create_effect(move |_| {
         let is_open = desktop_context_menu.get().is_some();
@@ -222,6 +301,135 @@ pub fn DesktopShell() -> impl IntoView {
         open_system_settings(runtime, TASKBAR_HEIGHT_PX);
     });
 
+    create_effect(move |_| {
+        let Some(config) = browser_e2e_for_scene_setup.clone() else {
+            return;
+        };
+        if !state.get().boot_hydrated || browser_e2e_scene_applied.get() {
+            return;
+        }
+
+        browser_e2e_scene_applied.set(true);
+        runtime.dispatch_action(DesktopAction::CloseStartMenu);
+        desktop_context_menu.set(None);
+        set_start_button_e2e_state(None, false);
+
+        if let Some(skin) = config.skin {
+            runtime.dispatch_action(DesktopAction::SetSkin { skin });
+        }
+        if let Some(enabled) = config.high_contrast {
+            runtime.dispatch_action(DesktopAction::SetHighContrast { enabled });
+        }
+        if let Some(enabled) = config.reduced_motion {
+            runtime.dispatch_action(DesktopAction::SetReducedMotion { enabled });
+        }
+
+        match config.scene {
+            BrowserE2eScene::ShellDefault
+            | BrowserE2eScene::ShellHighContrast
+            | BrowserE2eScene::ShellReducedMotion => {}
+            BrowserE2eScene::ShellContextMenuOpen => {
+                let viewport = runtime
+                    .host
+                    .get_value()
+                    .desktop_viewport_rect(TASKBAR_HEIGHT_PX);
+                open_desktop_context_menu(
+                    runtime.host.get_value(),
+                    desktop_context_menu,
+                    viewport.x + (viewport.w / 2),
+                    viewport.y + (viewport.h / 2),
+                );
+            }
+            BrowserE2eScene::SettingsAppearance => {
+                runtime.dispatch_action(DesktopAction::OpenWindow(browser_e2e_window_request(
+                    apps::settings_application_id(),
+                    runtime,
+                    json!({ "section": "appearance" }),
+                )));
+            }
+            BrowserE2eScene::SettingsAccessibility => {
+                runtime.dispatch_action(DesktopAction::OpenWindow(browser_e2e_window_request(
+                    apps::settings_application_id(),
+                    runtime,
+                    json!({ "section": "accessibility" }),
+                )));
+            }
+            BrowserE2eScene::StartButtonHover => {
+                set_start_button_e2e_state(Some("hover"), false);
+            }
+            BrowserE2eScene::StartButtonFocus => {
+                set_start_button_e2e_state(Some("focus-visible"), true);
+            }
+            BrowserE2eScene::UiShowcaseControls => {
+                runtime.dispatch_action(DesktopAction::OpenWindow(browser_e2e_window_request(
+                    ApplicationId::trusted("system.ui-showcase"),
+                    runtime,
+                    Value::Null,
+                )));
+            }
+            BrowserE2eScene::TerminalDefault => {
+                runtime.dispatch_action(DesktopAction::OpenWindow(browser_e2e_window_request(
+                    ApplicationId::trusted("system.terminal"),
+                    runtime,
+                    Value::Null,
+                )));
+            }
+        }
+    });
+
+    create_effect(move |_| {
+        let Some(config) = browser_e2e_for_readiness.clone() else {
+            return;
+        };
+        if !state.get().boot_hydrated || !browser_e2e_scene_applied.get() {
+            browser_e2e_ready.set(false);
+            return;
+        }
+
+        let desktop = state.get();
+        let ready = match config.scene {
+            BrowserE2eScene::ShellDefault => {
+                desktop.windows.is_empty() && desktop_context_menu.get().is_none()
+            }
+            BrowserE2eScene::ShellContextMenuOpen => desktop_context_menu.get().is_some(),
+            BrowserE2eScene::SettingsAppearance => desktop.windows.iter().any(|window| {
+                window.app_id == apps::settings_application_id()
+                    && window.launch_params.get("section").and_then(Value::as_str)
+                        == Some("appearance")
+            }),
+            BrowserE2eScene::SettingsAccessibility => desktop.windows.iter().any(|window| {
+                window.app_id == apps::settings_application_id()
+                    && window.launch_params.get("section").and_then(Value::as_str)
+                        == Some("accessibility")
+            }),
+            BrowserE2eScene::StartButtonHover | BrowserE2eScene::StartButtonFocus => {
+                desktop_context_menu.get().is_none()
+            }
+            BrowserE2eScene::ShellHighContrast => {
+                desktop.theme.high_contrast && desktop.windows.is_empty()
+            }
+            BrowserE2eScene::ShellReducedMotion => {
+                desktop.theme.reduced_motion && desktop.windows.is_empty()
+            }
+            BrowserE2eScene::UiShowcaseControls => desktop
+                .windows
+                .iter()
+                .any(|window| window.app_id == ApplicationId::trusted("system.ui-showcase")),
+            BrowserE2eScene::TerminalDefault => desktop
+                .windows
+                .iter()
+                .any(|window| window.app_id == ApplicationId::trusted("system.terminal")),
+        };
+        browser_e2e_ready.set(ready);
+    });
+
+    create_effect(move |_| {
+        if browser_e2e_ready.get() && !browser_e2e_marked_ready.get() {
+            browser_e2e_marked_ready.set(true);
+            mark_browser_e2e_ready();
+        }
+    });
+
     view! {
         <div
             id="desktop-shell-root"
@@ -229,6 +437,14 @@ pub fn DesktopShell() -> impl IntoView {
             tabindex="-1"
             data-ui-primitive="true"
             data-ui-kind="desktop-root"
+            data-e2e-scene=browser_e2e_for_scene_attr
+                .as_ref()
+                .map(|config| config.scene.id().to_string())
+            data-e2e-ready=move || {
+                browser_e2e_for_ready_attr
+                    .as_ref()
+                    .map(|_| browser_e2e_ready.get().to_string())
+            }
             data-skin=move || state.get().theme.skin.css_id()
             data-high-contrast=move || state.get().theme.high_contrast.to_string()
             data-reduced-motion=move || state.get().theme.reduced_motion.to_string()

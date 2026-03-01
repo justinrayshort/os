@@ -1,7 +1,7 @@
 [profile.local-dev]
 backend = "playwright"
 target = "browser"
-scenario_set = "local-smoke"
+scenario_set = "local-neumorphic"
 browsers = ["chromium"]
 headless = false
 workers = 1
@@ -21,10 +21,10 @@ supported_os = ["macos", "linux", "windows"]
 [profile.ci-headless]
 backend = "playwright"
 target = "browser"
-scenario_set = "ci"
+scenario_set = "ci-neumorphic"
 browsers = ["chromium"]
 headless = true
-workers = "auto"
+workers = 1
 retries = 2
 trace = "retain-on-failure"
 mode = "validate"
@@ -41,7 +41,7 @@ supported_os = ["macos", "linux", "windows"]
 [profile.cross-browser]
 backend = "playwright"
 target = "browser"
-scenario_set = "cross-browser"
+scenario_set = "cross-browser-neumorphic"
 browsers = ["chromium", "firefox", "webkit"]
 headless = true
 workers = 1

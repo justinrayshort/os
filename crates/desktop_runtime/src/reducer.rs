@@ -224,6 +224,8 @@ pub enum DesktopAction {
         /// Parsed deep-link payload.
         deep_link: DeepLinkState,
     },
+    /// Marks asynchronous boot hydration as complete for the current runtime session.
+    BootHydrationComplete,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1035,6 +1037,9 @@ pub fn reduce_desktop(
         }
         DesktopAction::ApplyDeepLink { deep_link } => {
             effects.push(RuntimeEffect::ParseAndOpenDeepLink(deep_link));
+        }
+        DesktopAction::BootHydrationComplete => {
+            state.boot_hydrated = true;
         }
         DesktopAction::SetSkin { .. }
         | DesktopAction::SetCurrentWallpaper { .. }
