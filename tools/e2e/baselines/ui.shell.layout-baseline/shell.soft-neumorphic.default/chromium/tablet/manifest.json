@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "promoted_at": "2026-03-01T01:58:18.184893+00:00",
+  "source_run_id": "1772330283442-local-dev",
+  "profile": "local-dev",
+  "scenario_id": "ui.shell.layout-baseline",
+  "slice_id": "shell.soft-neumorphic.default",
+  "browser": "chromium",
+  "viewport": {
+    "id": "tablet",
+    "width": 1024,
+    "height": 768,
+    "device_scale_factor": 1
+  },
+  "hashes": {
+    "screenshot_sha256": "7f25592ca5a9cd64a062d7b2d8ec080c6d0859e70c68df86e64b5774fda92b0c",
+    "dom_sha256": "9276ee208003b1caed8c928186b001ce5a0921ad7641ee08e5bcd00d74c9130b",
+    "a11y_sha256": "25b45188f3b9a0ada615f2a31337a6c048f417b6e135a97dfc3499c967422f67",
+    "layout_sha256": "4affc4c1b570e498a202dc8721d5abf5f005909585fea0edff14ae4495351a43"
+  }
+}

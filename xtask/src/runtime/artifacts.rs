@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 const AUTOMATION_RUNS_DIR: &str = ".artifacts/automation/runs";
 const DOCS_AUDIT_REPORT: &str = ".artifacts/docs-audit.json";
 const E2E_RUNS_DIR: &str = ".artifacts/e2e/runs";
+const E2E_BASELINES_DIR: &str = "tools/e2e/baselines";
+const E2E_MANIFEST_RELATIVE: &str = "reports/ui-feedback-manifest.json";
 
 /// Central artifact path policy for xtask.
 ///
@@ -59,6 +61,51 @@ impl ArtifactManager {
         self.path(E2E_RUNS_DIR)
     }
 
+    /// Return the versioned baseline root used by promoted UI feedback artifacts.
+    pub fn e2e_baselines_dir(&self) -> PathBuf {
+        self.path(E2E_BASELINES_DIR)
+    }
+
+    /// Return the baseline directory for a promoted scenario/slice/browser/viewport tuple.
+    pub fn e2e_baseline_target(
+        &self,
+        scenario_id: &str,
+        slice_id: &str,
+        browser: &str,
+        viewport_id: &str,
+    ) -> PathBuf {
+        self.e2e_baselines_dir()
+            .join(scenario_id)
+            .join(slice_id)
+            .join(browser)
+            .join(viewport_id)
+    }
+
+    /// Resolve a run directory, manifest file, or run id to a UI feedback manifest path.
+    pub fn resolve_manifest_reference(&self, reference: &str) -> XtaskResult<PathBuf> {
+        let candidate = Path::new(reference);
+        let path = if candidate.is_absolute() {
+            candidate.to_path_buf()
+        } else if reference.contains(std::path::MAIN_SEPARATOR) || reference.ends_with(".json") {
+            self.root.join(candidate)
+        } else {
+            self.e2e_runs_dir().join(reference)
+        };
+
+        if path.is_file() {
+            return Ok(path);
+        }
+
+        let manifest = path.join(E2E_MANIFEST_RELATIVE);
+        if manifest.exists() {
+            Ok(manifest)
+        } else {
+            Err(XtaskError::io(format!(
+                "unable to resolve UI feedback manifest from `{reference}`"
+            )))
+        }
+    }
+
     /// Ensure a directory exists.
     ///
     /// This helper is idempotent and succeeds when the directory already exists.
@@ -96,6 +143,10 @@ mod tests {
             root.join(".artifacts/docs-audit.json")
         );
         assert_eq!(manager.e2e_runs_dir(), root.join(".artifacts/e2e/runs"));
+        assert_eq!(
+            manager.e2e_baselines_dir(),
+            root.join("tools/e2e/baselines")
+        );
     }
 
     #[test]
@@ -120,5 +171,24 @@ mod tests {
             manager.resolve_path(Path::new("/tmp/already-absolute.json")),
             PathBuf::from("/tmp/already-absolute.json")
         );
+    }
+
+    #[test]
+    fn resolve_manifest_reference_accepts_run_directory() {
+        let root = unique_temp_root();
+        let manager = ArtifactManager::new(root.clone());
+        let manifest =
+            root.join(".artifacts/e2e/runs/123-local-dev/reports/ui-feedback-manifest.json");
+        manager
+            .ensure_dir(manifest.parent().expect("parent"))
+            .expect("create parent");
+        fs::write(&manifest, "{}").expect("write manifest");
+
+        let resolved = manager
+            .resolve_manifest_reference("123-local-dev")
+            .expect("resolve");
+        assert_eq!(resolved, manifest);
+
+        let _ = fs::remove_dir_all(root);
     }
 }

@@ -81,17 +81,25 @@ This page documents the supported top-level commands for local development, veri
 
 ### Cargo-Managed E2E Foundation
 
-- `cargo e2e list`: Show the versioned E2E profiles and scenario sets defined under `tools/automation/`.
-- `cargo e2e doctor`: Check local E2E prerequisites (`cargo`, `node`, `npm`, `trunk`) and report whether the versioned config files plus the committed `tools/e2e/` Node project surface are present.
-- `cargo e2e run --profile <name> [--scenario <id>] --dry-run`: Resolve a typed profile/scenario selection, validate OS compatibility, and print the planned artifact root under `.artifacts/e2e/runs/`.
-- `cargo e2e run --profile <name> [--scenario <id>] [--base-url <url>] [--artifact-dir <path>]`: Start an isolated per-run `trunk serve` instance under `.artifacts/e2e/` by default, bootstrap `tools/e2e/node_modules` with `npm ci` when missing, and execute the Playwright browser harness with artifacts under `.artifacts/e2e/runs/`.
+- `cargo e2e list`: Show the versioned E2E profiles and scenario sets defined under `tools/automation/`, including slice ids, viewport ids, baseline participation, and diff strategy metadata.
+- `cargo e2e doctor`: Check local E2E prerequisites (`cargo`, `node`, `npm`, `trunk`), the committed `tools/e2e/` Node project surface, the repo-tracked baseline root under `tools/e2e/baselines/`, and whether Playwright can actually launch a browser on the current host.
+- `cargo e2e run --profile <name> [--scenario <id>] [--slice <id>] --dry-run`: Resolve a typed profile/scenario selection, validate OS compatibility, and print the planned artifact root under `.artifacts/e2e/runs/`.
+- `cargo e2e run --profile <name> [--scenario <id>] [--slice <id>] [--base-url <url>] [--artifact-dir <path>] [--manifest-out <path>] [--debug] [--no-diff]`: Start an isolated per-run `trunk serve` instance under `.artifacts/e2e/` by default, bootstrap `tools/e2e/node_modules` with `npm ci` when missing, and execute the Playwright browser harness with artifacts under `.artifacts/e2e/runs/`.
+- `cargo e2e inspect --run <path|run-id>`: Read a prior `reports/ui-feedback-manifest.json` and print a deterministic summary of pass/fail counts, diff failures, and relevant artifact paths.
+- `cargo e2e promote --profile <name> [--scenario <id>] [--slice <id>] --source-run <path|run-id>`: Copy approved screenshot/DOM/accessibility/layout artifacts from a completed run into `tools/e2e/baselines/<scenario-id>/<slice-id>/<browser>/<viewport-id>/` and write baseline metadata.
 - `--base-url <url>` reuses an externally managed server instead of starting the isolated E2E-owned server.
 - `--artifact-dir <path>` overrides the default per-run artifact root. Relative paths are resolved from the workspace root.
+- `--slice <id>` narrows execution and promotion to one canonical UI slice within a scenario.
+- `--manifest-out <path>` copies the final machine-readable manifest to a caller-selected location for Codex or other tooling.
+- `--debug` forces a headed, slow-motion run without mutating baselines.
+- `--no-diff` captures full artifacts without failing against approved baselines and produces `capture-complete` manifests that can later be promoted.
 - Profile semantics are now executable rather than nominal: `ci-headless` applies retry-on-failure behavior, `cross-browser` fans out across Chromium/Firefox/WebKit, and `debug` runs headed with slow motion plus always-retained traces.
 - `cargo e2e doctor` now reports browser prerequisites separately from desktop-driver prerequisites (`tauri-driver` plus a native WebDriver bridge).
 - Desktop profiles are versioned in the same config surface (`tauri-linux`, `tauri-windows`), but macOS remains the stable browser-first host. On macOS, `tauri-webdriver` profiles fail immediately with a clear unsupported-platform error.
 - Future Linux/Windows desktop backend work is tracked in [Cargo E2E Desktop Platform TODO Spec](cargo-e2e-desktop-platform-todo-spec.md).
 - Versioned config currently lives in `tools/automation/e2e_profiles.toml` and `tools/automation/e2e_scenarios.toml`.
+- Browser runs now emit a single machine-readable manifest at `.artifacts/e2e/runs/<run-id>/reports/ui-feedback-manifest.json`.
+- Per-slice artifact roots live under `.artifacts/e2e/runs/<run-id>/artifacts/{screenshots,dom,a11y,layout,logs,network,traces,diffs}/`.
 - The E2E command family executes through the same shared xtask runtime (`CommandContext`, `ConfigLoader<T>`, `ProcessRunner`, `ArtifactManager`, `WorkflowRecorder`) as `verify`, `perf`, `docs`, and `wiki`.
 - `cargo verify --profile <name>` may append a Cargo-managed E2E stage when the selected verify profile declares `e2e_profile = "<e2e-profile>"` in `tools/automation/verify_profiles.toml`.
 
@@ -106,8 +114,8 @@ This page documents the supported top-level commands for local development, veri
 - `cargo xtask docs ui-inventory --output .artifacts/ui/styling-inventory.json`: Generate a machine-readable inventory of Rust/CSS styling entry points, local visual contracts, token definitions, and hard-coded literals across shell/apps/system_ui/theme files.
 - `cargo xtask docs storage-boundary`: Enforce typed app-state persistence boundaries by flagging legacy low-level envelope access patterns in `crates/apps`, `crates/desktop_runtime`, and `crates/site`.
 - `cargo xtask docs app-contract`: Validate app manifest contract shape, app-id conventions, and forbidden ad hoc app integration patterns.
-- `scripts/ui/capture-skin-matrix.sh [base_url] [output_dir]`: Deprecated compatibility shim that forwards into `cargo e2e run --profile local-dev --scenario ui.screenshot-matrix`.
-- `scripts/ui/keyboard-flow-smoke.sh [base_url] [output_dir]`: Deprecated compatibility shim that forwards into `cargo e2e run --profile local-dev --scenario ui.keyboard-smoke`.
+- `scripts/ui/capture-skin-matrix.sh [base_url] [output_dir]`: Deprecated compatibility shim that forwards into `cargo e2e run --profile local-dev --scenario ui.shell.layout-baseline`.
+- `scripts/ui/keyboard-flow-smoke.sh [base_url] [output_dir]`: Deprecated compatibility shim that forwards into `cargo e2e run --profile local-dev --scenario ui.shell.interaction-state`.
 - `cargo doc --workspace --no-deps`: Generate authoritative Rust API reference (`target/doc/`).
 - `cargo test --workspace --doc`: Run rustdoc examples (doctests).
 - `cargo xtask docs all`: Run docs contract validation for repo-native docs.

@@ -2,25 +2,179 @@
 summary = "Load the browser-hosted shell root and confirm idle startup."
 backends = ["playwright"]
 targets = ["browser"]
-tags = ["smoke", "shell"]
+tags = ["smoke", "shell", "legacy"]
+viewports = ["desktop"]
+diff_strategy = "none"
+baseline = false
+states = ["boot"]
+entry = "shell"
+setup = "shell.boot"
+slices = ["shell.soft-neumorphic.boot"]
 
 [scenario."shell.settings-navigation"]
 summary = "Traverse a representative shell settings flow."
 backends = ["playwright"]
 targets = ["browser"]
-tags = ["smoke", "shell", "navigation"]
+tags = ["smoke", "shell", "navigation", "legacy"]
+viewports = ["desktop"]
+diff_strategy = "none"
+baseline = false
+states = ["settings-open"]
+entry = "settings"
+setup = "shell.settings-navigation"
+slices = ["settings.desktop.appearance-tab"]
 
 [scenario."ui.keyboard-smoke"]
 summary = "Run keyboard traversal smoke checks across supported skins."
 backends = ["playwright"]
 targets = ["browser"]
-tags = ["ui", "keyboard"]
+tags = ["ui", "keyboard", "legacy"]
+slice_family = "keyboard-smoke"
+viewports = ["desktop"]
+diff_strategy = "none"
+baseline = false
+states = ["keyboard"]
+entry = "settings"
+setup = "ui.keyboard-smoke"
+slices = [
+  "shell.soft-neumorphic.keyboard-smoke",
+  "shell.modern-adaptive.keyboard-smoke",
+  "shell.classic-xp.keyboard-smoke",
+  "shell.classic-95.keyboard-smoke",
+]
 
 [scenario."ui.screenshot-matrix"]
 summary = "Capture the shell screenshot matrix across skins and breakpoints."
 backends = ["playwright"]
 targets = ["browser"]
-tags = ["ui", "screenshots"]
+tags = ["ui", "screenshots", "legacy"]
+slice_family = "layout-matrix"
+viewports = ["desktop", "tablet", "mobile"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["default"]
+entry = "shell"
+setup = "ui.shell.layout-baseline"
+slices = [
+  "shell.soft-neumorphic.default",
+  "shell.modern-adaptive.default",
+  "shell.classic-xp.default",
+  "shell.classic-95.default",
+]
+
+[scenario."ui.shell.layout-baseline"]
+summary = "Capture canonical baseline shell layouts across skins and responsive breakpoints."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "shell", "baseline"]
+slice_family = "shell-layout"
+viewports = ["desktop", "tablet", "mobile"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["default"]
+entry = "shell"
+setup = "ui.shell.layout-baseline"
+assertions = [
+  "selector:[data-ui-kind='desktop-backdrop']",
+  "selector:[data-ui-kind='taskbar']",
+]
+slices = [
+  "shell.soft-neumorphic.default",
+  "shell.modern-adaptive.default",
+  "shell.classic-xp.default",
+  "shell.classic-95.default",
+]
+
+[scenario."ui.shell.navigation-state"]
+summary = "Capture canonical shell navigation states for menus and settings navigation."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "shell", "navigation"]
+slice_family = "shell-navigation"
+viewports = ["desktop"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["menu-open", "settings-open"]
+entry = "shell"
+setup = "ui.shell.navigation-state"
+assertions = [
+  "selector:#desktop-context-menu",
+  "text:Choose a shell skin",
+]
+slices = [
+  "shell.soft-neumorphic.context-menu-open",
+  "settings.desktop.appearance-tab",
+]
+
+[scenario."ui.shell.interaction-state"]
+summary = "Capture canonical shell interaction states, including hover, focus, and accessibility variants."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "shell", "interaction", "a11y"]
+slice_family = "shell-interaction"
+viewports = ["desktop"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["hover", "focus", "high-contrast"]
+entry = "shell"
+setup = "ui.shell.interaction-state"
+assertions = ["selector:[data-ui-kind='start-button']"]
+slices = [
+  "shell.soft-neumorphic.start-button-hover",
+  "shell.soft-neumorphic.start-button-focus",
+  "shell.soft-neumorphic.high-contrast",
+]
+
+[scenario."ui.shell.edge-cases"]
+summary = "Capture narrow and accessibility-focused shell edge cases."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "shell", "edge-case", "responsive"]
+slice_family = "shell-edge-cases"
+viewports = ["desktop", "mobile"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["narrow", "accessibility"]
+entry = "shell"
+setup = "ui.shell.edge-cases"
+assertions = [
+  "selector:[data-ui-kind='desktop-backdrop']",
+  "text:High contrast",
+]
+slices = [
+  "shell.soft-neumorphic.narrow-mobile",
+  "settings.desktop.accessibility-tab",
+]
+
+[scenario."ui.shell.responsive-matrix"]
+summary = "Capture the canonical responsive shell matrix for one stable shell slice."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "shell", "responsive"]
+slice_family = "shell-responsive"
+viewports = ["desktop", "tablet", "mobile"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["default"]
+entry = "shell"
+setup = "ui.shell.responsive-matrix"
+assertions = ["selector:[data-ui-kind='desktop-backdrop']"]
+slices = ["shell.soft-neumorphic.responsive"]
+
+[scenario."ui.app.slice-baseline"]
+summary = "Capture a first canonical app slice using the settings app appearance tab."
+backends = ["playwright"]
+targets = ["browser"]
+tags = ["ui", "app", "baseline"]
+slice_family = "app-baseline"
+viewports = ["desktop"]
+diff_strategy = "hybrid"
+baseline = true
+states = ["app-open"]
+entry = "settings"
+setup = "ui.app.slice-baseline"
+assertions = ["text:Choose a shell skin"]
+slices = ["settings.desktop.appearance-tab"]
 
 [scenario."desktop.boot"]
 summary = "Launch the desktop-hosted shell and confirm initial startup."
@@ -35,8 +189,13 @@ targets = ["tauri"]
 tags = ["desktop", "navigation"]
 
 [scenario_set]
-local-smoke = ["shell.boot", "shell.settings-navigation"]
-ci = ["shell.boot", "shell.settings-navigation", "ui.keyboard-smoke"]
-cross-browser = ["shell.boot", "shell.settings-navigation"]
-debug = ["shell.settings-navigation"]
+local-smoke = ["ui.shell.layout-baseline", "ui.shell.navigation-state"]
+ci = [
+  "ui.shell.layout-baseline",
+  "ui.shell.navigation-state",
+  "ui.shell.interaction-state",
+  "ui.app.slice-baseline",
+]
+cross-browser = ["ui.shell.layout-baseline", "ui.shell.navigation-state"]
+debug = ["ui.shell.navigation-state"]
 desktop-smoke = ["desktop.boot", "desktop.settings-navigation"]

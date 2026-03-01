@@ -132,7 +132,9 @@ Primary entry points:
 - `cargo e2e list`
 - `cargo e2e doctor`
 - `cargo e2e run --profile local-dev --dry-run`
-- `cargo e2e run --profile local-dev --scenario shell.boot`
+- `cargo e2e run --profile local-dev --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default --no-diff`
+- `cargo e2e inspect --run <run-id>`
+- `cargo e2e promote --profile local-dev --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default --source-run <run-id>`
 
 Stages (automation-backed verification order):
 
@@ -191,7 +193,7 @@ When changing `xtask/src/docs.rs`, `xtask/src/docs/`, `xtask/src/commands/docs/`
 1. Run `cargo fmt --all`.
 2. Run `cargo test -p xtask`.
 3. Run the affected workflow commands (for example `cargo xtask docs all`, `cargo xtask docs wiki` for isolated wiki diagnostics, `cargo perf doctor`).
-   Add `cargo e2e doctor` plus either `cargo e2e run --dry-run` or a focused executable scenario such as `cargo e2e run --profile local-dev --scenario shell.boot` when the Cargo-managed E2E workflow changes. If E2E profile semantics or `cargo verify --profile` wiring changed, also run the affected profile path (for example `cargo e2e run --profile ci-headless --scenario shell.boot` or `cargo verify --profile ci-full`).
+   Add `cargo e2e doctor` plus either `cargo e2e run --dry-run` or a focused executable scenario such as `cargo e2e run --profile local-dev --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default --no-diff` when the Cargo-managed E2E workflow changes. If E2E profile semantics or `cargo verify --profile` wiring changed, also run the affected profile path (for example `cargo e2e run --profile ci-headless --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default` or `cargo verify --profile ci-full`).
 4. Update `AGENTS.md`, wiki/reference docs, and command catalogs when behavior/contracts changed.
 
 ## 5) Local Commands
@@ -265,7 +267,9 @@ cargo perf heaptrack -- cargo bench --workspace
 cargo e2e list
 cargo e2e doctor
 cargo e2e run --profile local-dev --dry-run
-cargo e2e run --profile local-dev --scenario shell.boot
+cargo e2e run --profile local-dev --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default --no-diff
+cargo e2e inspect --run <run-id>
+cargo e2e promote --profile local-dev --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default --source-run <run-id>
 ```
 
 Notes:

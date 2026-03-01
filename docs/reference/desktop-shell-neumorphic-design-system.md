@@ -145,8 +145,8 @@ Validation and evidence requirements are governed by:
 
 Current review-cycle evidence artifacts:
 
-- [`/.artifacts/ui-conformance/screenshots/`](../../.artifacts/ui-conformance/screenshots/) contains the current desktop/tablet/mobile screenshot matrix across all supported skins.
-- [`/.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json`](../../.artifacts/ui-conformance/keyboard/keyboard-smoke-report.json) records passing keyboard traversal for the desktop context menu and System Settings flow across all supported skins.
+- [`/.artifacts/e2e/runs/`](../../.artifacts/e2e/runs/) now contains the canonical Playwright UI feedback runs, including deterministic screenshot, DOM, accessibility, layout, log, trace, and diff artifacts for the shell slices under review.
+- [`tools/e2e/baselines/`](../../tools/e2e/baselines/) stores the currently approved screenshot/DOM/accessibility/layout baselines promoted from accepted runs.
 - [`/.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json`](../../.artifacts/ui-conformance/contrast/soft-neumorphic-contrast-report.json) records the current soft-neumorphic contrast sample set.
 
 Current measured observations from that contrast artifact:
@@ -160,7 +160,8 @@ Current measured observations from that contrast artifact:
 Implementation note for the current review cycle:
 
 - the shared neumorphic primitive kit and `system.ui-showcase` app are now implemented in code
-- contrast, screenshot-matrix, and keyboard-smoke evidence should be regenerated for the rebuilt skin before claiming all checklist items as complete
+- contrast evidence should be regenerated for the rebuilt skin before claiming all checklist items as complete
+- canonical layout, navigation, interaction, and responsive evidence now flows through `cargo e2e run`, `cargo e2e inspect`, and `cargo e2e promote` rather than ad hoc screenshot directories
 
 ## Related Files
 

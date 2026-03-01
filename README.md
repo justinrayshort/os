@@ -147,18 +147,24 @@ Resolve the Cargo-managed E2E profile surface and prerequisites:
 cargo e2e list
 cargo e2e doctor
 cargo e2e run --profile local-dev --dry-run
-cargo e2e run --profile local-dev --scenario shell.boot
+cargo e2e run --profile local-dev --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default --no-diff
+cargo e2e inspect --run <run-id>
+cargo e2e promote --profile local-dev --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default --source-run <run-id>
 ```
 
 The current E2E slice now includes the first executable browser path: profiles and scenario sets are
 versioned under `tools/automation/`, `cargo e2e doctor` checks the local prerequisites, and
 `cargo e2e run --profile ...` starts an isolated per-run `trunk serve` instance under
 `.artifacts/e2e/`, bootstraps `tools/e2e/` with `npm ci` when needed, and runs the Playwright
-harness with artifacts under `.artifacts/e2e/runs/`. Profile settings now materially affect the
-run: `ci-headless` uses headless Chromium plus retry-on-failure policy, `cross-browser` fans out
-across Chromium/Firefox/WebKit, and `debug` runs headed with slow motion and always-retained
-traces. Desktop `tauri-webdriver` profiles are now versioned in the same config surface and
-reported by `cargo e2e doctor`, but macOS remains the stable browser-first development path.
+harness with artifacts under `.artifacts/e2e/runs/`. Each browser run now writes a deterministic
+UI feedback manifest at `reports/ui-feedback-manifest.json` plus per-slice screenshots, DOM
+snapshots, accessibility snapshots, layout metrics, logs, traces, and diff artifacts. Approved
+baselines live under `tools/e2e/baselines/` and are updated only through `cargo e2e promote`.
+Profile settings now materially affect the run: `ci-headless` uses headless Chromium plus
+retry-on-failure policy for validation, `cross-browser` fans out across Chromium/Firefox/WebKit,
+and `debug` runs headed with slow motion and always-retained traces. Desktop `tauri-webdriver`
+profiles are now versioned in the same config surface and reported by `cargo e2e doctor`, but
+macOS remains the stable browser-first development path.
 Desktop Linux/Windows execution is staged behind the same Cargo surface and tracked in
 `docs/reference/cargo-e2e-desktop-platform-todo-spec.md`; on macOS, those profiles fail
 immediately with an explicit unsupported-platform message.

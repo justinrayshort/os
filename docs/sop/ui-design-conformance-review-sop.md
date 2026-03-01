@@ -86,6 +86,7 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
      - responsive viewport checks for affected layouts (desktop + narrow viewport)
      - contrast measurements for changed text/icons/focus/borders (if colors changed)
      - screenshots or screen recordings for materially changed visuals/animations
+     - when Playwright UI feedback automation is used, the corresponding `.artifacts/e2e/runs/<run-id>/reports/ui-feedback-manifest.json` path and any promoted baseline directories under `tools/e2e/baselines/`
 
 4. Run local correctness and documentation validation checks.
    - Command:
@@ -93,6 +94,8 @@ This SOP defines the repeatable procedure for reviewing desktop-shell and shared
    ```bash
    cargo check --workspace
    cargo test --workspace
+   cargo e2e run --profile local-dev --scenario ui.shell.layout-baseline --slice shell.soft-neumorphic.default --no-diff
+   cargo e2e inspect --run <run-id>
    cargo xtask docs ui-inventory --output .artifacts/ui/styling-inventory.json
    cargo xtask docs ui-conformance
    cargo xtask docs all
@@ -177,6 +180,8 @@ flowchart TD
 - [ ] Reduced-motion behavior verified (system and/or runtime toggle if affected)
 - [ ] Light/dark/high-contrast impact assessed for changed surfaces
 - [ ] Responsive viewport behavior checked for changed surfaces
+- [ ] UI feedback manifest reviewed for targeted slices when Playwright evidence was collected
+- [ ] Baseline changes, if any, were promoted through `cargo e2e promote`
 - [ ] Contrast measurements recorded when colors/focus/borders changed
 - [ ] `cargo check --workspace` passes
 - [ ] `cargo test --workspace` passes (or skipped with reason)

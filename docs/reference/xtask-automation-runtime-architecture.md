@@ -127,10 +127,12 @@ Versioned automation configuration lives under [`tools/automation/`](../../tools
 
 - [`tools/automation/dev_server.toml`](../../tools/automation/dev_server.toml): managed dev-server defaults and artifact paths
 - [`tools/automation/verify_profiles.toml`](../../tools/automation/verify_profiles.toml): verification profile definitions, including optional `e2e_profile` wiring for profile-driven E2E stages
-- [`tools/automation/e2e_profiles.toml`](../../tools/automation/e2e_profiles.toml): executable E2E profile definitions, including browser fan-out, retries, trace policy, debug slow-motion settings, and versioned desktop-driver profiles
-- [`tools/automation/e2e_scenarios.toml`](../../tools/automation/e2e_scenarios.toml): E2E scenario catalog and scenario sets for both browser and planned desktop workflows
+- [`tools/automation/e2e_profiles.toml`](../../tools/automation/e2e_profiles.toml): executable E2E profile definitions, including browser fan-out, retries, trace policy, run mode, viewport-set defaults, artifact-level toggles, and snapshot-diff policy
+- [`tools/automation/e2e_scenarios.toml`](../../tools/automation/e2e_scenarios.toml): E2E scenario catalog and scenario sets for both browser and planned desktop workflows, including canonical UI slice ids, viewport coverage, baseline participation, and diff strategy metadata
 - [`tools/e2e/`](../../tools/e2e/): versioned browser Playwright harness plus desktop Selenium harness consumed by `cargo e2e run`
+- [`tools/e2e/baselines/`](../../tools/e2e/baselines/): approved screenshot/DOM/accessibility/layout baselines promoted from completed UI feedback runs
 - [`docs/reference/cargo-e2e-desktop-platform-todo-spec.md`](cargo-e2e-desktop-platform-todo-spec.md): tracked future-platform work for Linux/Windows desktop E2E validation while macOS stays browser-first
+- [`docs/reference/ui-feedback-automation-and-baseline-workflow.md`](ui-feedback-automation-and-baseline-workflow.md): reference for the single-manifest contract, artifact layout, and explicit promotion workflow
 
 Guidelines:
 
@@ -143,11 +145,24 @@ Guidelines:
 Structured workflow artifacts live under:
 
 - [`.artifacts/automation/runs/`](../../.artifacts/automation/runs/)
+- [`.artifacts/e2e/runs/`](../../.artifacts/e2e/runs/)
 
 Each workflow run writes:
 
 - `manifest.json`
 - `events.jsonl`
+
+Each Playwright UI feedback run also writes:
+
+- `reports/ui-feedback-manifest.json`
+- `artifacts/screenshots/`
+- `artifacts/dom/`
+- `artifacts/a11y/`
+- `artifacts/layout/`
+- `artifacts/logs/`
+- `artifacts/network/`
+- `artifacts/traces/`
+- `artifacts/diffs/`
 
 Event vocabulary:
 

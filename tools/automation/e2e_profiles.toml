@@ -7,6 +7,15 @@ headless = false
 workers = 1
 retries = 0
 trace = "on"
+mode = "debug"
+default_viewport_set = "responsive-core"
+artifact_level = "full"
+capture_accessibility = true
+capture_dom = true
+capture_layout = true
+capture_console = true
+capture_network = true
+snapshot_diff = "hybrid"
 supported_os = ["macos", "linux", "windows"]
 
 [profile.ci-headless]
@@ -18,6 +27,15 @@ headless = true
 workers = "auto"
 retries = 2
 trace = "retain-on-failure"
+mode = "validate"
+default_viewport_set = "responsive-core"
+artifact_level = "standard"
+capture_accessibility = true
+capture_dom = true
+capture_layout = true
+capture_console = true
+capture_network = false
+snapshot_diff = "hybrid"
 supported_os = ["macos", "linux", "windows"]
 
 [profile.cross-browser]
@@ -29,6 +47,15 @@ headless = true
 workers = 1
 retries = 1
 trace = "retain-on-failure"
+mode = "validate"
+default_viewport_set = "desktop-standard"
+artifact_level = "standard"
+capture_accessibility = true
+capture_dom = true
+capture_layout = true
+capture_console = true
+capture_network = false
+snapshot_diff = "hybrid"
 supported_os = ["macos", "linux", "windows"]
 
 [profile.debug]
@@ -41,6 +68,15 @@ workers = 1
 retries = 0
 trace = "on"
 slow_mo_ms = 250
+mode = "debug"
+default_viewport_set = "debug-focused"
+artifact_level = "full"
+capture_accessibility = true
+capture_dom = true
+capture_layout = true
+capture_console = true
+capture_network = true
+snapshot_diff = "hybrid"
 supported_os = ["macos", "linux", "windows"]
 
 [profile.tauri-linux]
